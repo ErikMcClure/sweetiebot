@@ -7,21 +7,20 @@ import (
 type Logger interface {
   Log(args ...interface{})
   LogError(msg string, err error)
-  Error(message string)
+  Error(message string, channelID string)
 }
 
 type Log struct {
   bot *SweetieBot
-  lasterr uint64
+  lasterr int64
 }
 
 func (l *Log) Log(args ...interface{}) {
   s := fmt.Sprint(args...)
   fmt.Println(s)
   l.bot.db.Log(s)
-  if len(l.bot.LogChannelID) > 0 { 
-    fmt.Println("trying to log discord") 
-    l.bot.dg.ChannelMessageSend(l.bot.LogChannelID, s) 
+  if len(l.bot.LogChannelID) > 0 {
+    l.bot.dg.ChannelMessageSend(l.bot.LogChannelID, "`" + s + "`") 
   }
 }
 
@@ -31,10 +30,9 @@ func (l *Log) LogError(msg string, err error) {
     }
 }
 
-func (l *Log) Error(message string) {
-  if l.lasterr > 0 { // Check if we have not emitted an error message for 5 seconds.
-  
-    // Emit the error message to general chat
+func (l *Log) Error(message string, channelID string) {
+  if RateLimit(&l.lasterr, 5) { // Don't print more than one error message every 5 seconds.
+    l.bot.dg.ChannelMessageSend(channelID, "`" + message + "`") 
   }
   l.Log(message); // Always log it to the debug log.
 }

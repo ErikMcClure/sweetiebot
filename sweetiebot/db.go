@@ -15,6 +15,8 @@ type BotDB struct {
   sql_AddUser *sql.Stmt
   sql_GetUser *sql.Stmt
   sql_GetUserByName *sql.Stmt
+  sql_AddRole *sql.Stmt
+  sql_ClearRoles *sql.Stmt
   sql_Log *sql.Stmt
 }
 
@@ -40,9 +42,10 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
   }
   return statement, err
 }
+
 func (db *BotDB) LoadStatements() error {
   var err error;
-  db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?)");
+  db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
   db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?)");
   db.sql_GetPings, err = db.Prepare("SELECT * FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
@@ -53,12 +56,12 @@ func (db *BotDB) LoadStatements() error {
 }
 
 func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool) {
-  _, err := db.sql_AddMessage.Query(id, author, message, channel, everyone)
+  _, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone)
   db.log.LogError("AddMessage error: ", err)
 }
 
 func (db *BotDB) AddPing(message uint64, user uint64) {
-  _, err := db.sql_AddPing.Query(message, user)
+  _, err := db.sql_AddPing.Exec(message, user)
   db.log.LogError("AddPing error: ", err)
 }
 
@@ -67,7 +70,7 @@ func (db *BotDB) GetPings(user uint64) {
 }
 
 func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool) {
-  _, err := db.sql_AddUser.Query(id, email, username, avatar, verified)
+  _, err := db.sql_AddUser.Exec(id, email, username, avatar, verified)
   db.log.LogError("AddUser error: ", err)
 }
 
@@ -80,9 +83,9 @@ func (db *BotDB) GetUserByName(name string) {
 }
 
 func (db *BotDB) Log(message string) {
-    _, err := db.sql_Log.Query(message)
-    if err != nil {
-      fmt.Println("Logger failed to log to database! ", err.Error())
-    }
+  _, err := db.sql_Log.Exec(message)
+  if err != nil {
+    fmt.Println("Logger failed to log to database! ", err.Error())
+  }
 }
 
