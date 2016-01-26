@@ -112,7 +112,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
     commands += v.Name() 
   }
     
-  sb.log.Log("[](/sbload) Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \nActive Modules:", modules, "\n\nActive Commands:", commands);
+  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\nActive Modules:", modules, "\n\nActive Commands:", commands);
 }
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ProcessModules(sb.hooks.OnTypingStart_channels, "", func(i int) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) }) }
 func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
@@ -258,6 +258,8 @@ func Initialize() {
   log.LogError("Error loading database: ", errdb)
   
   sb.modules = append(sb.modules, &WittyModule{})
+  sb.modules = append(sb.modules, &PingModule{})
+  sb.modules = append(sb.modules, &EmoteModule{})
   
   for _, v := range sb.modules {
     v.Register(&sb.hooks)
@@ -267,6 +269,16 @@ func Initialize() {
   GenChannels(len(sb.hooks.OnMessageCreate), &sb.hooks.OnMessageCreate_channels, func(i int) []string { return sb.hooks.OnMessageCreate[i].Channels() })
   GenChannels(len(sb.hooks.OnMessageUpdate), &sb.hooks.OnMessageUpdate_channels, func(i int) []string { return sb.hooks.OnMessageUpdate[i].Channels() })
   GenChannels(len(sb.hooks.OnMessageDelete), &sb.hooks.OnMessageDelete_channels, func(i int) []string { return sb.hooks.OnMessageDelete[i].Channels() })
+  GenChannels(len(sb.hooks.OnMessageAck), &sb.hooks.OnMessageAck_channels, func(i int) []string { return sb.hooks.OnMessageAck[i].Channels() })
+  GenChannels(len(sb.hooks.OnUserUpdate), &sb.hooks.OnUserUpdate_channels, func(i int) []string { return sb.hooks.OnUserUpdate[i].Channels() })
+  GenChannels(len(sb.hooks.OnPresenceUpdate), &sb.hooks.OnPresenceUpdate_channels, func(i int) []string { return sb.hooks.OnPresenceUpdate[i].Channels() })
+  GenChannels(len(sb.hooks.OnVoiceStateUpdate), &sb.hooks.OnVoiceStateUpdate_channels, func(i int) []string { return sb.hooks.OnVoiceStateUpdate[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildUpdate), &sb.hooks.OnGuildUpdate_channels, func(i int) []string { return sb.hooks.OnGuildUpdate[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildMemberAdd), &sb.hooks.OnGuildMemberAdd_channels, func(i int) []string { return sb.hooks.OnGuildMemberAdd[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildMemberRemove), &sb.hooks.OnGuildMemberRemove_channels, func(i int) []string { return sb.hooks.OnGuildMemberRemove[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildMemberUpdate), &sb.hooks.OnGuildMemberUpdate_channels, func(i int) []string { return sb.hooks.OnGuildMemberUpdate[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildBanAdd), &sb.hooks.OnGuildBanAdd_channels, func(i int) []string { return sb.hooks.OnGuildBanAdd[i].Channels() })
+  GenChannels(len(sb.hooks.OnGuildBanRemove), &sb.hooks.OnGuildBanRemove_channels, func(i int) []string { return sb.hooks.OnGuildBanRemove[i].Channels() })
   
   token, err := sb.dg.Login(string(discorduser), string(discordpass))
   if err != nil {

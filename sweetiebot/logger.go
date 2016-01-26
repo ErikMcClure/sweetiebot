@@ -20,7 +20,7 @@ func (l *Log) Log(args ...interface{}) {
   fmt.Println(s)
   l.bot.db.Log(s)
   if len(l.bot.LogChannelID) > 0 {
-    l.bot.dg.ChannelMessageSend(l.bot.LogChannelID, "`" + s + "`") 
+    l.bot.dg.ChannelMessageSend(l.bot.LogChannelID, "```" + s + "```") 
   }
 }
 
