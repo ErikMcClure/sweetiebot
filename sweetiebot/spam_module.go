@@ -60,7 +60,7 @@ func (w *SpamModule) OnMessageCreate(s *discordgo.Session, m *discordgo.Message)
     }
     limit := w.tracker[id]
     limit.append(time.Now().UTC().Unix())
-    if limit.checkafter(10, 1) || limit.checkafter(15, 3) {
+    if limit.checkafter(10, 1) || limit.checkafter(12, 6) {
       KillSpammer(m.Author)
     }
   }
