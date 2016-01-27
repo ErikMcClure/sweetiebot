@@ -345,16 +345,16 @@ func Initialize() {
   dbauth, _ := ioutil.ReadFile("db.auth")
   discorduser, _ := ioutil.ReadFile("username")  
   discordpass, _ := ioutil.ReadFile("passwd")
-  log := &Log{}
+
   sb = &SweetieBot{
     version: "0.1.4",
     debug: true,
     commands: make(map[string]BotCommand),
-    log: log,
+    log: &Log{},
     commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
   }
   
-  db, errdb := DB_Load(log, "mysql", strings.TrimSpace(string(dbauth)))
+  db, errdb := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
   if errdb == nil {
     defer sb.db.Close();
   } else { 
@@ -386,9 +386,9 @@ func Initialize() {
     OnGuildBanRemove: SBGuildBanRemove,
   }
   
-  log.Init(sb)
+  sb.log.Init(sb)
   sb.db.LoadStatements()
-  log.Log("Finished loading database statements")
+  sb.log.Log("Finished loading database statements")
   
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
@@ -401,17 +401,17 @@ func Initialize() {
   
   token, err := sb.dg.Login(strings.TrimSpace(string(discorduser)), strings.TrimSpace(string(discordpass)))
   if err != nil {
-    log.LogError("Discord login failed: ", err)
+    sb.log.LogError("Discord login failed: ", err)
     return; // this will close the db because we deferred db.Close()
   }
   if token != "" {
       sb.dg.Token = token
   }
 
-  log.LogError("Error opening websocket connection: ", sb.dg.Open());
-  log.LogError("Websocket handshake failure: ", sb.dg.Handshake());
+  sb.log.LogError("Error opening websocket connection: ", sb.dg.Open());
+  sb.log.LogError("Websocket handshake failure: ", sb.dg.Handshake());
   fmt.Println("Connection established");
-  log.LogError("Connection error", sb.dg.Listen());
+  sb.log.LogError("Connection error", sb.dg.Listen());
 }
 
 // HACK: taken out of discordgo
