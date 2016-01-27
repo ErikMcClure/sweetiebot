@@ -62,7 +62,9 @@ func RateLimit(prevtime *int64, interval int64) bool {
   t := time.Now().UTC().Unix()
   d := *prevtime // perform a read so it doesn't change on us
   if t - d > interval {
-    return atomic.CompareAndSwapInt64(prevtime, d, t) // If the swapped failed, it means another thread already sent a message and swapped it out, so don't send a message.
+    *prevtime = t // CompareAndSwapInt64 doesn't work on x86, temporarily removing this
+    return true
+    //return atomic.CompareAndSwapInt64(prevtime, d, t) // If the swapped failed, it means another thread already sent a message and swapped it out, so don't send a message.
   } 
   return false
 }
