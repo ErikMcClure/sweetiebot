@@ -355,7 +355,13 @@ func Initialize() {
   }
   
   db, errdb := DB_Load(log, "mysql", string(dbauth))
-  if errdb == nil { defer sb.db.Close(); }
+  if errdb == nil {
+    defer sb.db.Close();
+  } else { 
+    fmt.Println("Error loading database", errdb.Error())
+    return 
+  }
+  
   sb.db = db 
   sb.dg = &discordgo.Session{
 		State:                  discordgo.NewState(),
@@ -382,8 +388,7 @@ func Initialize() {
   
   log.Init(sb)
   sb.db.LoadStatements()
-  log.Log("Finished loading database statements")  
-  log.LogError("Error loading database: ", errdb)
+  log.Log("Finished loading database statements")
   
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
