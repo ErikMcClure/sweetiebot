@@ -11,17 +11,32 @@
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 
 -- Dumping database structure for sweetiebot
-CREATE DATABASE IF NOT EXISTS `sweetiebot` /*!40100 DEFAULT CHARACTER SET utf8 */;
+CREATE DATABASE IF NOT EXISTS `sweetiebot` /*!40100 DEFAULT CHARACTER SET utf8mb4 */;
 USE `sweetiebot`;
 
 
 -- Dumping structure for procedure sweetiebot.AddChat
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `id` BIGINT, IN `author` BIGINT, IN `message` VARCHAR(2000), IN `channel` BIGINT, IN `everyone` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT)
+    DETERMINISTIC
 BEGIN
 
-INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone)
-VALUES (id, author, message, Now(6), channel, everyone);
+IF NOT EXISTS(SELECT 1 FROM users WHERE ID = _author) THEN
+CALL SawUser(_author);
+END IF;
+
+IF EXISTS(SELECT * FROM chatlog WHERE ID = _id) THEN
+	INSERT INTO editlog
+	SELECT * FROM chatlog
+	WHERE ID = _id
+	ON DUPLICATE KEY UPDATE ID = _id;
+	
+	UPDATE chatlog SET Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = Now(6), Everyone=_everyone
+	WHERE ID = _id;
+ELSE
+	INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone)
+	VALUES (_id, _author, _message, Now(6), _channel, _everyone);
+END IF;
 
 END//
 DELIMITER ;
@@ -29,14 +44,14 @@ DELIMITER ;
 
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `id` BIGINT, IN `email` VARCHAR(512), IN `username` VARCHAR(512), IN `avatar` VARCHAR(512), IN `verified` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
     DETERMINISTIC
 BEGIN
 
 INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen)
-VALUES (id, email, username, avatar, verified, Now(6), Now(6))
+VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6))
 ON DUPLICATE KEY UPDATE
-Username=username, Avatar=avatar, Verified=verified, LastSeen=Now(6);
+Username=_username, Avatar=_avatar, Verified=_verified, LastSeen=Now(6);
 
 END//
 DELIMITER ;
@@ -55,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   KEY `INDEX_CHANNEL` (`Channel`),
   KEY `CHATLOG_USERS` (`Author`),
   CONSTRAINT `CHATLOG_USERS` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='A log of all the messages from all the chatrooms.';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A log of all the messages from all the chatrooms.';
 
 -- Data exporting was unselected.
 
@@ -67,7 +82,25 @@ CREATE TABLE IF NOT EXISTS `debuglog` (
   `Timestamp` datetime NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.editlog
+CREATE TABLE IF NOT EXISTS `editlog` (
+  `ID` bigint(20) unsigned NOT NULL,
+  `Author` bigint(20) unsigned NOT NULL,
+  `Message` varchar(2000) NOT NULL,
+  `Timestamp` datetime NOT NULL,
+  `Channel` bigint(20) unsigned NOT NULL,
+  `Everyone` bit(1) NOT NULL,
+  PRIMARY KEY (`ID`),
+  KEY `INDEX_TIMESTAMP` (`Timestamp`),
+  KEY `INDEX_CHANNEL` (`Channel`),
+  KEY `CHATLOG_USERS` (`Author`),
+  CONSTRAINT `editlog_ibfk_1` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPACT COMMENT='A log of all the messages from all the chatrooms.';
 
 -- Data exporting was unselected.
 
@@ -80,9 +113,33 @@ CREATE TABLE IF NOT EXISTS `pings` (
   KEY `PINGS_USERS` (`User`),
   CONSTRAINT `PINGS_CHATLOG` FOREIGN KEY (`Message`) REFERENCES `chatlog` (`ID`),
   CONSTRAINT `PINGS_USERS` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
+
+
+-- Dumping structure for procedure sweetiebot.SawUser
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `SawUser`(IN `_id` BIGINT)
+BEGIN
+
+INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen)
+VALUES (_id, '', '', '', 0, Now(6), Now(6))
+ON DUPLICATE KEY UPDATE LastSeen=Now(6);
+
+END//
+DELIMITER ;
+
+
+-- Dumping structure for procedure sweetiebot.UpdateUserJoinTime
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `UpdateUserJoinTime`(IN `_user` BIGINT, IN `_joinedat` DATETIME)
+BEGIN
+
+UPDATE users SET FirstSeen = _joinedat WHERE ID = _user AND _joinedat < FirstSeen;
+
+END//
+DELIMITER ;
 
 
 -- Dumping structure for table sweetiebot.users
@@ -95,8 +152,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `FirstSeen` datetime NOT NULL,
   `LastSeen` datetime NOT NULL,
   PRIMARY KEY (`ID`),
-  KEY `INDEX_USERNAME` (`Username`(255))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+  KEY `INDEX_USERNAME` (`Username`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;

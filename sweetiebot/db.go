@@ -4,6 +4,7 @@ import (
     "database/sql"
     _ "github.com/go-sql-driver/mysql"
     "fmt"
+    "time"
 )
 
 type BotDB struct {
@@ -16,8 +17,7 @@ type BotDB struct {
   sql_GetUser *sql.Stmt
   sql_GetUserByName *sql.Stmt
   sql_GetRecentMessages *sql.Stmt
-  sql_AddRole *sql.Stmt
-  sql_ClearRoles *sql.Stmt
+  sql_UpdateUserJoinTime *sql.Stmt
   sql_Log *sql.Stmt
 }
 
@@ -53,6 +53,7 @@ func (db *BotDB) LoadStatements() error {
   db.sql_GetUser, err = db.Prepare("SELECT * FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
   db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
+  db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
   return err
@@ -103,6 +104,11 @@ func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []MessageChanne
      db.log.LogError("GetRecentMessages row scan error: ", err)
   }
   return r
+}
+
+func (db *BotDB) UpdateUserJoinTime(id uint64, joinedat time.Time) {
+  _, err := db.sql_UpdateUserJoinTime.Exec(id, joinedat)
+  db.log.LogError("UpdateUserJoinTime error: ", err)
 }
   
 func (db *BotDB) Log(message string) {

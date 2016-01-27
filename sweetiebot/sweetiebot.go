@@ -3,6 +3,7 @@ package sweetiebot
 import (
   "fmt"
   "strconv"
+  "time"
   "io/ioutil"
   "github.com/bwmarrin/discordgo"
 )
@@ -185,6 +186,12 @@ func ProcessMember(u *discordgo.Member) {
   ProcessUser(u.User)
   
   // Parse join date and update user table only if it is less than our current first seen date.
+  t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
+  if err == nil {
+    sb.db.UpdateUserJoinTime(SBatoi(u.User.ID), t)
+  } else {
+    fmt.Println(err.Error())
+  }
 }
 
 func ProcessGuild(g *discordgo.Guild) {
@@ -236,7 +243,7 @@ func Initialize() {
   discorduser, _ := ioutil.ReadFile("username")  
   discordpass, _ := ioutil.ReadFile("passwd")
   sb = &SweetieBot{}
-  sb.version = "0.1.2";
+  sb.version = "0.1.3";
   sb.debug = true
   log := &Log{}
   sb.log = log
