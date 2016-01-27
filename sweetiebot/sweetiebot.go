@@ -2,9 +2,7 @@ package sweetiebot
 
 import (
   "fmt"
-  "time"
   "strconv"
-  "sync/atomic"
   "io/ioutil"
   "github.com/bwmarrin/discordgo"
 )
@@ -50,6 +48,8 @@ type SweetieBot struct {
   GuildID string
   LogChannelID string
   ModChannelID string
+  DebugChannelID string
+  SilentRole string
   version string
   debug bool
   hooks ModuleHooks
@@ -58,15 +58,6 @@ type SweetieBot struct {
 }
 
 var sb *SweetieBot
-
-func RateLimit(prevtime *int64, interval int64) bool {
-  t := time.Now().UTC().Unix()
-  d := *prevtime // perform a read so it doesn't change on us
-  if t - d > interval {
-    return atomic.CompareAndSwapInt64(prevtime, d, t) // If the swapped failed, it means another thread already sent a message and swapped it out, so don't send a message.
-  } 
-  return false
-}
 
 func SBatoi(s string) uint64 {
   i, err := strconv.ParseUint(s, 10, 64)
@@ -87,6 +78,11 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
       fn(i)
     }
   }
+}
+
+// This constructs an XOR operator for booleans
+func boolXOR(a bool, b bool) bool {
+  return (a && !b) || (!a && b)
 }
 
 func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { sb.hooks.OnEvent[i].OnEvent(s, e) }) }
@@ -119,18 +115,18 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
-	fmt.Printf("[%s] %20s %20s %s (%s:%s) > %s\n", m.ID, m.ChannelID, m.Timestamp, m.Author.Username, m.Author.ID, m.Author.Email, m.Content); // DEBUG
+	//fmt.Printf("[%s] %20s %20s %s (%s:%s) > %s\n", m.ID, m.ChannelID, m.Timestamp, m.Author.Username, m.Author.ID, m.Author.Email, m.Content); // DEBUG
   
   if m.ChannelID != sb.LogChannelID { // Log this message provided it wasn't sent to the bot-log channel.
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
-  if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
+  if m.Author.ID == sb.SelfID || m.ChannelID == sb.LogChannelID { // ALWAYS discard any of our own messages or our log messages before analysis.
     return
   }
   
-  if !sb.debug && m.ChannelID == sb.LogChannelID { // Discard any messages sent in the bot-log channel if we aren't in debug mode.
-    return
-  }
+  //if !boolXOR(sb.debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
+  //  return
+  //}
   
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
   if len(m.Content) > 0 && m.Content[0] == '!' {
@@ -167,8 +163,16 @@ func SBGuildMemberUpdate(s *discordgo.Session, u *discordgo.Member) { ProcessMem
 func SBGuildBanAdd(s *discordgo.Session, b *discordgo.GuildBan) {}
 func SBGuildBanRemove(s *discordgo.Session, b *discordgo.GuildBan) {}
 
-func UserHasRole(user uint64, role string) {
-  
+func UserHasRole(user string, role string) bool {
+  m, err := sb.dg.State.Member(sb.GuildID, user)
+  if err == nil {
+    for _, v := range m.Roles {
+      if v == role {
+        return true
+      }
+    } 
+  }
+  return false
 }
 
 func ProcessUser(u *discordgo.User) uint64 {
@@ -187,12 +191,19 @@ func ProcessGuild(g *discordgo.Guild) {
   sb.GuildID = g.ID
   
   for _, v := range g.Channels {
-    fmt.Println(v.Name)
     if v.Name == "bot-log" {
       sb.LogChannelID = v.ID
     }
     if v.Name == "ragemuffins" {
       sb.ModChannelID = v.ID
+    }
+    if v.Name == "bot-debug" {
+      sb.DebugChannelID = v.ID
+    }
+  }
+  for _, v := range g.Roles {
+    if v.Name == "Silence" {
+      sb.SilentRole = v.ID
     }
   }
 }
@@ -210,7 +221,7 @@ func FindChannelID(name string) string {
 
 func GenChannels(length int, channels *[]map[uint64]bool, fn func(i int) []string) {
   for i := 0; i < length; i++ {
-    channel := map[uint64]bool{}
+    channel := make(map[uint64]bool)
     c := fn(i)
     for j := 0; j < len(c); j++ {
       channel[SBatoi(FindChannelID(c[j]))] = true
@@ -220,12 +231,12 @@ func GenChannels(length int, channels *[]map[uint64]bool, fn func(i int) []strin
   }
 }
 
-func Initialize() {
+func Initialize() {  
   dbauth, _ := ioutil.ReadFile("db.auth")
   discorduser, _ := ioutil.ReadFile("username")  
   discordpass, _ := ioutil.ReadFile("passwd")
   sb = &SweetieBot{}
-  sb.version = "0.1.1";
+  sb.version = "0.1.2";
   sb.debug = true
   log := &Log{}
   sb.log = log
@@ -234,6 +245,10 @@ func Initialize() {
   if errdb == nil { defer sb.db.Close(); }
   sb.db = db 
   sb.dg = &discordgo.Session{
+		State:                  discordgo.NewState(),
+		StateEnabled:           true,
+		//Compress:               true,
+		//ShouldReconnectOnError: true,
     OnEvent: SBEvent,
     OnReady: SBReady,
     OnTypingStart: SBTypingStart,
@@ -257,9 +272,10 @@ func Initialize() {
   log.Log("Finished loading database statements")  
   log.LogError("Error loading database: ", errdb)
   
-  sb.modules = append(sb.modules, &WittyModule{})
+  sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
   sb.modules = append(sb.modules, &EmoteModule{})
+  sb.modules = append(sb.modules, &WittyModule{})
   
   for _, v := range sb.modules {
     v.Register(&sb.hooks)
@@ -293,4 +309,17 @@ func Initialize() {
   log.LogError("Websocket handshake failure: ", sb.dg.Handshake());
   fmt.Println("Connection established");
   log.LogError("Connection error", sb.dg.Listen());
+}
+
+// HACK: taken out of discordgo
+func GUILD_MEMBER(gID, uID string) string { return "https://discordapp.com/api/guilds/" + gID + "/members/" + uID }
+  
+func GuildMemberEdit(s *discordgo.Session, guildID string, userID string, roleIDs []string) (err error) {
+  req := struct{
+		Roles []string `json:"roles,omitempty"`
+	}{
+		Roles: roleIDs,
+	}
+  _, err = s.Request("PATCH", GUILD_MEMBER(guildID, userID), req)
+  return err
 }
