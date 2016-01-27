@@ -39,7 +39,7 @@ func (db *BotDB) Close() {
 func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
   statement, err := db.db.Prepare(s)
   if(err != nil) {
-    db.log.Log("Preparing: ", s, "\nSQL Error: ", err.Error())
+    fmt.Println("Preparing: ", s, "\nSQL Error: ", err.Error())
   }
   return statement, err
 }
