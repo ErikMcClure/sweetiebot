@@ -15,6 +15,7 @@ type BotDB struct {
   sql_AddUser *sql.Stmt
   sql_GetUser *sql.Stmt
   sql_GetUserByName *sql.Stmt
+  sql_GetRecentMessages *sql.Stmt
   sql_AddRole *sql.Stmt
   sql_ClearRoles *sql.Stmt
   sql_Log *sql.Stmt
@@ -46,12 +47,14 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 func (db *BotDB) LoadStatements() error {
   var err error;
   db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
-  db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?)");
+  db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
   db.sql_GetPings, err = db.Prepare("SELECT * FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
   db.sql_GetUser, err = db.Prepare("SELECT * FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
+  db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
+  
   return err
 }
 
@@ -82,6 +85,26 @@ func (db *BotDB) GetUserByName(name string) {
     
 }
 
+type MessageChannelPair struct {
+  message uint64
+  channel uint64
+}
+
+func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []MessageChannelPair {
+  q, err := db.sql_GetRecentMessages.Query(user, duration)
+  db.log.LogError("GetRecentMessages error: ", err)
+  defer q.Close()
+  r := make([]MessageChannelPair, 0, 4)
+  for q.Next() {
+     p := MessageChannelPair{}
+     if err := q.Scan(&p.message, &p.channel); err == nil {
+       r = append(r, p)
+     }
+     db.log.LogError("GetRecentMessages row scan error: ", err)
+  }
+  return r
+}
+  
 func (db *BotDB) Log(message string) {
   _, err := db.sql_Log.Exec(message)
   if err != nil {
