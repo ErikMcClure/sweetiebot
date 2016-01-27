@@ -354,7 +354,7 @@ func Initialize() {
     commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
   }
   
-  db, errdb := DB_Load(log, "mysql", string(dbauth))
+  db, errdb := DB_Load(log, "mysql", strings.TrimSpace(string(dbauth)))
   if errdb == nil {
     defer sb.db.Close();
   } else { 
@@ -399,7 +399,7 @@ func Initialize() {
     v.Register(&sb.hooks)
   }
   
-  token, err := sb.dg.Login(string(discorduser), string(discordpass))
+  token, err := sb.dg.Login(strings.TrimSpace(string(discorduser)), strings.TrimSpace(string(discordpass)))
   if err != nil {
     log.LogError("Discord login failed: ", err)
     return; // this will close the db because we deferred db.Close()
