@@ -80,11 +80,13 @@ func (c *UpdateCommand) Name() string {
   return "Update";  
 }
 func (c *UpdateCommand) Process(args []string) string {
+  sb.log.Log("Update command called, current PID: ", os.Getpid())
   err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
   if err != nil {
     sb.log.Log("Command.Start() error: ", err.Error())
     return "```Could not start update script!```"
   }
+  sb.quit = true
   return "```Shutting down for update...```"
 }
 func (c *UpdateCommand) Usage() string { 
