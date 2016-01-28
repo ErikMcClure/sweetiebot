@@ -27,10 +27,10 @@ func (c *LastPingCommand) Process(args []string, user *discordgo.User) string {
   index := 1
   maxrows := 2
   if len(args) > 0 {
-    maxrows, _ = strconv.Atoi(args[0])
+    index, _ = strconv.Atoi(args[0])
   }
   if len(args) > 1 {
-    index, _ = strconv.Atoi(args[1])
+    maxrows, _ = strconv.Atoi(args[1])
   }
   if index < 1 { index = 1 }
   if maxrows < 0 { maxrows = 0 }
@@ -52,7 +52,7 @@ func (c *LastPingCommand) Process(args []string, user *discordgo.User) string {
   return s
 }
 func (c *LastPingCommand) Usage() string { 
-  return FormatUsage(c, "[max context rows] [ping index]", "Returns the nth most recent ping (where n is the ping index) in the chat, plus up to [max context rows] messages before and after it. Max context rows is 2 by default and 3 at maximum.") 
+  return FormatUsage(c, "[ping index] [max context rows]", "Returns the nth most recent ping (where n is the ping index) in the chat, plus up to [max context rows] messages before and after it. Max context rows is 2 by default and 3 at maximum.") 
 }
 func (c *LastPingCommand) UsageShort() string { return "Returns the last message that pinged you." }
 func (c *LastPingCommand) Roles() []string { return []string{} }
