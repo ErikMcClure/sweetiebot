@@ -39,15 +39,17 @@ func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Messag
     } else if strings.Contains(str, "lewd") {
       w.SendWittyComment(m.ChannelID, "[](/ohcomeon) `This channel is SFW, remember?`")
     } else if strings.Contains(str, "memes") {
-      w.SendWittyComment(m.ChannelID, "http://i1.kym-cdn.com/entries/icons/original/000/015/266/Z7HeRxU.png")
+      w.SendWittyComment(m.ChannelID, "http://i.imgur.com/0isfdsB.png")
     } else if strings.Contains(str, "is best pony") {
       w.SendWittyComment(m.ChannelID, "[](/flutterjerk) `Your FACE is best pony.`")
+    } else if strings.Contains(str, "Empress Fluttershy" | "Cult Leader Fluttershy") {
+      w.SendWittyComment(m.ChannelID, "[](/flutteryay) `All hail our Overlord of Kindness!`")
     }
   }
 }
 
 func (w *WittyModule) OnMessageDelete(s *discordgo.Session, m *discordgo.Message) {
-  //if RateLimit(&w.lastdelete, 60) { // It turns out this triggers when the bot itself deletes things, which looks awkward
+  //if RateLimit(&w.lastdelete, 60) { // It turns out this triggers when the bot itself deletes things, which looks awkward - maybe this can be fixed?
   //  sb.dg.ChannelMessageSend(m.ChannelID, "[](/sbstare) `I SAW THAT`")
   //} 
 }
