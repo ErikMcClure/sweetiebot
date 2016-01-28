@@ -2,9 +2,6 @@ package sweetiebot
 
 import (
   "strings"
-  "strconv"
-  "os/exec"
-  "os"
 )
 
 type EchoCommand struct {
@@ -80,13 +77,13 @@ func (c *UpdateCommand) Name() string {
   return "Update";  
 }
 func (c *UpdateCommand) Process(args []string) string {
-  sb.log.Log("Update command called, current PID: ", os.Getpid())
+  /*sb.log.Log("Update command called, current PID: ", os.Getpid())
   err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
   if err != nil {
     sb.log.Log("Command.Start() error: ", err.Error())
     return "```Could not start update script!```"
-  }
-  sb.quit = true
+  }*/ 
+  sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
   return "```Shutting down for update...```"
 }
 func (c *UpdateCommand) Usage() string { 

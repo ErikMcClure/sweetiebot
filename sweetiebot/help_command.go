@@ -14,7 +14,7 @@ func (c *HelpCommand) Process(args []string) string {
   if len(args) == 0 {
     s := []string{"Sweetie Bot knows the following commands. For more information on a specific command, type !help [command].\n"}
     for k, v := range sb.commands {
-      s = append(s, "!" + k + ": " + v.c.UsageShort())
+      s = append(s, k + ": " + v.c.UsageShort())
     }
     return "```" + strings.Join(s, "\n") + "```"
   }
@@ -38,7 +38,7 @@ func (c *AboutCommand) Name() string {
 }
 func (c *AboutCommand) Process(args []string) string {
   s := "```Sweetie Bot version " + sb.version
-  if sb.debug {
+  if sb.config.Debug {
     return s + " [debug]```"
   } 
   return s + " [release]```"

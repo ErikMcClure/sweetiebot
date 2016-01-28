@@ -8,7 +8,6 @@ import (
 
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
-  maxlimit uint
   tracker map[uint64]*SaturationLimit
 }
 
@@ -17,7 +16,6 @@ func (w *SpamModule) Name() string {
 }
 
 func (w *SpamModule) Register(hooks *ModuleHooks) {
-  w.maxlimit = 30 // this must be at least 1 larger than the largest amount you check for
   w.tracker = make(map[uint64]*SaturationLimit)
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
@@ -58,7 +56,7 @@ func (w *SpamModule) CheckSpam(s *discordgo.Session, m *discordgo.Message) bool 
     id := SBatoi(m.Author.ID)
     _, ok := w.tracker[id]
     if !ok {
-      w.tracker[id] = &SaturationLimit{make([]int64, w.maxlimit, w.maxlimit), 0, AtomicFlag{0}};
+      w.tracker[id] = &SaturationLimit{make([]int64, sb.config.Maxspam, sb.config.Maxspam), 0, AtomicFlag{0}};
     }
     limit := w.tracker[id]
     limit.append(time.Now().UTC().Unix())
