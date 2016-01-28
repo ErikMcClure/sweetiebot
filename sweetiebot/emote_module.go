@@ -18,7 +18,7 @@ func (w *EmoteModule) Name() string {
 
 func (w *EmoteModule) Register(hooks *ModuleHooks) {
   w.lastmsg = 0
-  w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(canada|BlockJuice|octybelleintensifies|angstybloom|alltheclops|bob|darklelicious|flutterbutts|juice|doitfor24|allthetables|ave|sbrapestare)[-) \"]")
+  w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(canada|BlockJuice|octybelleintensifies|angstybloom|alltheclops|bob|darklelicious|flutterbutts|juice|doitfor24|allthetables|ave|sbrapestare|gak|beforetacoswerecool|bigenough)[-) \"]")
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
