@@ -29,3 +29,22 @@ func (c *HelpCommand) Usage() string {
 }
 func (c *HelpCommand) UsageShort() string { return "Generates the list you are looking at right now." }
 func (c *HelpCommand) Roles() []string { return []string{} }
+
+type AboutCommand struct {
+}
+
+func (c *AboutCommand) Name() string {
+  return "About";  
+}
+func (c *AboutCommand) Process(args []string) string {
+  s := "```Sweetie Bot version " + sb.version
+  if sb.debug {
+    return s + " [debug]```"
+  } 
+  return s + " [release]```"
+}
+func (c *AboutCommand) Usage() string { 
+  return FormatUsage(c, "", "Display information about Sweetie Bot. What, did you think it would do something else?") 
+}
+func (c *AboutCommand) UsageShort() string { return "Displays information about Sweetie Bot." }
+func (c *AboutCommand) Roles() []string { return []string{} }
