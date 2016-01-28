@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
   "github.com/bwmarrin/discordgo"
+  "strings"
 )
 
 // Giving each possible hook function its own interface ensures each module
@@ -29,7 +30,7 @@ type ModuleOnMessageUpdate interface {
 
 type ModuleOnMessageDelete interface {
   Module
-  OnMessageDelete(*discordgo.Session, *discordgo.MessageDelete)
+  OnMessageDelete(*discordgo.Session, *discordgo.Message)
 }
 
 type ModuleOnMessageAck interface {
@@ -82,8 +83,23 @@ type ModuleOnGuildBanRemove interface {
   OnGuildBanRemove(*discordgo.Session, *discordgo.GuildBan)
 }
 
+type ModuleOnCommand interface {
+  Module
+  OnCommand(*discordgo.Session, *discordgo.Message) bool
+}
+
+type ModuleEnabledInterface interface {
+  IsEnabled() bool
+  Enable(bool)
+}
+
+type ModuleEnabled struct {
+  enabled bool
+}
+
 // Modules monitor all incoming messages and users that have joined a given channel.
 type Module interface {
+  ModuleEnabledInterface
   Name() string
   Register(hooks *ModuleHooks)
   Channels() []string // If no channels are specified, runs on all channels (except bot-log)
@@ -96,4 +112,30 @@ type Command interface {
   Usage() string
   UsageShort() string
   Roles() []string // If no roles are specified, everyone is assumed
+}
+
+func (m *ModuleEnabled) IsEnabled() bool {
+  return m.enabled
+}
+func (m *ModuleEnabled) Enable(b bool) {
+  m.enabled = b
+}
+
+func GetActiveModules() string {
+  s := []string{"Active Modules:"}
+  for _, v := range sb.modules {
+    str := v.Name()
+    if !v.IsEnabled() { str += " [disabled]" }
+    s = append(s, str)
+  }
+  return strings.Join(s, "\n  ")
+}
+
+func FormatUsage(c Command, a string, b string) string {
+  r := c.Roles()
+  if len(r)>0 {
+    return a + "\n+" + strings.Join(r, ", +") + "\n\n" + b 
+  } else {
+    return a + "\n\n" + b
+  }
 }

@@ -6,10 +6,11 @@ import (
 
 // This module sucks up all the pings in a message and adds them to the database for the !lastping command
 type PingModule struct {
+  ModuleEnabled
 }
 
 func (w *PingModule) Name() string {
-  return "Ping Module"
+  return "Ping"
 }
 
 func (w *PingModule) Register(hooks *ModuleHooks) {
