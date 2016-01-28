@@ -13,13 +13,14 @@ type SpamModule struct {
 }
 
 func (w *SpamModule) Name() string {
-  return "Anti-Spam Module"
+  return "Anti-Spam"
 }
 
 func (w *SpamModule) Register(hooks *ModuleHooks) {
   w.maxlimit = 30 // this must be at least 1 larger than the largest amount you check for
   w.tracker = make(map[uint64]*SaturationLimit)
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
+  hooks.OnCommand = append(hooks.OnCommand, w)
 }
 func (w *SpamModule) Channels() []string {
   return []string{}
@@ -39,7 +40,7 @@ func KillSpammer(u *discordgo.User) {
   
   sb.log.Log("Killing spammer ", u.Username)
   
-  GuildMemberEdit(sb.dg, sb.GuildID, m.User.ID, m.Roles) // Tell discord to make this spammer silent
+  sb.dg.GuildMemberEdit(sb.GuildID, m.User.ID, m.Roles) // Tell discord to make this spammer silent
   messages := sb.db.GetRecentMessages(SBatoi(m.User.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
 
   for _, v := range messages {
@@ -48,10 +49,11 @@ func KillSpammer(u *discordgo.User) {
   
   sb.dg.ChannelMessageSend(sb.ModChannelID, "`Alert: " + u.Username + " was silenced for spamming. Please investigate.`") // Alert admins
 }
-func (w *SpamModule) OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
+func (w *SpamModule) CheckSpam(s *discordgo.Session, m *discordgo.Message) bool {
   if m.Author != nil {
     if UserHasRole(m.Author.ID, sb.SilentRole) {
       s.ChannelMessageDelete(m.ChannelID, m.ID);
+      return true
     }
     id := SBatoi(m.Author.ID)
     _, ok := w.tracker[id]
@@ -60,8 +62,20 @@ func (w *SpamModule) OnMessageCreate(s *discordgo.Session, m *discordgo.Message)
     }
     limit := w.tracker[id]
     limit.append(time.Now().UTC().Unix())
-    if limit.checkafter(10, 1) || limit.checkafter(12, 6) {
+    if limit.checkafter(5, 1) || limit.checkafter(10, 5) || limit.checkafter(12, 10) {
       KillSpammer(m.Author)
+      return true
     }
   }
+  return false
 }
+func (w *SpamModule) OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
+  w.CheckSpam(s, m)
+}
+func (w *SpamModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
+  return w.CheckSpam(s, m)
+}
+func (w *SpamModule) IsEnabled() bool {
+  return true // always enabled
+}
+func (w *SpamModule) Enable(b bool) {}

@@ -31,7 +31,7 @@ func (l *Log) LogError(msg string, err error) {
 }
 
 func (l *Log) Error(channelID string, message string) {
-  if RateLimit(&l.lasterr, 8) { // Don't print more than one error message every 8 seconds.
+  if RateLimit(&l.lasterr, 5) { // Don't print more than one error message every n seconds.
     l.bot.dg.ChannelMessageSend(channelID, "```" + message + "```") 
   }
   //l.Log(message); // Always log it to the debug log. TODO: This is really annoying, maybe we shouldn't do this

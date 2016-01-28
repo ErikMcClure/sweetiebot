@@ -25,7 +25,7 @@ func (c *HelpCommand) Process(args []string) string {
   return "```> !" + args[0] + " " + v.c.Usage() + "```"
 }
 func (c *HelpCommand) Usage() string { 
-  return "[command]\n\nLists all available commands Sweetie Bot knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed !help help for some reason." 
+  return FormatUsage(c, "[command]", "Lists all available commands Sweetie Bot knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed !help help for some reason.") 
 }
 func (c *HelpCommand) UsageShort() string { return "Generates the list you are looking at right now." }
 func (c *HelpCommand) Roles() []string { return []string{} }
