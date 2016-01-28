@@ -7,6 +7,7 @@ import (
   "io/ioutil"
   "github.com/bwmarrin/discordgo"
   "strings"
+  "encoding/json"
 )
 
 type ModuleHooks struct {
@@ -49,6 +50,14 @@ type BotCommand struct {
   roles map[uint64]bool
 }
 
+type BotConfig struct {
+  Debug bool               `json:"debug"`
+  Maxerror int64           `json:"maxerror"`
+  Maxwit int64             `json:"maxwit"`
+  Maxspam int              `json:"maxspam"`
+  Commandperduration int   `json:"commandperduration"`
+  Commandmaxduration int64 `json:"commandmaxduration"`
+}
 type SweetieBot struct {
   db *BotDB
   log *Log
@@ -60,12 +69,12 @@ type SweetieBot struct {
   DebugChannelID string
   SilentRole string
   version string
-  debug bool
   hooks ModuleHooks
   modules []Module
   commands map[string]BotCommand
   commandlimit *SaturationLimit
   quit bool
+  config BotConfig
 }
 
 func (sbot *SweetieBot) AddCommand(c Command) {
@@ -197,14 +206,14 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     return
   }
   
-  //if !boolXOR(sb.debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
-  //  return
-  //}
+  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
+    return
+  }
   
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
-    if sb.commandlimit.check(3, 30, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+    if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
       sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
       return
     }
@@ -367,14 +376,18 @@ func Initialize() {
   dbauth, _ := ioutil.ReadFile("db.auth")
   discorduser, _ := ioutil.ReadFile("username")  
   discordpass, _ := ioutil.ReadFile("passwd")
+  config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.1.6",
-    debug: true,
+    version: "0.1.7",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
   }
+  
+  errjson := json.Unmarshal(config, &sb.config)
+  if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
+  fmt.Println("Config settings: ", sb.config)
   
   db, errdb := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
   if errdb != nil { 
@@ -431,7 +444,7 @@ func Initialize() {
   fmt.Println("Connection established");
   //sb.log.LogError("Connection error", sb.dg.Listen());
   
-  if sb.debug { // The server does not necessarily tie a standard input to the program
+  if sb.config.Debug { // The server does not necessarily tie a standard input to the program
     go WaitForInput()
   }  
   for !sb.quit { time.Sleep(400 * time.Millisecond) }
