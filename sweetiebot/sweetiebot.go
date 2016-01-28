@@ -153,6 +153,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&NewUsersCommand{})
   sb.AddCommand(&EnableCommand{})
   sb.AddCommand(&DisableCommand{})
+  sb.AddCommand(&UpdateCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -426,7 +427,10 @@ func Initialize() {
   fmt.Println("Connection established");
   //sb.log.LogError("Connection error", sb.dg.Listen());
   
-  go WaitForInput()  
-  for !sb.quit {}
+  if sb.debug { // The server does not necessarily tie a standard input to the program
+    go WaitForInput()
+  }  
+  for !sb.quit { time.Sleep(400 * time.Millisecond) }
+  fmt.Println("Sweetiebot quitting");
   sb.db.Close();
 }
