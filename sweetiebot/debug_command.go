@@ -2,6 +2,9 @@ package sweetiebot
 
 import (
   "strings"
+  "strconv"
+  "os/exec"
+  "os"
 )
 
 type EchoCommand struct {
@@ -77,10 +80,15 @@ func (c *UpdateCommand) Name() string {
   return "Update";  
 }
 func (c *UpdateCommand) Process(args []string) string {
-  return "```Not implemented```"
+  err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
+  if err != nil {
+    sb.log.Log("Command.Start() error: ", err.Error())
+    return "```Could not start update script!```"
+  }
+  return "```Shutting down for update...```"
 }
 func (c *UpdateCommand) Usage() string { 
-  return FormatUsage(c, "", "Tells sweetiebot to shut down, call an update script, rebuild, and then restart herself.")
+  return FormatUsage(c, "", "Tells sweetiebot to shut down, calls an update script, rebuilds the code, and then restarts.")
 }
 func (c *UpdateCommand) UsageShort() string { return "Updates sweetiebot." }
 func (c *UpdateCommand) Roles() []string { return []string{"Princesses"} }
