@@ -8,7 +8,6 @@ import (
 // This module is intended for any witty comments sweetie bot makes in response to what users say or do.
 type WittyModule struct {
   ModuleEnabled
-  maxwit int64
   lastdelete int64
   lastcomment int64
 }
@@ -18,7 +17,6 @@ func (w *WittyModule) Name() string {
 }
 
 func (w *WittyModule) Register(hooks *ModuleHooks) {
-  w.maxwit = 300
   w.lastdelete = 0
   w.lastcomment = 0
   hooks.OnMessageDelete = append(hooks.OnMessageDelete, w)
@@ -29,12 +27,12 @@ func (w *WittyModule) Channels() []string {
 }
   
 func (w *WittyModule) SendWittyComment(channel string, comment string) {
-  if RateLimit(&w.lastcomment, w.maxwit) {
+  if RateLimit(&w.lastcomment, sb.config.Maxwit) {
     sb.dg.ChannelMessageSend(channel, comment)
   }
 }
 func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
-  if CheckRateLimit(&w.lastcomment, w.maxwit) {
+  if CheckRateLimit(&w.lastcomment, sb.config.Maxwit) {
     str := strings.ToLower(m.Content)
     if strings.Contains(str, "skynet") {
       w.SendWittyComment(m.ChannelID, "[](/dumbfabric) `SKYNET IS ALREADY HERE.`")
