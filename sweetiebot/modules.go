@@ -108,7 +108,7 @@ type Module interface {
 // Commands are any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
   Name() string
-  Process(args []string) string
+  Process([]string, *discordgo.User) string
   Usage() string
   UsageShort() string
   Roles() []string // If no roles are specified, everyone is assumed
