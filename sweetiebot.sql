@@ -38,14 +38,10 @@ DELIMITER ;
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
     DETERMINISTIC
-BEGIN
-
-INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen)
-VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6))
+INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen, LastNameChange)
+VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6), Now(6))
 ON DUPLICATE KEY UPDATE
-Username=_username, Avatar=_avatar, Verified=_verified, LastSeen=Now(6);
-
-END//
+Username=_username, Avatar=_avatar, Verified=_verified, LastSeen=Now(6)//
 DELIMITER ;
 
 
@@ -54,6 +50,7 @@ CREATE TABLE IF NOT EXISTS `aliases` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `User` bigint(20) unsigned NOT NULL,
   `Alias` varchar(128) NOT NULL,
+  `Duration` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`ID`),
   UNIQUE KEY `ALIASES_ALIAS` (`Alias`),
   KEY `ALIASES_USERS` (`User`),
@@ -152,12 +149,13 @@ DELIMITER ;
 -- Dumping structure for table sweetiebot.users
 CREATE TABLE IF NOT EXISTS `users` (
   `ID` bigint(20) unsigned NOT NULL,
-  `Email` varchar(512) NOT NULL,
-  `Username` varchar(128) NOT NULL,
-  `Avatar` varchar(512) NOT NULL,
-  `Verified` bit(1) NOT NULL,
+  `Email` varchar(512) NOT NULL DEFAULT '',
+  `Username` varchar(128) NOT NULL DEFAULT '',
+  `Avatar` varchar(512) NOT NULL DEFAULT '',
+  `Verified` bit(1) NOT NULL DEFAULT b'0',
   `FirstSeen` datetime NOT NULL,
   `LastSeen` datetime NOT NULL,
+  `LastNameChange` datetime NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_USERNAME` (`Username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -185,8 +183,11 @@ DELIMITER //
 CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
 
 IF NEW.Username != OLD.Username THEN
-	INSERT INTO aliases (User, Alias)
-	VALUES (OLD.ID, OLD.Username);
+	SET NEW.LastNameChange = NOW(6);
+	SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
+	INSERT INTO aliases (User, Alias, Duration)
+	VALUES (OLD.ID, OLD.Username, @diff)
+	ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
 END IF;
 
 END//
