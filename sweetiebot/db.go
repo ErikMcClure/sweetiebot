@@ -3,6 +3,7 @@ package sweetiebot
 import (
     "database/sql"
     _ "github.com/go-sql-driver/mysql"
+    "github.com/bwmarrin/discordgo"
     "fmt"
     "time"
 )
@@ -19,6 +20,7 @@ type BotDB struct {
   sql_GetRecentMessages *sql.Stmt
   sql_UpdateUserJoinTime *sql.Stmt
   sql_GetNewestUsers *sql.Stmt
+  sql_GetAliases *sql.Stmt
   sql_Log *sql.Stmt
 }
 
@@ -51,11 +53,12 @@ func (db *BotDB) LoadStatements() error {
   db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
   db.sql_GetPings, err = db.Prepare("SELECT C.ID FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1 ORDER BY Timestamp DESC");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
-  db.sql_GetUser, err = db.Prepare("SELECT * FROM users WHERE ID = ?");
+  db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
   db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
   db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
   db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
+  db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
   return err
@@ -80,8 +83,11 @@ func (db *BotDB) AddUser(id uint64, email string, username string, avatar string
   db.log.LogError("AddUser error: ", err)
 }
 
-func (db *BotDB) GetUser(id uint64) {
-    
+func (db *BotDB) GetUser(id uint64) *discordgo.User {
+  u := &discordgo.User{}
+  err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar)
+  db.log.LogError("GetUser error: ", err)
+  return u
 }
 
 func (db *BotDB) GetUserByName(name string) {
@@ -113,7 +119,7 @@ func (db *BotDB) GetNewestUsers(maxresults int) []struct { Username string; Firs
   db.log.LogError("GetNewestUsers error: ", err)
   defer q.Close()
   r := make([]struct { Username string; FirstSeen time.Time; LastSeen time.Time }, 0, maxresults)
-    for q.Next() {
+  for q.Next() {
      p := struct { Username string; FirstSeen time.Time; LastSeen time.Time }{}
      if err := q.Scan(&p.Username, &p.FirstSeen, &p.LastSeen); err == nil {
        r = append(r, p)
@@ -123,6 +129,21 @@ func (db *BotDB) GetNewestUsers(maxresults int) []struct { Username string; Firs
   return r
 }
   
+func (db *BotDB) GetAliases(user uint64) []string {
+  q, err := db.sql_GetAliases.Query(user)
+  db.log.LogError("GetAliases error: ", err)
+  defer q.Close()
+  r := make([]string, 0, 3)
+  for q.Next() {
+     p := ""
+     if err := q.Scan(&p); err == nil {
+       r = append(r, p)
+     }
+     db.log.LogError("GetAliases row scan error: ", err)
+  }
+  return r
+}
+
 func (db *BotDB) Log(message string) {
   _, err := db.sql_Log.Exec(message)
   if err != nil {

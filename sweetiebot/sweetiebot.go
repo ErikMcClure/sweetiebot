@@ -154,6 +154,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&EnableCommand{})
   sb.AddCommand(&DisableCommand{})
   sb.AddCommand(&UpdateCommand{})
+  sb.AddCommand(&AKACommand{})
+  sb.AddCommand(&AboutCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -202,8 +204,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
-    if sb.commandlimit.check(3, 20, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-      sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 20 seconds!")
+    if sb.commandlimit.check(3, 30, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+      sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
       return
     }
     sb.commandlimit.append(t)
@@ -246,7 +248,7 @@ func SBMessageDelete(s *discordgo.Session, m *discordgo.Message) {
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { ProcessModules(sb.hooks.OnMessageAck_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageAck[i].IsEnabled()) { sb.hooks.OnMessageAck[i].OnMessageAck(s, m) } }) }
 func SBUserUpdate(s *discordgo.Session, u *discordgo.User) { ProcessUser(u); ProcessModules(sb.hooks.OnUserUpdate_channels, "", func(i int) { if(sb.hooks.OnUserUpdate[i].IsEnabled()) { sb.hooks.OnUserUpdate[i].OnUserUpdate(s, u) } }) }
-func SBPresenceUpdate(s *discordgo.Session, p *discordgo.PresenceUpdate) { ProcessModules(sb.hooks.OnPresenceUpdate_channels, "", func(i int) { if(sb.hooks.OnPresenceUpdate[i].IsEnabled()) { sb.hooks.OnPresenceUpdate[i].OnPresenceUpdate(s, p) } }) }
+func SBPresenceUpdate(s *discordgo.Session, p *discordgo.PresenceUpdate) { ProcessUser(p.User); ProcessModules(sb.hooks.OnPresenceUpdate_channels, "", func(i int) { if(sb.hooks.OnPresenceUpdate[i].IsEnabled()) { sb.hooks.OnPresenceUpdate[i].OnPresenceUpdate(s, p) } }) }
 func SBVoiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceState) { ProcessModules(sb.hooks.OnVoiceStateUpdate_channels, "", func(i int) { if(sb.hooks.OnVoiceStateUpdate[i].IsEnabled()) { sb.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(s, v) } }) }
 func SBGuildUpdate(s *discordgo.Session, g *discordgo.Guild) {
   sb.log.Log("Guild update detected, updating ", g.Name)
@@ -259,6 +261,7 @@ func SBGuildMemberDelete(s *discordgo.Session, u *discordgo.Member) { SBGuildMem
 func SBGuildMemberUpdate(s *discordgo.Session, u *discordgo.Member) { ProcessMember(u); ProcessModules(sb.hooks.OnGuildMemberUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildMemberUpdate[i].IsEnabled()) { sb.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(s, u) } }) }
 func SBGuildBanAdd(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanAdd_channels, "", func(i int) { if(sb.hooks.OnGuildBanAdd[i].IsEnabled()) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, b) } }) }
 func SBGuildBanRemove(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanRemove_channels, "", func(i int) { if(sb.hooks.OnGuildBanRemove[i].IsEnabled()) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, b) } }) }
+func SBUserSettingsUpdate(s *discordgo.Session, m map[string]interface{}) { fmt.Println("OnUserSettingsUpdate called") }
 
 func UserHasRole(user string, role string) bool {
   m, err := sb.dg.State.Member(sb.GuildID, user)
@@ -366,7 +369,7 @@ func Initialize() {
   discordpass, _ := ioutil.ReadFile("passwd")
 
   sb = &SweetieBot{
-    version: "0.1.5",
+    version: "0.1.6",
     debug: true,
     commands: make(map[string]BotCommand),
     log: &Log{},
@@ -401,6 +404,7 @@ func Initialize() {
     OnGuildMemberUpdate: SBGuildMemberUpdate,
     OnGuildBanAdd: SBGuildBanAdd,
     OnGuildBanRemove: SBGuildBanRemove,
+    OnUserSettingsUpdate: SBUserSettingsUpdate,
   }
   
   sb.log.Init(sb)
