@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+  "github.com/bwmarrin/discordgo"
   "strconv"
   "time"
   "strings"
@@ -12,7 +13,7 @@ type NewUsersCommand struct {
 func (c *NewUsersCommand) Name() string {
   return "newusers";  
 }
-func (c *NewUsersCommand) Process(args []string) string {
+func (c *NewUsersCommand) Process(args []string, user *discordgo.User) string {
   maxresults := 5
   if len(args) > 0 { maxresults, _ = strconv.Atoi(args[0]) }
   if maxresults < 1 { return "```How I return no results???```" }
@@ -37,7 +38,7 @@ type AKACommand struct {
 func (c *AKACommand) Name() string {
   return "aka";  
 }
-func (c *AKACommand) Process(args []string) string {
+func (c *AKACommand) Process(args []string, user *discordgo.User) string {
   if len(args) < 1 {
     return "```You must provide a user to search for.```"
   }

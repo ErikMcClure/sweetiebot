@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+  "github.com/bwmarrin/discordgo"
   "strings"
 )
 
@@ -10,7 +11,7 @@ type EchoCommand struct {
 func (c *EchoCommand) Name() string {
   return "Echo";  
 }
-func (c *EchoCommand) Process(args []string) string {
+func (c *EchoCommand) Process(args []string, user *discordgo.User) string {
   if len(args) == 0 {
     return "```You have to tell me to say something, silly!```"
   }
@@ -45,7 +46,7 @@ type DisableCommand struct {
 func (c *DisableCommand) Name() string {
   return "Disable";  
 }
-func (c *DisableCommand) Process(args []string) string {
+func (c *DisableCommand) Process(args []string, user *discordgo.User) string {
   return "```" + SetCommandEnable(args, false, " was disabled.") + "```"
 }
 func (c *DisableCommand) Usage() string { 
@@ -61,7 +62,7 @@ type EnableCommand struct {
 func (c *EnableCommand) Name() string {
   return "Enable";  
 }
-func (c *EnableCommand) Process(args []string) string {
+func (c *EnableCommand) Process(args []string, user *discordgo.User) string {
   return "```" + SetCommandEnable(args, true, " was enabled.") + "```"
 }
 func (c *EnableCommand) Usage() string { 
@@ -76,7 +77,7 @@ type UpdateCommand struct {
 func (c *UpdateCommand) Name() string {
   return "Update";  
 }
-func (c *UpdateCommand) Process(args []string) string {
+func (c *UpdateCommand) Process(args []string, user *discordgo.User) string {
   /*sb.log.Log("Update command called, current PID: ", os.Getpid())
   err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
   if err != nil {

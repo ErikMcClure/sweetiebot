@@ -13,7 +13,9 @@ type BotDB struct {
   log Logger
   sql_AddMessage *sql.Stmt
   sql_AddPing *sql.Stmt
-  sql_GetPings *sql.Stmt
+  sql_GetPing *sql.Stmt
+  sql_GetPingContext *sql.Stmt
+  sql_GetPingContextBefore *sql.Stmt
   sql_AddUser *sql.Stmt
   sql_GetUser *sql.Stmt
   sql_GetUserByName *sql.Stmt
@@ -51,7 +53,9 @@ func (db *BotDB) LoadStatements() error {
   var err error;
   db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
   db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
-  db.sql_GetPings, err = db.Prepare("SELECT C.ID FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1 ORDER BY Timestamp DESC");
+  db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1 ORDER BY Timestamp DESC LIMIT 1 OFFSET ?");
+  db.sql_GetPingContext, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?");
+  db.sql_GetPingContextBefore, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
   db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
@@ -64,6 +68,19 @@ func (db *BotDB) LoadStatements() error {
   return err
 }
 
+func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
+  r := make([]string, 0, 3)
+  for q.Next() {
+     p := ""
+     err := q.Scan(&p)
+     if err == nil {
+       r = append(r, p)
+     }
+     db.log.LogError("Row scan error: ", err)
+  }
+  return r
+}
+
 func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool) {
   _, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone)
   db.log.LogError("AddMessage error: ", err)
@@ -74,10 +91,45 @@ func (db *BotDB) AddPing(message uint64, user uint64) {
   db.log.LogError("AddPing error: ", err)
 }
 
-func (db *BotDB) GetPings(user uint64) {
-    
+func (db *BotDB) GetPing(user uint64, offset int) (uint64, uint64) {
+  var id uint64
+  var channel uint64
+  err := db.sql_GetPing.QueryRow(user, offset).Scan(&id, &channel)
+  if err == sql.ErrNoRows { return 0, 0 }
+  db.log.LogError("GetPing error: ", err)
+  return id, channel
 }
 
+type PingContext struct{ Author string; Message string; Timestamp time.Time }
+
+func (db *BotDB) GetPingContext(message uint64, channel uint64, maxresults int) []PingContext {
+  q, err := db.sql_GetPingContext.Query(message, channel, maxresults)
+  db.log.LogError("GetPingContext error: ", err)
+  defer q.Close()
+  r := make([]PingContext, 0, maxresults)
+  for q.Next() {
+     p := PingContext{}
+     if err := q.Scan(&p.Author, &p.Message, &p.Timestamp); err == nil {
+       r = append(r, p)
+     }
+  }
+  return r
+}
+
+func (db *BotDB) GetPingContextBefore(message uint64, channel uint64, maxresults int) []PingContext {
+  q, err := db.sql_GetPingContextBefore.Query(message, channel, maxresults)
+  db.log.LogError("GetPingContextBefore error: ", err)
+  defer q.Close()
+  r := make([]PingContext, 0, maxresults)
+  for q.Next() {
+     p := PingContext{}
+     if err := q.Scan(&p.Author, &p.Message, &p.Timestamp); err == nil {
+       r = append(r, p)
+     }
+  }
+  return r
+}
+  
 func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool) {
   _, err := db.sql_AddUser.Exec(id, email, username, avatar, verified)
   db.log.LogError("AddUser error: ", err)
@@ -104,7 +156,6 @@ func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []struct { mess
      if err := q.Scan(&p.message, &p.channel); err == nil {
        r = append(r, p)
      }
-     db.log.LogError("GetRecentMessages row scan error: ", err)
   }
   return r
 }
@@ -124,7 +175,6 @@ func (db *BotDB) GetNewestUsers(maxresults int) []struct { Username string; Firs
      if err := q.Scan(&p.Username, &p.FirstSeen, &p.LastSeen); err == nil {
        r = append(r, p)
      }
-     db.log.LogError("GetNewestUsers row scan error: ", err)
   }
   return r
 }
@@ -133,15 +183,7 @@ func (db *BotDB) GetAliases(user uint64) []string {
   q, err := db.sql_GetAliases.Query(user)
   db.log.LogError("GetAliases error: ", err)
   defer q.Close()
-  r := make([]string, 0, 3)
-  for q.Next() {
-     p := ""
-     if err := q.Scan(&p); err == nil {
-       r = append(r, p)
-     }
-     db.log.LogError("GetAliases row scan error: ", err)
-  }
-  return r
+  return db.ParseStringResults(q)
 }
 
 func (db *BotDB) Log(message string) {

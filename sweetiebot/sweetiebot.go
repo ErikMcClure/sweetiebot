@@ -165,6 +165,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&UpdateCommand{})
   sb.AddCommand(&AKACommand{})
   sb.AddCommand(&AboutCommand{})
+  sb.AddCommand(&LastPingCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -231,7 +232,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      s := c.c.Process(args[1:])
+      s := c.c.Process(args[1:], m.Author)
       if len(s) > 0 {
         sb.dg.ChannelMessageSend(m.ChannelID, s) 
       }
@@ -379,7 +380,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.1.7",
+    version: "0.1.8",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
