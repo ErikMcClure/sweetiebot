@@ -18,6 +18,7 @@ type BotDB struct {
   sql_GetUserByName *sql.Stmt
   sql_GetRecentMessages *sql.Stmt
   sql_UpdateUserJoinTime *sql.Stmt
+  sql_GetNewestUsers *sql.Stmt
   sql_Log *sql.Stmt
 }
 
@@ -48,12 +49,13 @@ func (db *BotDB) LoadStatements() error {
   var err error;
   db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
   db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
-  db.sql_GetPings, err = db.Prepare("SELECT * FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1");
+  db.sql_GetPings, err = db.Prepare("SELECT C.ID FROM pings P INNER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1 ORDER BY Timestamp DESC");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
   db.sql_GetUser, err = db.Prepare("SELECT * FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
   db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
   db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
+  db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
   return err
@@ -86,18 +88,13 @@ func (db *BotDB) GetUserByName(name string) {
     
 }
 
-type MessageChannelPair struct {
-  message uint64
-  channel uint64
-}
-
-func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []MessageChannelPair {
+func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []struct { message uint64; channel uint64 } {
   q, err := db.sql_GetRecentMessages.Query(user, duration)
   db.log.LogError("GetRecentMessages error: ", err)
   defer q.Close()
-  r := make([]MessageChannelPair, 0, 4)
+  r := make([]struct { message uint64; channel uint64 }, 0, 4)
   for q.Next() {
-     p := MessageChannelPair{}
+     p := struct { message uint64; channel uint64 }{}
      if err := q.Scan(&p.message, &p.channel); err == nil {
        r = append(r, p)
      }
@@ -109,6 +106,21 @@ func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []MessageChanne
 func (db *BotDB) UpdateUserJoinTime(id uint64, joinedat time.Time) {
   _, err := db.sql_UpdateUserJoinTime.Exec(id, joinedat)
   db.log.LogError("UpdateUserJoinTime error: ", err)
+}
+
+func (db *BotDB) GetNewestUsers(maxresults int) []struct { Username string; FirstSeen time.Time; LastSeen time.Time } {
+  q, err := db.sql_GetNewestUsers.Query(maxresults)
+  db.log.LogError("GetNewestUsers error: ", err)
+  defer q.Close()
+  r := make([]struct { Username string; FirstSeen time.Time; LastSeen time.Time }, 0, maxresults)
+    for q.Next() {
+     p := struct { Username string; FirstSeen time.Time; LastSeen time.Time }{}
+     if err := q.Scan(&p.Username, &p.FirstSeen, &p.LastSeen); err == nil {
+       r = append(r, p)
+     }
+     db.log.LogError("GetNewestUsers row scan error: ", err)
+  }
+  return r
 }
   
 func (db *BotDB) Log(message string) {
