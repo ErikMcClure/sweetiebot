@@ -8,6 +8,7 @@ import (
   "github.com/bwmarrin/discordgo"
   "strings"
   "encoding/json"
+  "reflect"
 )
 
 type ModuleHooks struct {
@@ -90,6 +91,43 @@ func (sbot *SweetieBot) AddCommand(c Command) {
   sbot.commands[strings.ToLower(c.Name())] = BotCommand{c, m}
 }
 
+func (sbot *SweetieBot) SaveConfig() {
+  data, err := json.Marshal(sb.config)
+  if err == nil {
+    ioutil.WriteFile("config.json", data, 0)
+  } else {
+    sbot.log.Log("Error writing json: ", err.Error())
+  }
+}
+
+func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
+  name = strings.ToLower(name)
+  t := reflect.ValueOf(&sbot.config).Elem()
+  n := t.NumField()
+  for i := 0; i < n; i++ {
+    if strings.ToLower(t.Type().Field(i).Name) == name {
+      f := t.Field(i)
+      switch t.Field(i).Interface().(type) {
+        case string:
+          f.SetString(value)
+        case int, int8, int16, int32, int64:
+          k, _ := strconv.ParseInt(value, 10, 64)
+          f.SetInt(k)
+        case uint, uint8, uint16, uint32, uint64:
+          k, _ := strconv.ParseUint(value, 10, 64)
+          f.SetUint(k)
+        case bool:
+          f.SetBool(value == "true")
+        default:
+          sbot.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
+          return "", false
+      }
+      sbot.SaveConfig()
+      return fmt.Sprint(t.Field(i).Interface()), true
+    }
+  }
+  return "", false
+}
 var sb *SweetieBot
 
 func SBatoi(s string) uint64 {
@@ -166,6 +204,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&AKACommand{})
   sb.AddCommand(&AboutCommand{})
   sb.AddCommand(&LastPingCommand{})
+  sb.AddCommand(&SetConfigCommand{})
+  sb.AddCommand(&GetConfigCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -198,7 +238,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
-	//fmt.Printf("[%s] %20s %20s %s (%s:%s) > %s\n", m.ID, m.ChannelID, m.Timestamp, m.Author.Username, m.Author.ID, m.Author.Email, m.Content); // DEBUG
   
   if m.ChannelID != sb.LogChannelID { // Log this message provided it wasn't sent to the bot-log channel.
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
@@ -214,11 +253,17 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
-    if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-      sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
-      return
+    ch, err := sb.dg.State.Channel(m.ChannelID)
+    sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
+    
+    if err != nil || !ch.IsPrivate { // Private channels are not limited
+      if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+        sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
+        return
+      }
+      sb.commandlimit.append(t)
     }
-    sb.commandlimit.append(t)
+    
     ignore := false
     ProcessModules(sb.hooks.OnCommand_channels, m.ChannelID, func(i int) { if(sb.hooks.OnCommand[i].IsEnabled()) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m) } })  
     if ignore { // if true, a module wants us to ignore this command
@@ -388,15 +433,17 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.1.9",
+    version: "0.2.0",
     commands: make(map[string]BotCommand),
     log: &Log{},
-    commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
+    commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
   }
   
   errjson := json.Unmarshal(config, &sb.config)
   if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
   fmt.Println("Config settings: ", sb.config)
+  
+  sb.commandlimit.times = make([]int64, sb.config.Commandperduration*2, sb.config.Commandperduration*2);
   
   db, errdb := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
   if errdb != nil { 
