@@ -22,6 +22,7 @@ func (c *EchoCommand) Usage() string {
 }
 func (c *EchoCommand) UsageShort() string { return "Makes Sweetie Bot say something in the given channel." }
 func (c *EchoCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *EchoCommand) UsePM() bool { return false }
 
 func SetCommandEnable(args []string, enable bool, success string) string {
   if len(args) == 0 {
@@ -54,6 +55,7 @@ func (c *DisableCommand) Usage() string {
 }
 func (c *DisableCommand) UsageShort() string { return "Disables the given module, if possible." }
 func (c *DisableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
+func (c *DisableCommand) UsePM() bool { return false }
 
 
 type EnableCommand struct {
@@ -70,6 +72,7 @@ func (c *EnableCommand) Usage() string {
 }
 func (c *EnableCommand) UsageShort() string { return "Enables the given module." }
 func (c *EnableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
+func (c *EnableCommand) UsePM() bool { return false }
 
 type UpdateCommand struct {
 }
@@ -92,3 +95,4 @@ func (c *UpdateCommand) Usage() string {
 }
 func (c *UpdateCommand) UsageShort() string { return "Updates sweetiebot." }
 func (c *UpdateCommand) Roles() []string { return []string{"Princesses"} }
+func (c *UpdateCommand) UsePM() bool { return false }

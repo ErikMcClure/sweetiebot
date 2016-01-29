@@ -112,6 +112,7 @@ type Command interface {
   Usage() string
   UsageShort() string
   Roles() []string // If no roles are specified, everyone is assumed
+  UsePM() bool
 }
 
 func (m *ModuleEnabled) IsEnabled() bool {

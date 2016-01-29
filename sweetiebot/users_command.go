@@ -30,7 +30,8 @@ func (c *NewUsersCommand) Usage() string {
   return FormatUsage(c, "[maxresults]", "Lists up to maxresults users, starting with the newest user to join the server. Defaults to 5 results, returns a maximum of 30.") 
 }
 func (c *NewUsersCommand) UsageShort() string { return "Gets a list of the most recent users to join the server." }
-func (c *NewUsersCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
+func (c *NewUsersCommand) Roles() []string { return []string{} }
+func (c *NewUsersCommand) UsePM() bool { return true }
 
 type AKACommand struct {
 }
@@ -55,3 +56,4 @@ func (c *AKACommand) Usage() string {
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 func (c *AKACommand) Roles() []string { return []string{} }
+func (c *AKACommand) UsePM() bool { return false }

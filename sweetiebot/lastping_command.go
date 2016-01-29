@@ -56,3 +56,4 @@ func (c *LastPingCommand) Usage() string {
 }
 func (c *LastPingCommand) UsageShort() string { return "Returns the last message that pinged you." }
 func (c *LastPingCommand) Roles() []string { return []string{} }
+func (c *LastPingCommand) UsePM() bool { return true }
