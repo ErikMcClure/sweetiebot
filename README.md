@@ -17,8 +17,8 @@ If your MariaDB installation uses default settings, your `db.auth` file should l
 `root:PASSWORD@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`
 
 If you get compiler errors, sweetiebot has two dependences you should get:
-`go get github.com/go-sql-driver/mysql`
-`go get github.com/bwmarrin/discordgo`
+* `go get github.com/go-sql-driver/mysql`
+* `go get github.com/bwmarrin/discordgo`
 
 ## Functionality
 ### Modules
