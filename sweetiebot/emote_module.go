@@ -3,6 +3,7 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "regexp"
+  "strings"
 )
 
 // The emote module detects banned emotes and deletes them
@@ -18,7 +19,7 @@ func (w *EmoteModule) Name() string {
 
 func (w *EmoteModule) Register(hooks *ModuleHooks) {
   w.lastmsg = 0
-  w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(canada|BlockJuice|octybelleintensifies|angstybloom|alltheclops|bob|darklelicious|flutterbutts|juice|doitfor24|allthetables|ave|sbrapestare|gak|beforetacoswerecool|bigenough)[-) \"]")
+  w.UpdateRegex()
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
@@ -49,3 +50,59 @@ func (w *EmoteModule) OnMessageUpdate(s *discordgo.Session, m *discordgo.Message
 func (w *EmoteModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
   return w.HasBigEmote(s, m)
 }
+
+func (w *EmoteModule) UpdateRegex() bool {
+  //w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(canada|BlockJuice|octybelleintensifies|angstybloom|alltheclops|bob|darklelicious|flutterbutts|juice|doitfor24|allthetables|ave|sbrapestare|gak|beforetacoswerecool|bigenough)[-) \"]")
+  w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(" + strings.Join(sb.config.Emotes, "|") + ")[-) \"]")
+  return true
+}
+
+
+type BanEmoteCommand struct {
+  emotes EmoteModule
+}
+
+func (c *BanEmoteCommand) Name() string {
+  return "BanEmote";  
+}
+func (c *BanEmoteCommand) Unban(emote string) bool {
+  for i := 0; i < len(sb.config.Emotes); i++ {
+    if sb.config.Emotes[i] == emote {
+      sb.config.Emotes = append(sb.config.Emotes[:i], sb.config.Emotes[i+1:]...)
+      return true
+    }
+  }
+  return false
+}
+func (c *BanEmoteCommand) Process(args []string, user *discordgo.User) string {
+  if len(args) < 1 {
+    return "```No emote specified.```"
+  }
+  if len(args) >= 2 {
+    if strings.ToLower(args[1]) == "unban" {
+      if !c.Unban(args[0]) {
+        return "```Could not find " + args[0] + "! Remember that emotes are case-sensitive.```"
+      }
+      sb.SaveConfig()
+      c.emotes.UpdateRegex()
+      return "```Unbanned " + args[0] + " and recompiled the emote regex.```"
+    }
+    return "```Unrecognized second argument. Did you mean to type 'unban'?```"
+  }
+  
+  sb.config.Emotes = append(sb.config.Emotes, args[0])
+  sb.SaveConfig()
+  r := c.emotes.UpdateRegex()
+  if !r {
+    c.Unban(args[0])
+    c.emotes.UpdateRegex()
+    return "```Failed to ban " + args[0] + " because regex compilation failed.```"
+  }
+  return "```Banned " + args[0] + " and recompiled the emote regex.```"
+}
+func (c *BanEmoteCommand) Usage() string { 
+  return FormatUsage(c, "[emote] [unban]", "Bans the given emote code, unless 'unban' is specified, in which case it unbans the emote.") 
+}
+func (c *BanEmoteCommand) UsageShort() string { return "Bans an emote." }
+func (c *BanEmoteCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *BanEmoteCommand) UsePM() bool { return false }
