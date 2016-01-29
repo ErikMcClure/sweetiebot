@@ -52,7 +52,7 @@ func (c *AKACommand) Process(args []string, user *discordgo.User) string {
   return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```"
 }
 func (c *AKACommand) Usage() string { 
-  return FormatUsage(c, "[user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.") 
+  return FormatUsage(c, "[@user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.") 
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 func (c *AKACommand) Roles() []string { return []string{} }
