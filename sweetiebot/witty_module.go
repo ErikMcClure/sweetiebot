@@ -42,8 +42,10 @@ func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Messag
       w.SendWittyComment(m.ChannelID, "http://i.imgur.com/0isfdsB.png")
     } else if strings.Contains(str, "is best pony") {
       w.SendWittyComment(m.ChannelID, "[](/flutterjerk) `Your FACE is best pony.`")
-    } else if strings.Contains(str, "Empress Fluttershy") || strings.Contains(str, "Cult Leader Fluttershy") {
+    } else if strings.Contains(str, "empress fluttershy") || strings.Contains(str, "cult leader fluttershy") {
       w.SendWittyComment(m.ChannelID, "[](/flutteryay) `All hail our Overlord of Kindness!`")
+    } else if strings.Contains(str, "goodnight") || strings.Contains(str, "good night") {
+      w.SendWittyComment(m.ChannelID, "[](/lunawatchesyousleep)")
     }
   }
 }

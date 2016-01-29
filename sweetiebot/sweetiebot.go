@@ -58,6 +58,8 @@ type BotConfig struct {
   Maxspam int              `json:"maxspam"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
+  Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
+  Spoilers []string        `json:"spoilers"`
 }
 type SweetieBot struct {
   db *BotDB
@@ -77,6 +79,9 @@ type SweetieBot struct {
   quit bool
   config BotConfig
 }
+
+var sb *SweetieBot
+var emotecommand *BanEmoteCommand
 
 func (sbot *SweetieBot) AddCommand(c Command) {
   m := make(map[uint64]bool)
@@ -128,7 +133,6 @@ func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
   }
   return "", false
 }
-var sb *SweetieBot
 
 func SBatoi(s string) uint64 {
   i, err := strconv.ParseUint(s, 10, 64)
@@ -206,6 +210,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&LastPingCommand{})
   sb.AddCommand(&SetConfigCommand{})
   sb.AddCommand(&GetConfigCommand{})
+  sb.AddCommand(emotecommand)
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -433,7 +438,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.2.0",
+    version: "0.2.1",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
@@ -479,10 +484,11 @@ func Initialize() {
   sb.log.Init(sb)
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
+  emotecommand = &BanEmoteCommand{}
   
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
-  sb.modules = append(sb.modules, &EmoteModule{})
+  sb.modules = append(sb.modules, &emotecommand.emotes)
   sb.modules = append(sb.modules, &WittyModule{})
   
   for _, v := range sb.modules {
