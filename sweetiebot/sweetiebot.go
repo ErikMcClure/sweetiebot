@@ -232,9 +232,17 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      s := c.c.Process(args[1:], m.Author)
-      if len(s) > 0 {
-        sb.dg.ChannelMessageSend(m.ChannelID, s) 
+      result := c.c.Process(args[1:], m.Author)
+      if len(result) > 0 {
+        targetchannel := m.ChannelID
+        if c.c.UsePM() {
+          channel, err := s.UserChannelCreate(m.Author.ID)
+          sb.log.LogError("Error opening private channel: ", err);
+          if err == nil {
+            targetchannel = channel.ID
+          }
+        } 
+        s.ChannelMessageSend(targetchannel, result)
       }
     } else {
       sb.log.Error(m.ChannelID, "Sorry, '" + args[0] + "' is not a valid command.\nFor a list of valid commands, type !help.")
@@ -380,7 +388,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.1.8",
+    version: "0.1.9",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{make([]int64, 7, 7), 0, AtomicFlag{0}},
