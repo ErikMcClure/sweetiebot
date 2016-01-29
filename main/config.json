@@ -1,8 +1,1 @@
-{
-  "debug" : true,
-  "maxerror" : 5,
-  "maxwit" : 300,
-  "maxspam" : 30,
-  "commandperduration" : 3,
-  "commandmaxduration" : 30
-}
+{"debug":true,"maxerror":4,"maxwit":300,"maxspam":30,"commandperduration":3,"commandmaxduration":30}
