@@ -3,7 +3,10 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "strings"
+  "regexp"
 )
+
+var channelregex = regexp.MustCompile("<#[0-9]*>")
 
 type EchoCommand struct {
 }
@@ -14,6 +17,11 @@ func (c *EchoCommand) Name() string {
 func (c *EchoCommand) Process(args []string, user *discordgo.User) string {
   if len(args) == 0 {
     return "```You have to tell me to say something, silly!```"
+  }
+  arg := args[0]
+  if channelregex.Match([]byte(arg)) {
+    sb.dg.ChannelMessageSend(arg[2:len(arg)-1], "```" + strings.Join(args[1:], " ") + "```")
+    return "";  
   }
   return "```" + strings.Join(args, " ") + "```";
 }

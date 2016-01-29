@@ -62,12 +62,12 @@ CREATE TABLE IF NOT EXISTS `aliases` (
 
 -- Dumping structure for table sweetiebot.chatlog
 CREATE TABLE IF NOT EXISTS `chatlog` (
-  `ID` bigint(20) unsigned NOT NULL,
-  `Author` bigint(20) unsigned NOT NULL,
-  `Message` varchar(2000) NOT NULL,
-  `Timestamp` datetime NOT NULL,
-  `Channel` bigint(20) unsigned NOT NULL,
-  `Everyone` bit(1) NOT NULL,
+  `ID` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `Author` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `Message` varchar(2000) NOT NULL DEFAULT '',
+  `Timestamp` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `Channel` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `Everyone` bit(1) NOT NULL DEFAULT b'0',
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`),
   KEY `INDEX_CHANNEL` (`Channel`),
@@ -181,6 +181,14 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
+
+IF NEW.Username = '' THEN
+	SET NEW.Username = OLD.Username;
+END IF;
+
+IF NEW.Avatar = '' THEN
+	SET NEW.Avatar = OLD.Avatar;
+END IF;
 
 IF NEW.Username != OLD.Username THEN
 	SET NEW.LastNameChange = NOW(6);
