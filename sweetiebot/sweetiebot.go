@@ -134,42 +134,6 @@ func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
   return "", false
 }
 
-func SBatoi(s string) uint64 {
-  i, err := strconv.ParseUint(s, 10, 64)
-  if err != nil { 
-    sb.log.Log("Invalid number ", s, ":", err.Error())
-    return 0 
-  }
-  return i
-}
-
-func IsSpace(b byte) bool {
-  return b == ' ' || b == '\t' || b == '\n' || b == '\r'
-}
-
-func ParseArguments(s string) []string {
-  r := []string{};
-  l := len(s)
-  for i := 0; i < l; i++ {
-    c := s[i]
-    if !IsSpace(c) {
-      var start int;
-      
-      if c == '"' {
-        i++
-        start = i
-        for i<(l-1) && (s[i] != '"' || !IsSpace(s[i+1])) { i++ }
-      } else {
-        start = i;
-        i++
-        for i<l && !IsSpace(s[i]) { i++ }
-      }
-      r = append(r, s[start:i])
-    } 
-  }
-  return r
-}
-
 func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)) {
   if len(channels)>0 { // only bother doing anything if we actually have hooks to process
     for i, c := range channels {
@@ -180,11 +144,6 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
       fn(i)
     }
   }
-}
-
-// This constructs an XOR operator for booleans
-func boolXOR(a bool, b bool) bool {
-  return (a && !b) || (!a && b)
 }
 
 func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
@@ -211,6 +170,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&SetConfigCommand{})
   sb.AddCommand(&GetConfigCommand{})
   sb.AddCommand(emotecommand)
+  sb.AddCommand(&LastSeenCommand{})
+  sb.AddCommand(&DumpTablesCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -282,14 +243,15 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      result := c.c.Process(args[1:], m.Author)
+      result, usepm := c.c.Process(args[1:], m.Author)
       if len(result) > 0 {
         targetchannel := m.ChannelID
-        if c.c.UsePM() {
+        if usepm && !ch.IsPrivate {
           channel, err := s.UserChannelCreate(m.Author.ID)
           sb.log.LogError("Error opening private channel: ", err);
           if err == nil {
             targetchannel = channel.ID
+            s.ChannelMessageSend(m.ChannelID, "```Check your Private Messages for my reply!```")
           }
         } 
         s.ChannelMessageSend(targetchannel, result)
@@ -330,32 +292,6 @@ func SBGuildMemberUpdate(s *discordgo.Session, u *discordgo.Member) { ProcessMem
 func SBGuildBanAdd(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanAdd_channels, "", func(i int) { if(sb.hooks.OnGuildBanAdd[i].IsEnabled()) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, b) } }) }
 func SBGuildBanRemove(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanRemove_channels, "", func(i int) { if(sb.hooks.OnGuildBanRemove[i].IsEnabled()) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, b) } }) }
 func SBUserSettingsUpdate(s *discordgo.Session, m map[string]interface{}) { fmt.Println("OnUserSettingsUpdate called") }
-
-func UserHasRole(user string, role string) bool {
-  m, err := sb.dg.State.Member(sb.GuildID, user)
-  if err == nil {
-    for _, v := range m.Roles {
-      if v == role {
-        return true
-      }
-    } 
-  }
-  return false
-}
-
-func UserHasAnyRole(user string, roles map[uint64]bool) bool {
-  if len(roles) == 0 { return true }
-  m, err := sb.dg.State.Member(sb.GuildID, user)
-  if err == nil {
-    for _, v := range m.Roles {
-      _, ok := roles[SBatoi(v)]
-      if ok {
-        return true
-      }
-    }
-  }
-  return false
-}
 
 func ProcessUser(u *discordgo.User) uint64 {
   id := SBatoi(u.ID)
@@ -438,7 +374,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.2.1",
+    version: "0.2.2",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},

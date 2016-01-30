@@ -74,20 +74,20 @@ func (c *BanEmoteCommand) Unban(emote string) bool {
   }
   return false
 }
-func (c *BanEmoteCommand) Process(args []string, user *discordgo.User) string {
+func (c *BanEmoteCommand) Process(args []string, user *discordgo.User) (string, bool) {
   if len(args) < 1 {
-    return "```No emote specified.```"
+    return "```No emote specified.```", false
   }
   if len(args) >= 2 {
     if strings.ToLower(args[1]) == "unban" {
       if !c.Unban(args[0]) {
-        return "```Could not find " + args[0] + "! Remember that emotes are case-sensitive.```"
+        return "```Could not find " + args[0] + "! Remember that emotes are case-sensitive.```", false
       }
       sb.SaveConfig()
       c.emotes.UpdateRegex()
-      return "```Unbanned " + args[0] + " and recompiled the emote regex.```"
+      return "```Unbanned " + args[0] + " and recompiled the emote regex.```", false
     }
-    return "```Unrecognized second argument. Did you mean to type 'unban'?```"
+    return "```Unrecognized second argument. Did you mean to type 'unban'?```", false
   }
   
   sb.config.Emotes = append(sb.config.Emotes, args[0])
@@ -96,13 +96,12 @@ func (c *BanEmoteCommand) Process(args []string, user *discordgo.User) string {
   if !r {
     c.Unban(args[0])
     c.emotes.UpdateRegex()
-    return "```Failed to ban " + args[0] + " because regex compilation failed.```"
+    return "```Failed to ban " + args[0] + " because regex compilation failed.```", false
   }
-  return "```Banned " + args[0] + " and recompiled the emote regex.```"
+  return "```Banned " + args[0] + " and recompiled the emote regex.```", false
 }
 func (c *BanEmoteCommand) Usage() string { 
   return FormatUsage(c, "[emote] [unban]", "Bans the given emote code, unless 'unban' is specified, in which case it unbans the emote.") 
 }
 func (c *BanEmoteCommand) UsageShort() string { return "Bans an emote." }
 func (c *BanEmoteCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *BanEmoteCommand) UsePM() bool { return false }
