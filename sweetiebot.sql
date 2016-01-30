@@ -21,9 +21,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_auth
     DETERMINISTIC
 BEGIN
 
-IF NOT EXISTS(SELECT 1 FROM users WHERE ID = _author) THEN
 CALL SawUser(_author);
-END IF;
 
 INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone)
 VALUES (_id, _author, _message, Now(6), _channel, _everyone)
@@ -76,6 +74,22 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A log of all the messages from all the chatrooms.';
 
 -- Data exporting was unselected.
+
+
+-- Dumping structure for event sweetiebot.CleanChatlog
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` EVENT `CleanChatlog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:04:34' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+DELETE FROM chatlog WHERE Timestamp < DATE_SUB(NOW(6), INTERVAL 7 DAY);
+END//
+DELIMITER ;
+
+
+-- Dumping structure for event sweetiebot.CleanDebugLog
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` EVENT `CleanDebugLog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:30:36' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+DELETE FROM debuglog WHERE Timestamp < DATE_SUB(NOW(6), INTERVAL 8 DAY);
+END//
+DELIMITER ;
 
 
 -- Dumping structure for table sweetiebot.debuglog
@@ -148,19 +162,30 @@ DELIMITER ;
 
 -- Dumping structure for table sweetiebot.users
 CREATE TABLE IF NOT EXISTS `users` (
-  `ID` bigint(20) unsigned NOT NULL,
+  `ID` bigint(20) unsigned NOT NULL DEFAULT '0',
   `Email` varchar(512) NOT NULL DEFAULT '',
   `Username` varchar(128) NOT NULL DEFAULT '',
   `Avatar` varchar(512) NOT NULL DEFAULT '',
   `Verified` bit(1) NOT NULL DEFAULT b'0',
-  `FirstSeen` datetime NOT NULL,
-  `LastSeen` datetime NOT NULL,
-  `LastNameChange` datetime NOT NULL,
+  `FirstSeen` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `LastSeen` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `LastNameChange` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`ID`),
   KEY `INDEX_USERNAME` (`Username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
+
+
+-- Dumping structure for trigger sweetiebot.chatlog_before_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW BEGIN
+DELETE FROM pings WHERE Message = OLD.ID;
+DELETE FROM editlog WHERE ID = OLD.ID;
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
