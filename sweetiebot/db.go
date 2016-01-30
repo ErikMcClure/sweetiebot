@@ -24,6 +24,7 @@ type BotDB struct {
   sql_GetNewestUsers *sql.Stmt
   sql_GetAliases *sql.Stmt
   sql_Log *sql.Stmt
+  sql_GetTableCounts *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -57,12 +58,13 @@ func (db *BotDB) LoadStatements() error {
   db.sql_GetPingContext, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?");
   db.sql_GetPingContextBefore, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?");
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
-  db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar FROM users WHERE ID = ?");
+  db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
   db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
   db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
   db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
   db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
+  db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows')")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
   return err
@@ -135,11 +137,12 @@ func (db *BotDB) AddUser(id uint64, email string, username string, avatar string
   db.log.LogError("AddUser error: ", err)
 }
 
-func (db *BotDB) GetUser(id uint64) *discordgo.User {
+func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time) {
   u := &discordgo.User{}
-  err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar)
+  var lastseen time.Time
+  err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen)
   db.log.LogError("GetUser error: ", err)
-  return u
+  return u, lastseen
 }
 
 func (db *BotDB) GetUserByName(name string) {
@@ -191,5 +194,12 @@ func (db *BotDB) Log(message string) {
   if err != nil {
     fmt.Println("Logger failed to log to database! ", err.Error())
   }
+}
+
+func (db *BotDB) GetTableCounts() string {
+  var counts string
+  err := db.sql_GetTableCounts.QueryRow().Scan(&counts)
+  db.log.LogError("GetTableCounts error: ", err)
+  return counts
 }
 
