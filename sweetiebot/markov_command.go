@@ -34,7 +34,7 @@ func (c *EpisodeGenCommand) Process(args []string, user *discordgo.User) (string
     lines = append(lines, line);
   }
   
-  return strings.Join(lines[1:], "\n"), len(lines)>5
+  return strings.Join(lines, "\n"), len(lines)>5
 }
 func (c *EpisodeGenCommand) Usage() string { 
   return FormatUsage(c, "[lines]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5.") 
