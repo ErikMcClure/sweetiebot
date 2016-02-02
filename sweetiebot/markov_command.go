@@ -25,6 +25,7 @@ func (c *EpisodeGenCommand) Process(args []string, user *discordgo.User) (string
     maxlines, _ = strconv.Atoi(args[0])
   }
   if maxlines > sb.config.Maxmarkovlines { maxlines = sb.config.Maxmarkovlines }
+  if maxlines <= 0 { maxlines = 1 }
   var prev uint64
   prev = 0
   lines := make([]string, 0, maxlines)
