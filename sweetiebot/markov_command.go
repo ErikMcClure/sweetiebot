@@ -9,17 +9,22 @@ import (
 )
 
 type EpisodeGenCommand struct {
+  lock AtomicFlag
 }
 
 func (c *EpisodeGenCommand) Name() string {
   return "episodegen";  
 }
 func (c *EpisodeGenCommand) Process(args []string, user *discordgo.User) (string, bool) {
-  maxlines := 50
+  if c.lock.test_and_set() {
+    return "```Sorry, I'm busy processing another request right now. Please try again later!```", false
+  }
+  defer c.lock.clear()
+  maxlines := sb.config.Defaultmarkovlines
   if len(args) > 0 {
     maxlines, _ = strconv.Atoi(args[0])
   }
-  if maxlines > 200 { maxlines = 200 }
+  if maxlines > sb.config.Maxmarkovlines { maxlines = sb.config.Maxmarkovlines }
   var prev uint64
   prev = 0
   lines := make([]string, 0, maxlines)
@@ -64,15 +69,17 @@ func (c *QuoteCommand) Process(args []string, user *discordgo.User) (string, boo
         if quoteargregex.MatchString(arg) {
           n, err := fmt.Sscanf(arg, "s%de%d:%d-%d", &S, &E, &L, &diff)
           if err != nil {
-            sb.log.Log("quote scan error: ", err.Error())
             if n < 3 {
+              sb.log.Log("quote scan error: ", err.Error())
               return "```Error: Could not parse your request. Be sure it is in the format S0E00:000-000. Example: S4E22:7-14```", false
             }
             if n < 4 { diff = L }
           }
+          diff--
+          L--
           
           diff -= L  
-          if diff > 49 { diff = 49 }
+          if diff >= sb.config.Maxquotelines { diff = sb.config.Maxquotelines-1 }
           lines = sb.db.GetTranscript(S, E, L, L+diff)
         } else { // Otherwise this is a character quote request
           lines = []Transcript{sb.db.GetCharacterQuote(arg)}
@@ -95,10 +102,10 @@ func (c *QuoteCommand) Process(args []string, user *discordgo.User) (string, boo
     }
     process = append(process, l)
   }
-  return strings.Join(process, "\n"), len(process) >= 5
+  return strings.Join(process, "\n"), len(process) > sb.config.MaxPMlines
 }
 func (c *QuoteCommand) Usage() string { 
-  return FormatUsage(c, "[S0E00:000-000|action|speech|\"Character Name\"]", "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of 50 lines, but a line count above 5 will be sent in a private message. Example: !quote S4E22:7-14\n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.") 
+  return FormatUsage(c, "[S0E00:000-000|action|speech|\"Character Name\"]", "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of " + strconv.Itoa(sb.config.Maxquotelines) + " lines, but a line count above 5 will be sent in a private message. Example: !quote S4E22:7-14\n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.") 
 }
 func (c *QuoteCommand) UsageShort() string { return "Quotes random or specific lines from the show." }
 func (c *QuoteCommand) Roles() []string { return []string{} }
