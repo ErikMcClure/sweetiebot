@@ -6,6 +6,7 @@ import (
     "github.com/bwmarrin/discordgo"
     "fmt"
     "time"
+    "strings"
 )
 
 type BotDB struct {
@@ -23,8 +24,20 @@ type BotDB struct {
   sql_UpdateUserJoinTime *sql.Stmt
   sql_GetNewestUsers *sql.Stmt
   sql_GetAliases *sql.Stmt
-  sql_Log *sql.Stmt
+  sql_AddTranscript *sql.Stmt
+  sql_GetTranscript *sql.Stmt
+  sql_RemoveTranscript *sql.Stmt
+  sql_AddMarkov *sql.Stmt
+  sql_GetMarkovLine *sql.Stmt
+  sql_GetMarkovWord *sql.Stmt
+  sql_GetRandomQuoteInt *sql.Stmt
+  sql_GetRandomQuote *sql.Stmt
+  sql_GetSpeechQuoteInt *sql.Stmt
+  sql_GetSpeechQuote *sql.Stmt
+  sql_GetCharacterQuoteInt *sql.Stmt
+  sql_GetCharacterQuote *sql.Stmt
   sql_GetTableCounts *sql.Stmt
+  sql_Log *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -64,6 +77,18 @@ func (db *BotDB) LoadStatements() error {
   db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
   db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
   db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
+  db.sql_AddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
+  db.sql_GetTranscript, err = db.Prepare("SELECT Season, Episode, Line, Speaker, Text FROM transcripts WHERE Season = ? AND Episode = ? AND Line >= ? AND LINE <= ?")
+  db.sql_RemoveTranscript, err = db.Prepare("DELETE FROM transcripts WHERE Season = ? AND Episode = ? AND Line = ?")
+  db.sql_AddMarkov, err = db.Prepare("SELECT AddMarkov(?,?,?)")
+  db.sql_GetMarkovLine, err = db.Prepare("SELECT GetMarkovLine(?)")
+  db.sql_GetMarkovWord, err = db.Prepare("SELECT Phrase FROM markov_transcripts WHERE SpeakerID = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = ?) AND Phrase = ?")
+  db.sql_GetRandomQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Text != ''))")
+  db.sql_GetRandomQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Text != '' LIMIT 1 OFFSET ?")
+  db.sql_GetSpeechQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker != 'ACTION' AND Text != ''))")
+  db.sql_GetSpeechQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker != 'ACTION' AND Text != '' LIMIT 1 OFFSET ?")
+  db.sql_GetCharacterQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker = ? AND Text != ''))")
+  db.sql_GetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
   db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows')")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
@@ -203,3 +228,90 @@ func (db *BotDB) GetTableCounts() string {
   return counts
 }
 
+func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string, text string) {
+  _, err := db.sql_AddTranscript.Exec(season, episode, line, speaker, text)
+  if err != nil {
+    db.log.Log("AddTranscript error: ", err.Error, "\nS", season, "E", episode, ":", line, " ", speaker, ": ", text)
+  }
+}
+
+type Transcript struct {
+  Season uint
+  Episode uint
+  Line uint
+  Speaker string
+  Text string
+}
+
+func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Transcript {
+  q, err := db.sql_GetTranscript.Query(season, episode, start, end)
+  db.log.LogError("GetTranscript error: ", err)
+  defer q.Close()
+  l := end - start + 1
+  if l > 100 { l = 100 }
+  r := make([]Transcript, 0, l)
+  for q.Next() {
+     p := Transcript{}
+     if err := q.Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text); err == nil {
+       r = append(r, p)
+     }
+  }
+  return r
+}
+
+func (db *BotDB) RemoveTranscript(season int, episode int, line int) {
+  _, err := db.sql_RemoveTranscript.Exec(season, episode, line)
+  db.log.LogError("RemoveTranscript error: ", err)
+}
+func (db *BotDB) AddMarkov(last uint64, speaker string, text string) uint64 {
+  var id uint64
+  err := db.sql_AddMarkov.QueryRow(last, speaker, text).Scan(&id)
+  db.log.LogError("AddMarkov error: ", err)
+  return id
+}
+
+func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
+  var r string
+  err := db.sql_GetMarkovLine.QueryRow(last).Scan(&r)
+  db.log.LogError("GetMarkovLine error: ", err)
+  str := strings.SplitN(r, "|", 2) // Being unable to call stored procedures makes this unnecessarily complex
+  if len(str) < 2 || len(str[1])<1 {
+    return str[0], 0
+  }
+  return str[0], SBatoi(str[1])
+}
+func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
+  var r string
+  err := db.sql_GetMarkovWord.QueryRow(speaker, phrase).Scan(&r)
+  if err == sql.ErrNoRows { return phrase }
+  db.log.LogError("GetMarkovWord error: ", err)
+  return r
+}
+func (db *BotDB) GetRandomQuote() Transcript {
+  var i uint64
+  err := db.sql_GetRandomQuoteInt.QueryRow().Scan(&i)
+  db.log.LogError("GetRandomQuoteInt error: ", err)
+  var p Transcript
+  err = db.sql_GetRandomQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
+  db.log.LogError("GetRandomQuote error: ", err)
+  return p
+}
+func (db *BotDB) GetSpeechQuote() Transcript {
+  var i uint64
+  err := db.sql_GetSpeechQuoteInt.QueryRow().Scan(&i)
+  db.log.LogError("GetSpeechQuoteInt error: ", err)
+  var p Transcript
+  err = db.sql_GetSpeechQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
+  db.log.LogError("GetSpeechQuote error: ", err)
+  return p
+}
+func (db *BotDB) GetCharacterQuote(character string) Transcript {
+  var i uint64
+  err := db.sql_GetCharacterQuoteInt.QueryRow(character).Scan(&i)
+  db.log.LogError("GetCharacterQuoteInt error: ", err)
+  var p Transcript
+  err = db.sql_GetCharacterQuote.QueryRow(character, i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
+  if err == sql.ErrNoRows { return Transcript{0,0,0,"",""} }
+  db.log.LogError("GetCharacterQuote error: ", err)
+  return p
+}

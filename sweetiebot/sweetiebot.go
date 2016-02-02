@@ -9,6 +9,7 @@ import (
   "strings"
   "encoding/json"
   "reflect"
+  "math/rand"
 )
 
 type ModuleHooks struct {
@@ -56,6 +57,7 @@ type BotConfig struct {
   Maxerror int64           `json:"maxerror"`
   Maxwit int64             `json:"maxwit"`
   Maxspam int              `json:"maxspam"`
+  Maxbored int64           `json:"maxbored"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
@@ -70,6 +72,7 @@ type SweetieBot struct {
   LogChannelID string
   ModChannelID string
   DebugChannelID string
+  ManeChannelID string
   SilentRole string
   version string
   hooks ModuleHooks
@@ -172,6 +175,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(emotecommand)
   sb.AddCommand(&LastSeenCommand{})
   sb.AddCommand(&DumpTablesCommand{})
+  sb.AddCommand(&EpisodeGenCommand{})
+  sb.AddCommand(&QuoteCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -199,6 +204,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
     
   sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\n", GetActiveModules(), "\n\nActive Commands:", commands);
 }
+
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ProcessModules(sb.hooks.OnTypingStart_channels, "", func(i int) { if(sb.hooks.OnTypingStart[i].IsEnabled()) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) } }) }
 func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
@@ -222,7 +228,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     ch, err := sb.dg.State.Channel(m.ChannelID)
     sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
     
-    if err != nil || !ch.IsPrivate { // Private channels are not limited
+    if err != nil || (!ch.IsPrivate && m.ChannelID != sb.DebugChannelID) { // Private channels are not limited, nor is the debug channel
       if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
         sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
@@ -251,9 +257,19 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
           sb.log.LogError("Error opening private channel: ", err);
           if err == nil {
             targetchannel = channel.ID
-            s.ChannelMessageSend(m.ChannelID, "```Check your Private Messages for my reply!```")
+            if rand.Float32() < 0.01 {
+              s.ChannelMessageSend(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
+            } else {
+              s.ChannelMessageSend(m.ChannelID, "```Check your Private Messages for my reply!```")
+            }
           }
         } 
+        for len(result) > 1999 { // discord has a 2000 character limit
+          index := strings.LastIndex(result[:1999], "\n")
+          if index < 0 { index = 1999 }
+          s.ChannelMessageSend(targetchannel, result[:index])
+          result = result[index:]
+        }
         s.ChannelMessageSend(targetchannel, result)
       }
     } else {
@@ -325,6 +341,9 @@ func ProcessGuild(g *discordgo.Guild) {
     if v.Name == "bot-debug" {
       sb.DebugChannelID = v.ID
     }
+    if v.Name == "example" {
+      sb.ManeChannelID = v.ID
+    }
   }
   for _, v := range g.Roles {
     if v.Name == "Silence" {
@@ -374,7 +393,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.2.2",
+    version: "0.3.0",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
@@ -421,11 +440,15 @@ func Initialize() {
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
   emotecommand = &BanEmoteCommand{}
+
+  //BuildMarkov(5, 20)
+  //return
   
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
   sb.modules = append(sb.modules, &emotecommand.emotes)
   sb.modules = append(sb.modules, &WittyModule{})
+  sb.modules = append(sb.modules, &BoredModule{})
   
   for _, v := range sb.modules {
     v.Enable(true)
