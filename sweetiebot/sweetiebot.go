@@ -58,6 +58,10 @@ type BotConfig struct {
   Maxwit int64             `json:"maxwit"`
   Maxspam int              `json:"maxspam"`
   Maxbored int64           `json:"maxbored"`
+  MaxPMlines int           `json:"maxpmlines"`
+  Maxquotelines int        `json:"maxquotelines"`
+  Maxmarkovlines int       `json:"maxmarkovlines"`
+  Defaultmarkovlines int   `json:"defaultmarkovlines"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
@@ -393,7 +397,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.0",
+    version: "0.3.1",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
