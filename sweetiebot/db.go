@@ -271,10 +271,11 @@ func (db *BotDB) AddMarkov(last uint64, speaker string, text string) uint64 {
 }
 
 func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
-  var r string
+  var r sql.NullString
   err := db.sql_GetMarkovLine.QueryRow(last).Scan(&r)
   db.log.LogError("GetMarkovLine error: ", err)
-  str := strings.SplitN(r, "|", 2) // Being unable to call stored procedures makes this unnecessarily complex
+  if !r.Valid { return "", 0 }
+  str := strings.SplitN(r.String, "|", 2) // Being unable to call stored procedures makes this unnecessarily complex
   if len(str) < 2 || len(str[1])<1 {
     return str[0], 0
   }
