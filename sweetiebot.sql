@@ -32,6 +32,34 @@ END//
 DELIMITER ;
 
 
+-- Dumping structure for function sweetiebot.AddMarkov
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `AddMarkov`(`_prev` BIGINT, `_speaker` VARCHAR(64), `_phrase` VARCHAR(64)) RETURNS bigint(20)
+    DETERMINISTIC
+BEGIN
+
+INSERT INTO markov_transcripts_speaker (Speaker)
+VALUES (_speaker)
+ON DUPLICATE KEY UPDATE ID = ID;
+
+SET @speakerid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = _speaker);
+
+INSERT INTO markov_transcripts (SpeakerID, Phrase)
+VALUES (@speakerid, _phrase)
+ON DUPLICATE KEY UPDATE Phrase = _phrase;
+
+/*LAST_UPDATE_ID() doesn't work here because of the duplicate key possibility */
+SET @ret = (SELECT ID FROM markov_transcripts WHERE SpeakerID = @speakerid AND Phrase = _phrase);
+
+INSERT INTO markov_transcripts_map (Prev, Next)
+VALUES (_prev, @ret)
+ON DUPLICATE KEY UPDATE Count = Count + 1;
+
+RETURN @ret;
+END//
+DELIMITER ;
+
+
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
@@ -39,7 +67,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_emai
 INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen, LastNameChange)
 VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6), Now(6))
 ON DUPLICATE KEY UPDATE
-Username=_username, Avatar=_avatar, Verified=_verified, LastSeen=Now(6)//
+Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=Now(6)//
 DELIMITER ;
 
 
@@ -123,6 +151,137 @@ CREATE TABLE IF NOT EXISTS `editlog` (
 -- Data exporting was unselected.
 
 
+-- Dumping structure for function sweetiebot.GetMarkov
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkov`(`_prev` BIGINT) RETURNS bigint(20)
+BEGIN
+
+DECLARE n, c, t, weight_sum, weight INT;
+DECLARE cur1 CURSOR FOR SELECT Next, Count FROM markov_transcripts_map WHERE Prev = _prev;
+SET weight_sum = (SELECT SUM(Count) FROM markov_transcripts_map WHERE Prev = _prev);
+SET weight = ROUND(((weight_sum - 1) * RAND() + 1), 0);
+SET t = 0;
+
+OPEN cur1;
+
+WHILE t < weight DO
+FETCH cur1 INTO n, c;
+SET t = t + c;
+END WHILE;
+
+return n;
+
+/*SET @next = 0;
+SET @i = 0;
+SET @s = '';
+
+SET @next = (SELECT t1.Next
+FROM markov_transcripts_map t1, markov_transcripts_map t2
+WHERE t1.Prev = 0 AND t2.Prev = 0 AND t1.Next >= t2.Next
+GROUP BY t1.Next
+HAVING SUM(t2.Count) >= @weight
+ORDER BY t1.Next
+LIMIT 1);*/
+
+END//
+DELIMITER ;
+
+
+-- Dumping structure for function sweetiebot.GetMarkovLine
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkovLine`(`_prev` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
+BEGIN
+
+DECLARE line VARCHAR(1024) DEFAULT '';
+SET @prev = _prev;
+IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN
+	RETURN '|';
+END IF;
+
+SET @prev = GetMarkov(@prev);
+SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = 'ACTION');
+SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @prev);
+SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
+SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
+SET line = '';
+SET @max = 0;
+
+IF @speaker = 'ACTION' THEN
+	IF @phrase = '' THEN RETURN CONCAT('|', @prev); END IF;
+	SET line = CONCAT('[', @phrase);
+ELSE
+	SET line = CONCAT('**', @speaker, ':** ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
+END IF;
+
+markov_loop: LOOP
+	IF @max > 300 OR NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN LEAVE markov_loop; END IF;
+	SET @max = @max + 1;
+	SET @capitalize = @phrase = '.' OR @phrase = '!' OR @phrase = '?' OR @phrase = ',';
+	
+	SET @next = GetMarkov(@prev);
+	SET @ns = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
+	IF @speakerid != @ns THEN LEAVE markov_loop; END IF;
+	SET @prev = @next;
+	
+	SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
+	IF @phrase = '.' OR @phrase = '!' OR @phrase = '?' OR @phrase = ',' THEN
+		SET line = CONCAT(line, @phrase);
+	ELSE
+		IF @capitalize THEN
+			SET line = CONCAT(line, ' ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
+		ELSE
+			SET line = CONCAT(line, ' ', @phrase);
+		END IF;
+	END IF;
+END LOOP markov_loop;
+
+IF @speaker = 'ACTION' THEN
+	SET line = CONCAT(line, ']');
+END IF;
+RETURN CONCAT(line, '|', @prev);
+
+END//
+DELIMITER ;
+
+
+-- Dumping structure for table sweetiebot.markov_transcripts
+CREATE TABLE IF NOT EXISTS `markov_transcripts` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `SpeakerID` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `Phrase` varchar(64) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `INDEX_SPEAKER_PHRASE` (`SpeakerID`,`Phrase`),
+  CONSTRAINT `FK_TRANSCRIPTS_SPEAKER` FOREIGN KEY (`SpeakerID`) REFERENCES `markov_transcripts_speaker` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.markov_transcripts_map
+CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
+  `Prev` bigint(20) unsigned NOT NULL,
+  `Next` bigint(20) unsigned NOT NULL,
+  `Count` int(10) unsigned NOT NULL DEFAULT '1',
+  PRIMARY KEY (`Prev`,`Next`),
+  KEY `FK_NEXT` (`Next`),
+  CONSTRAINT `FK_NEXT` FOREIGN KEY (`Next`) REFERENCES `markov_transcripts` (`ID`),
+  CONSTRAINT `FK_PREV` FOREIGN KEY (`Prev`) REFERENCES `markov_transcripts` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.markov_transcripts_speaker
+CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Speaker` varchar(64) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `INDEX_SPEAKER` (`Speaker`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for table sweetiebot.pings
 CREATE TABLE IF NOT EXISTS `pings` (
   `Message` bigint(20) unsigned NOT NULL,
@@ -141,12 +300,25 @@ DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `SawUser`(IN `_id` BIGINT)
 BEGIN
 
-INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen)
-VALUES (_id, '', '', '', 0, Now(6), Now(6))
+INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen, LastNameChange)
+VALUES (_id, '', '', '', 0, Now(6), Now(6), Now(6))
 ON DUPLICATE KEY UPDATE LastSeen=Now(6);
 
 END//
 DELIMITER ;
+
+
+-- Dumping structure for table sweetiebot.transcripts
+CREATE TABLE IF NOT EXISTS `transcripts` (
+  `Season` int(10) unsigned NOT NULL,
+  `Episode` int(10) unsigned NOT NULL,
+  `Line` int(10) unsigned NOT NULL,
+  `Speaker` varchar(64) NOT NULL,
+  `Text` varchar(2000) NOT NULL,
+  PRIMARY KEY (`Season`,`Episode`,`Line`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
 
 
 -- Dumping structure for procedure sweetiebot.UpdateUserJoinTime
@@ -213,6 +385,10 @@ END IF;
 
 IF NEW.Avatar = '' THEN
 	SET NEW.Avatar = OLD.Avatar;
+END IF;
+
+IF NEW.Email = '' THEN
+	SET NEW.Email = OLD.Email;
 END IF;
 
 IF NEW.Username != OLD.Username THEN

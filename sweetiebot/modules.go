@@ -88,11 +88,16 @@ type ModuleOnCommand interface {
   OnCommand(*discordgo.Session, *discordgo.Message) bool
 }
 
+type ModuleOnIdleInterface interface {
+  Module
+  OnIdle(*discordgo.Session)
+  IdlePeriod() int64 
+}
+
 type ModuleEnabledInterface interface {
   IsEnabled() bool
   Enable(bool)
 }
-
 type ModuleEnabled struct {
   enabled bool
 }
