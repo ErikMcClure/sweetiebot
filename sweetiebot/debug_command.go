@@ -36,19 +36,30 @@ func (c *EchoCommand) Roles() []string { return []string{"Princesses", "Royal Gu
 
 func SetCommandEnable(args []string, enable bool, success string) string {
   if len(args) == 0 {
-    return "No module specified.\n\n" + GetActiveModules()
+    return "No module or command specified.\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
   }
   name := strings.ToLower(args[0])
   for _, v := range sb.modules {
     if strings.ToLower(v.Name()) == name {
       v.Enable(enable)
       if v.IsEnabled() != enable {
-        return "Could not enable/disable " + args[0] + " module. Is this a restricted module?"
+        return "Could not enable/disable " + args[0] + " module/command. Is this a restricted module?"
       }
-      return args[0] + success + "\n\n" + GetActiveModules()
+      return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
     }
   }
-  return "The " + args[0] + " module does not exist.\n\n" + GetActiveModules()
+  for _, v := range sb.commands {
+    str := v.c.Name()
+    if strings.ToLower(str) == name {
+      if enable {
+        delete(sb.disablecommands, str)
+      } else {
+        sb.disablecommands[str] = true
+      }
+      return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
+    }
+  }
+  return "The " + args[0] + " module/command does not exist.\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
 }
 
 type DisableCommand struct {
@@ -61,9 +72,9 @@ func (c *DisableCommand) Process(args []string, user *discordgo.User) (string, b
   return "```" + SetCommandEnable(args, false, " was disabled.") + "```", false
 }
 func (c *DisableCommand) Usage() string { 
-  return FormatUsage(c, "[module]", "Disables the given module, if possible. If the module is already disabled, does nothing.") 
+  return FormatUsage(c, "[module|command]", "Disables the given module or command, if possible. If the module/command is already disabled, does nothing.") 
 }
-func (c *DisableCommand) UsageShort() string { return "Disables the given module, if possible." }
+func (c *DisableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
 func (c *DisableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
 
 
@@ -77,9 +88,9 @@ func (c *EnableCommand) Process(args []string, user *discordgo.User) (string, bo
   return "```" + SetCommandEnable(args, true, " was enabled.") + "```", false
 }
 func (c *EnableCommand) Usage() string { 
-  return FormatUsage(c, "[module]", "Disables the given module. If the module is already enabled, does nothing.")
+  return FormatUsage(c, "[module|command]", "Enables the given module or command. If the module/command is already enabled, does nothing.")
 }
-func (c *EnableCommand) UsageShort() string { return "Enables the given module." }
+func (c *EnableCommand) UsageShort() string { return "Enables the given module/command." }
 func (c *EnableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
 
 type UpdateCommand struct {

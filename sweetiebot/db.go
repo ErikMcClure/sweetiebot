@@ -36,6 +36,8 @@ type BotDB struct {
   sql_GetSpeechQuote *sql.Stmt
   sql_GetCharacterQuoteInt *sql.Stmt
   sql_GetCharacterQuote *sql.Stmt
+  sql_GetRandomSpeakerInt *sql.Stmt
+  sql_GetRandomSpeaker *sql.Stmt
   sql_GetTableCounts *sql.Stmt
   sql_Log *sql.Stmt
 }
@@ -89,6 +91,8 @@ func (db *BotDB) LoadStatements() error {
   db.sql_GetSpeechQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker != 'ACTION' AND Text != '' LIMIT 1 OFFSET ?")
   db.sql_GetCharacterQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker = ? AND Text != ''))")
   db.sql_GetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
+  db.sql_GetRandomSpeakerInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM markov_transcripts_speaker))+1") // We add one here because the speaker IDs start at 1 instead of 0 (because the database is stupid)
+  db.sql_GetRandomSpeaker, err = db.Prepare("SELECT Speaker FROM markov_transcripts_speaker WHERE ID = ?")
   db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows')")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
   
@@ -314,5 +318,14 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
   err = db.sql_GetCharacterQuote.QueryRow(character, i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
   if err == sql.ErrNoRows { return Transcript{0,0,0,"",""} }
   db.log.LogError("GetCharacterQuote error: ", err)
+  return p
+}
+func (db *BotDB) GetRandomSpeaker() string {
+  var i uint64
+  err := db.sql_GetRandomSpeakerInt.QueryRow().Scan(&i)
+  db.log.LogError("GetRandomSpeakerInt error: ", err)
+  var p string
+  err = db.sql_GetRandomSpeaker.QueryRow(i).Scan(&p)
+  db.log.LogError("GetRandomSpeaker error: ", err)
   return p
 }

@@ -6,6 +6,7 @@ import (
   "strconv"
   "fmt"
   "regexp"
+  "math/rand"
 )
 
 type EpisodeGenCommand struct {
@@ -110,3 +111,47 @@ func (c *QuoteCommand) Usage() string {
 }
 func (c *QuoteCommand) UsageShort() string { return "Quotes random or specific lines from the show." }
 func (c *QuoteCommand) Roles() []string { return []string{} }
+
+type ShipCommand struct {
+}
+
+func (c *ShipCommand) Name() string {
+  return "ship";  
+}
+func (c *ShipCommand) Process(args []string, user *discordgo.User) (string, bool) {
+  a := sb.db.GetRandomSpeaker()
+  b := sb.db.GetRandomSpeaker()
+  s := ""
+  
+  switch rand.Int31n(11) {
+    case 0:
+      s = "%s is %s's overly attached fianc\u00e9."
+    case 1:
+      s = "%s boops %s."
+    case 2:
+      s = "%s and %s, sitting in a tree, K-I-S-S-- well, you know the rest."
+    case 3:
+      s = "%s falls head over hooves for %s."
+    case 4:
+      s = "%s watches %s sleep at night."
+    case 5:
+      s = "%s is secretly in love with %s."
+    case 6:  
+      s = "%s x %s"
+    case 7:
+      s = "%s and %s argue all the time and refuse to admit their feelings for each other."
+    case 8:
+      s = "%s makes %s's heart flutter."
+    case 9:
+      s = "%s stumbles on %s's darkest secret, only for it to bring them closer together."
+    case 10:
+      s = "%s and %s get REALLY drunk, and then-- wait, this channel is SFW."
+  }
+  
+  return fmt.Sprintf("```" + s + "```", a, b), false
+}
+func (c *ShipCommand) Usage() string { 
+  return FormatUsage(c, "", "Generates a random pairing of ponies from the show.") 
+}
+func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
+func (c *ShipCommand) Roles() []string { return []string{} }

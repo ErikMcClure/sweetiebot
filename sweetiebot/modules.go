@@ -136,6 +136,18 @@ func GetActiveModules() string {
   return strings.Join(s, "\n  ")
 }
 
+func GetActiveCommands() string {
+  s := []string{"Active Commands:"}
+  for _, v := range sb.commands {
+    str := v.c.Name() 
+    _, ok := sb.disablecommands[str]
+    if ok { str += " [disabled]" }
+    s = append(s, str)
+  }
+  return strings.Join(s, "\n  ")
+}
+
+
 func FormatUsage(c Command, a string, b string) string {
   r := c.Roles()
   if len(r)>0 {
