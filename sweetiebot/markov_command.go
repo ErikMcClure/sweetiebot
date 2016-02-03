@@ -122,7 +122,12 @@ func (c *ShipCommand) Process(args []string, user *discordgo.User) (string, bool
   a := sb.db.GetRandomSpeaker()
   b := sb.db.GetRandomSpeaker()
   s := ""
-  
+  if len(args) > 0 {
+    a = args[0]
+  }
+  if len(args) > 1 {
+    b = args[1]
+  }
   switch rand.Int31n(11) {
     case 0:
       s = "%s is %s's overly attached fianc\u00e9."
@@ -151,7 +156,7 @@ func (c *ShipCommand) Process(args []string, user *discordgo.User) (string, bool
   return fmt.Sprintf("```" + s + "```", a, b), false
 }
 func (c *ShipCommand) Usage() string { 
-  return FormatUsage(c, "", "Generates a random pairing of ponies from the show.") 
+  return FormatUsage(c, "[first] [second]", "Generates a random pairing of ponies from the show. If a first or second argument is supplied, uses those ponies instead.") 
 }
 func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
 func (c *ShipCommand) Roles() []string { return []string{} }
