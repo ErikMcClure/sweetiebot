@@ -77,6 +77,7 @@ type SweetieBot struct {
   ModChannelID string
   DebugChannelID string
   ManeChannelID string
+  BotChannelID string
   SilentRole string
   version string
   hooks ModuleHooks
@@ -167,7 +168,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   }
   
   for _, v := range sb.dg.State.Guilds[0].Roles {
-    if v.Name == "Princess" {
+    if v.Name == "Princesses" {
       sb.princessrole[SBatoi(v.ID)] = true
       break
     }
@@ -235,7 +236,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     ch, err := sb.dg.State.Channel(m.ChannelID)
     sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
     
-    if err != nil || (!ch.IsPrivate && m.ChannelID != sb.DebugChannelID) { // Private channels are not limited, nor is the debug channel
+    if err != nil || (!ch.IsPrivate && m.ChannelID != sb.DebugChannelID && m.ChannelID != sb.BotChannelID) { // Private channels are not limited, nor is the debug channel
       if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
         sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
@@ -342,17 +343,17 @@ func ProcessGuild(g *discordgo.Guild) {
   sb.GuildID = g.ID
   
   for _, v := range g.Channels {
-    if v.Name == "bot-log" {
+    switch v.Name {
+      case "bot-log":
       sb.LogChannelID = v.ID
-    }
-    if v.Name == "ragemuffins" {
-      sb.ModChannelID = v.ID
-    }
-    if v.Name == "bot-debug" {
+      case "bot-debug":
       sb.DebugChannelID = v.ID
-    }
-    if v.Name == "manechat" {
+      case "manechat":
       sb.ManeChannelID = v.ID
+      case "mylittlebot":
+      sb.BotChannelID = v.ID
+      case "ragemuffins":
+      sb.ModChannelID = v.ID
     }
   }
   for _, v := range g.Roles {
