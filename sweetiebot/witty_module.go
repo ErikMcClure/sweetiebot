@@ -29,7 +29,7 @@ func (w *WittyModule) Register(hooks *ModuleHooks) {
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
 }
 func (w *WittyModule) Channels() []string {
-  return []string{"manechat", "mylittlespoilers", "mylittleactivities", "mylittlecoders", "bot-debug"}
+  return []string{"manechat", "mylittlespoilers", "mylittleactivities", "mylittlecoders", "mylittlebot", "bot-debug"}
 }
   
 func (w *WittyModule) SendWittyComment(channel string, comment string) {
@@ -39,7 +39,7 @@ func (w *WittyModule) SendWittyComment(channel string, comment string) {
 }
 func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   str := strings.ToLower(m.Content)
-  if !w.shutupregex.MatchString(str) {
+  if w.shutupregex.MatchString(str) {
     if CheckRateLimit(&w.lastshutup, sb.config.Maxshutup) {
       sb.dg.ChannelMessageSend(m.ChannelID, "[](/sadbot) `Sorry! (witty comments disabled for the next " + TimeDiff(time.Duration(sb.config.Maxshutup) * time.Second) + ").`")
     }
