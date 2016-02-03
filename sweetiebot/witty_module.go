@@ -3,6 +3,8 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "strings"
+  "regexp"
+  "time"
 )
 
 // This module is intended for any witty comments sweetie bot makes in response to what users say or do.
@@ -10,6 +12,8 @@ type WittyModule struct {
   ModuleEnabled
   lastdelete int64
   lastcomment int64
+  lastshutup int64
+  shutupregex *regexp.Regexp
 }
 
 func (w *WittyModule) Name() string {
@@ -19,6 +23,8 @@ func (w *WittyModule) Name() string {
 func (w *WittyModule) Register(hooks *ModuleHooks) {
   w.lastdelete = 0
   w.lastcomment = 0
+  w.lastshutup = 0
+  w.shutupregex = regexp.MustCompile("shut ?up,? (SB|sweetie ?bot)")
   hooks.OnMessageDelete = append(hooks.OnMessageDelete, w)
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
 }
@@ -32,8 +38,14 @@ func (w *WittyModule) SendWittyComment(channel string, comment string) {
   }
 }
 func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
-  if CheckRateLimit(&w.lastcomment, sb.config.Maxwit) {
-    str := strings.ToLower(m.Content)
+  str := strings.ToLower(m.Content)
+  if !w.shutupregex.MatchString(str) {
+    if CheckRateLimit(&w.lastshutup, sb.config.Maxshutup) {
+      sb.dg.ChannelMessageSend(m.ChannelID, "[](/sadbot) `Sorry! (witty comments disabled for the next " + TimeDiff(time.Duration(sb.config.Maxshutup) * time.Second) + ").`")
+    }
+    w.lastshutup = time.Now().UTC().Unix()
+  }
+  if CheckRateLimit(&w.lastcomment, sb.config.Maxwit) && CheckRateLimit(&w.lastshutup, sb.config.Maxshutup) {
     if strings.Contains(str, "skynet") {
       w.SendWittyComment(m.ChannelID, "[](/dumbfabric) `SKYNET IS ALREADY HERE.`")
     } else if strings.Contains(str, "lewd") {
