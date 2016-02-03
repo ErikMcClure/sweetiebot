@@ -83,6 +83,8 @@ type SweetieBot struct {
   modules []Module
   commands map[string]BotCommand
   commandlimit *SaturationLimit
+  disablecommands map[string]bool
+  princessrole map[uint64]bool
   quit bool
   config BotConfig
 }
@@ -164,6 +166,13 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
     ProcessMember(v)
   }
   
+  for _, v := range sb.dg.State.Guilds[0].Roles {
+    if v.Name == "Princess" {
+      sb.princessrole[SBatoi(v.ID)] = true
+      break
+    }
+  }
+  
   // We have to initialize commands and modules up here because they depend on the discord channel state
   sb.AddCommand(&EchoCommand{})
   sb.AddCommand(&HelpCommand{})
@@ -181,6 +190,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&DumpTablesCommand{})
   sb.AddCommand(&EpisodeGenCommand{})
   sb.AddCommand(&QuoteCommand{})
+  sb.AddCommand(&ShipCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -198,15 +208,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   GenChannels(len(sb.hooks.OnGuildBanAdd), &sb.hooks.OnGuildBanAdd_channels, func(i int) []string { return sb.hooks.OnGuildBanAdd[i].Channels() })
   GenChannels(len(sb.hooks.OnGuildBanRemove), &sb.hooks.OnGuildBanRemove_channels, func(i int) []string { return sb.hooks.OnGuildBanRemove[i].Channels() })
   GenChannels(len(sb.hooks.OnCommand), &sb.hooks.OnCommand_channels, func(i int) []string { return sb.hooks.OnCommand[i].Channels() })
-  
-  commands := ""
-  
-  for _, v := range sb.commands {
-    commands += "\n  "
-    commands += v.c.Name() 
-  }
-    
-  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\n", GetActiveModules(), "\n\nActive Commands:", commands);
+
+  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\n", GetActiveModules(), "\n\n", GetActiveCommands());
 }
 
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ProcessModules(sb.hooks.OnTypingStart_channels, "", func(i int) { if(sb.hooks.OnTypingStart[i].IsEnabled()) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) } }) }
@@ -249,7 +252,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     args := ParseArguments(m.Content[1:])
     c, ok := sb.commands[strings.ToLower(args[0])]
     if ok {
-      if !UserHasAnyRole(m.Author.ID, c.roles) {
+      subroles := c.roles
+      _, ok := sb.disablecommands[c.c.Name()]
+      if ok { subroles = sb.princessrole }
+      if !UserHasAnyRole(m.Author.ID, subroles) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
@@ -397,10 +403,11 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.2",
+    version: "0.3.3",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
+    disablecommands: make(map[string]bool),
   }
   
   errjson := json.Unmarshal(config, &sb.config)
