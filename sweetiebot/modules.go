@@ -88,9 +88,9 @@ type ModuleOnCommand interface {
   OnCommand(*discordgo.Session, *discordgo.Message) bool
 }
 
-type ModuleOnIdleInterface interface {
+type ModuleOnIdle interface {
   Module
-  OnIdle(*discordgo.Session)
+  OnIdle(*discordgo.Session, *discordgo.Channel)
   IdlePeriod() int64 
 }
 

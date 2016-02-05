@@ -13,6 +13,8 @@ type BotDB struct {
   db *sql.DB
   log Logger
   sql_AddMessage *sql.Stmt
+  sql_GetMessage *sql.Stmt
+  sql_GetLatestMessage *sql.Stmt
   sql_AddPing *sql.Stmt
   sql_GetPing *sql.Stmt
   sql_GetPingContext *sql.Stmt
@@ -68,6 +70,8 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 func (db *BotDB) LoadStatements() error {
   var err error;
   db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
+  db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
+  db.sql_GetLatestMessage, err = db.Prepare("SELECT Timestamp FROM chatlog WHERE Channel = ? ORDER BY Timestamp DESC LIMIT 1")
   db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
   db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR C.Everyone = 1 ORDER BY Timestamp DESC LIMIT 1 OFFSET ?");
   db.sql_GetPingContext, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?");
@@ -115,6 +119,25 @@ func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool) {
   _, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone)
   db.log.LogError("AddMessage error: ", err)
+}
+
+func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
+  var author uint64
+  var message string
+  var timestamp time.Time
+  var channel uint64
+  err := db.sql_GetMessage.QueryRow(id).Scan(&author, &message, &timestamp, &channel)
+  if err == sql.ErrNoRows { return 0, "", time.Now(), 0 }
+  db.log.LogError("GetMessage error: ", err)
+  return author, message, timestamp, channel
+}
+
+func (db *BotDB) GetLatestMessage(channel uint64) time.Time {
+  var timestamp time.Time
+  err := db.sql_GetLatestMessage.QueryRow(channel).Scan(&timestamp)
+  if err == sql.ErrNoRows { return time.Now() }
+  db.log.LogError("GetLatestMessage error: ", err)
+  return timestamp;
 }
 
 func (db *BotDB) AddPing(message uint64, user uint64) {
