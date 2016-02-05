@@ -3,6 +3,7 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "encoding/json"
+  "strings"
 )
 
 type SetConfigCommand struct {
@@ -38,8 +39,13 @@ func (c *GetConfigCommand) Name() string {
 }
 func (c *GetConfigCommand) Process(args []string, user *discordgo.User) (string, bool) {
   data, err := json.Marshal(sb.config)
+  s := string(data);
+  s = strings.Replace(s,"`","",-1)
+  s = strings.Replace(s, "[](/", "[\u200B](/", -1)
+  s = strings.Replace(s, "http://", "http\u200B://", -1)
+  s = strings.Replace(s, "https://", "https\u200B://", -1)
   if err == nil {
-    return "```" + string(data) + "```", false
+    return "```" + s + "```", false
   }
   sb.log.Log("JSON error: ", err.Error())
   return "```Failed to marshal JSON :C```", false
