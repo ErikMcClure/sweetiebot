@@ -145,6 +145,10 @@ func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
   return "", false
 }
 
+func (sbot *SweetieBot) SendMessage(channelID string, message string) {
+  sbot.dg.ChannelMessageSend(channelID, strings.Replace(message, "everyone", "everypony", -1));
+}
+
 func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)) {
   if len(channels)>0 { // only bother doing anything if we actually have hooks to process
     for i, c := range channels {
@@ -279,10 +283,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         for len(result) > 1999 { // discord has a 2000 character limit
           index := strings.LastIndex(result[:1999], "\n")
           if index < 0 { index = 1999 }
-          s.ChannelMessageSend(targetchannel, result[:index])
+          sb.SendMessage(targetchannel, result[:index])
           result = result[index:]
         }
-        s.ChannelMessageSend(targetchannel, result)
+        sb.SendMessage(targetchannel, result)
       }
     } else {
       sb.log.Error(m.ChannelID, "Sorry, '" + args[0] + "' is not a valid command.\nFor a list of valid commands, type !help.")
@@ -405,7 +409,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.4",
+    version: "0.3.5",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
