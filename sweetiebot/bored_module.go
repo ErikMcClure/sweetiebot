@@ -69,6 +69,7 @@ func (c *AddBoredCommand) Process(args []string, user *discordgo.User) (string, 
     return "```No phrase to add.```", false
   }
   sb.config.BoredLines = append(sb.config.BoredLines, strings.Join(args, " "))
+  sb.SaveConfig()
   return "```Added line to BoredLines. Length of BoredLines: " + strconv.Itoa(len(sb.config.BoredLines)) + ".```", false
 }
 func (c *AddBoredCommand) Usage() string { 
