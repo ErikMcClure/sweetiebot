@@ -24,7 +24,7 @@ func (w *BoredModule) Channels() []string {
 func (w *BoredModule) OnIdle(s *discordgo.Session) {
   q := &QuoteCommand{};
   r, _ := q.Process([]string{"action"}, nil)
-  s.ChannelMessageSend(sb.ManeChannelID, r) // We pass in nil for the user because this particular function ignores it.
+  sb.SendMessage(sb.ManeChannelID, r) // We pass in nil for the user because this particular function ignores it.
 }
 
 func (w *BoredModule) IdlePeriod() int64 {

@@ -34,14 +34,14 @@ func (w *WittyModule) Channels() []string {
   
 func (w *WittyModule) SendWittyComment(channel string, comment string) {
   if RateLimit(&w.lastcomment, sb.config.Maxwit) {
-    sb.dg.ChannelMessageSend(channel, comment)
+    sb.SendMessage(channel, comment)
   }
 }
 func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   str := strings.ToLower(m.Content)
   if w.shutupregex.MatchString(str) {
     if CheckRateLimit(&w.lastshutup, sb.config.Maxshutup) {
-      sb.dg.ChannelMessageSend(m.ChannelID, "[](/sadbot) `Sorry! (witty comments disabled for the next " + TimeDiff(time.Duration(sb.config.Maxshutup) * time.Second) + ").`")
+      sb.SendMessage(m.ChannelID, "[](/sadbot) `Sorry! (witty comments disabled for the next " + TimeDiff(time.Duration(sb.config.Maxshutup) * time.Second) + ").`")
     }
     w.lastshutup = time.Now().UTC().Unix()
   }

@@ -23,7 +23,7 @@ func (c *EchoCommand) Process(args []string, user *discordgo.User) (string, bool
     if len(args) < 2 {
       return "```You have to tell me to say something, silly!```", false
     }
-    sb.dg.ChannelMessageSend(arg[2:len(arg)-1], "```" + strings.Join(args[1:], " ") + "```")
+    sb.SendMessage(arg[2:len(arg)-1], "```" + strings.Join(args[1:], " ") + "```")
     return "", false 
   }
   return "```" + strings.Join(args, " ") + "```", false
