@@ -29,6 +29,7 @@ type ModuleHooks struct {
     OnGuildBanAdd             []ModuleOnGuildBanAdd
     OnGuildBanRemove          []ModuleOnGuildBanRemove
     OnCommand                 []ModuleOnCommand
+    OnIdle                    []ModuleOnIdle
     OnEvent_channels          []map[uint64]bool
     OnTypingStart_channels    []map[uint64]bool
     OnMessageCreate_channels  []map[uint64]bool
@@ -66,6 +67,7 @@ type BotConfig struct {
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
+  BoredLines []string        `json:"boredlines"`
   Spoilers []string        `json:"spoilers"`
 }
 type SweetieBot struct {
@@ -92,7 +94,6 @@ type SweetieBot struct {
 }
 
 var sb *SweetieBot
-var emotecommand *BanEmoteCommand
 
 func (sbot *SweetieBot) AddCommand(c Command) {
   m := make(map[uint64]bool)
@@ -164,6 +165,20 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
 func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved")
+  
+  episodegencommand := &EpisodeGenCommand{};
+  emotecommand := &BanEmoteCommand{}
+  sb.modules = append(sb.modules, &SpamModule{})
+  sb.modules = append(sb.modules, &PingModule{})
+  sb.modules = append(sb.modules, &emotecommand.emotes)
+  sb.modules = append(sb.modules, &WittyModule{})
+  sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
+  
+  for _, v := range sb.modules {
+    v.Enable(true)
+    v.Register(&sb.hooks)
+  }
+  
   sb.SelfID = r.User.ID
   g := r.Guilds[0]
   ProcessGuild(g)
@@ -194,9 +209,10 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(emotecommand)
   sb.AddCommand(&LastSeenCommand{})
   sb.AddCommand(&DumpTablesCommand{})
-  sb.AddCommand(&EpisodeGenCommand{})
+  sb.AddCommand(episodegencommand)
   sb.AddCommand(&QuoteCommand{})
   sb.AddCommand(&ShipCommand{})
+  sb.AddCommand(&AddBoredCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -215,6 +231,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   GenChannels(len(sb.hooks.OnGuildBanRemove), &sb.hooks.OnGuildBanRemove_channels, func(i int) []string { return sb.hooks.OnGuildBanRemove[i].Channels() })
   GenChannels(len(sb.hooks.OnCommand), &sb.hooks.OnCommand_channels, func(i int) []string { return sb.hooks.OnCommand[i].Channels() })
 
+  go IdleCheckLoop()
+  
   sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\n", GetActiveModules(), "\n\n", GetActiveCommands());
 }
 
@@ -396,6 +414,20 @@ func GenChannels(length int, channels *[]map[uint64]bool, fn func(i int) []strin
   }
 }
 
+func IdleCheckLoop() {
+  for !sb.quit {
+    c, _ := sb.dg.State.Channel(sb.DebugChannelID)
+    t := sb.db.GetLatestMessage(SBatoi(sb.DebugChannelID))
+    diff := SinceUTC(t);
+    for _, v := range sb.hooks.OnIdle {
+      if v.IsEnabled() && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
+        v.OnIdle(sb.dg, c);
+      }
+    }
+    time.Sleep(30*time.Second)
+  }  
+}
+
 func WaitForInput() {
 	var input string
 	fmt.Scanln(&input)
@@ -409,7 +441,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.5",
+    version: "0.3.6",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
@@ -457,21 +489,9 @@ func Initialize() {
   sb.log.Init(sb)
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
-  emotecommand = &BanEmoteCommand{}
 
   //BuildMarkov(5, 20)
   //return
-  
-  sb.modules = append(sb.modules, &SpamModule{})
-  sb.modules = append(sb.modules, &PingModule{})
-  sb.modules = append(sb.modules, &emotecommand.emotes)
-  sb.modules = append(sb.modules, &WittyModule{})
-  sb.modules = append(sb.modules, &BoredModule{})
-  
-  for _, v := range sb.modules {
-    v.Enable(true)
-    v.Register(&sb.hooks)
-  }
   
   err := sb.dg.Login(strings.TrimSpace(string(discorduser)), strings.TrimSpace(string(discordpass)))
   if err != nil {
