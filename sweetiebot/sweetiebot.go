@@ -416,8 +416,8 @@ func GenChannels(length int, channels *[]map[uint64]bool, fn func(i int) []strin
 
 func IdleCheckLoop() {
   for !sb.quit {
-    c, _ := sb.dg.State.Channel(sb.DebugChannelID)
-    t := sb.db.GetLatestMessage(SBatoi(sb.DebugChannelID))
+    c, _ := sb.dg.State.Channel(sb.ManeChannelID)
+    t := sb.db.GetLatestMessage(SBatoi(sb.ManeChannelID))
     diff := SinceUTC(t);
     for _, v := range sb.hooks.OnIdle {
       if v.IsEnabled() && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
