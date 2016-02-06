@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS `editlog` (
 -- Dumping structure for function sweetiebot.GetMarkov
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkov`(`_prev` BIGINT) RETURNS bigint(20)
+    READS SQL DATA
 BEGIN
 
 DECLARE n, c, t, weight_sum, weight INT;
@@ -190,9 +191,10 @@ DELIMITER ;
 -- Dumping structure for function sweetiebot.GetMarkovLine
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkovLine`(`_prev` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
+    READS SQL DATA
 BEGIN
 
-DECLARE line VARCHAR(1024) DEFAULT '';
+DECLARE line VARCHAR(1024) DEFAULT '|';
 SET @prev = _prev;
 IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN
 	RETURN '|';
@@ -203,7 +205,6 @@ SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = 'ACTI
 SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @prev);
 SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
 SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
-SET line = '';
 SET @max = 0;
 
 IF @speaker = 'ACTION' THEN
@@ -216,7 +217,7 @@ END IF;
 markov_loop: LOOP
 	IF @max > 300 OR NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN LEAVE markov_loop; END IF;
 	SET @max = @max + 1;
-	SET @capitalize = @phrase = '.' OR @phrase = '!' OR @phrase = '?' OR @phrase = ',';
+	SET @capitalize = @phrase = '.' OR @phrase = '!' OR @phrase = '?';
 	
 	SET @next = GetMarkov(@prev);
 	SET @ns = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
@@ -264,6 +265,7 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
   `Count` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`Prev`,`Next`),
   KEY `FK_NEXT` (`Next`),
+  KEY `INDEX_PREV` (`Prev`),
   CONSTRAINT `FK_NEXT` FOREIGN KEY (`Next`) REFERENCES `markov_transcripts` (`ID`),
   CONSTRAINT `FK_PREV` FOREIGN KEY (`Prev`) REFERENCES `markov_transcripts` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
