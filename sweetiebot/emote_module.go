@@ -29,7 +29,7 @@ func (w *EmoteModule) Channels() []string {
 }
 
 func (w *EmoteModule) HasBigEmote(s *discordgo.Session, m *discordgo.Message) bool {
-  if w.emoteban.Match([]byte(m.Content)) {
+  if w.emoteban.MatchString(m.Content) {
     s.ChannelMessageDelete(m.ChannelID, m.ID)
     if RateLimit(&w.lastmsg, 5) {
       s.ChannelMessageSend(m.ChannelID, "`That emote was way too big! Try to avoid using large emotes, as they can clutter up the chatroom.`")
@@ -52,9 +52,9 @@ func (w *EmoteModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool
 }
 
 func (w *EmoteModule) UpdateRegex() bool {
-  //w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(canada|BlockJuice|octybelleintensifies|angstybloom|alltheclops|bob|darklelicious|flutterbutts|juice|doitfor24|allthetables|ave|sbrapestare|gak|beforetacoswerecool|bigenough)[-) \"]")
-  w.emoteban = regexp.MustCompile("\\[\\]\\(\\/r?(" + strings.Join(sb.config.Emotes, "|") + ")[-) \"]")
-  return true
+  var err error
+  w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(sb.config.Emotes, "|") + ")[-) \"]")
+  return err == nil
 }
 
 
