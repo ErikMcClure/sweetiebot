@@ -55,15 +55,6 @@ type AddBoredCommand struct {
 func (c *AddBoredCommand) Name() string {
   return "AddBored";  
 }
-func (c *AddBoredCommand) Unban(emote string) bool {
-  for i := 0; i < len(sb.config.Emotes); i++ {
-    if sb.config.Emotes[i] == emote {
-      sb.config.Emotes = append(sb.config.Emotes[:i], sb.config.Emotes[i+1:]...)
-      return true
-    }
-  }
-  return false
-}
 func (c *AddBoredCommand) Process(args []string, user *discordgo.User) (string, bool) {
   if len(args) < 1 {
     return "```No phrase to add.```", false
