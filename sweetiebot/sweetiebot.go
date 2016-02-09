@@ -59,6 +59,7 @@ type BotConfig struct {
   Maxwit int64             `json:"maxwit"`
   Maxspam int              `json:"maxspam"`
   Maxbored int64           `json:"maxbored"`
+  Maxspoiltime int64       `json:"maxspoiltime"`       
   MaxPMlines int           `json:"maxpmlines"`
   Maxquotelines int        `json:"maxquotelines"`
   Maxmarkovlines int       `json:"maxmarkovlines"`
@@ -166,13 +167,15 @@ func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved")
   
-  episodegencommand := &EpisodeGenCommand{};
+  episodegencommand := &EpisodeGenCommand{}
   emotecommand := &BanEmoteCommand{}
+  spoilermodule := &SpoilerModule{}
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
   sb.modules = append(sb.modules, &emotecommand.emotes)
   sb.modules = append(sb.modules, &WittyModule{})
   sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
+  sb.modules = append(sb.modules, spoilermodule)
   
   for _, v := range sb.modules {
     v.Enable(true)
@@ -213,6 +216,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&QuoteCommand{})
   sb.AddCommand(&ShipCommand{})
   sb.AddCommand(&AddBoredCommand{})
+  sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -315,6 +319,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
 }
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
+  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
@@ -324,6 +329,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
   ProcessModules(sb.hooks.OnMessageUpdate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageUpdate[i].IsEnabled()) { sb.hooks.OnMessageUpdate[i].OnMessageUpdate(s, m) } })
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.Message) {
+  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
   ProcessModules(sb.hooks.OnMessageDelete_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageDelete[i].IsEnabled()) { sb.hooks.OnMessageDelete[i].OnMessageDelete(s, m) } })
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { ProcessModules(sb.hooks.OnMessageAck_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageAck[i].IsEnabled()) { sb.hooks.OnMessageAck[i].OnMessageAck(s, m) } }) }
@@ -441,7 +447,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.6",
+    version: "0.3.7",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
