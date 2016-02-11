@@ -14,7 +14,7 @@ type EchoCommand struct {
 func (c *EchoCommand) Name() string {
   return "Echo";  
 }
-func (c *EchoCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *EchoCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   if len(args) == 0 {
     return "```You have to tell me to say something, silly!```", false
   }
@@ -68,7 +68,7 @@ type DisableCommand struct {
 func (c *DisableCommand) Name() string {
   return "Disable";  
 }
-func (c *DisableCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *DisableCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   return "```" + SetCommandEnable(args, false, " was disabled.") + "```", false
 }
 func (c *DisableCommand) Usage() string { 
@@ -84,7 +84,7 @@ type EnableCommand struct {
 func (c *EnableCommand) Name() string {
   return "Enable";  
 }
-func (c *EnableCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *EnableCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   return "```" + SetCommandEnable(args, true, " was enabled.") + "```", false
 }
 func (c *EnableCommand) Usage() string { 
@@ -99,7 +99,7 @@ type UpdateCommand struct {
 func (c *UpdateCommand) Name() string {
   return "Update";  
 }
-func (c *UpdateCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *UpdateCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   /*sb.log.Log("Update command called, current PID: ", os.Getpid())
   err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
   if err != nil {
@@ -121,7 +121,7 @@ type DumpTablesCommand struct {
 func (c *DumpTablesCommand) Name() string {
   return "DumpTables";  
 }
-func (c *DumpTablesCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *DumpTablesCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   return "```" + sb.db.GetTableCounts() + "```", false
 }
 func (c *DumpTablesCommand) Usage() string { 

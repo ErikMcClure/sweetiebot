@@ -74,7 +74,7 @@ func (c *BanEmoteCommand) Unban(emote string) bool {
   }
   return false
 }
-func (c *BanEmoteCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *BanEmoteCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   if len(args) < 1 {
     return "```No emote specified.```", false
   }
