@@ -68,3 +68,7 @@ func RateLimit(prevtime *int64, interval int64) bool {
   } 
   return false
 }
+
+func CheckShutup(channel string) bool {
+  return channel != sb.DebugChannelID || CheckRateLimit(&sb.lastshutup, sb.config.Maxshutup);
+}

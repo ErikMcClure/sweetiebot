@@ -12,7 +12,7 @@ type LastPingCommand struct {
 func (c *LastPingCommand) Name() string {
   return "LastPing";  
 }
-func (c *LastPingCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *LastPingCommand) Process(args []string, user *discordgo.User, ch string) (string, bool) {
   index := 1
   maxrows := 2
   if len(args) > 0 {
