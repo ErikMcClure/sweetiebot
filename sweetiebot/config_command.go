@@ -12,7 +12,7 @@ type SetConfigCommand struct {
 func (c *SetConfigCommand) Name() string {
   return "SetConfig";  
 }
-func (c *SetConfigCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *SetConfigCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   if len(args) < 1 {
     return "```No configuration parameter to look for!```", false
   }
@@ -37,7 +37,7 @@ type GetConfigCommand struct {
 func (c *GetConfigCommand) Name() string {
   return "GetConfig";  
 }
-func (c *GetConfigCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *GetConfigCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   data, err := json.Marshal(sb.config)
   s := string(data);
   s = strings.Replace(s,"`","",-1)
