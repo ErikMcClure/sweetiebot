@@ -68,9 +68,12 @@ type BotConfig struct {
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
-  BoredLines []string        `json:"boredlines"`
+  BoredLines []string      `json:"boredlines"`
   Spoilers []string        `json:"spoilers"`
+  WittyTriggers []string    `json:"wittytriggers"`
+  WittyRemarks []string    `json:"wittyremarks"`
 }
+
 type SweetieBot struct {
   db *BotDB
   log *Log
@@ -82,6 +85,7 @@ type SweetieBot struct {
   DebugChannelID string
   ManeChannelID string
   BotChannelID string
+  lastshutup int64
   SilentRole string
   version string
   hooks ModuleHooks
@@ -170,10 +174,11 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   episodegencommand := &EpisodeGenCommand{}
   emotecommand := &BanEmoteCommand{}
   spoilermodule := &SpoilerModule{}
+  wittymodule := &WittyModule{}
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
   sb.modules = append(sb.modules, &emotecommand.emotes)
-  sb.modules = append(sb.modules, &WittyModule{})
+  sb.modules = append(sb.modules, wittymodule)
   sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
   sb.modules = append(sb.modules, spoilermodule)
   
@@ -217,6 +222,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&ShipCommand{})
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
+  sb.AddCommand(&AddWitCommand{wittymodule})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -287,7 +293,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      result, usepm := c.c.Process(args[1:], m.Author)
+      result, usepm := c.c.Process(args[1:], m.Author, m.ChannelID)
       if len(result) > 0 {
         targetchannel := m.ChannelID
         if usepm && !ch.IsPrivate {
@@ -447,12 +453,13 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.7",
+    version: "0.3.8",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
     disablecommands: make(map[string]bool),
     princessrole: make(map[uint64]bool),
+    lastshutup: 0,
   }
   
   errjson := json.Unmarshal(config, &sb.config)

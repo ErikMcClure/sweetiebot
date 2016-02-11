@@ -11,7 +11,7 @@ type HelpCommand struct {
 func (c *HelpCommand) Name() string {
   return "Help";  
 }
-func (c *HelpCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *HelpCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   if len(args) == 0 {
     s := []string{"Sweetie Bot knows the following commands. For more information on a specific command, type !help [command].\n"}
     for k, v := range sb.commands {
@@ -38,7 +38,7 @@ type AboutCommand struct {
 func (c *AboutCommand) Name() string {
   return "About";  
 }
-func (c *AboutCommand) Process(args []string, user *discordgo.User) (string, bool) {
+func (c *AboutCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
   s := "```Sweetie Bot version " + sb.version
   if sb.config.Debug {
     return s + " [debug]```", false
