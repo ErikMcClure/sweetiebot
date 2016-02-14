@@ -32,7 +32,7 @@ func (w *EmoteModule) HasBigEmote(s *discordgo.Session, m *discordgo.Message) bo
   if w.emoteban.MatchString(m.Content) {
     s.ChannelMessageDelete(m.ChannelID, m.ID)
     if RateLimit(&w.lastmsg, 5) {
-      s.ChannelMessageSend(m.ChannelID, "`That emote was way too big! Try to avoid using large emotes, as they can clutter up the chatroom.`")
+      s.ChannelMessageSend(m.ChannelID, "`That emote isn't allowed here! Try to avoid using large or disturbing emotes, as they can clutter up the chatroom.`")
     }
     return true
   }
