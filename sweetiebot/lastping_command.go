@@ -12,7 +12,7 @@ type LastPingCommand struct {
 func (c *LastPingCommand) Name() string {
   return "LastPing";  
 }
-func (c *LastPingCommand) Process(args []string, user *discordgo.User, ch string) (string, bool) {
+func (c *LastPingCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   index := 1
   maxrows := 2
   if len(args) > 0 {
@@ -24,7 +24,7 @@ func (c *LastPingCommand) Process(args []string, user *discordgo.User, ch string
   if index < 1 { index = 1 }
   if maxrows < 0 { maxrows = 0 }
   if maxrows > 3 { maxrows = 3 }
-  id, channel := sb.db.GetPing(SBatoi(user.ID), index - 1)
+  id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index - 1)
   if id == 0 { return "```No recent pings in the chat log.```", false }
   
   after := sb.db.GetPingContext(id, channel, maxrows + 1)

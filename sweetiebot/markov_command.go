@@ -16,7 +16,7 @@ type EpisodeGenCommand struct {
 func (c *EpisodeGenCommand) Name() string {
   return "episodegen";  
 }
-func (c *EpisodeGenCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
+func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   if c.lock.test_and_set() {
     return "```Sorry, I'm busy processing another request right now. Please try again later!```", false
   }
@@ -36,7 +36,7 @@ func (c *EpisodeGenCommand) Process(args []string, user *discordgo.User, channel
     lines = append(lines, line);
   }
   
-  return strings.Join(lines, "\n"), len(lines)>5 || !CheckShutup(channel)
+  return strings.Join(lines, "\n"), len(lines)>5 || !CheckShutup(msg.ChannelID)
 }
 func (c *EpisodeGenCommand) Usage() string { 
   return FormatUsage(c, "[lines]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5.") 
@@ -52,8 +52,8 @@ var quoteargregex = regexp.MustCompile("s[0-9]+e[0-9]+")
 func (c *QuoteCommand) Name() string {
   return "Quote";  
 }
-func (c *QuoteCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
-  if !CheckShutup(channel) { return "", false }
+func (c *QuoteCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if !CheckShutup(msg.ChannelID) { return "", false }
   S := 0
   E := 0
   L := 0
@@ -119,8 +119,8 @@ type ShipCommand struct {
 func (c *ShipCommand) Name() string {
   return "ship";  
 }
-func (c *ShipCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
-  if !CheckShutup(channel) { return "", false }
+func (c *ShipCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if !CheckShutup(msg.ChannelID) { return "", false }
   a := sb.db.GetRandomSpeaker()
   b := sb.db.GetRandomSpeaker()
   s := ""

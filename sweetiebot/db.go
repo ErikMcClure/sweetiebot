@@ -22,6 +22,7 @@ type BotDB struct {
   sql_AddUser *sql.Stmt
   sql_GetUser *sql.Stmt
   sql_GetUserByName *sql.Stmt
+  sql_FindUsers *sql.Stmt
   sql_GetRecentMessages *sql.Stmt
   sql_UpdateUserJoinTime *sql.Stmt
   sql_GetNewestUsers *sql.Stmt
@@ -79,6 +80,7 @@ func (db *BotDB) LoadStatements() error {
   db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
   db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?");
   db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
+  db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?");
   db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
   db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
   db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
@@ -199,6 +201,20 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time) {
 
 func (db *BotDB) GetUserByName(name string) {
     
+}
+
+func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
+  q, err := db.sql_FindUsers.Query(name, name, maxresults, offset)
+  db.log.LogError("FindUsers error: ", err)
+  defer q.Close()
+  r := make([]uint64, 0, 4)
+  for q.Next() {
+     var p uint64
+     if err := q.Scan(&p); err == nil {
+       r = append(r, p)
+     }
+  }
+  return r
 }
 
 func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []struct { message uint64; channel uint64 } {
