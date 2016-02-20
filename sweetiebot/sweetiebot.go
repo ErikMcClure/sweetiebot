@@ -6,10 +6,12 @@ import (
   "time"
   "io/ioutil"
   "github.com/bwmarrin/discordgo"
+  "database/sql"
   "strings"
   "encoding/json"
   "reflect"
   "math/rand"
+  "regexp"
 )
 
 type ModuleHooks struct {
@@ -63,6 +65,7 @@ type BotConfig struct {
   MaxPMlines int           `json:"maxpmlines"`
   Maxquotelines int        `json:"maxquotelines"`
   Maxmarkovlines int       `json:"maxmarkovlines"`
+  Maxsearchresults int     `json:"maxsearchresults"`
   Defaultmarkovlines int   `json:"defaultmarkovlines"`
   Maxshutup int64          `json:"maxshutup"`
   Commandperduration int   `json:"commandperduration"`
@@ -99,6 +102,8 @@ type SweetieBot struct {
 }
 
 var sb *SweetieBot
+var channelregex = regexp.MustCompile("<#[0-9]+>")
+var userregex = regexp.MustCompile("<@[0-9]+>")
 
 func (sbot *SweetieBot) AddCommand(c Command) {
   m := make(map[uint64]bool)
@@ -223,6 +228,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
+  sb.AddCommand(&SearchCommand{make(map[string][]*sql.Stmt)})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -293,7 +299,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      result, usepm := c.c.Process(args[1:], m.Author, m.ChannelID)
+      result, usepm := c.c.Process(args[1:], m)
       if len(result) > 0 {
         targetchannel := m.ChannelID
         if usepm && !ch.IsPrivate {
@@ -453,7 +459,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.8",
+    version: "0.3.9",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
