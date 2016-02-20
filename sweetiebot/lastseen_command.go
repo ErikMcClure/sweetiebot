@@ -10,7 +10,7 @@ type LastSeenCommand struct {
 func (c *LastSeenCommand) Name() string {
   return "LastSeen";  
 }
-func (c *LastSeenCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
+func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   id, fail := ReadUserPingArg(args)
   if fail != "" { return fail, false }
   u, lastseen := sb.db.GetUser(id)

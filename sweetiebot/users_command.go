@@ -13,7 +13,7 @@ type NewUsersCommand struct {
 func (c *NewUsersCommand) Name() string {
   return "newusers";  
 }
-func (c *NewUsersCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
+func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   maxresults := 5
   if len(args) > 0 { maxresults, _ = strconv.Atoi(args[0]) }
   if maxresults < 1 { return "```How I return no results???```", false }
@@ -38,12 +38,12 @@ type AKACommand struct {
 func (c *AKACommand) Name() string {
   return "aka";  
 }
-func (c *AKACommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
+func (c *AKACommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   id, fail := ReadUserPingArg(args)
   if fail != "" { return fail, false }
   r := sb.db.GetAliases(id)
   u, _ := sb.db.GetUser(id)
-  return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(channel)
+  return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)
 }
 func (c *AKACommand) Usage() string { 
   return FormatUsage(c, "[@user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.") 

@@ -116,7 +116,7 @@ func (c *AddWitCommand) Unban(wit string) bool {
   }
   return false
 }
-func (c *AddWitCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {  
+func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
   if len(args) < 2 {
     return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false
   }
