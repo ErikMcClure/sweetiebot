@@ -8,7 +8,8 @@ import (
 )
 
 type SearchCommand struct {
-    statements map[string][]*sql.Stmt
+  lock AtomicFlag
+  statements map[string][]*sql.Stmt
 }
 
 func (c *SearchCommand) Name() string {
@@ -21,6 +22,10 @@ func MsgHighlightMatch(msg string, match string) string {
   return strings.Replace(msg, match, "**" + match + "**", -1)
 }
 func (c *SearchCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if c.lock.test_and_set() {
+    return "```Sorry, I'm busy processing another request right now. Please try again later!```", false
+  }
+  defer c.lock.clear()
   rangebegin := 0
   rangeend := 5
   users := make([]string, 0, 0)

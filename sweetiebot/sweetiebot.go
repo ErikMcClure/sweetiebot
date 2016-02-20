@@ -228,7 +228,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
-  sb.AddCommand(&SearchCommand{make(map[string][]*sql.Stmt)})
+  sb.AddCommand(&SearchCommand{statements: make(map[string][]*sql.Stmt)})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
