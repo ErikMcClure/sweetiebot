@@ -133,9 +133,10 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message) (string, 
     params = append(params, seconds)
   }
   
-  query += "C.ID != ? AND C.Author != ? AND C.Message NOT LIKE '!search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
+  query += "C.ID != ? AND C.Author != ? AND C.Channel != ? AND C.Message NOT LIKE '!search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
   params = append(params, SBatoi(msg.ID))
   params = append(params, SBatoi(sb.SelfID))
+  params = append(params, SBatoi(sb.ModChannelID))
     
   querylimit := query
   if rangeend >= 0 {
