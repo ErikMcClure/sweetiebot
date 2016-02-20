@@ -88,6 +88,7 @@ type SweetieBot struct {
   DebugChannelID string
   ManeChannelID string
   BotChannelID string
+  SpoilerChannelID string
   lastshutup int64
   SilentRole string
   version string
@@ -395,6 +396,8 @@ func ProcessGuild(g *discordgo.Guild) {
         sb.ManeChannelID = v.ID
       case "mylittlebot":
         sb.BotChannelID = v.ID
+      case "mylittlespoilers":
+        sb.SpoilerChannelID = v.ID
     }
   }
   for _, v := range g.Roles {
