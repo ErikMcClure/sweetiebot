@@ -31,10 +31,12 @@ func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
     switch rand.Intn(3) {
       case 0:
         q := &QuoteCommand{};
-        r, _ := q.Process([]string{}, nil, c.ID) // We pass in nil for the user because this particular function ignores it.
+        m := &discordgo.Message{ChannelID: c.ID}
+        r, _ := q.Process([]string{}, m) // We pass in nil for the user because this particular function ignores it.
         sb.SendMessage(c.ID, r) 
       case 1:
-        r, _ := w.Episodegen.Process([]string{"2"}, nil, c.ID)
+        m := &discordgo.Message{ChannelID: c.ID}
+        r, _ := w.Episodegen.Process([]string{"2"}, m)
         sb.SendMessage(c.ID, r)
       case 2:
         if len(sb.config.BoredLines) > 0 {
@@ -55,7 +57,7 @@ type AddBoredCommand struct {
 func (c *AddBoredCommand) Name() string {
   return "AddBored";  
 }
-func (c *AddBoredCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {
+func (c *AddBoredCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   if len(args) < 1 {
     return "```No phrase to add.```", false
   }

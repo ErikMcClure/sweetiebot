@@ -80,7 +80,7 @@ func (c *AddSpoilerCommand) Unban(spoiler string) bool {
   }
   return false
 }
-func (c *AddSpoilerCommand) Process(args []string, user *discordgo.User, channel string) (string, bool) {  
+func (c *AddSpoilerCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
   if len(args) < 1 {
     return "```Nothing specified.```", false
   }
