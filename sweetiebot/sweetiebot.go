@@ -178,12 +178,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved")
   
   episodegencommand := &EpisodeGenCommand{}
-  emotecommand := &BanEmoteCommand{}
+  emotemodule := &EmoteModule{}
   spoilermodule := &SpoilerModule{}
   wittymodule := &WittyModule{}
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
-  sb.modules = append(sb.modules, &emotecommand.emotes)
+  sb.modules = append(sb.modules, emotemodule)
   sb.modules = append(sb.modules, wittymodule)
   sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
   sb.modules = append(sb.modules, spoilermodule)
@@ -220,7 +220,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&LastPingCommand{})
   sb.AddCommand(&SetConfigCommand{})
   sb.AddCommand(&GetConfigCommand{})
-  sb.AddCommand(emotecommand)
+  sb.AddCommand(&BanEmoteCommand{emotemodule})
   sb.AddCommand(&LastSeenCommand{})
   sb.AddCommand(&DumpTablesCommand{})
   sb.AddCommand(episodegencommand)
@@ -229,7 +229,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
-  sb.AddCommand(&SearchCommand{statements: make(map[string][]*sql.Stmt)})
+  sb.AddCommand(&SearchCommand{emotes: emotemodule, statements: make(map[string][]*sql.Stmt)})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -250,7 +250,11 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
   go IdleCheckLoop()
   
-  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, ". \n\n", GetActiveModules(), "\n\n", GetActiveCommands());
+  debug := ". \n\n"
+  if sb.config.Debug {
+    debug = ".\n[DEBUG BUILD]\n\n"
+  }
+  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug, GetActiveModules(), "\n\n", GetActiveCommands());
 }
 
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ProcessModules(sb.hooks.OnTypingStart_channels, "", func(i int) { if(sb.hooks.OnTypingStart[i].IsEnabled()) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) } }) }
@@ -462,7 +466,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.3.9",
+    version: "0.4.0",
     commands: make(map[string]BotCommand),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},

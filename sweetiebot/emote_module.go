@@ -59,7 +59,7 @@ func (w *EmoteModule) UpdateRegex() bool {
 
 
 type BanEmoteCommand struct {
-  emotes EmoteModule
+  emotes *EmoteModule
 }
 
 func (c *BanEmoteCommand) Name() string {
