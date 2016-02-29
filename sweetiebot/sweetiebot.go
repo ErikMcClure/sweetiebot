@@ -263,7 +263,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     return
   }
   
-  if m.ChannelID != sb.LogChannelID { // Log this message provided it wasn't sent to the bot-log channel.
+  ch, err := sb.dg.State.Channel(m.ChannelID)
+  sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
+  
+  if m.ChannelID != sb.LogChannelID && !ch.IsPrivate { // Log this message provided it wasn't sent to the bot-log channel or in a PM
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
   if m.Author.ID == sb.SelfID || m.ChannelID == sb.LogChannelID { // ALWAYS discard any of our own messages or our log messages before analysis.
@@ -277,8 +280,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
-    ch, err := sb.dg.State.Channel(m.ChannelID)
-    sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
     
     if err != nil || (!ch.IsPrivate && m.ChannelID != sb.DebugChannelID && m.ChannelID != sb.BotChannelID) { // Private channels are not limited, nor is the debug channel
       if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
