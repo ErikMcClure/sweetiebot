@@ -31,6 +31,7 @@ func (c *HelpCommand) Usage() string {
 }
 func (c *HelpCommand) UsageShort() string { return "[PM Only] Generates the list you are looking at right now." }
 func (c *HelpCommand) Roles() []string { return []string{} }
+func (c *HelpCommand) Channels() []string { return []string{} }
 
 type AboutCommand struct {
 }
@@ -50,3 +51,4 @@ func (c *AboutCommand) Usage() string {
 }
 func (c *AboutCommand) UsageShort() string { return "Displays information about Sweetie Bot." }
 func (c *AboutCommand) Roles() []string { return []string{} }
+func (c *AboutCommand) Channels() []string { return []string{} }
