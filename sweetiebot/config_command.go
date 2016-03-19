@@ -30,6 +30,7 @@ func (c *SetConfigCommand) Usage() string {
 }
 func (c *SetConfigCommand) UsageShort() string { return "Sets a config value and saves the new configuration." }
 func (c *SetConfigCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *SetConfigCommand) Channels() []string { return []string{} }
 
 type GetConfigCommand struct {
 }
@@ -55,3 +56,4 @@ func (c *GetConfigCommand) Usage() string {
 }
 func (c *GetConfigCommand) UsageShort() string { return "Returns the current configuration." }
 func (c *GetConfigCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *GetConfigCommand) Channels() []string { return []string{} }

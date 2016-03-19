@@ -30,6 +30,7 @@ func (c *EchoCommand) Usage() string {
 }
 func (c *EchoCommand) UsageShort() string { return "Makes Sweetie Bot say something in the given channel." }
 func (c *EchoCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *EchoCommand) Channels() []string { return []string{} }
 
 func SetCommandEnable(args []string, enable bool, success string) string {
   if len(args) == 0 {
@@ -73,6 +74,7 @@ func (c *DisableCommand) Usage() string {
 }
 func (c *DisableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
 func (c *DisableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
+func (c *DisableCommand) Channels() []string { return []string{} }
 
 
 type EnableCommand struct {
@@ -89,6 +91,7 @@ func (c *EnableCommand) Usage() string {
 }
 func (c *EnableCommand) UsageShort() string { return "Enables the given module/command." }
 func (c *EnableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
+func (c *EnableCommand) Channels() []string { return []string{} }
 
 type UpdateCommand struct {
 }
@@ -111,6 +114,7 @@ func (c *UpdateCommand) Usage() string {
 }
 func (c *UpdateCommand) UsageShort() string { return "Updates sweetiebot." }
 func (c *UpdateCommand) Roles() []string { return []string{"Princesses"} }
+func (c *UpdateCommand) Channels() []string { return []string{} }
 
 type DumpTablesCommand struct {
 }
@@ -126,3 +130,4 @@ func (c *DumpTablesCommand) Usage() string {
 }
 func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
 func (c *DumpTablesCommand) Roles() []string { return []string{"Princesses"} }
+func (c *DumpTablesCommand) Channels() []string { return []string{} }
