@@ -45,3 +45,4 @@ func (c *LastPingCommand) Usage() string {
 }
 func (c *LastPingCommand) UsageShort() string { return "[PM Only] Returns the last message that pinged you." }
 func (c *LastPingCommand) Roles() []string { return []string{} }
+func (c *LastPingCommand) Channels() []string { return []string{} }

@@ -232,3 +232,4 @@ func (c *SearchCommand) Usage() string {
 }
 func (c *SearchCommand) UsageShort() string { return "Performs a complex search on the chat history." }
 func (c *SearchCommand) Roles() []string { return []string{} }
+func (c *SearchCommand) Channels() []string { return []string{} }

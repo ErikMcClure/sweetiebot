@@ -43,6 +43,7 @@ func (c *EpisodeGenCommand) Usage() string {
 }
 func (c *EpisodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
 func (c *EpisodeGenCommand) Roles() []string { return []string{} }
+func (c *EpisodeGenCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 type QuoteCommand struct {
 }
@@ -112,6 +113,7 @@ func (c *QuoteCommand) Usage() string {
 }
 func (c *QuoteCommand) UsageShort() string { return "Quotes random or specific lines from the show." }
 func (c *QuoteCommand) Roles() []string { return []string{} }
+func (c *QuoteCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 type ShipCommand struct {
 }
@@ -162,3 +164,4 @@ func (c *ShipCommand) Usage() string {
 }
 func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
 func (c *ShipCommand) Roles() []string { return []string{} }
+func (c *ShipCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }

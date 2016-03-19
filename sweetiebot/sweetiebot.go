@@ -73,8 +73,9 @@ type BotConfig struct {
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
   BoredLines []string      `json:"boredlines"`
   Spoilers []string        `json:"spoilers"`
-  WittyTriggers []string    `json:"wittytriggers"`
+  WittyTriggers []string   `json:"wittytriggers"`
   WittyRemarks []string    `json:"wittyremarks"`
+  Schedule []time.Time     `json:"schedule"`
 }
 
 type SweetieBot struct {
@@ -89,12 +90,13 @@ type SweetieBot struct {
   ManeChannelID string
   BotChannelID string
   SpoilerChannelID string
-  lastshutup int64
   SilentRole string
+  lastshutup int64
   version string
   hooks ModuleHooks
   modules []Module
   commands map[string]BotCommand
+  command_channels map[string]map[uint64]bool
   commandlimit *SaturationLimit
   disablecommands map[string]bool
   princessrole map[uint64]bool
@@ -117,6 +119,17 @@ func (sbot *SweetieBot) AddCommand(c Command) {
     }
   }
   sbot.commands[strings.ToLower(c.Name())] = BotCommand{c, m}
+  ch := c.Channels()
+  channel := make(map[uint64]bool)
+  for j := 0; j < len(ch); j++ {
+    id := FindChannelID(ch[j])
+    if len(id) > 0 {
+      channel[SBatoi(id)] = true
+    } else {
+      sb.log.Log("Could not find channel ", ch[j])
+    }
+  }
+  sbot.command_channels[c.Name()] = channel
 }
 
 func (sbot *SweetieBot) SaveConfig() {
@@ -298,6 +311,13 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     args := ParseArguments(m.Content[1:])
     c, ok := sb.commands[strings.ToLower(args[0])]
     if ok {
+      cch := sb.command_channels[c.c.Name()]
+      if !ch.IsPrivate && len(cch) > 0 {
+        _, ok = cch[SBatoi(m.ChannelID)]
+        if !ok {
+          return
+        }
+      }
       subroles := c.roles
       _, ok := sb.disablecommands[c.c.Name()]
       if ok { subroles = sb.princessrole }
@@ -469,6 +489,7 @@ func Initialize() {
   sb = &SweetieBot{
     version: "0.4.0",
     commands: make(map[string]BotCommand),
+    command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
     disablecommands: make(map[string]bool),

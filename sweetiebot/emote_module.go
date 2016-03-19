@@ -105,3 +105,4 @@ func (c *BanEmoteCommand) Usage() string {
 }
 func (c *BanEmoteCommand) UsageShort() string { return "Bans an emote." }
 func (c *BanEmoteCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *BanEmoteCommand) Channels() []string { return []string{} }

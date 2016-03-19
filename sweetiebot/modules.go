@@ -117,6 +117,7 @@ type Command interface {
   Usage() string
   UsageShort() string
   Roles() []string // If no roles are specified, everyone is assumed
+  Channels() []string // If no channels are specified, runs on all channels (except bot-log)
 }
 
 func (m *ModuleEnabled) IsEnabled() bool {

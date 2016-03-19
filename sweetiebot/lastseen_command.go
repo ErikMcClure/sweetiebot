@@ -21,3 +21,4 @@ func (c *LastSeenCommand) Usage() string {
 }
 func (c *LastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
 func (c *LastSeenCommand) Roles() []string { return []string{} }
+func (c *LastSeenCommand) Channels() []string { return []string{} }

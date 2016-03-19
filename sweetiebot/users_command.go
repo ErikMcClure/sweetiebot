@@ -31,6 +31,7 @@ func (c *NewUsersCommand) Usage() string {
 }
 func (c *NewUsersCommand) UsageShort() string { return "[PM Only] Gets a list of the most recent users to join the server." }
 func (c *NewUsersCommand) Roles() []string { return []string{} }
+func (c *NewUsersCommand) Channels() []string { return []string{} }
 
 type AKACommand struct {
 }
@@ -50,3 +51,4 @@ func (c *AKACommand) Usage() string {
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 func (c *AKACommand) Roles() []string { return []string{} }
+func (c *AKACommand) Channels() []string { return []string{} }

@@ -110,3 +110,4 @@ func (c *AddSpoilerCommand) Usage() string {
 }
 func (c *AddSpoilerCommand) UsageShort() string { return "Adds a line to spoilers." }
 func (c *AddSpoilerCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *AddSpoilerCommand) Channels() []string { return []string{} }
