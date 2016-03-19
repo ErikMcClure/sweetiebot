@@ -70,3 +70,4 @@ func (c *AddBoredCommand) Usage() string {
 }
 func (c *AddBoredCommand) UsageShort() string { return "Adds a line to boredlines." }
 func (c *AddBoredCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *AddBoredCommand) Channels() []string { return []string{} }

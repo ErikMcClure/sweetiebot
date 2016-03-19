@@ -148,3 +148,4 @@ func (c *AddWitCommand) Usage() string {
 }
 func (c *AddWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
 func (c *AddWitCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *AddWitCommand) Channels() []string { return []string{} }
