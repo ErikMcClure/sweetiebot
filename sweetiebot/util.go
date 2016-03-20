@@ -100,7 +100,7 @@ func ReadUserPingArg(args []string) (uint64, string) {
 }
 
 func SinceUTC(t time.Time) time.Duration {
-  return time.Now().UTC().Sub(t.Add(8*time.Hour))
+  return time.Now().UTC().Sub(t.Add(7*time.Hour))
 }
 
 func IngestEpisode(file string, season int, episode int) {
