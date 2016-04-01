@@ -186,8 +186,9 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
   }
 }
 
-func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
+//func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
+  sb.dg.State = &discordgo.State{Ready: *r} // For some stupid reason discordgo does not update this for you anymore
   fmt.Println("Ready message receieved")
   
   episodegencommand := &EpisodeGenCommand{}
@@ -214,7 +215,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
     ProcessMember(v)
   }
   
-  for _, v := range sb.dg.State.Guilds[0].Roles {
+  for _, v := range g.Roles {
     if v.Name == "Princesses" {
       sb.princessrole[SBatoi(v.ID)] = true
       break
@@ -271,7 +272,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 }
 
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ProcessModules(sb.hooks.OnTypingStart_channels, "", func(i int) { if(sb.hooks.OnTypingStart[i].IsEnabled()) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) } }) }
-func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
+func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
@@ -303,7 +304,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
     }
     
     ignore := false
-    ProcessModules(sb.hooks.OnCommand_channels, m.ChannelID, func(i int) { if(sb.hooks.OnCommand[i].IsEnabled()) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m) } })  
+    ProcessModules(sb.hooks.OnCommand_channels, m.ChannelID, func(i int) { if(sb.hooks.OnCommand[i].IsEnabled()) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m.Message) } })  
     if ignore { // if true, a module wants us to ignore this command
       return
     }
@@ -325,7 +326,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
         return
       }
-      result, usepm := c.c.Process(args[1:], m)
+      result, usepm := c.c.Process(args[1:], m.Message)
       if len(result) > 0 {
         targetchannel := m.ChannelID
         if usepm && !ch.IsPrivate {
@@ -354,11 +355,11 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
       }
     }
   } else {
-    ProcessModules(sb.hooks.OnMessageCreate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageCreate[i].IsEnabled()) { sb.hooks.OnMessageCreate[i].OnMessageCreate(s, m) } })  
+    ProcessModules(sb.hooks.OnMessageCreate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageCreate[i].IsEnabled()) { sb.hooks.OnMessageCreate[i].OnMessageCreate(s, m.Message) } })  
   }  
 }
 
-func SBMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
+func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
   if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
@@ -366,28 +367,27 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
   if m.ChannelID != sb.LogChannelID { // Always ignore messages from the log channel
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
-  ProcessModules(sb.hooks.OnMessageUpdate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageUpdate[i].IsEnabled()) { sb.hooks.OnMessageUpdate[i].OnMessageUpdate(s, m) } })
+  ProcessModules(sb.hooks.OnMessageUpdate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageUpdate[i].IsEnabled()) { sb.hooks.OnMessageUpdate[i].OnMessageUpdate(s, m.Message) } })
 }
-func SBMessageDelete(s *discordgo.Session, m *discordgo.Message) {
+func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
   if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
-  ProcessModules(sb.hooks.OnMessageDelete_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageDelete[i].IsEnabled()) { sb.hooks.OnMessageDelete[i].OnMessageDelete(s, m) } })
+  ProcessModules(sb.hooks.OnMessageDelete_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageDelete[i].IsEnabled()) { sb.hooks.OnMessageDelete[i].OnMessageDelete(s, m.Message) } })
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { ProcessModules(sb.hooks.OnMessageAck_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageAck[i].IsEnabled()) { sb.hooks.OnMessageAck[i].OnMessageAck(s, m) } }) }
-func SBUserUpdate(s *discordgo.Session, u *discordgo.User) { ProcessUser(u); ProcessModules(sb.hooks.OnUserUpdate_channels, "", func(i int) { if(sb.hooks.OnUserUpdate[i].IsEnabled()) { sb.hooks.OnUserUpdate[i].OnUserUpdate(s, u) } }) }
-func SBPresenceUpdate(s *discordgo.Session, p *discordgo.PresenceUpdate) { ProcessUser(p.User); ProcessModules(sb.hooks.OnPresenceUpdate_channels, "", func(i int) { if(sb.hooks.OnPresenceUpdate[i].IsEnabled()) { sb.hooks.OnPresenceUpdate[i].OnPresenceUpdate(s, p) } }) }
-func SBVoiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceState) { ProcessModules(sb.hooks.OnVoiceStateUpdate_channels, "", func(i int) { if(sb.hooks.OnVoiceStateUpdate[i].IsEnabled()) { sb.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(s, v) } }) }
-func SBGuildUpdate(s *discordgo.Session, g *discordgo.Guild) {
-  sb.log.Log("Guild update detected, updating ", g.Name)
-  ProcessGuild(g)
-  ProcessModules(sb.hooks.OnGuildUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildUpdate[i].IsEnabled()) { sb.hooks.OnGuildUpdate[i].OnGuildUpdate(s, g) } })
+func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { /*ProcessUser(u); ProcessModules(sb.hooks.OnUserUpdate_channels, "", func(i int) { if(sb.hooks.OnUserUpdate[i].IsEnabled()) { sb.hooks.OnUserUpdate[i].OnUserUpdate(s, m.User) } })*/ }
+func SBUserSettingsUpdate(s *discordgo.Session, m *discordgo.UserSettingsUpdate) { fmt.Println("OnUserSettingsUpdate called") }
+func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) { ProcessUser(m.User); ProcessModules(sb.hooks.OnPresenceUpdate_channels, "", func(i int) { if(sb.hooks.OnPresenceUpdate[i].IsEnabled()) { sb.hooks.OnPresenceUpdate[i].OnPresenceUpdate(s, m) } }) }
+func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) { ProcessModules(sb.hooks.OnVoiceStateUpdate_channels, "", func(i int) { if(sb.hooks.OnVoiceStateUpdate[i].IsEnabled()) { sb.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(s, m.VoiceState) } }) }
+func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
+  sb.log.Log("Guild update detected, updating ", m.Name)
+  ProcessGuild(m.Guild)
+  ProcessModules(sb.hooks.OnGuildUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildUpdate[i].IsEnabled()) { sb.hooks.OnGuildUpdate[i].OnGuildUpdate(s, m.Guild) } })
 }
-func SBGuildMemberAdd(s *discordgo.Session, u *discordgo.Member) { ProcessMember(u); ProcessModules(sb.hooks.OnGuildMemberAdd_channels, "", func(i int) { if(sb.hooks.OnGuildMemberAdd[i].IsEnabled()) { sb.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(s, u) } }) }
-func SBGuildMemberRemove(s *discordgo.Session, u *discordgo.Member) { ProcessModules(sb.hooks.OnGuildMemberRemove_channels, "", func(i int) { if(sb.hooks.OnGuildMemberRemove[i].IsEnabled()) { sb.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(s, u) } }) }
-func SBGuildMemberDelete(s *discordgo.Session, u *discordgo.Member) { SBGuildMemberRemove(s, u); }
-func SBGuildMemberUpdate(s *discordgo.Session, u *discordgo.Member) { ProcessMember(u); ProcessModules(sb.hooks.OnGuildMemberUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildMemberUpdate[i].IsEnabled()) { sb.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(s, u) } }) }
-func SBGuildBanAdd(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanAdd_channels, "", func(i int) { if(sb.hooks.OnGuildBanAdd[i].IsEnabled()) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, b) } }) }
-func SBGuildBanRemove(s *discordgo.Session, b *discordgo.GuildBan) { ProcessModules(sb.hooks.OnGuildBanRemove_channels, "", func(i int) { if(sb.hooks.OnGuildBanRemove[i].IsEnabled()) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, b) } }) }
-func SBUserSettingsUpdate(s *discordgo.Session, m map[string]interface{}) { fmt.Println("OnUserSettingsUpdate called") }
+func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) { ProcessMember(m.Member); ProcessModules(sb.hooks.OnGuildMemberAdd_channels, "", func(i int) { if(sb.hooks.OnGuildMemberAdd[i].IsEnabled()) { sb.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(s, m.Member) } }) }
+func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) { ProcessModules(sb.hooks.OnGuildMemberRemove_channels, "", func(i int) { if(sb.hooks.OnGuildMemberRemove[i].IsEnabled()) { sb.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(s, m.Member) } }) }
+func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) { ProcessMember(m.Member); ProcessModules(sb.hooks.OnGuildMemberUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildMemberUpdate[i].IsEnabled()) { sb.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(s, m.Member) } }) }
+func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) { ProcessModules(sb.hooks.OnGuildBanAdd_channels, "", func(i int) { if(sb.hooks.OnGuildBanAdd[i].IsEnabled()) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, m.GuildBan) } }) }
+func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) { ProcessModules(sb.hooks.OnGuildBanRemove_channels, "", func(i int) { if(sb.hooks.OnGuildBanRemove[i].IsEnabled()) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, m.GuildBan) } }) }
 
 func ProcessUser(u *discordgo.User) uint64 {
   id := SBatoi(u.ID)
@@ -517,24 +517,24 @@ func Initialize() {
 		StateEnabled:           true,
 		Compress:               true,
 		ShouldReconnectOnError: true,
-    OnEvent: SBEvent,
-    OnReady: SBReady,
-    OnTypingStart: SBTypingStart,
-    OnMessageCreate: SBMessageCreate,
-    OnMessageUpdate: SBMessageUpdate,
-    OnMessageDelete: SBMessageDelete,
-    OnMessageAck: SBMessageAck,
-    OnUserUpdate: SBUserUpdate,
-    OnPresenceUpdate: SBPresenceUpdate,
-    OnVoiceStateUpdate: SBVoiceStateUpdate,
-    OnGuildUpdate: SBGuildUpdate,
-    OnGuildMemberAdd: SBGuildMemberAdd,
-    OnGuildMemberRemove: SBGuildMemberRemove,
-    OnGuildMemberUpdate: SBGuildMemberUpdate,
-    OnGuildBanAdd: SBGuildBanAdd,
-    OnGuildBanRemove: SBGuildBanRemove,
-    OnUserSettingsUpdate: SBUserSettingsUpdate,
   }
+  
+  sb.dg.AddHandler(SBReady)
+  sb.dg.AddHandler(SBTypingStart)
+  sb.dg.AddHandler(SBMessageCreate)
+  sb.dg.AddHandler(SBMessageUpdate)
+  sb.dg.AddHandler(SBMessageDelete)
+  sb.dg.AddHandler(SBMessageAck)
+  sb.dg.AddHandler(SBUserUpdate)
+  sb.dg.AddHandler(SBUserSettingsUpdate)
+  sb.dg.AddHandler(SBPresenceUpdate)
+  sb.dg.AddHandler(SBVoiceStateUpdate)
+  sb.dg.AddHandler(SBGuildUpdate)
+  sb.dg.AddHandler(SBGuildMemberAdd)
+  sb.dg.AddHandler(SBGuildMemberRemove)
+  sb.dg.AddHandler(SBGuildMemberUpdate)
+  sb.dg.AddHandler(SBGuildBanAdd)
+  sb.dg.AddHandler(SBGuildBanRemove)
   
   sb.log.Init(sb)
   sb.db.LoadStatements()
@@ -549,7 +549,6 @@ func Initialize() {
     return; // this will close the db because we deferred db.Close()
   }
   sb.log.LogError("Error opening websocket connection: ", sb.dg.Open());
-  //sb.log.LogError("Websocket handshake failure: ", sb.dg.Handshake());
   fmt.Println("Connection established");
   //sb.log.LogError("Connection error", sb.dg.Listen());
   
