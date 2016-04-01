@@ -308,6 +308,11 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
       return
     }
     
+    if(message == "airhorn")
+    {
+        return; // hopefully this will keep Sweetie Bot from spamming us for Discord's stupid airhorn bot
+    }
+    
     args := ParseArguments(m.Content[1:])
     c, ok := sb.commands[strings.ToLower(args[0])]
     if ok {
