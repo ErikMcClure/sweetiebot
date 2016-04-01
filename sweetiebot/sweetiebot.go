@@ -354,7 +354,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.Message) {
         sb.SendMessage(targetchannel, result)
       }
     } else {
-      sb.log.Error(m.ChannelID, "Sorry, '" + args[0] + "' is not a valid command.\nFor a list of valid commands, type !help.")
+      if args[0] != "airhorn" {
+        sb.log.Error(m.ChannelID, "Sorry, '" + args[0] + "' is not a valid command.\nFor a list of valid commands, type !help.")
+      }
     }
   } else {
     ProcessModules(sb.hooks.OnMessageCreate_channels, m.ChannelID, func(i int) { if(sb.hooks.OnMessageCreate[i].IsEnabled()) { sb.hooks.OnMessageCreate[i].OnMessageCreate(s, m) } })  
