@@ -18,7 +18,7 @@ func (w *PingModule) Register(hooks *ModuleHooks) {
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
 }
 func (w *PingModule) Channels() []string {
-  return []string{"manechat", "mylittlespoilers", "mylittleactivities", "mylittleroleplay", "mylittlecoders", "mylittlebot", "bot-debug"}
+  return []string{"manechat", "mylittlespoilers", "mylittleactivities", "mylittleroleplay", "mylittlenerds", "mylittlebot", "bot-debug"}
 }
   
 func (w *PingModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
