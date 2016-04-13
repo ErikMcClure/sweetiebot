@@ -25,7 +25,7 @@ func (w *SpoilerModule) Register(hooks *ModuleHooks) {
   hooks.OnCommand = append(hooks.OnCommand, w)
 }
 func (w *SpoilerModule) Channels() []string {
-  return []string{"example", "mylittleactivities", "mylittleroleplay", "mylittlecoders", "mylittlebot", "bot-debug" }
+  return []string{"example", "mylittleactivities", "mylittleroleplay", "mylittlenerds", "mylittlebot", "bot-debug" }
 }
 
 func (w *SpoilerModule) HasSpoiler(s *discordgo.Session, m *discordgo.Message) bool {

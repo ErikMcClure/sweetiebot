@@ -63,7 +63,7 @@ func (w *WittyModule) UpdateRegex() bool {
 }
 
 func (w *WittyModule) Channels() []string {
-  return []string{"example", "mylittlespoilers", "mylittleactivities", "mylittlecoders", "mylittlebot", "bot-debug"}
+  return []string{"example", "mylittlespoilers", "mylittleactivities", "mylittlenerds", "mylittlebot", "bot-debug"}
 }
   
 func (w *WittyModule) SendWittyComment(channel string, comment string) {
