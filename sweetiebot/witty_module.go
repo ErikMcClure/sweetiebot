@@ -93,7 +93,7 @@ func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Messag
 
 func (w *WittyModule) OnMessageDelete(s *discordgo.Session, m *discordgo.Message) {
   //if RateLimit(&w.lastdelete, 60) { // It turns out this triggers when the bot itself deletes things, which looks awkward - maybe this can be fixed?
-  //  sb.dg.ChannelMessageSend(m.ChannelID, "[](/sbstare) `I SAW THAT`")
+  //  sb.SendMessage(m.ChannelID, "[](/sbstare) `I SAW THAT`")
   //} 
 }
 

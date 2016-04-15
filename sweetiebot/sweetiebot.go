@@ -334,9 +334,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
           if err == nil {
             targetchannel = channel.ID
             if rand.Float32() < 0.01 {
-              s.ChannelMessageSend(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
+              sb.SendMessage(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
             } else {
-              s.ChannelMessageSend(m.ChannelID, "```Check your Private Messages for my reply!```")
+              sb.SendMessage(m.ChannelID, "```Check your Private Messages for my reply!```")
             }
           }
         } 
