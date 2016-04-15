@@ -20,7 +20,7 @@ func (l *Log) Log(args ...interface{}) {
   fmt.Println(s)
   l.bot.db.Log(s)
   if len(l.bot.LogChannelID) > 0 {
-    l.bot.dg.ChannelMessageSend(l.bot.LogChannelID, "```" + s + "```") 
+    sb.SendMessage(l.bot.LogChannelID, "```" + s + "```") 
   }
 }
 
@@ -32,7 +32,7 @@ func (l *Log) LogError(msg string, err error) {
 
 func (l *Log) Error(channelID string, message string) {
   if RateLimit(&l.lasterr, sb.config.Maxerror) { // Don't print more than one error message every n seconds.
-    l.bot.dg.ChannelMessageSend(channelID, "```" + message + "```") 
+    sb.SendMessage(channelID, "```" + message + "```") 
   }
   //l.Log(message); // Always log it to the debug log. TODO: This is really annoying, maybe we shouldn't do this
 }

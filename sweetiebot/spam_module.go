@@ -45,7 +45,7 @@ func KillSpammer(u *discordgo.User) {
     sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))
   }
   
-  sb.dg.ChannelMessageSend(sb.ModChannelID, "`Alert: " + u.Username + " was silenced for spamming. Please investigate.`") // Alert admins
+  sb.SendMessage(sb.ModChannelID, "`Alert: " + u.Username + " was silenced for spamming. Please investigate.`") // Alert admins
 }
 func (w *SpamModule) CheckSpam(s *discordgo.Session, m *discordgo.Message) bool {
   if m.Author != nil {
