@@ -22,7 +22,7 @@ func (c *HelpCommand) Process(args []string, msg *discordgo.Message) (string, bo
   }
   v, ok := sb.commands[strings.ToLower(args[0])]
   if !ok {
-    return "``` Sweetie Bot doesn't recognize the '" + args[0] + "' command. You can check what commands Sweetie Bot knows by typing !help.```", false
+    return "``` Sweetie Bot doesn't recognize that command. You can check what commands Sweetie Bot knows by typing !help.```", false
   }
   return "```> !" + v.c.Name() + " " + v.c.Usage() + "```", true
 }
