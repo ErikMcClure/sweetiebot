@@ -350,7 +350,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       }
     } else {
       if args[0] != "airhorn" {
-        sb.log.Error(m.ChannelID, "Sorry, '" + args[0] + "' is not a valid command.\nFor a list of valid commands, type !help.")
+        sb.log.Error(m.ChannelID, "Sorry, that's not a valid command.\nFor a list of valid commands, type !help.")
       }
     }
   } else {
