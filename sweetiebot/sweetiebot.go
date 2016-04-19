@@ -102,6 +102,7 @@ type SweetieBot struct {
   princessrole map[uint64]bool
   quit bool
   config BotConfig
+  emotemodule *EmoteModule
 }
 
 var sb *SweetieBot
@@ -170,8 +171,14 @@ func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
   return "", false
 }
 
+func sbemotereplace(s string) string {
+  return strings.Replace(s, "[](/", "[\u200B](/", -1)
+}
+
 func (sbot *SweetieBot) SendMessage(channelID string, message string) {
-  sbot.dg.ChannelMessageSend(channelID, strings.Replace(message, "everyone", "everypony", -1));
+  message = strings.Replace(message, "@", "@\u200b", -1)
+  message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
+  sbot.dg.ChannelMessageSend(channelID, message);
 }
 
 func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)) {
@@ -191,12 +198,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved")
   
   episodegencommand := &EpisodeGenCommand{}
-  emotemodule := &EmoteModule{}
+  sb.emotemodule = &EmoteModule{}
   spoilermodule := &SpoilerModule{}
   wittymodule := &WittyModule{}
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
-  sb.modules = append(sb.modules, emotemodule)
+  sb.modules = append(sb.modules, sb.emotemodule)
   sb.modules = append(sb.modules, wittymodule)
   sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
   sb.modules = append(sb.modules, spoilermodule)
@@ -233,7 +240,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&LastPingCommand{})
   sb.AddCommand(&SetConfigCommand{})
   sb.AddCommand(&GetConfigCommand{})
-  sb.AddCommand(&BanEmoteCommand{emotemodule})
+  sb.AddCommand(&BanEmoteCommand{sb.emotemodule})
   sb.AddCommand(&LastSeenCommand{})
   sb.AddCommand(&DumpTablesCommand{})
   sb.AddCommand(episodegencommand)
@@ -242,7 +249,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
-  sb.AddCommand(&SearchCommand{emotes: emotemodule, statements: make(map[string][]*sql.Stmt)})
+  sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -350,7 +357,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       }
     } else {
       if args[0] != "airhorn" {
-        sb.log.Error(m.ChannelID, "Sorry, that's not a valid command.\nFor a list of valid commands, type !help.")
+        sb.log.Error(m.ChannelID, "Sorry, " + args[0] + " is not a valid command.\nFor a list of valid commands, type !help.")
       }
     }
   } else {
@@ -488,7 +495,7 @@ func Initialize() {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.4.1",
+    version: "0.4.2",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
