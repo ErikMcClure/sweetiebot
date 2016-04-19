@@ -12,6 +12,7 @@ import (
   "reflect"
   "math/rand"
   "regexp"
+  "encoding/base64"
 )
 
 type ModuleHooks struct {
@@ -206,11 +207,28 @@ func SwapStatusLoop() {
   }
 }
 
+func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
+  binary, _ := ioutil.ReadFile(avatarfile)
+  email, _ := ioutil.ReadFile("email")
+  password, _ := ioutil.ReadFile("passwd")
+  avatar := base64.StdEncoding.EncodeToString(binary)
+    
+  _, err := s.UserUpdate(strings.TrimSpace(string(email)), strings.TrimSpace(string(password)), name, "data:image/jpeg;base64," + avatar, "")
+  if err != nil {
+    fmt.Println(err.Error())
+  } else {
+    fmt.Println("Changed username successfully")
+  }
+}
+
 //func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved, waiting for guilds...")
   go SwapStatusLoop()
-  sb.SelfID = r.User.ID  
+  sb.SelfID = r.User.ID
+  
+  // Only used to change sweetiebot's name or avatar
+  //ChangeBotName(s, "Sweetie", "avatar.jpg")
 }
 
 func AttachToGuild(g *discordgo.Guild) {
