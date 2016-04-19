@@ -188,7 +188,25 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
 
 //func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
-  fmt.Println("Ready message receieved")
+  fmt.Println("Ready message receieved, waiting for guilds...")
+  
+  sb.SelfID = r.User.ID  
+}
+
+func AttachToGuild(g *discordgo.Guild) {
+  fmt.Println("Initializing...")
+  ProcessGuild(g);
+  
+  for _, v := range g.Members {
+    ProcessMember(v)
+  }
+  
+  for _, v := range g.Roles {
+    if v.Name == "Princesses" {
+      sb.princessrole[SBatoi(v.ID)] = true
+      break
+    }
+  }
   
   episodegencommand := &EpisodeGenCommand{}
   emotemodule := &EmoteModule{}
@@ -204,21 +222,6 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   for _, v := range sb.modules {
     v.Enable(true)
     v.Register(&sb.hooks)
-  }
-  
-  sb.SelfID = r.User.ID
-  g := r.Guilds[0]
-  ProcessGuild(g)
-  
-  for _, v := range g.Members {
-    ProcessMember(v)
-  }
-  
-  for _, v := range g.Roles {
-    if v.Name == "Princesses" {
-      sb.princessrole[SBatoi(v.ID)] = true
-      break
-    }
   }
   
   // We have to initialize commands and modules up here because they depend on the discord channel state
@@ -387,6 +390,7 @@ func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) { ProcessMember(m.Member); ProcessModules(sb.hooks.OnGuildMemberUpdate_channels, "", func(i int) { if(sb.hooks.OnGuildMemberUpdate[i].IsEnabled()) { sb.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(s, m.Member) } }) }
 func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) { ProcessModules(sb.hooks.OnGuildBanAdd_channels, "", func(i int) { if(sb.hooks.OnGuildBanAdd[i].IsEnabled()) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, m.GuildBan) } }) }
 func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) { ProcessModules(sb.hooks.OnGuildBanRemove_channels, "", func(i int) { if(sb.hooks.OnGuildBanRemove[i].IsEnabled()) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, m.GuildBan) } }) }
+func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
 
 func ProcessUser(u *discordgo.User) uint64 {
   id := SBatoi(u.ID)
@@ -405,6 +409,10 @@ func ProcessMember(u *discordgo.Member) {
       fmt.Println(err.Error())
     }
   }
+}
+
+func ProcessGuildCreate(g *discordgo.Guild) {
+  AttachToGuild(g);
 }
 
 func ProcessGuild(g *discordgo.Guild) {
@@ -486,7 +494,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.4.1",
+    version: "0.5.0",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
@@ -531,6 +539,7 @@ func Initialize(Token string) {
   sb.dg.AddHandler(SBGuildMemberUpdate)
   sb.dg.AddHandler(SBGuildBanAdd)
   sb.dg.AddHandler(SBGuildBanRemove)
+  sb.dg.AddHandler(SBGuildCreate)
   
   sb.log.Init(sb)
   sb.db.LoadStatements()
