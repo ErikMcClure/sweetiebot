@@ -7,3 +7,6 @@ main/client_id
 main/client_secret
 *.log
 main/token
+*.jpg
+*.png
+main/email
