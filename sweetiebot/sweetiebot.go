@@ -481,10 +481,8 @@ func WaitForInput() {
 	sb.quit = true
 }
 
-func Initialize() {  
+func Initialize(Token string) {  
   dbauth, _ := ioutil.ReadFile("db.auth")
-  discorduser, _ := ioutil.ReadFile("username")  
-  discordpass, _ := ioutil.ReadFile("passwd")
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
@@ -504,18 +502,17 @@ func Initialize() {
   
   sb.commandlimit.times = make([]int64, sb.config.Commandperduration*2, sb.config.Commandperduration*2);
   
-  db, errdb := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
-  if errdb != nil { 
-    fmt.Println("Error loading database", errdb.Error())
+  db, err := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
+  if err != nil { 
+    fmt.Println("Error loading database", err.Error())
     return 
   }
   
   sb.db = db 
-  sb.dg = &discordgo.Session{
-		State:                  discordgo.NewState(),
-		StateEnabled:           true,
-		Compress:               true,
-		ShouldReconnectOnError: true,
+  sb.dg, err = discordgo.New(Token)
+  if err != nil {
+    fmt.Println("Error creating discord session", err.Error())
+    return
   }
   
   sb.dg.AddHandler(SBReady)
@@ -542,14 +539,8 @@ func Initialize() {
   //BuildMarkov(5, 20)
   //return
   
-  err := sb.dg.Login(strings.TrimSpace(string(discorduser)), strings.TrimSpace(string(discordpass)))
-  if err != nil {
-    sb.log.LogError("Discord login failed: ", err)
-    return; // this will close the db because we deferred db.Close()
-  }
   sb.log.LogError("Error opening websocket connection: ", sb.dg.Open());
   fmt.Println("Connection established");
-  //sb.log.LogError("Connection error", sb.dg.Listen());
   
   if sb.config.Debug { // The server does not necessarily tie a standard input to the program
     go WaitForInput()
