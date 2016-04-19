@@ -70,12 +70,14 @@ type BotConfig struct {
   Maxshutup int64          `json:"maxshutup"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
+  StatusDelayTime int      `json:"statusdelaytime"`
   Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
   BoredLines []string      `json:"boredlines"`
   Spoilers []string        `json:"spoilers"`
   WittyTriggers []string   `json:"wittytriggers"`
   WittyRemarks []string    `json:"wittyremarks"`
   Schedule []time.Time     `json:"schedule"`
+  Statuses []string        `json:"statuses"`
 }
 
 type SweetieBot struct {
@@ -193,10 +195,21 @@ func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)
   }
 }
 
+func SwapStatusLoop() {
+  for !sb.quit {
+    sz := len(sb.config.Statuses)
+    if sz > 0 {
+      sb.dg.UpdateStatus(0, sb.config.Statuses[rand.Intn(sz)])
+      fmt.Println("Changed Status")
+    }
+    time.Sleep(time.Duration(sb.config.StatusDelayTime)*time.Second)
+  }
+}
+
 //func SBEvent(s *discordgo.Session, e *discordgo.Event) { ProcessModules(sb.hooks.OnEvent_channels, "", func(i int) { if(sb.hooks.OnEvent[i].IsEnabled()) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved, waiting for guilds...")
-  
+  go SwapStatusLoop()
   sb.SelfID = r.User.ID  
 }
 
@@ -253,6 +266,8 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
   sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
+  sb.AddCommand(&AddStatusCommand{})
+  sb.AddCommand(&SetStatusCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
