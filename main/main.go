@@ -2,7 +2,10 @@ package main
 
 import (
   "../sweetiebot"
+	"io/ioutil"
 )
+
 func main() {
-  sweetiebot.Initialize()
+  token, _ := ioutil.ReadFile("token")
+  sweetiebot.Initialize(string(token))
 }
