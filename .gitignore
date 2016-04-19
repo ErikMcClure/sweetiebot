@@ -6,3 +6,4 @@ main/username
 main/client_id
 main/client_secret
 *.log
+main/token
