@@ -43,7 +43,7 @@ func (c *AddGroupCommand) Usage() string {
   return FormatUsage(c, "[name]", "Creates a new group and automatically adds you to it. Groups are automatically destroyed when everyone in the group leaves.") 
 }
 func (c *AddGroupCommand) UsageShort() string { return "Creates a new group." }
-func (c *AddGroupCommand) Roles() []string { return []string{} }
+func (c *AddGroupCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
 func (c *AddGroupCommand) Channels() []string { return []string{} }
 
 type JoinGroupCommand struct {
@@ -60,7 +60,7 @@ func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message) (strin
   arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
-    return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
+    return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
   sb.config.Groups[arg][msg.Author.ID] = true
@@ -75,33 +75,51 @@ func (c *JoinGroupCommand) UsageShort() string { return "Joins an existing group
 func (c *JoinGroupCommand) Roles() []string { return []string{} }
 func (c *JoinGroupCommand) Channels() []string { return []string{} }
 
-type ListGroupsCommand struct {
+type ListGroupCommand struct {
+}
+func (c *ListGroupCommand) Name() string {
+  return "ListGroup";  
 }
 
-func (c *ListGroupsCommand) Name() string {
-  return "ListGroups";  
-}
+func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if len(args) < 1 {
+    if len(sb.config.Groups) <= 0 {
+      return "```No groups to list!```", false
+    }
+    keys := make([]string, len(sb.config.Groups))
 
-func (c *ListGroupsCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  if len(sb.config.Groups) <= 0 {
-    return "```No groups to list!```", false
-  }
-  keys := make([]string, len(sb.config.Groups))
-
-  i := 0
-  for k := range sb.config.Groups {
-      keys[i] = k
-      i++
+    i := 0
+    for k := range sb.config.Groups {
+        keys[i] = k
+        i++
+    }
+    
+    return "```" + strings.Join(keys, ", ") + "```", false
   }
   
-  return "```" + strings.Join(keys, ", ") + "```", false
+  arg := strings.ToLower(args[0])
+  _, ok := sb.config.Groups[arg]
+  if !ok {
+    return "```That group doesn't exist! Use !listgroup with no arguments to list existing groups.```", false
+  }
+  
+  pings := make([]string, len(sb.config.Groups[arg])) 
+  
+  i := 0
+  for k := range sb.config.Groups[arg] {
+    m, _ := sb.db.GetUser(SBatoi(k))
+    pings[i] = m.Username
+    i++
+  }
+  
+  return "```" + strings.Join(pings, ", ") + "```", false
 }
-func (c *ListGroupsCommand) Usage() string { 
-  return FormatUsage(c, "", "Lists all groups in no particular order.") 
+func (c *ListGroupCommand) Usage() string { 
+  return FormatUsage(c, "[group]", "If no argument is given, lists all the current groups. If a group name is given, lists all the members of that group.") 
 }
-func (c *ListGroupsCommand) UsageShort() string { return "Lists all groups." }
-func (c *ListGroupsCommand) Roles() []string { return []string{} }
-func (c *ListGroupsCommand) Channels() []string { return []string{} }
+func (c *ListGroupCommand) UsageShort() string { return "Lists all groups." }
+func (c *ListGroupCommand) Roles() []string { return []string{} }
+func (c *ListGroupCommand) Channels() []string { return []string{} }
 
 
 type LeaveGroupCommand struct {
@@ -118,7 +136,7 @@ func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message) (stri
   arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
-    return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
+    return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
   _, ok = sb.config.Groups[arg][msg.Author.ID]
@@ -158,7 +176,7 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message) (string, bo
   arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
-    return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
+    return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
   _, ok = sb.config.Groups[arg][msg.Author.ID]
