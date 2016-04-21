@@ -201,3 +201,33 @@ func (c *PingCommand) Usage() string {
 func (c *PingCommand) UsageShort() string { return "Pings a group." }
 func (c *PingCommand) Roles() []string { return []string{} }
 func (c *PingCommand) Channels() []string { return []string{} }
+
+
+type PurgeGroupCommand struct {
+}
+
+func (c *PurgeGroupCommand) Name() string {
+  return "PurgeGroup";  
+}
+
+func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if len(args) < 1 {
+    return "```You have to provide a group name!```", false
+  }
+  arg := strings.ToLower(args[0])
+  _, ok := sb.config.Groups[arg]
+  if !ok {
+    return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
+  }
+  
+  delete(sb.config.Groups, arg)
+  sb.SaveConfig()
+  
+  return "```Deleted " + arg + "```", false
+}
+func (c *PurgeGroupCommand) Usage() string { 
+  return FormatUsage(c, "[group]", "Deletes the group, if it exists.") 
+}
+func (c *PurgeGroupCommand) UsageShort() string { return "Deletes a group." }
+func (c *PurgeGroupCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *PurgeGroupCommand) Channels() []string { return []string{} }
