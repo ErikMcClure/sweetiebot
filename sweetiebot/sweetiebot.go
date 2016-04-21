@@ -107,6 +107,7 @@ type SweetieBot struct {
   quit bool
   config BotConfig
   emotemodule *EmoteModule
+  aliases map[string]string
 }
 
 var sb *SweetieBot
@@ -179,7 +180,11 @@ func sbemotereplace(s string) string {
   return strings.Replace(s, "[](/", "[\u200B](/", -1)
 }
 
+var blockmessages = []string {"BUCK OFF", "ITS NOT WORKING", "GO AWAY", "STOP IT", "GIVE UP", "HAHAHAHA NO", "ABSOLUTELY NOT", "STOP BEING DUMB", "THIS IS SO STUPID", "BOTHER SOMEONE ELSE", "GET A JOB", "GET A LIFE"}
+ 
 func SanitizeOutput(message string) string {
+  message = strings.Replace(message, "@here", blockmessages[rand.Intn(len(blockmessages))], -1)
+  message = strings.Replace(message, "@everyone", blockmessages[rand.Intn(len(blockmessages))], -1)
   message = strings.Replace(message, "@", "@\u200b", -1)
   message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
   return message;
@@ -292,9 +297,12 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&SetStatusCommand{})
   sb.AddCommand(&AddGroupCommand{})
   sb.AddCommand(&JoinGroupCommand{})
-  sb.AddCommand(&ListGroupsCommand{})
+  sb.AddCommand(&ListGroupCommand{})
   sb.AddCommand(&LeaveGroupCommand{})
   sb.AddCommand(&PingCommand{})
+  
+  sb.aliases = make(map[string]string)
+  sb.aliases["listgroups"] = "listgroup"
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -361,7 +369,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     }
     
     args := ParseArguments(m.Content[1:])
-    c, ok := sb.commands[strings.ToLower(args[0])]
+    arg := strings.ToLower(args[0])
+    alias, ok := sb.aliases[arg]
+    if ok { arg = alias }
+    c, ok := sb.commands[arg]    
     if ok {
       cch := sb.command_channels[c.c.Name()]
       if !ch.IsPrivate && len(cch) > 0 {
