@@ -20,7 +20,7 @@ func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message) (string
   if len(args) < 1 {
     return "```You have to name the group!```", false
   }
-  arg := args[0]
+  arg := strings.ToLower(args[0])
   if !nameargregex.MatchString(arg) {
     return "```A group name must be alphanumeric, no special characters.```", false
   }
@@ -57,7 +57,7 @@ func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message) (strin
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
-  arg := args[0]
+  arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
@@ -115,7 +115,7 @@ func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message) (stri
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
-  arg := args[0]
+  arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
@@ -155,7 +155,7 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message) (string, bo
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
-  arg := args[0]
+  arg := strings.ToLower(args[0])
   _, ok := sb.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroups to list existing groups.```", false
