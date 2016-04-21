@@ -594,6 +594,17 @@ func Initialize(Token string) {
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
 
+  // Code to fix uppercase groups
+  for k, v := range sb.config.Groups {
+      l := strings.ToLower(k)
+      _, ok := sb.config.Groups[l]
+      if !ok {
+        delete(sb.config.Groups, k)
+        sb.config.Groups[l] = v
+      }
+  }
+  sb.SaveConfig()
+  
   //BuildMarkov(5, 20)
   //return
   
