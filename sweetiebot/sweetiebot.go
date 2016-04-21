@@ -72,13 +72,14 @@ type BotConfig struct {
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   StatusDelayTime int      `json:"statusdelaytime"`
-  Emotes []string          `json:"emotes"` // we can't unmarshal into a map, unfortunately
+  Emotes []string          `json:"emotes"` // TODO: go can unmarshal into map[string] types now
   BoredLines []string      `json:"boredlines"`
   Spoilers []string        `json:"spoilers"`
   WittyTriggers []string   `json:"wittytriggers"`
   WittyRemarks []string    `json:"wittyremarks"`
   Schedule []time.Time     `json:"schedule"`
   Statuses []string        `json:"statuses"`
+  Groups map[string]map[string]bool `json:"groups"`
 }
 
 type SweetieBot struct {
@@ -178,10 +179,13 @@ func sbemotereplace(s string) string {
   return strings.Replace(s, "[](/", "[\u200B](/", -1)
 }
 
-func (sbot *SweetieBot) SendMessage(channelID string, message string) {
+func SanitizeOutput(message string) string {
   message = strings.Replace(message, "@", "@\u200b", -1)
   message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
-  sbot.dg.ChannelMessageSend(channelID, message);
+  return message;
+}
+func (sbot *SweetieBot) SendMessage(channelID string, message string) {
+  sbot.dg.ChannelMessageSend(channelID, SanitizeOutput(message));
 }
 
 func ProcessModules(channels []map[uint64]bool, channelID string, fn func(i int)) {
@@ -286,6 +290,11 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
   sb.AddCommand(&AddStatusCommand{})
   sb.AddCommand(&SetStatusCommand{})
+  sb.AddCommand(&AddGroupCommand{})
+  sb.AddCommand(&JoinGroupCommand{})
+  sb.AddCommand(&ListGroupsCommand{})
+  sb.AddCommand(&LeaveGroupCommand{})
+  sb.AddCommand(&PingCommand{})
   
   GenChannels(len(sb.hooks.OnEvent), &sb.hooks.OnEvent_channels, func(i int) []string { return sb.hooks.OnEvent[i].Channels() })
   GenChannels(len(sb.hooks.OnTypingStart), &sb.hooks.OnTypingStart_channels, func(i int) []string { return sb.hooks.OnTypingStart[i].Channels() })
@@ -534,7 +543,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.0",
+    version: "0.5.1",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},

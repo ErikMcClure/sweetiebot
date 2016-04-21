@@ -70,23 +70,13 @@ type AddSpoilerCommand struct {
 func (c *AddSpoilerCommand) Name() string {
   return "AddSpoiler";  
 }
-func (c *AddSpoilerCommand) Unban(spoiler string) bool {
-  spoiler = strings.ToLower(spoiler)
-  for i := 0; i < len(sb.config.Spoilers); i++ {
-    if strings.ToLower(sb.config.Spoilers[i]) == spoiler {
-      sb.config.Spoilers = append(sb.config.Spoilers[:i], sb.config.Spoilers[i+1:]...)
-      return true
-    }
-  }
-  return false
-}
 func (c *AddSpoilerCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
   if len(args) < 1 {
     return "```Nothing specified.```", false
   }
   if strings.ToLower(args[0]) == "unspoiler" {
     arg := strings.Join(args[1:], " ")
-    if !c.Unban(arg) {
+    if !RemoveSliceString(&sb.config.Spoilers, arg) {
       return "```Could not find " + arg + "!```", false
     }
     sb.SaveConfig()
@@ -99,7 +89,7 @@ func (c *AddSpoilerCommand) Process(args []string, msg *discordgo.Message) (stri
   sb.SaveConfig()
   r := c.spoilers.UpdateRegex()
   if !r {
-    c.Unban(arg)
+    RemoveSliceString(&sb.config.Spoilers, arg)
     c.spoilers.UpdateRegex()
     return "```Failed to ban " + arg + " because regex compilation failed.```", false
   }

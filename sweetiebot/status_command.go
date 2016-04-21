@@ -11,23 +11,13 @@ type AddStatusCommand struct {
 func (c *AddStatusCommand) Name() string {
   return "AddStatus";  
 }
-func (c *AddStatusCommand) Remove(status string) bool {
-  status = strings.ToLower(status)
-  for i := 0; i < len(sb.config.Statuses); i++ {
-    if strings.ToLower(sb.config.Statuses[i]) == status {
-      sb.config.Statuses = append(sb.config.Statuses[:i], sb.config.Statuses[i+1:]...)
-      return true
-    }
-  }
-  return false
-}
 func (c *AddStatusCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
   if len(args) < 1 {
     return "```Nothing specified.```", false
   }
   if strings.ToLower(args[0]) == "remove" {
     arg := strings.Join(args[1:], " ")
-    if !c.Remove(arg) {
+    if !RemoveSliceString(&sb.config.Statuses, arg) {
       return "```Could not find " + arg + "!```", false
     }
     sb.SaveConfig()

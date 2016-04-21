@@ -65,22 +65,13 @@ type BanEmoteCommand struct {
 func (c *BanEmoteCommand) Name() string {
   return "BanEmote";  
 }
-func (c *BanEmoteCommand) Unban(emote string) bool {
-  for i := 0; i < len(sb.config.Emotes); i++ {
-    if sb.config.Emotes[i] == emote {
-      sb.config.Emotes = append(sb.config.Emotes[:i], sb.config.Emotes[i+1:]...)
-      return true
-    }
-  }
-  return false
-}
 func (c *BanEmoteCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
   if len(args) < 1 {
     return "```No emote specified.```", false
   }
   if len(args) >= 2 {
     if strings.ToLower(args[1]) == "unban" {
-      if !c.Unban(args[0]) {
+      if !RemoveSliceString(&sb.config.Emotes, args[0]) {
         return "```Could not find " + args[0] + "! Remember that emotes are case-sensitive.```", false
       }
       sb.SaveConfig()
@@ -94,7 +85,7 @@ func (c *BanEmoteCommand) Process(args []string, msg *discordgo.Message) (string
   sb.SaveConfig()
   r := c.emotes.UpdateRegex()
   if !r {
-    c.Unban(args[0])
+    RemoveSliceString(&sb.config.Emotes, args[0])
     c.emotes.UpdateRegex()
     return "```Failed to ban " + args[0] + " because regex compilation failed.```", false
   }

@@ -183,3 +183,23 @@ func BuildMarkov(season_start int, episode_start int) {
     }
   }
 }
+
+func RemoveSliceString(s *[]string, item string) bool {
+  for i := 0; i < len(*s); i++ {
+    if (*s)[i] == item {
+      *s = append((*s)[:i], (*s)[i+1:]...)
+      return true
+    }
+  }
+  return false
+}
+
+func RemoveSliceInt(s *[]uint64, item uint64) bool {
+  for i := 0; i < len(*s); i++ {
+    if (*s)[i] == item {
+      *s = append((*s)[:i], (*s)[i+1:]...)
+      return true
+    }
+  }
+  return false
+}
