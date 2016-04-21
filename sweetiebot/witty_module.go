@@ -105,7 +105,7 @@ type AddWitCommand struct {
 func (c *AddWitCommand) Name() string {
   return "AddWit";  
 }
-func (c *AddWitCommand) Unban(wit string) bool {
+func (c *AddWitCommand) Remove(wit string) bool {
   wit = strings.ToLower(wit)
   for i := 0; i < len(sb.config.WittyTriggers); i++ {
     if strings.ToLower(sb.config.WittyTriggers[i]) == wit {
@@ -122,7 +122,7 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, 
   }
   if strings.ToLower(args[1]) == "removetrigger" {
     arg := args[0]
-    if !c.Unban(arg) {
+    if !c.Remove(arg) {
       return "```Could not find " + arg + "!```", false
     }
     sb.SaveConfig()
@@ -137,7 +137,7 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, 
   sb.SaveConfig()
   r := c.wit.UpdateRegex()
   if !r {
-    c.Unban(trigger)
+    c.Remove(trigger)
     c.wit.UpdateRegex()
     return "```Failed to add " + trigger + " because regex compilation failed.```", false
   }
