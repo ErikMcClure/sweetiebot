@@ -24,10 +24,14 @@ func (w *PingModule) Channels() []string {
 func (w *PingModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   w.OnMessageUpdate(s, m)
 }
-  
-func (w *PingModule)  OnMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
+
+func SBAddPings(m *discordgo.Message) {
   id := SBatoi(m.ID)
   for _, v := range m.Mentions {
     sb.db.AddPing(id, SBatoi(v.ID))
   }
+}
+
+func (w *PingModule)  OnMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
+  SBAddPings(m)
 }

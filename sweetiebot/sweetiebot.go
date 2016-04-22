@@ -344,6 +344,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
   if m.Author.ID == sb.SelfID || m.ChannelID == sb.LogChannelID { // ALWAYS discard any of our own messages or our log messages before analysis.
+    SBAddPings(m.Message) // If we're discarding a message we still need to add any pings to the ping table
     return
   }
   
@@ -555,7 +556,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.1",
+    version: "0.5.2",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
