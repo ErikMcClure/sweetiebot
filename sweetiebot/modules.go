@@ -100,6 +100,7 @@ type ModuleEnabledInterface interface {
 }
 type ModuleEnabled struct {
   enabled bool
+  channels *map[uint64]bool
 }
 
 // Modules monitor all incoming messages and users that have joined a given channel.
@@ -108,6 +109,8 @@ type Module interface {
   Name() string
   Register(hooks *ModuleHooks)
   Channels() []string // If no channels are specified, runs on all channels (except bot-log)
+  SetChannelMap(*map[uint64]bool)
+  GetChannelMap() *map[uint64]bool
 }
 
 // Commands are any command that is addressed to the bot, optionally restricted by role.
@@ -125,6 +128,12 @@ func (m *ModuleEnabled) IsEnabled() bool {
 }
 func (m *ModuleEnabled) Enable(b bool) {
   m.enabled = b
+}
+func (m *ModuleEnabled) SetChannelMap(c *map[uint64]bool) {
+  m.channels = c
+}
+func (m *ModuleEnabled) GetChannelMap() *map[uint64]bool {
+  return m.channels
 }
 
 func GetActiveModules() string {
