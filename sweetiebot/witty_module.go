@@ -18,7 +18,7 @@ type WittyModule struct {
   triggerregex []*regexp.Regexp
   remarks [][]string
 }
-
+  
 func (w *WittyModule) Name() string {
   return "Witty"
 }

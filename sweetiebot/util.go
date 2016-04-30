@@ -23,6 +23,7 @@ func TimeDiff(d time.Duration) string {
 }
 
 func SBatoi(s string) uint64 {
+  if s[:1] == "!" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)
   if err != nil { 
     sb.log.Log("Invalid number ", s, ":", err.Error())
