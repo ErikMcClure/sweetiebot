@@ -40,8 +40,31 @@ func (c *AKACommand) Name() string {
   return "aka";  
 }
 func (c *AKACommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  id, fail := ReadUserPingArg(args)
-  if fail != "" { return fail, false }
+  if len(args) < 1 {
+    return "```You must provide a user to search for.```", false
+  }
+  arg := strings.Join(args, " ")
+  var id uint64
+  if userregex.MatchString(arg) {
+    id = SBatoi(arg[2:len(arg)-1])   
+  } else {
+      IDs := sb.db.FindUsers("%" + arg + "%", 20, 0)
+      if len(IDs) == 0 { // no matches!
+        return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+      }
+      if len(IDs) > 1 {
+        s := []string{}
+        
+        for _, v := range IDs {
+          u, _ := sb.db.GetUser(v)
+          s = append(s, u.Username)
+        }
+        
+        return "```Could be any of the following users or their aliases:\n" + strings.Join(s, "\n") + "```", len(s) > 5
+      }
+      id = IDs[0]
+  }
+  
   r := sb.db.GetAliases(id)
   u, _ := sb.db.GetUser(id)
   return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)

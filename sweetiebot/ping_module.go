@@ -7,6 +7,7 @@ import (
 // This module sucks up all the pings in a message and adds them to the database for the !lastping command
 type PingModule struct {
   ModuleEnabled
+  channels *map[uint64]bool
 }
 
 func (w *PingModule) Name() string {

@@ -9,6 +9,14 @@ import (
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
   tracker map[uint64]*SaturationLimit
+  channels *map[uint64]bool
+}
+
+func (w *SpamModule) SetChannelMap(c *map[uint64]bool) {
+  w.channels = c
+}
+func (w *SpamModule) GetChannelMap() *map[uint64]bool {
+  return w.channels
 }
 
 func (w *SpamModule) Name() string {
