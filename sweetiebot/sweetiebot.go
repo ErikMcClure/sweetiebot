@@ -58,7 +58,7 @@ type BotConfig struct {
   StatusDelayTime int      `json:"statusdelaytime"`
   Emotes []string          `json:"emotes"` // TODO: go can unmarshal into map[string] types now
   BoredLines []string      `json:"boredlines"`
-  Spoilers []string        `json:"spoilers"`
+  Spoilers map[string]bool `json:"spoilers"`
   WittyTriggers []string   `json:"wittytriggers"`
   WittyRemarks []string    `json:"wittyremarks"`
   Schedule []time.Time     `json:"schedule"`
@@ -275,6 +275,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&ShipCommand{})
   sb.AddCommand(&AddBoredCommand{})
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
+  sb.AddCommand(&RemoveSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
   sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
   sb.AddCommand(&AddStatusCommand{})
