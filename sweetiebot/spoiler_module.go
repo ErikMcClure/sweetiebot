@@ -58,7 +58,7 @@ func (w *SpoilerModule) UpdateRegex() bool {
     return true
   }
   var err error
-  w.spoilerban, err = regexp.Compile("(" + strings.Join(sb.config.Spoilers, "|") + ")")
+  w.spoilerban, err = regexp.Compile("(" + strings.Join(MapToSlice(sb.config.Spoilers), "|") + ")")
   return err == nil
 }
 
@@ -74,30 +74,52 @@ func (c *AddSpoilerCommand) Process(args []string, msg *discordgo.Message) (stri
   if len(args) < 1 {
     return "```Nothing specified.```", false
   }
-  if strings.ToLower(args[0]) == "unspoiler" {
-    arg := strings.Join(args[1:], " ")
-    if !RemoveSliceString(&sb.config.Spoilers, arg) {
-      return "```Could not find " + arg + "!```", false
-    }
-    sb.SaveConfig()
-    c.spoilers.UpdateRegex()
-    return "```Unspoilered " + arg + " and recompiled the spoiler regex.```", false
-  }
   
   arg := strings.Join(args, " ")
-  sb.config.Spoilers = append(sb.config.Spoilers, arg)
+  if len(sb.config.Spoilers) <= 0 {
+    sb.config.Spoilers = make(map[string]bool)
+  }
+  sb.config.Spoilers[arg] = true
   sb.SaveConfig()
   r := c.spoilers.UpdateRegex()
   if !r {
-    RemoveSliceString(&sb.config.Spoilers, arg)
+    delete(sb.config.Spoilers, arg)
     c.spoilers.UpdateRegex()
     return "```Failed to ban " + arg + " because regex compilation failed.```", false
   }
   return "```Banned " + arg + " and recompiled the spoiler regex.```", false
 }
 func (c *AddSpoilerCommand) Usage() string { 
-  return FormatUsage(c, "[unspoiler] [arbitrary string]", "Adds a line to spoilers (no quotes are required). This is used in a regex, so regex symbols are valid. If unspoiler is specified as the first word, unspoilers the spoiler instead.") 
+  return FormatUsage(c, "[arbitrary string]", "Adds a line to spoilers (no quotes are required). This is used in a regex, so regex symbols are valid.") 
 }
 func (c *AddSpoilerCommand) UsageShort() string { return "Adds a line to spoilers." }
 func (c *AddSpoilerCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
 func (c *AddSpoilerCommand) Channels() []string { return []string{} }
+
+type RemoveSpoilerCommand struct {
+  spoilers *SpoilerModule
+}
+
+func (c *RemoveSpoilerCommand) Name() string {
+  return "RemoveSpoiler";  
+}
+func (c *RemoveSpoilerCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
+  if len(args) < 1 {
+    return "```Nothing specified.```", false
+  }
+  arg := strings.Join(args, " ")
+  _, ok := sb.config.Spoilers[arg]
+  if !ok {
+    return "```Could not find " + arg + "!```", false
+  }
+  delete(sb.config.Spoilers, arg)
+  sb.SaveConfig()
+  c.spoilers.UpdateRegex()
+  return "```Unspoilered " + arg + " and recompiled the spoiler regex.```", false
+}
+func (c *RemoveSpoilerCommand) Usage() string { 
+  return FormatUsage(c, "[arbitrary string]", "Removes a line from spoilers (no quotes are required).") 
+}
+func (c *RemoveSpoilerCommand) UsageShort() string { return "Removes a line from spoilers." }
+func (c *RemoveSpoilerCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *RemoveSpoilerCommand) Channels() []string { return []string{} }
