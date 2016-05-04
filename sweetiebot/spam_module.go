@@ -46,8 +46,8 @@ func KillSpammer(u *discordgo.User) {
   
   sb.log.Log("Killing spammer ", u.Username)
   
-  sb.dg.GuildMemberEdit(sb.GuildID, m.User.ID, m.Roles) // Tell discord to make this spammer silent
-  messages := sb.db.GetRecentMessages(SBatoi(m.User.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
+  sb.dg.GuildMemberEdit(sb.GuildID, u.ID, m.Roles) // Tell discord to make this spammer silent
+  messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
 
   for _, v := range messages {
     sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))

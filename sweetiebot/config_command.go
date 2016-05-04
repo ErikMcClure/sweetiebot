@@ -4,6 +4,7 @@ import (
   "github.com/bwmarrin/discordgo"
   "encoding/json"
   "strings"
+  "reflect"
 )
 
 type SetConfigCommand struct {
@@ -39,17 +40,33 @@ func (c *GetConfigCommand) Name() string {
   return "GetConfig";  
 }
 func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  data, err := json.Marshal(sb.config)
-  s := string(data);
-  s = strings.Replace(s,"`","",-1)
-  s = strings.Replace(s, "[](/", "[\u200B](/", -1)
-  s = strings.Replace(s, "http://", "http\u200B://", -1)
-  s = strings.Replace(s, "https://", "https\u200B://", -1)
-  if err == nil {
-    return "```" + s + "```", false
+  t := reflect.ValueOf(&sb.config).Elem()
+  n := t.NumField()
+  if len(args) < 1 {
+    s := make([]string, 0, n)
+    for i := 0; i < n; i++ {
+      s = append(s, strings.ToLower(t.Type().Field(i).Name))
+    }
+    return "```Choose a config option to display:\n" + strings.Join(s, "\n") + "```", false
   }
-  sb.log.Log("JSON error: ", err.Error())
-  return "```Failed to marshal JSON :C```", false
+  arg := args[0]
+  for i := 0; i < n; i++ {
+    if strings.ToLower(t.Type().Field(i).Name) == arg {
+      data, err := json.Marshal(t.Field(i).Interface())
+      s := string(data);
+      s = strings.Replace(s,"`","",-1)
+      s = strings.Replace(s, "[](/", "[\u200B](/", -1)
+      s = strings.Replace(s, "http://", "http\u200B://", -1)
+      s = strings.Replace(s, "https://", "https\u200B://", -1)
+      if err == nil {
+        return "```" + s + "```", false
+      }
+      sb.log.Log("JSON error: ", err.Error())
+      return "```Failed to marshal JSON :C```", false
+    }
+  }
+  
+  return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options```", false
 }
 func (c *GetConfigCommand) Usage() string { 
   return FormatUsage(c, "", "Returns the current configuration as a JSON string.") 

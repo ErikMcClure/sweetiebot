@@ -27,20 +27,22 @@ func (w *BoredModule) Channels() []string {
 }
  
 func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
-  if RateLimit(&w.lastmessage, w.IdlePeriod()) && CheckShutup(c.ID) {
+  id := c.ID
+  
+  if RateLimit(&w.lastmessage, w.IdlePeriod()) && CheckShutup(id) {
     switch rand.Intn(3) {
       case 0:
         q := &QuoteCommand{};
-        m := &discordgo.Message{ChannelID: c.ID}
+        m := &discordgo.Message{ChannelID: id}
         r, _ := q.Process([]string{}, m) // We pass in nil for the user because this particular function ignores it.
-        sb.SendMessage(c.ID, r) 
+        sb.SendMessage(id, r) 
       case 1:
-        m := &discordgo.Message{ChannelID: c.ID}
+        m := &discordgo.Message{ChannelID: id}
         r, _ := w.Episodegen.Process([]string{"2"}, m)
-        sb.SendMessage(c.ID, r)
+        sb.SendMessage(id, r)
       case 2:
         if len(sb.config.BoredLines) > 0 {
-          sb.SendMessage(c.ID, sb.config.BoredLines[rand.Intn(len(sb.config.BoredLines))])
+          sb.SendMessage(id, sb.config.BoredLines[rand.Intn(len(sb.config.BoredLines))])
         }
     }
   }

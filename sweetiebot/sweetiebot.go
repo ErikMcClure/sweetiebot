@@ -242,6 +242,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.emotemodule = &EmoteModule{}
   spoilermodule := &SpoilerModule{}
   wittymodule := &WittyModule{}
+  sb.modules = make([]Module, 0, 6)
   sb.modules = append(sb.modules, &SpamModule{})
   sb.modules = append(sb.modules, &PingModule{})
   sb.modules = append(sb.modules, sb.emotemodule)
@@ -517,9 +518,11 @@ func GenChannels(m Module) {
 }
 
 func IdleCheckLoop() {
+  id := sb.ManeChannelID
+  if sb.config.Debug { id = sb.DebugChannelID } // override this in debug mode
   for !sb.quit {
-    c, _ := sb.dg.State.Channel(sb.ManeChannelID)
-    t := sb.db.GetLatestMessage(SBatoi(sb.ManeChannelID))
+    c, _ := sb.dg.State.Channel(id)
+    t := sb.db.GetLatestMessage(SBatoi(id))
     diff := SinceUTC(t);
     for _, v := range sb.hooks.OnIdle {
       if v.IsEnabled() && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
@@ -541,7 +544,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.2",
+    version: "0.5.3",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
@@ -553,7 +556,7 @@ func Initialize(Token string) {
   
   errjson := json.Unmarshal(config, &sb.config)
   if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
-  fmt.Println("Config settings: ", sb.config)
+  //fmt.Println("Config settings: ", sb.config)
   
   sb.commandlimit.times = make([]int64, sb.config.Commandperduration*2, sb.config.Commandperduration*2);
   
