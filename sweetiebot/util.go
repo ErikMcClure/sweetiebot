@@ -185,6 +185,14 @@ func BuildMarkov(season_start int, episode_start int) {
   }
 }
 
+func MapToSlice(m map[string]bool) []string {
+  s := make([]string, 0, len(m))
+  for k, _ := range m {
+    s = append(s, k)
+  }
+  return s
+}
+
 func RemoveSliceString(s *[]string, item string) bool {
   for i := 0; i < len(*s); i++ {
     if (*s)[i] == item {
