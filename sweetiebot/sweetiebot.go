@@ -89,6 +89,7 @@ type SweetieBot struct {
   disablecommands map[string]bool
   princessrole map[uint64]bool
   quit bool
+  initialized bool
   config BotConfig
   emotemodule *EmoteModule
   aliases map[string]string
@@ -224,6 +225,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 }
 
 func AttachToGuild(g *discordgo.Guild) {
+  if sb.initialized {
+    sb.log.Log("Multiple initialization detected - quitting and restarting")
+    sb.quit = true
+    return
+  }
+  sb.initialized = true
   fmt.Println("Initializing...")
   ProcessGuild(g);
   
@@ -553,6 +560,7 @@ func Initialize(Token string) {
     disablecommands: make(map[string]bool),
     princessrole: make(map[uint64]bool),
     lastshutup: 0,
+    initialized: false,
   }
   
   errjson := json.Unmarshal(config, &sb.config)
