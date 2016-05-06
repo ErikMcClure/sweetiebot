@@ -165,12 +165,7 @@ func sbemotereplace(s string) string {
   return strings.Replace(s, "[](/", "[\u200B](/", -1)
 }
 
-var blockmessages = []string {"BUCK OFF", "ITS NOT WORKING", "GO AWAY", "STOP IT", "GIVE UP", "HAHAHAHA NO", "ABSOLUTELY NOT", "STOP BEING DUMB", "THIS IS SO STUPID", "BOTHER SOMEONE ELSE", "GET A JOB", "GET A LIFE"}
- 
 func SanitizeOutput(message string) string {
-  message = strings.Replace(message, "@here", blockmessages[rand.Intn(len(blockmessages))], -1)
-  message = strings.Replace(message, "@everyone", blockmessages[rand.Intn(len(blockmessages))], -1)
-  message = strings.Replace(message, "@", "@\u200b", -1)
   message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
   return message;
 }
@@ -552,7 +547,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.3",
+    version: "0.5.4",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
