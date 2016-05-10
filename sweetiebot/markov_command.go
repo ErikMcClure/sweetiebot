@@ -22,24 +22,34 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message) (stri
   }
   defer c.lock.clear()
   maxlines := sb.config.Defaultmarkovlines
+  double := true
   if len(args) > 0 {
     maxlines, _ = strconv.Atoi(args[0])
+  }
+  if len(args) > 1 {
+    double = (strings.ToLower(args[1]) != "single")
   }
   if maxlines > sb.config.Maxmarkovlines { maxlines = sb.config.Maxmarkovlines }
   if maxlines <= 0 { maxlines = 1 }
   var prev uint64
+  var prev2 uint64
   prev = 0
+  prev2 = 0
   lines := make([]string, 0, maxlines)
   line := ""
   for i := 0; i < maxlines; i++ {
-    line, prev = sb.db.GetMarkovLine(prev)
+    if double {
+      line, prev, prev2 = sb.db.GetMarkovLine2(prev, prev2)
+    } else {
+      line, prev = sb.db.GetMarkovLine(prev)
+    }
     lines = append(lines, line);
   }
   
   return strings.Join(lines, "\n"), len(lines)>5 || !CheckShutup(msg.ChannelID)
 }
 func (c *EpisodeGenCommand) Usage() string { 
-  return FormatUsage(c, "[lines]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5.") 
+  return FormatUsage(c, "[lines] [single]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5. Uses double-lookback by default, but can revert to single-lookback if [single] is specified.") 
 }
 func (c *EpisodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
 func (c *EpisodeGenCommand) Roles() []string { return []string{} }
@@ -165,3 +175,34 @@ func (c *ShipCommand) Usage() string {
 func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
 func (c *ShipCommand) Roles() []string { return []string{} }
 func (c *ShipCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
+
+
+type BestPonyCommand struct {
+}
+
+func (c *BestPonyCommand) Name() string {
+  return "BestPony";  
+}
+func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if !CheckShutup(msg.ChannelID) { return "", false }
+  a := strings.ToLower(sb.db.GetRandomWord())
+  b := strings.ToLower(sb.db.GetRandomWord())
+  s := ""
+  switch rand.Int31n(3) {
+    case 0:
+      s = "%s %s is best pony."
+    case 1:
+      s = "%s %s is the bestest pony."
+    case 2:
+      s = "%s %s is the best pony."
+  }
+  
+  return fmt.Sprintf("```" + s + "```", strings.ToUpper(a[:1]) + a[1:], strings.ToUpper(b[:1]) + b[1:]), false
+}
+func (c *BestPonyCommand) Usage() string { 
+  return FormatUsage(c, "", "Generates a random pony name.") 
+}
+func (c *BestPonyCommand) UsageShort() string { return "Generates a random pony name." }
+func (c *BestPonyCommand) Roles() []string { return []string{} }
+func (c *BestPonyCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
+

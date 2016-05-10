@@ -32,6 +32,7 @@ type BotDB struct {
   sql_RemoveTranscript *sql.Stmt
   sql_AddMarkov *sql.Stmt
   sql_GetMarkovLine *sql.Stmt
+  sql_GetMarkovLine2 *sql.Stmt
   sql_GetMarkovWord *sql.Stmt
   sql_GetRandomQuoteInt *sql.Stmt
   sql_GetRandomQuote *sql.Stmt
@@ -41,8 +42,11 @@ type BotDB struct {
   sql_GetCharacterQuote *sql.Stmt
   sql_GetRandomSpeakerInt *sql.Stmt
   sql_GetRandomSpeaker *sql.Stmt
+  sql_GetRandomWordInt *sql.Stmt
+  sql_GetRandomWord *sql.Stmt
   sql_GetTableCounts *sql.Stmt
   sql_Log *sql.Stmt
+  sql_ResetMarkov *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -70,26 +74,27 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 
 func (db *BotDB) LoadStatements() error {
   var err error;
-  db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)");
+  db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)")
   db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
   db.sql_GetLatestMessage, err = db.Prepare("SELECT Timestamp FROM chatlog WHERE Channel = ? ORDER BY Timestamp DESC LIMIT 1")
-  db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message");
-  db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR (C.Everyone = 1 AND C.Channel != ?) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?");
-  db.sql_GetPingContext, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?");
-  db.sql_GetPingContextBefore, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?");
-  db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)");
-  db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?");
-  db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?");
-  db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?");
-  db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)");
-  db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)");
+  db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message")
+  db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR (C.Everyone = 1 AND C.Channel != ?) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
+  db.sql_GetPingContext, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
+  db.sql_GetPingContextBefore, err  = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
+  db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
+  db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
+  db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?")
+  db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
+  db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)")
+  db.sql_UpdateUserJoinTime, err = db.Prepare("CALL UpdateUserJoinTime(?, ?)")
   db.sql_GetNewestUsers, err = db.Prepare("SELECT Username, FirstSeen, LastSeen FROM users ORDER BY FirstSeen DESC LIMIT ?")
   db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
   db.sql_AddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
   db.sql_GetTranscript, err = db.Prepare("SELECT Season, Episode, Line, Speaker, Text FROM transcripts WHERE Season = ? AND Episode = ? AND Line >= ? AND LINE <= ?")
   db.sql_RemoveTranscript, err = db.Prepare("DELETE FROM transcripts WHERE Season = ? AND Episode = ? AND Line = ?")
-  db.sql_AddMarkov, err = db.Prepare("SELECT AddMarkov(?,?,?)")
+  db.sql_AddMarkov, err = db.Prepare("SELECT AddMarkov(?,?,?,?)")
   db.sql_GetMarkovLine, err = db.Prepare("SELECT GetMarkovLine(?)")
+  db.sql_GetMarkovLine2, err = db.Prepare("SELECT GetMarkovLine2(?,?)")
   db.sql_GetMarkovWord, err = db.Prepare("SELECT Phrase FROM markov_transcripts WHERE SpeakerID = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = ?) AND Phrase = ?")
   db.sql_GetRandomQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Text != ''))")
   db.sql_GetRandomQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Text != '' LIMIT 1 OFFSET ?")
@@ -99,8 +104,11 @@ func (db *BotDB) LoadStatements() error {
   db.sql_GetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
   db.sql_GetRandomSpeakerInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM markov_transcripts_speaker))+1") // We add one here because the speaker IDs start at 1 instead of 0 (because the database is stupid)
   db.sql_GetRandomSpeaker, err = db.Prepare("SELECT Speaker FROM markov_transcripts_speaker WHERE ID = ?")
+  db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))") 
+  db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
   db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows')")
-  db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))");
+  db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))")
+  db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
   
   return err
 }
@@ -306,9 +314,9 @@ func (db *BotDB) RemoveTranscript(season int, episode int, line int) {
   _, err := db.sql_RemoveTranscript.Exec(season, episode, line)
   db.log.LogError("RemoveTranscript error: ", err)
 }
-func (db *BotDB) AddMarkov(last uint64, speaker string, text string) uint64 {
+func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text string) uint64 {
   var id uint64
-  err := db.sql_AddMarkov.QueryRow(last, speaker, text).Scan(&id)
+  err := db.sql_AddMarkov.QueryRow(last, last2, speaker, text).Scan(&id)
   db.log.LogError("AddMarkov error: ", err)
   return id
 }
@@ -323,6 +331,18 @@ func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
     return str[0], 0
   }
   return str[0], SBatoi(str[1])
+}
+
+func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint64) {
+  var r sql.NullString
+  err := db.sql_GetMarkovLine2.QueryRow(last, last2).Scan(&r)
+  db.log.LogError("GetMarkovLine error: ", err)
+  if !r.Valid { return "", 0, 0 }
+  str := strings.SplitN(r.String, "|", 3) // Being unable to call stored procedures makes this unnecessarily complex
+  if len(str) < 3 || len(str[1])<1 || len(str[2])<1 {
+    return str[0], 0, 0
+  }
+  return str[0], SBatoi(str[1]), SBatoi(str[2])
 }
 func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
   var r string
@@ -366,5 +386,14 @@ func (db *BotDB) GetRandomSpeaker() string {
   var p string
   err = db.sql_GetRandomSpeaker.QueryRow(i).Scan(&p)
   db.log.LogError("GetRandomSpeaker error: ", err)
+  return p
+}
+func (db *BotDB) GetRandomWord() string {
+  var i uint64
+  err := db.sql_GetRandomWordInt.QueryRow().Scan(&i)
+  db.log.LogError("GetRandomWordInt error: ", err)
+  var p string
+  err = db.sql_GetRandomWord.QueryRow(i).Scan(&p)
+  db.log.LogError("GetRandomWord error: ", err)
   return p
 }
