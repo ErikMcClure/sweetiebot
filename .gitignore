@@ -10,3 +10,4 @@ main/token
 *.jpg
 *.png
 main/email
+sweetiebot_data.sql

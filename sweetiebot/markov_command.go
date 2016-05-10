@@ -43,7 +43,11 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message) (stri
     } else {
       line, prev = sb.db.GetMarkovLine(prev)
     }
-    lines = append(lines, line);
+    if len(line) > 0 {
+      lines = append(lines, line);
+    } else {
+      maxlines++
+    }
   }
   
   return strings.Join(lines, "\n"), len(lines)>5 || !CheckShutup(msg.ChannelID)
