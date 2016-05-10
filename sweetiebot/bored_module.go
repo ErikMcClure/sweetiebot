@@ -30,7 +30,7 @@ func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
   id := c.ID
   
   if RateLimit(&w.lastmessage, w.IdlePeriod()) && CheckShutup(id) {
-    switch rand.Intn(3) {
+    switch rand.Intn(4) {
       case 0:
         q := &QuoteCommand{};
         m := &discordgo.Message{ChannelID: id}
@@ -44,6 +44,11 @@ func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
         if len(sb.config.BoredLines) > 0 {
           sb.SendMessage(id, sb.config.BoredLines[rand.Intn(len(sb.config.BoredLines))])
         }
+      case 3:
+        q := &BestPonyCommand{};
+        m := &discordgo.Message{ChannelID: id}
+        r, _ := q.Process([]string{}, m) // We pass in nil for the user because this particular function ignores it.
+        sb.SendMessage(id, r) 
     }
   }
 }
