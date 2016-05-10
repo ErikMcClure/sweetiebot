@@ -288,6 +288,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&LeaveGroupCommand{})
   sb.AddCommand(&PingCommand{})
   sb.AddCommand(&PurgeGroupCommand{})
+  sb.AddCommand(&BestPonyCommand{})
   
   sb.aliases = make(map[string]string)
   sb.aliases["listgroups"] = "listgroup"
@@ -547,7 +548,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.4",
+    version: "0.5.5",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
@@ -598,19 +599,8 @@ func Initialize(Token string) {
   sb.log.Init(sb)
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
-
-  // Code to fix uppercase groups
-  for k, v := range sb.config.Groups {
-      l := strings.ToLower(k)
-      _, ok := sb.config.Groups[l]
-      if !ok {
-        delete(sb.config.Groups, k)
-        sb.config.Groups[l] = v
-      }
-  }
-  sb.SaveConfig()
   
-  //BuildMarkov(5, 20)
+  //BuildMarkov(1, 1)
   //return
   
   sb.log.LogError("Error opening websocket connection: ", sb.dg.Open());

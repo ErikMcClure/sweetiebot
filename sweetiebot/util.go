@@ -142,15 +142,30 @@ func IngestEpisode(file string, season int, episode int) {
   }
 }
 
+func SplitSpeaker(speaker string) []string {
+  speakers := strings.Split(strings.Replace(speaker, ", and", " and", -1), " and ")
+  speakers = append(strings.Split(speakers[0], ","), speakers[1:]...)
+  for i, s := range speakers {
+    speakers[i] = strings.Trim(strings.TrimSpace(strings.Replace(s, "Young", "", -1)), "\"")
+  }
+  return speakers
+}
+
 func BuildMarkov(season_start int, episode_start int) {
   regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
   
+  sb.db.sql_ResetMarkov.Exec()
+    
+  var cur uint64
   var prev uint64
+  var prev2 uint64
   for season := season_start; season <= 5; season++ {
     for episode := episode_start; episode <= 26; episode++ {
       fmt.Println("Begin Episode", episode, "Season", season)
       prev = 0
+      prev2 = 0
       lines := sb.db.GetTranscript(season, episode, 0, 999999)
+      //lines := []Transcript{ {1, 1, 1, "Twilight", "Twilight went to the bakery to buy some cakes."}, {1, 1, 1, "Twilight", "Twilight went to the library to buy some books"} }
       fmt.Println("Got", len(lines), "lines")
       
       for i := 0; i < len(lines); i++ {
@@ -158,26 +173,41 @@ func BuildMarkov(season_start int, episode_start int) {
           if lines[i].Speaker != "ACTION" {
             fmt.Println("UNKNOWN SPEAKER: ", lines[i].Speaker)
           }
-          prev = sb.db.AddMarkov(prev, lines[i].Speaker, "")
+          cur = sb.db.AddMarkov(prev, prev2, lines[i].Speaker, "")
+          prev2 = 0
+          prev = cur // Cur will always be 0 here.
           continue
         }
         words := regex.FindAllString(lines[i].Text, -1)
-        for j := 0; j < len(words); j++ {
-          l := len(words[j])
-          ch := words[j][l-1]
-          switch ch {
-            case '.', '!', '?':
-              words[j] = words[j][:l-1]
+        speakers := SplitSpeaker(lines[i].Speaker)
+        for _, speaker := range speakers {
+          if len(speaker) == 0 {
+            fmt.Println("EMPTY SPEAKER GENERATED FROM \"" + lines[i].Speaker + "\" ON LINE: ", lines[i].Text);
+            fmt.Println(speakers)
           }
-          if sb.db.GetMarkovWord(lines[i].Speaker, words[j]) != words[j] {
-            words[j] = strings.ToLower(words[j])
-          }
-          prev = sb.db.AddMarkov(prev, lines[i].Speaker, words[j])
-          
-          switch ch {
-            case '.', '!', '?':
-            prev = sb.db.AddMarkov(prev, lines[i].Speaker, string(ch))
-            //prev = sb.db.AddMarkov(prev, "ACTION", "")
+          for j , _ := range words {
+            l := len(words[j])
+            ch := words[j][l-1]
+            switch ch {
+              case '.', '!', '?':
+                words[j] = words[j][:l-1]
+            }
+            if sb.db.GetMarkovWord(speaker, words[j]) != words[j] {
+              words[j] = strings.ToLower(words[j])
+            }
+            //fmt.Println("AddMarkov: ", prev, prev2, speaker, words[j])
+            cur = sb.db.AddMarkov(prev, prev2, speaker, words[j])
+            prev2 = prev
+            prev = cur
+            
+            switch ch {
+              case '.', '!', '?':
+              //fmt.Println("AddMarkov: ", prev, prev2, speaker, string(ch))
+              cur = sb.db.AddMarkov(prev, prev2, speaker, string(ch))
+              prev2 = 0
+              prev = 0
+              //prev = sb.db.AddMarkov(prev, "ACTION", "")
+            }
           }
         }
       }
