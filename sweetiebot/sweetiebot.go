@@ -289,6 +289,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&PingCommand{})
   sb.AddCommand(&PurgeGroupCommand{})
   sb.AddCommand(&BestPonyCommand{})
+  sb.AddCommand(&BanCommand{})
   
   sb.aliases = make(map[string]string)
   sb.aliases["listgroups"] = "listgroup"
