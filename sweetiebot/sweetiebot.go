@@ -549,7 +549,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.5",
+    version: "0.5.6",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
@@ -603,14 +603,18 @@ func Initialize(Token string) {
   
   //BuildMarkov(1, 1)
   //return
+  err = sb.dg.Open()
+  if err == nil {
+    fmt.Println("Connection established");
+    
+    if sb.config.Debug { // The server does not necessarily tie a standard input to the program
+      go WaitForInput()
+    }  
+    for !sb.quit { time.Sleep(400 * time.Millisecond) }
+  } else {
+    sb.log.LogError("Error opening websocket connection: ", err);
+  }
   
-  sb.log.LogError("Error opening websocket connection: ", sb.dg.Open());
-  fmt.Println("Connection established");
-  
-  if sb.config.Debug { // The server does not necessarily tie a standard input to the program
-    go WaitForInput()
-  }  
-  for !sb.quit { time.Sleep(400 * time.Millisecond) }
   fmt.Println("Sweetiebot quitting");
   sb.db.Close();
 }
