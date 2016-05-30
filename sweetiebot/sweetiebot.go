@@ -328,8 +328,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   
   ch, err := sb.dg.State.Channel(m.ChannelID)
   sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
+  private := true
+  if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
   
-  if m.ChannelID != sb.LogChannelID && !ch.IsPrivate { // Log this message provided it wasn't sent to the bot-log channel or in a PM
+  if m.ChannelID != sb.LogChannelID && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
   if m.Author.ID == sb.SelfID || m.ChannelID == sb.LogChannelID { // ALWAYS discard any of our own messages or our log messages before analysis.
@@ -345,7 +347,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
     
-    if err != nil || (!ch.IsPrivate && m.ChannelID != sb.DebugChannelID && m.ChannelID != sb.BotChannelID) { // Private channels are not limited, nor is the debug channel
+    if err != nil || (!private && m.ChannelID != sb.DebugChannelID && m.ChannelID != sb.BotChannelID) { // Private channels are not limited, nor is the debug channel
       if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
         sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
@@ -366,7 +368,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     c, ok := sb.commands[arg]    
     if ok {
       cch := sb.command_channels[c.c.Name()]
-      if !ch.IsPrivate && len(cch) > 0 {
+      if !private && len(cch) > 0 {
         _, ok = cch[SBatoi(m.ChannelID)]
         if !ok {
           return
@@ -382,7 +384,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       result, usepm := c.c.Process(args[1:], m.Message)
       if len(result) > 0 {
         targetchannel := m.ChannelID
-        if usepm && !ch.IsPrivate {
+        if usepm && !private {
           channel, err := s.UserChannelCreate(m.Author.ID)
           sb.log.LogError("Error opening private channel: ", err);
           if err == nil {
@@ -549,7 +551,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.6",
+    version: "0.5.7",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
