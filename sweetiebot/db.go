@@ -45,6 +45,7 @@ type BotDB struct {
   sql_GetRandomWordInt *sql.Stmt
   sql_GetRandomWord *sql.Stmt
   sql_GetTableCounts *sql.Stmt
+  sql_CountNewUsers *sql.Stmt
   sql_Log *sql.Stmt
   sql_ResetMarkov *sql.Stmt
 }
@@ -107,6 +108,7 @@ func (db *BotDB) LoadStatements() error {
   db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))") 
   db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
   db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows')")
+  db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM users WHERE FirstSeen > DATE_SUB(NOW(), INTERVAL ? SECOND)")
   db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))")
   db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
   
@@ -396,4 +398,10 @@ func (db *BotDB) GetRandomWord() string {
   err = db.sql_GetRandomWord.QueryRow(i).Scan(&p)
   db.log.LogError("GetRandomWord error: ", err)
   return p
+}
+func (db *BotDB) CountNewUsers(seconds int64) int {
+  var i int
+  err := db.sql_CountNewUsers.QueryRow(seconds).Scan(&i)
+  db.log.LogError("CountNewUsers error: ", err)
+  return i
 }

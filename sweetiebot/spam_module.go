@@ -4,12 +4,14 @@ import (
   "github.com/bwmarrin/discordgo"
   "time"
   "strconv"
+  "strings"
 )
 
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
   tracker map[uint64]*SaturationLimit
   channels *map[uint64]bool
+  lastraid int64
 }
 
 func (w *SpamModule) SetChannelMap(c *map[uint64]bool) {
@@ -25,8 +27,11 @@ func (w *SpamModule) Name() string {
 
 func (w *SpamModule) Register(hooks *ModuleHooks) {
   w.tracker = make(map[uint64]*SaturationLimit)
+  w.lastraid = 0
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
+  hooks.OnGuildMemberAdd = append(hooks.OnGuildMemberAdd, w)
+  hooks.OnGuildMemberUpdate = append(hooks.OnGuildMemberUpdate, w)
 }
 func (w *SpamModule) Channels() []string {
   return []string{}
@@ -85,3 +90,22 @@ func (w *SpamModule) IsEnabled() bool {
   return true // always enabled
 }
 func (w *SpamModule) Enable(b bool) {}
+
+func (w *SpamModule) OnGuildMemberAdd(s *discordgo.Session, m *discordgo.Member) {
+  raidsize := sb.db.CountNewUsers(sb.config.MaxRaidTime);
+  if sb.config.RaidSize > 0 && raidsize >= sb.config.RaidSize && RateLimit(&w.lastraid, sb.config.MaxRaidTime*2) {  
+    r := sb.db.GetNewestUsers(raidsize)
+    s := make([]string, 0, len(r))
+    
+    for _, v := range r {
+      s = append(s, v.Username + "  (joined: " + v.FirstSeen.Format(time.ANSIC) + ")") 
+    }
+    ch := sb.ModChannelID
+    if sb.config.Debug { ch = sb.DebugChannelID }
+    sb.SendMessage(ch, "<@&" + sb.ModsRole + "> Possible Raid Detected!\n```" + strings.Join(s, "\n") + "```")
+  }
+}
+func (w *SpamModule) OnGuildMemberUpdate(s *discordgo.Session, m *discordgo.Member) {
+  w.OnGuildMemberAdd(s, m)
+}
+  
