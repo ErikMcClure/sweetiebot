@@ -56,6 +56,8 @@ type BotConfig struct {
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   StatusDelayTime int      `json:"statusdelaytime"`
+  MaxRaidTime int64        `json:"maxraidtime"`
+  RaidSize int             `json:"raidsize"`
   Emotes []string          `json:"emotes"` // TODO: go can unmarshal into map[string] types now
   BoredLines []string      `json:"boredlines"`
   Spoilers map[string]bool `json:"spoilers"`
@@ -79,6 +81,7 @@ type SweetieBot struct {
   BotChannelID string
   SpoilerChannelID string
   SilentRole string
+  ModsRole string
   lastshutup int64
   version string
   hooks ModuleHooks
@@ -491,6 +494,9 @@ func ProcessGuild(g *discordgo.Guild) {
     if v.Name == "Silence" {
       sb.SilentRole = v.ID
     }
+    if v.Name == "Mods" {
+      sb.ModsRole = v.ID
+    }
   }
 }
 
@@ -551,7 +557,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.7",
+    version: "0.5.8",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
