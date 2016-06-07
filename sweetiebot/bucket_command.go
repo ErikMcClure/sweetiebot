@@ -3,6 +3,7 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "strings"
+  "strconv"
   "math/rand"
 )
 
@@ -20,7 +21,11 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message) (string, bo
     return "```I don't have a bucket right now.```", false 
   }
 
-  arg := strings.Join(args, " ")
+  arg := ExtraSanitize(strings.Join(args, " "))
+  if len(arg) > sb.config.MaxBucketLength {
+    return "```That's too big! Give me something smaller!'```", false
+  }
+
   if len(sb.config.Bucket) <= 0 {
     sb.config.Bucket = make(map[string]bool)
   }
@@ -115,3 +120,57 @@ func (c *ListCommand) Usage() string {
 func (c *ListCommand) UsageShort() string { return "Lists everything sweetie has." }
 func (c *ListCommand) Roles() []string { return []string{} }
 func (c *ListCommand) Channels() []string { return []string{} }
+
+type FightCommand struct {
+  monster string
+  hp int
+}
+
+func (c *FightCommand) Name() string {
+  return "Fight";  
+}
+func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  things := MapToSlice(sb.config.Bucket)
+  if len(things) == 0 {
+    return "```I have nothing to fight with!```", false
+  }
+  if len(c.monster) > 0 && len(args) > 0 {
+    return "I'm already fighting " + c.monster + ", I have to defeat them first!", false
+  }
+  if len(c.monster) == 0 {
+    if len(args) > 0 {
+      c.monster = strings.Join(args, " ")
+    } else {
+      c.monster = sb.db.GetRandomSpeaker()
+    }
+    c.hp = 10 + rand.Intn(sb.config.MaxFightHP)
+    return "```I have engaged " + c.monster + ", who has " + strconv.Itoa(c.hp) + " HP!```", false
+  }
+
+  damage := 1 + rand.Intn(sb.config.MaxFightDamage)
+  c.hp -= damage
+  end := " and deal " + strconv.Itoa(damage) + " damage!"
+  monster := c.monster
+  if c.hp <= 0 {
+    end += " " + monster + " has been defeated!"
+    c.monster = ""
+  }
+  end += "```"
+  thing := things[rand.Intn(len(things))]
+  switch rand.Intn(7) {
+    case 0: return "```I throw " + BucketDropRandom() + " at " + monster + end, false
+    case 1: return "```I stab " + monster + " with " + thing + end, false
+    case 2: return "```I use " + thing + " on " + monster + end, false
+    case 3: return "```I summon " + thing + end, false
+    case 4: return "```I cast " + thing + end, false
+    case 5: return "```I parry a blow and counterattack with " + thing + end, false
+    case 6: return "```I detonate a " + thing + end, false
+  }
+  return "```Stuff happens" + end, false
+}
+func (c *FightCommand) Usage() string { 
+  return FormatUsage(c, "[name]", "Fights a random pony, or [name] if it is provided.") 
+}
+func (c *FightCommand) UsageShort() string { return "Fights a random pony." }
+func (c *FightCommand) Roles() []string { return []string{} }
+func (c *FightCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
