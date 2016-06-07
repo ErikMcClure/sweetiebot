@@ -66,6 +66,9 @@ type BotConfig struct {
   Statuses []string        `json:"statuses"`
   Bucket map[string]bool   `json:"bucket"`
   MaxBucket int            `json:"maxbucket"`
+  MaxBucketLength int      `json:"maxbucketlength"`
+  MaxFightHP int           `json:"maxfighthp"`
+  MaxFightDamage int       `json:"maxfightdamage"`
   Groups map[string]map[string]bool `json:"groups"`
 }
 
@@ -173,6 +176,14 @@ func SanitizeOutput(message string) string {
   message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
   return message;
 }
+func ExtraSanitize(s string) string {
+  s = strings.Replace(s,"`","",-1)
+  s = strings.Replace(s, "[](/", "[\u200B](/", -1)
+  s = strings.Replace(s, "http://", "http\u200B://", -1)
+  s = strings.Replace(s, "https://", "https\u200B://", -1)
+  return s
+}
+
 func (sbot *SweetieBot) SendMessage(channelID string, message string) {
   sbot.dg.ChannelMessageSend(channelID, SanitizeOutput(message));
 }
@@ -298,7 +309,8 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&DropCommand{})
   sb.AddCommand(&GiveCommand{})
   sb.AddCommand(&ListCommand{})
-  
+  sb.AddCommand(&FightCommand{"",0})
+
   sb.aliases = make(map[string]string)
   sb.aliases["listgroups"] = "listgroup"
   
@@ -573,6 +585,9 @@ func Initialize(Token string) {
     initialized: false,
   }
   
+  rand.Intn(10)
+  for i := 0; i < 20 + rand.Intn(20); i++ { rand.Intn(50) }
+
   errjson := json.Unmarshal(config, &sb.config)
   if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
   //fmt.Println("Config settings: ", sb.config)
