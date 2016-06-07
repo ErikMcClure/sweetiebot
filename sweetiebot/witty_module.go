@@ -33,28 +33,27 @@ func (w *WittyModule) Register(hooks *ModuleHooks) {
 }
 
 func (w *WittyModule) UpdateRegex() bool {
-  l := len(sb.config.WittyRemarks) 
-  if len(sb.config.WittyTriggers) != l {
-    sb.log.Log("ERROR! WittyTriggers does not equal WittyRemarks!", len(sb.config.WittyTriggers), l)
-    return false
-  }
+  l := len(sb.config.Witty)
   w.triggerregex = make([]*regexp.Regexp, 0, l)
   w.remarks = make([][]string, 0, l)
-  if len(sb.config.WittyTriggers) < 1 {
+  if l < 1 {
     w.wittyregex = nil
     return true
   }
+
   var err error
-  w.wittyregex, err = regexp.Compile("(" + strings.Join(sb.config.WittyTriggers, "|") + ")")
+  w.wittyregex, err = regexp.Compile("(" + strings.Join(MapStringToSlice(sb.config.Witty), "|") + ")")
+
   if err == nil {
     var r *regexp.Regexp
-    for i := 0; i < l; i++ {
-      r, err = regexp.Compile(sb.config.WittyTriggers[i])
+    for k, v := range sb.config.Witty {
+      r, err = regexp.Compile(k)
       if err != nil { break }
       w.triggerregex = append(w.triggerregex, r)
-      w.remarks = append(w.remarks, strings.Split(sb.config.WittyRemarks[i], "|"))
+      w.remarks = append(w.remarks, strings.Split(v, "|"))
     }
   }
+
   if len(w.triggerregex) != len(w.remarks) { // This should never happen but we check just in case
     sb.log.Log("ERROR! triggers do not equal remarks!!")
     return false
@@ -107,33 +106,24 @@ func (c *AddWitCommand) Name() string {
 }
 func (c *AddWitCommand) Remove(wit string) bool {
   wit = strings.ToLower(wit)
-  for i := 0; i < len(sb.config.WittyTriggers); i++ {
-    if strings.ToLower(sb.config.WittyTriggers[i]) == wit {
-      sb.config.WittyTriggers = append(sb.config.WittyTriggers[:i], sb.config.WittyTriggers[i+1:]...)
-      sb.config.WittyRemarks = append(sb.config.WittyRemarks[:i], sb.config.WittyRemarks[i+1:]...)
-      return true
-    }
+  _, ok := sb.config.Witty[wit]
+  if ok {
+    delete(sb.config.Witty, wit)
   }
-  return false
+  return ok
 }
+
 func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
   if len(args) < 2 {
     return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false
   }
-  if strings.ToLower(args[1]) == "removetrigger" {
-    arg := args[0]
-    if !c.Remove(arg) {
-      return "```Could not find " + arg + "!```", false
-    }
-    sb.SaveConfig()
-    c.wit.UpdateRegex()
-    return "```Removed " + arg + " and recompiled the wittyremarks regex.```", false
-  }
   
   trigger := args[0]
   remark := args[1]
-  sb.config.WittyTriggers = append(sb.config.WittyTriggers, trigger)
-  sb.config.WittyRemarks = append(sb.config.WittyRemarks, remark)
+  if len(sb.config.Witty) <= 0 {
+    sb.config.Witty = make(map[string]string)
+  }
+  sb.config.Witty[trigger] = remark
   sb.SaveConfig()
   r := c.wit.UpdateRegex()
   if !r {
@@ -144,8 +134,45 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, 
   return "```Adding " + trigger + " and recompiled the wittyremarks regex.```", false
 }
 func (c *AddWitCommand) Usage() string { 
-  return FormatUsage(c, "[trigger] [response|removetrigger]", "Adds a [response] that is triggered by [trigger]. The trigger may be any valid regex string, but it must be in quotes if it has spaces. If [removetrigger] is specified instead of a response, it removes the remark instead.") 
+  return FormatUsage(c, "[trigger] [response]", "Adds a [response] that is triggered by [trigger]. The trigger may be any valid regex string, but it must be in quotes if it has spaces.") 
 }
 func (c *AddWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
 func (c *AddWitCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
 func (c *AddWitCommand) Channels() []string { return []string{} }
+
+
+type RemoveWitCommand struct {
+  wit *WittyModule
+}
+
+func (c *RemoveWitCommand) Name() string {
+  return "RemoveWit";  
+}
+func (c *RemoveWitCommand) Remove(wit string) bool {
+  wit = strings.ToLower(wit)
+  _, ok := sb.config.Witty[wit]
+  if ok {
+    delete(sb.config.Witty, wit)
+  }
+  return ok
+}
+
+func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
+  if len(args) < 1 {
+    return "```You must provide both a trigger to remove!```", false
+  }
+
+  arg := strings.Join(args, " ")
+  if !c.Remove(arg) {
+    return "```Could not find " + arg + "!```", false
+  }
+  sb.SaveConfig()
+  c.wit.UpdateRegex()
+  return "```Removed " + arg + " and recompiled the wittyremarks regex.```", false
+}
+func (c *RemoveWitCommand) Usage() string { 
+  return FormatUsage(c, "[trigger]", "Removes [trigger] from wittyremarks, provided it exists.") 
+}
+func (c *RemoveWitCommand) UsageShort() string { return "Removes a remark from wittyremarks." }
+func (c *RemoveWitCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
+func (c *RemoveWitCommand) Channels() []string { return []string{} }

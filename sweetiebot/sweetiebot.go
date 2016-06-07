@@ -61,10 +61,11 @@ type BotConfig struct {
   Emotes []string          `json:"emotes"` // TODO: go can unmarshal into map[string] types now
   BoredLines []string      `json:"boredlines"`
   Spoilers map[string]bool `json:"spoilers"`
-  WittyTriggers []string   `json:"wittytriggers"`
-  WittyRemarks []string    `json:"wittyremarks"`
+  Witty map[string]string  `json:"witty"`
   Schedule []time.Time     `json:"schedule"`
   Statuses []string        `json:"statuses"`
+  Bucket map[string]bool   `json:"bucket"`
+  MaxBucket int            `json:"maxbucket"`
   Groups map[string]map[string]bool `json:"groups"`
 }
 
@@ -282,6 +283,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&AddSpoilerCommand{spoilermodule})
   sb.AddCommand(&RemoveSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
+  sb.AddCommand(&RemoveWitCommand{wittymodule})
   sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
   sb.AddCommand(&AddStatusCommand{})
   sb.AddCommand(&SetStatusCommand{})
@@ -293,6 +295,9 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&PurgeGroupCommand{})
   sb.AddCommand(&BestPonyCommand{})
   sb.AddCommand(&BanCommand{})
+  sb.AddCommand(&DropCommand{})
+  sb.AddCommand(&GiveCommand{})
+  sb.AddCommand(&ListCommand{})
   
   sb.aliases = make(map[string]string)
   sb.aliases["listgroups"] = "listgroup"
@@ -557,7 +562,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.8",
+    version: "0.5.9",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
