@@ -50,7 +50,7 @@ func (c *GiveCommand) Usage() string {
 }
 func (c *GiveCommand) UsageShort() string { return "Gives something to sweetie." }
 func (c *GiveCommand) Roles() []string { return []string{} }
-func (c *GiveCommand) Channels() []string { return []string{} }
+func (c *GiveCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 func BucketDropRandom() string {
   index := rand.Intn(len(sb.config.Bucket))
@@ -94,7 +94,7 @@ func (c *DropCommand) Usage() string {
 }
 func (c *DropCommand) UsageShort() string { return "Drops something from sweetie's bucket." }
 func (c *DropCommand) Roles() []string { return []string{} }
-func (c *DropCommand) Channels() []string { return []string{} }
+func (c *DropCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 
 type ListCommand struct {
@@ -119,7 +119,7 @@ func (c *ListCommand) Usage() string {
 }
 func (c *ListCommand) UsageShort() string { return "Lists everything sweetie has." }
 func (c *ListCommand) Roles() []string { return []string{} }
-func (c *ListCommand) Channels() []string { return []string{} }
+func (c *ListCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 type FightCommand struct {
   monster string
