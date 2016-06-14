@@ -65,6 +65,7 @@ type BotConfig struct {
   Schedule []time.Time     `json:"schedule"`
   Statuses []string        `json:"statuses"`
   Bucket map[string]bool   `json:"bucket"`
+  CutePics map[string]bool `json:"cutepics"`
   MaxBucket int            `json:"maxbucket"`
   MaxBucketLength int      `json:"maxbucketlength"`
   MaxFightHP int           `json:"maxfighthp"`
