@@ -7,6 +7,7 @@ import (
   "strings"
   "fmt"
   "regexp"
+  "math/rand"
 )
 
 func Pluralize(i int64, s string) string {
@@ -213,6 +214,18 @@ func BuildMarkov(season_start int, episode_start int) {
       }
     }
   }
+}
+
+func MapGetRandomItem(m map[string]bool) string {
+  index := rand.Intn(len(m))
+  for k, _ := range m {
+    if !index {
+      return k, false
+    }
+    index--
+  }
+  
+  return "SOMETHING IMPOSSIBLE HAPPENED IN UTIL.GO MapGetRandomItem()! Somebody drag Cloud Hop out of bed and tell him his bot is broken."
 }
 
 func MapToSlice(m map[string]bool) []string {
