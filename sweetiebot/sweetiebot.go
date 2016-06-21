@@ -237,8 +237,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
 func AttachToGuild(g *discordgo.Guild) {
   if sb.initialized {
-    sb.log.Log("Multiple initialization detected - quitting and restarting")
-    sb.quit = true
+    sb.log.Log("Multiple initialization detected - updating guild only")
+    ProcessGuild(g);
+    
+    for _, v := range g.Members {
+      ProcessMember(v)
+    }
     return
   }
   sb.initialized = true
