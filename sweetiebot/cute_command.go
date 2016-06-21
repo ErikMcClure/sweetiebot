@@ -1,6 +1,6 @@
 package sweetiebot
 
-import (
+/*import (
   "github.com/bwmarrin/discordgo"
   "strings"
   "strconv"
@@ -99,4 +99,4 @@ func (c *RemoveCuteCommand) Usage() string {
 }
 func (c *RemoveCuteCommand) UsageShort() string { return "Removes a line from spoilers." }
 func (c *RemoveCuteCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *RemoveCuteCommand) Channels() []string { return []string{} }
+func (c *RemoveCuteCommand) Channels() []string { return []string{} }*/
