@@ -219,8 +219,8 @@ func BuildMarkov(season_start int, episode_start int) {
 func MapGetRandomItem(m map[string]bool) string {
   index := rand.Intn(len(m))
   for k, _ := range m {
-    if !index {
-      return k, false
+    if index == 0 {
+      return k
     }
     index--
   }
