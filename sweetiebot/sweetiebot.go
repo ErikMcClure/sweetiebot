@@ -65,6 +65,7 @@ type BotConfig struct {
   Schedule []time.Time     `json:"schedule"`
   Statuses []string        `json:"statuses"`
   Bucket map[string]bool   `json:"bucket"`
+  CutePics map[string]bool `json:"cutepics"`
   MaxBucket int            `json:"maxbucket"`
   MaxBucketLength int      `json:"maxbucketlength"`
   MaxFightHP int           `json:"maxfighthp"`
@@ -236,8 +237,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
 func AttachToGuild(g *discordgo.Guild) {
   if sb.initialized {
-    sb.log.Log("Multiple initialization detected - quitting and restarting")
-    sb.quit = true
+    sb.log.Log("Multiple initialization detected - updating guild only")
+    ProcessGuild(g);
+    
+    for _, v := range g.Members {
+      ProcessMember(v)
+    }
     return
   }
   sb.initialized = true
