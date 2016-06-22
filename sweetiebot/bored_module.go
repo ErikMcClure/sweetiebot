@@ -3,8 +3,6 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "math/rand"
-  "strings"
-  "strconv"
 )
 
 // This module picks a random action to do whenever #example has been idle for several minutes (configurable)
@@ -41,11 +39,11 @@ func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
         r, _ := w.Episodegen.Process([]string{"2"}, m)
         sb.SendMessage(id, r)
       case 2:
-        if len(sb.config.BoredLines) > 0 {
-          sb.SendMessage(id, sb.config.BoredLines[rand.Intn(len(sb.config.BoredLines))])
+        if len(sb.config.Collections["bored"]) > 0 {
+          sb.SendMessage(id, MapGetRandomItem(sb.config.Collections["bored"]))
         }
       case 3:
-        if len(sb.config.Bucket) > 0 {
+        if len(sb.config.Collections["bucket"]) > 0 {
           sb.SendMessage(id, "Throws " + BucketDropRandom());
         } else {
           sb.SendMessage(id, "[Realizes her bucket is empty]");
@@ -62,25 +60,3 @@ func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {
 func (w *BoredModule) IdlePeriod() int64 {
   return sb.config.Maxbored;
 }
-
-
-type AddBoredCommand struct {
-}
-
-func (c *AddBoredCommand) Name() string {
-  return "AddBored";  
-}
-func (c *AddBoredCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  if len(args) < 1 {
-    return "```No phrase to add.```", false
-  }
-  sb.config.BoredLines = append(sb.config.BoredLines, strings.Join(args, " "))
-  sb.SaveConfig()
-  return "```Added line to BoredLines. Length of BoredLines: " + strconv.Itoa(len(sb.config.BoredLines)) + ".```", false
-}
-func (c *AddBoredCommand) Usage() string { 
-  return FormatUsage(c, "[arbitrary string]", "Adds a line to boredlines (no quotes are required).") 
-}
-func (c *AddBoredCommand) UsageShort() string { return "Adds a line to boredlines." }
-func (c *AddBoredCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *AddBoredCommand) Channels() []string { return []string{} }
