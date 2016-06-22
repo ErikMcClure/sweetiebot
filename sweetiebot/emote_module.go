@@ -53,47 +53,6 @@ func (w *EmoteModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool
 
 func (w *EmoteModule) UpdateRegex() bool {
   var err error
-  w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(sb.config.Emotes, "|") + ")[-) \"]")
+  w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(MapToSlice(sb.config.Collections["emote"]), "|") + ")[-) \"]")
   return err == nil
 }
-
-
-type BanEmoteCommand struct {
-  emotes *EmoteModule
-}
-
-func (c *BanEmoteCommand) Name() string {
-  return "BanEmote";  
-}
-func (c *BanEmoteCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  if len(args) < 1 {
-    return "```No emote specified.```", false
-  }
-  if len(args) >= 2 {
-    if strings.ToLower(args[1]) == "unban" {
-      if !RemoveSliceString(&sb.config.Emotes, args[0]) {
-        return "```Could not find " + args[0] + "! Remember that emotes are case-sensitive.```", false
-      }
-      sb.SaveConfig()
-      c.emotes.UpdateRegex()
-      return "```Unbanned " + args[0] + " and recompiled the emote regex.```", false
-    }
-    return "```Unrecognized second argument. Did you mean to type 'unban'?```", false
-  }
-  
-  sb.config.Emotes = append(sb.config.Emotes, args[0])
-  sb.SaveConfig()
-  r := c.emotes.UpdateRegex()
-  if !r {
-    RemoveSliceString(&sb.config.Emotes, args[0])
-    c.emotes.UpdateRegex()
-    return "```Failed to ban " + args[0] + " because regex compilation failed.```", false
-  }
-  return "```Banned " + args[0] + " and recompiled the emote regex.```", false
-}
-func (c *BanEmoteCommand) Usage() string { 
-  return FormatUsage(c, "[emote] [unban]", "Bans the given emote code, unless 'unban' is specified, in which case it unbans the emote.") 
-}
-func (c *BanEmoteCommand) UsageShort() string { return "Bans an emote." }
-func (c *BanEmoteCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *BanEmoteCommand) Channels() []string { return []string{} }

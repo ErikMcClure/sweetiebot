@@ -53,23 +53,18 @@ type BotConfig struct {
   Maxsearchresults int     `json:"maxsearchresults"`
   Defaultmarkovlines int   `json:"defaultmarkovlines"`
   Maxshutup int64          `json:"maxshutup"`
+  Maxcute int64            `json:"maxcute"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   StatusDelayTime int      `json:"statusdelaytime"`
   MaxRaidTime int64        `json:"maxraidtime"`
   RaidSize int             `json:"raidsize"`
-  Emotes []string          `json:"emotes"` // TODO: go can unmarshal into map[string] types now
-  BoredLines []string      `json:"boredlines"`
-  Spoilers map[string]bool `json:"spoilers"`
   Witty map[string]string  `json:"witty"`
-  Schedule []time.Time     `json:"schedule"`
-  Statuses []string        `json:"statuses"`
-  Bucket map[string]bool   `json:"bucket"`
-  CutePics map[string]bool `json:"cutepics"`
   MaxBucket int            `json:"maxbucket"`
   MaxBucketLength int      `json:"maxbucketlength"`
   MaxFightHP int           `json:"maxfighthp"`
   MaxFightDamage int       `json:"maxfightdamage"`
+  Collections map[string]map[string]bool `json:"collections"`
   Groups map[string]map[string]bool `json:"groups"`
 }
 
@@ -202,10 +197,8 @@ func ProcessModule(channelID string, m Module) bool {
 
 func SwapStatusLoop() {
   for !sb.quit {
-    sz := len(sb.config.Statuses)
-    if sz > 0 {
-      sb.dg.UpdateStatus(0, sb.config.Statuses[rand.Intn(sz)])
-      fmt.Println("Changed Status")
+    if len(sb.config.Collections["status"]) > 0 {
+      sb.dg.UpdateStatus(0, MapGetRandomItem(sb.config.Collections["status"]))
     }
     time.Sleep(time.Duration(sb.config.StatusDelayTime)*time.Second)
   }
@@ -277,7 +270,40 @@ func AttachToGuild(g *discordgo.Guild) {
     v.Register(&sb.hooks)
   }
   
+  addfuncmap := map[string]func(string)string{
+    "emote": func(arg string) string { 
+      r := sb.emotemodule.UpdateRegex()
+      if !r {
+        delete(sb.config.Collections["emote"], arg)
+        sb.emotemodule.UpdateRegex()
+        return "```Failed to ban " + arg + " because regex compilation failed.```"
+      }
+      return "```Banned " + arg + " and recompiled the emote regex.```"  
+    },
+    "spoiler": func(arg string) string { 
+      r := spoilermodule.UpdateRegex()
+      if !r {
+        delete(sb.config.Collections["spoiler"], arg)
+        spoilermodule.UpdateRegex()
+        return "```Failed to ban " + arg + " because regex compilation failed.```"
+      }
+      return "```Banned " + arg + " and recompiled the spoiler regex.```"
+    },
+  }
+  removefuncmap := map[string]func(string)string{
+    "emote": func(arg string) string { 
+      sb.emotemodule.UpdateRegex()
+      return "```Unbanned " + arg + " and recompiled the emote regex.```"
+    },
+    "spoiler": func(arg string) string { 
+      spoilermodule.UpdateRegex()
+      return "```Unbanned " + arg + " and recompiled the spoiler regex.```"
+    },
+  }
   // We have to initialize commands and modules up here because they depend on the discord channel state
+  sb.AddCommand(&AddCommand{addfuncmap})
+  sb.AddCommand(&RemoveCommand{removefuncmap})
+  sb.AddCommand(&CollectionsCommand{})
   sb.AddCommand(&EchoCommand{})
   sb.AddCommand(&HelpCommand{})
   sb.AddCommand(&NewUsersCommand{})
@@ -289,19 +315,14 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&LastPingCommand{})
   sb.AddCommand(&SetConfigCommand{})
   sb.AddCommand(&GetConfigCommand{})
-  sb.AddCommand(&BanEmoteCommand{sb.emotemodule})
   sb.AddCommand(&LastSeenCommand{})
   sb.AddCommand(&DumpTablesCommand{})
   sb.AddCommand(episodegencommand)
   sb.AddCommand(&QuoteCommand{})
   sb.AddCommand(&ShipCommand{})
-  sb.AddCommand(&AddBoredCommand{})
-  sb.AddCommand(&AddSpoilerCommand{spoilermodule})
-  sb.AddCommand(&RemoveSpoilerCommand{spoilermodule})
   sb.AddCommand(&AddWitCommand{wittymodule})
   sb.AddCommand(&RemoveWitCommand{wittymodule})
   sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
-  sb.AddCommand(&AddStatusCommand{})
   sb.AddCommand(&SetStatusCommand{})
   sb.AddCommand(&AddGroupCommand{})
   sb.AddCommand(&JoinGroupCommand{})
@@ -315,6 +336,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&GiveCommand{})
   sb.AddCommand(&ListCommand{})
   sb.AddCommand(&FightCommand{"",0})
+  sb.AddCommand(&CuteCommand{0})
 
   sb.aliases = make(map[string]string)
   sb.aliases["listgroups"] = "listgroup"
@@ -421,11 +443,19 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
             }
           }
         } 
+        
         for len(result) > 1999 { // discord has a 2000 character limit
-          index := strings.LastIndex(result[:1999], "\n")
-          if index < 0 { index = 1999 }
-          sb.SendMessage(targetchannel, result[:index])
-          result = result[index:]
+          if result[0:3] == "```" {
+            index := strings.LastIndex(result[:1996], "\n")
+            if index < 0 { index = 1996 }
+            sb.SendMessage(targetchannel, result[:index] + "```")
+            result = "```" + result[index:]
+          } else {
+            index := strings.LastIndex(result[:1999], "\n")
+            if index < 0 { index = 1999 }
+            sb.SendMessage(targetchannel, result[:index])
+            result = result[index:]
+          }
         }
         sb.SendMessage(targetchannel, result)
       }
@@ -579,7 +609,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.5.9",
+    version: "0.6.0",
     commands: make(map[string]BotCommand),
     command_channels: make(map[string]map[uint64]bool),
     log: &Log{},
@@ -612,6 +642,17 @@ func Initialize(Token string) {
     return
   }
   
+  if len(sb.config.Collections) == 0 {
+    sb.config.Collections = make(map[string]map[string]bool);
+  }
+  collections := []string{"emote", "bored", "cute", "status", "spoiler", "bucket"};
+  for _, v := range collections {
+    _, ok := sb.config.Collections[v]
+    if !ok {
+      sb.config.Collections[v] = make(map[string]bool)
+    }
+  }
+
   sb.dg.AddHandler(SBReady)
   sb.dg.AddHandler(SBTypingStart)
   sb.dg.AddHandler(SBMessageCreate)

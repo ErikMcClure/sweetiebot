@@ -26,22 +26,19 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message) (string, bo
     return "```That's too big! Give me something smaller!'```", false
   }
 
-  if len(sb.config.Bucket) <= 0 {
-    sb.config.Bucket = make(map[string]bool)
-  }
-  _, ok := sb.config.Bucket[arg]
+  _, ok := sb.config.Collections["bucket"][arg]
   if ok {
     return "```I already have " + arg + "!```", false
   }
 
-  if len(sb.config.Bucket) >= sb.config.MaxBucket {
+  if len(sb.config.Collections["bucket"]) >= sb.config.MaxBucket {
     dropped := BucketDropRandom()
-    sb.config.Bucket[arg] = true
+    sb.config.Collections["bucket"][arg] = true
     sb.SaveConfig()
     return "```I dropped " + dropped + " and picked up " + arg + ".```", false
   }
 
-  sb.config.Bucket[arg] = true
+  sb.config.Collections["bucket"][arg] = true
   sb.SaveConfig()
   return "```I picked up " + arg + ".```", false
 }
@@ -53,11 +50,11 @@ func (c *GiveCommand) Roles() []string { return []string{} }
 func (c *GiveCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 func BucketDropRandom() string {
-  index := rand.Intn(len(sb.config.Bucket))
+  index := rand.Intn(len(sb.config.Collections["bucket"]))
   i := 0
-  for k, _ := range sb.config.Bucket {
+  for k, _ := range sb.config.Collections["bucket"] {
     if i == index {
-      delete(sb.config.Bucket, k)
+      delete(sb.config.Collections["bucket"], k)
       sb.SaveConfig()
       return k
     }
@@ -74,18 +71,18 @@ func (c *DropCommand) Name() string {
 }
 
 func (c *DropCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
-  if len(sb.config.Bucket) == 0 {
+  if len(sb.config.Collections["bucket"]) == 0 {
     return "```I'm not carrying anything.```", false
   }
   if len(args) < 1 {
     return "```Dropped " + BucketDropRandom() + ".```", false
   }
   arg := strings.Join(args, " ")
-  _, ok := sb.config.Bucket[arg]
+  _, ok := sb.config.Collections["bucket"][arg]
   if !ok {
     return "```I don't have " + arg + "!```", false
   }
-  delete(sb.config.Bucket, arg)
+  delete(sb.config.Collections["bucket"], arg)
   sb.SaveConfig()
   return "```Dropped " + arg + ".```", false
 }
@@ -104,7 +101,7 @@ func (c *ListCommand) Name() string {
   return "List";  
 }
 func (c *ListCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  things := MapToSlice(sb.config.Bucket)
+  things := MapToSlice(sb.config.Collections["bucket"])
   if len(things) == 0 {
     return "```I'm not carrying anything.```", false
   }
@@ -130,7 +127,7 @@ func (c *FightCommand) Name() string {
   return "Fight";  
 }
 func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  things := MapToSlice(sb.config.Bucket)
+  things := MapToSlice(sb.config.Collections["bucket"])
   if len(things) == 0 {
     return "```I have nothing to fight with!```", false
   }
