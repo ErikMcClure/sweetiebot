@@ -20,5 +20,3 @@ func (c *LastSeenCommand) Usage() string {
   return FormatUsage(c, "[@user]", "Returns when a user was last seen on discord, which is usually their last status change.") 
 }
 func (c *LastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
-func (c *LastSeenCommand) Roles() []string { return []string{} }
-func (c *LastSeenCommand) Channels() []string { return []string{} }

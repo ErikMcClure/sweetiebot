@@ -35,11 +35,6 @@ type ModuleHooks struct {
     OnIdle                    []ModuleOnIdle
 }
 
-type BotCommand struct {
-  c Command
-  roles map[uint64]bool
-}
-
 type BotConfig struct {
   Debug bool               `json:"debug"`
   Maxerror int64           `json:"maxerror"`
@@ -60,12 +55,30 @@ type BotConfig struct {
   MaxRaidTime int64        `json:"maxraidtime"`
   RaidSize int             `json:"raidsize"`
   Witty map[string]string  `json:"witty"`
+  Aliases map[string]string `json:"aliases"`
   MaxBucket int            `json:"maxbucket"`
   MaxBucketLength int      `json:"maxbucketlength"`
   MaxFightHP int           `json:"maxfighthp"`
   MaxFightDamage int       `json:"maxfightdamage"`
+  AlertRole uint64         `json:"alertrole"`
+  SilentRole uint64        `json:"silentrole"`
+  LogChannel uint64        `json:"logchannel"`
+  ModChannel uint64        `json:"modchannel"`
+  IdleChannels []uint64    `json:"idlechannels"`
+  SpoilChannels []uint64   `json:"spoilchannels"`
+  FreeChannels map[string]uint64    `json:"freechannels"`
+  Command_roles map[string]map[string]uint64    `json:"command_roles"`
+  Command_channels map[string]map[string]uint64  `json:"command_channels"`
+  Command_limits map[string]int64 `json:command_limits`
+  Command_disabled map[string]bool `json:command_disabled`
+  Module_disabled map[string]bool `json:module_disabled`
+  Module_channels map[string]map[string]uint64 `json:module_channels`
   Collections map[string]map[string]bool `json:"collections"`
   Groups map[string]map[string]bool `json:"groups"`
+}
+
+type GuildInfo struct {
+  GuildOwner uint64
 }
 
 type SweetieBot struct {
@@ -73,29 +86,20 @@ type SweetieBot struct {
   log *Log
   dg *discordgo.Session
   SelfID string
-  GuildID string
-  LogChannelID string
-  ModChannelID string
+  OwnerID uint64
   DebugChannelID string
-  ManeChannelID string
-  BotChannelID string
-  SpoilerChannelID string
-  SilentRole string
-  ModsRole string
-  lastshutup int64
   version string
   hooks ModuleHooks
-  modules []Module
-  commands map[string]BotCommand
-  command_channels map[string]map[uint64]bool
-  commandlimit *SaturationLimit
-  disablecommands map[string]bool
-  princessrole map[uint64]bool
   quit bool
-  initialized bool
-  config BotConfig
   emotemodule *EmoteModule
-  aliases map[string]string
+  guilds map[string]GuildInfo
+  GuildID string
+  command_last map[string]map[string]int64
+  commandlimit *SaturationLimit
+  config BotConfig
+  initialized bool
+  modules []Module
+  commands map[string]Command
 }
 
 var sb *SweetieBot
@@ -103,27 +107,7 @@ var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
 
 func (sbot *SweetieBot) AddCommand(c Command) {
-  m := make(map[uint64]bool)
-  for _, r := range c.Roles() {
-    for _, v := range sb.dg.State.Guilds[0].Roles {
-      if v.Name == r {
-        m[SBatoi(v.ID)] = true
-        break
-      }
-    }
-  }
-  sbot.commands[strings.ToLower(c.Name())] = BotCommand{c, m}
-  ch := c.Channels()
-  channel := make(map[uint64]bool)
-  for j := 0; j < len(ch); j++ {
-    id := FindChannelID(ch[j])
-    if len(id) > 0 {
-      channel[SBatoi(id)] = true
-    } else {
-      sb.log.Log("Could not find channel ", ch[j])
-    }
-  }
-  sbot.command_channels[c.Name()] = channel
+  sbot.commands[strings.ToLower(c.Name())] = c
 }
 
 func (sbot *SweetieBot) SaveConfig() {
@@ -185,11 +169,12 @@ func (sbot *SweetieBot) SendMessage(channelID string, message string) {
 }
 
 func ProcessModule(channelID string, m Module) bool {
-  if !m.IsEnabled() { return false }
+  _, disabled := sb.config.Module_disabled[m.Name()]
+  if disabled { return false }
     
-  c := m.GetChannelMap()
-  if len(channelID)>0 && len(*c)>0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
-    _, ok := (*c)[SBatoi(channelID)]
+  c := sb.config.Module_channels[m.Name()]
+  if len(channelID)>0 && len(c)>0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
+    _, ok := c[channelID]
     return ok
   }
   return true
@@ -246,13 +231,6 @@ func AttachToGuild(g *discordgo.Guild) {
     ProcessMember(v)
   }
   
-  for _, v := range g.Roles {
-    if v.Name == "Princesses" {
-      sb.princessrole[SBatoi(v.ID)] = true
-      break
-    }
-  }
-  
   episodegencommand := &EpisodeGenCommand{}
   sb.emotemodule = &EmoteModule{}
   spoilermodule := &SpoilerModule{}
@@ -266,7 +244,6 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.modules = append(sb.modules, spoilermodule)
   
   for _, v := range sb.modules {
-    v.Enable(true)
     v.Register(&sb.hooks)
   }
   
@@ -338,26 +315,6 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&FightCommand{"",0})
   sb.AddCommand(&CuteCommand{0})
 
-  sb.aliases = make(map[string]string)
-  sb.aliases["listgroups"] = "listgroup"
-  
-  ApplyFuncRange(len(sb.hooks.OnEvent), func(i int) { GenChannels(sb.hooks.OnEvent[i]) })
-  ApplyFuncRange(len(sb.hooks.OnTypingStart), func(i int) { GenChannels(sb.hooks.OnTypingStart[i]) })
-  ApplyFuncRange(len(sb.hooks.OnMessageCreate), func(i int) { GenChannels(sb.hooks.OnMessageCreate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnMessageUpdate), func(i int) { GenChannels(sb.hooks.OnMessageUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnMessageDelete), func(i int) { GenChannels(sb.hooks.OnMessageDelete[i]) })
-  ApplyFuncRange(len(sb.hooks.OnMessageAck), func(i int) { GenChannels(sb.hooks.OnMessageAck[i]) })
-  ApplyFuncRange(len(sb.hooks.OnUserUpdate), func(i int) { GenChannels(sb.hooks.OnUserUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnPresenceUpdate), func(i int) { GenChannels(sb.hooks.OnPresenceUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnVoiceStateUpdate), func(i int) { GenChannels(sb.hooks.OnVoiceStateUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildUpdate), func(i int) { GenChannels(sb.hooks.OnGuildUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildMemberAdd), func(i int) { GenChannels(sb.hooks.OnGuildMemberAdd[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildMemberRemove), func(i int) { GenChannels(sb.hooks.OnGuildMemberRemove[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildMemberUpdate), func(i int) { GenChannels(sb.hooks.OnGuildMemberUpdate[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildBanAdd), func(i int) { GenChannels(sb.hooks.OnGuildBanAdd[i]) })
-  ApplyFuncRange(len(sb.hooks.OnGuildBanRemove), func(i int) { GenChannels(sb.hooks.OnGuildBanRemove[i]) })
-  ApplyFuncRange(len(sb.hooks.OnCommand), func(i int) { GenChannels(sb.hooks.OnCommand[i]) })
-
   go IdleCheckLoop()
   
   debug := ". \n\n"
@@ -378,10 +335,11 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   private := true
   if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
   
-  if m.ChannelID != sb.LogChannelID && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
-    sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
+  cid := SBatoi(m.ChannelID)
+  if cid != sb.config.LogChannel && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
+    sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
-  if m.Author.ID == sb.SelfID || m.ChannelID == sb.LogChannelID { // ALWAYS discard any of our own messages or our log messages before analysis.
+  if m.Author.ID == sb.SelfID || cid == sb.config.LogChannel { // ALWAYS discard any of our own messages or our log messages before analysis.
     SBAddPings(m.Message) // If we're discarding a message we still need to add any pings to the ping table
     return
   }
@@ -394,7 +352,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
     
-    if err != nil || (!private && m.ChannelID != sb.DebugChannelID && m.ChannelID != sb.BotChannelID) { // Private channels are not limited, nor is the debug channel
+    _, isfree := sb.config.FreeChannels[m.ChannelID]
+    if err != nil || (!private && m.ChannelID != sb.DebugChannelID && !isfree) { // Private channels are not limited, nor is the debug channel
       if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
         sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
@@ -402,33 +361,31 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       sb.commandlimit.append(t)
     }
     
+    isSBowner := SBatoi(m.Author.ID) == sb.OwnerID
     ignore := false
     ApplyFuncRange(len(sb.hooks.OnCommand), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnCommand[i]) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m.Message) } })
-    if ignore { // if true, a module wants us to ignore this command
+    if ignore && !isSBowner { // if true, a module wants us to ignore this command
       return
     }
     
     args := ParseArguments(m.Content[1:])
     arg := strings.ToLower(args[0])
-    alias, ok := sb.aliases[arg]
+    alias, ok := sb.config.Aliases[arg]
     if ok { arg = alias }
     c, ok := sb.commands[arg]    
     if ok {
-      cch := sb.command_channels[c.c.Name()]
+      cch := sb.config.Command_channels[c.Name()]
       if !private && len(cch) > 0 {
-        _, ok = cch[SBatoi(m.ChannelID)]
+        _, ok = cch[m.ChannelID]
         if !ok {
           return
         }
       }
-      subroles := c.roles
-      _, ok := sb.disablecommands[c.c.Name()]
-      if ok { subroles = sb.princessrole }
-      if !UserHasAnyRole(m.Author.ID, subroles) {
-        sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + strings.Join(c.c.Roles(), ", "))
+      if !isSBowner && !UserHasAnyRole(m.Author.ID, sb.config.Command_roles[c.Name()]) {
+        sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + GetRoles(c))
         return
       }
-      result, usepm := c.c.Process(args[1:], m.Message)
+      result, usepm := c.Process(args[1:], m.Message)
       if len(result) > 0 {
         targetchannel := m.ChannelID
         if usepm && !private {
@@ -474,8 +431,9 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
-  if m.ChannelID != sb.LogChannelID { // Always ignore messages from the log channel
-    sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
+  cid := SBatoi(m.ChannelID)
+  if cid != sb.config.LogChannel { // Always ignore messages from the log channel
+    sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
   ApplyFuncRange(len(sb.hooks.OnMessageUpdate), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnMessageUpdate[i]) { sb.hooks.OnMessageUpdate[i].OnMessageUpdate(s, m.Message) } })
 }
@@ -528,26 +486,8 @@ func ProcessGuild(g *discordgo.Guild) {
   
   for _, v := range g.Channels {
     switch v.Name {
-      case "bot-log":
-        sb.LogChannelID = v.ID
-      case "ragemuffins":
-        sb.ModChannelID = v.ID
       case "bot-debug":
         sb.DebugChannelID = v.ID
-      case "manechat":
-        sb.ManeChannelID = v.ID
-      case "mylittlebot":
-        sb.BotChannelID = v.ID
-      case "mylittlespoilers":
-        sb.SpoilerChannelID = v.ID
-    }
-  }
-  for _, v := range g.Roles {
-    if v.Name == "Silence" {
-      sb.SilentRole = v.ID
-    }
-    if v.Name == "Mods" {
-      sb.ModsRole = v.ID
     }
   }
 }
@@ -567,31 +507,19 @@ func ApplyFuncRange(length int, fn func(i int)) {
   for i := 0; i < length; i++ { fn(i) }
 }
 
-func GenChannels(m Module) {
-  channelmap := make(map[uint64]bool)
-  c := m.Channels()
-  for j := 0; j < len(c); j++ {
-    id := FindChannelID(c[j])
-    if len(id) > 0 {
-      channelmap[SBatoi(id)] = true
-    } else {
-      sb.log.Log("Could not find channel ", c[j])
-    }
-  }
-  
-  m.SetChannelMap(&channelmap);
-}
-
 func IdleCheckLoop() {
-  id := sb.ManeChannelID
-  if sb.config.Debug { id = sb.DebugChannelID } // override this in debug mode
   for !sb.quit {
-    c, _ := sb.dg.State.Channel(id)
-    t := sb.db.GetLatestMessage(SBatoi(id))
-    diff := SinceUTC(t);
-    for _, v := range sb.hooks.OnIdle {
-      if v.IsEnabled() && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
-        v.OnIdle(sb.dg, c);
+    ids := sb.config.IdleChannels
+    if sb.config.Debug { ids = []uint64{SBatoi(sb.DebugChannelID)} } // override this in debug mode
+    for _, id := range ids {
+      t := sb.db.GetLatestMessage(id)
+      diff := SinceUTC(t);
+      for _, v := range sb.hooks.OnIdle {
+        _, disabled := sb.config.Module_disabled[v.Name()]
+        if !disabled && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
+          c, err := sb.dg.State.Channel(strconv.FormatUint(id, 10))
+          if err == nil { v.OnIdle(sb.dg, c) }
+        }
       }
     }
     time.Sleep(30*time.Second)
@@ -609,15 +537,12 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.6.0",
-    commands: make(map[string]BotCommand),
-    command_channels: make(map[string]map[uint64]bool),
-    log: &Log{},
+    version: "0.6.1",
+    commands: make(map[string]Command),
+    log: &Log{0},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
-    disablecommands: make(map[string]bool),
-    princessrole: make(map[uint64]bool),
-    lastshutup: 0,
     initialized: false,
+    OwnerID: 95585199324143616,
   }
   
   rand.Intn(10)
@@ -671,7 +596,6 @@ func Initialize(Token string) {
   sb.dg.AddHandler(SBGuildBanRemove)
   sb.dg.AddHandler(SBGuildCreate)
   
-  sb.log.Init(sb)
   sb.db.LoadStatements()
   sb.log.Log("Finished loading database statements")
   

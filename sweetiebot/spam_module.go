@@ -10,15 +10,7 @@ import (
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
   tracker map[uint64]*SaturationLimit
-  channels *map[uint64]bool
   lastraid int64
-}
-
-func (w *SpamModule) SetChannelMap(c *map[uint64]bool) {
-  w.channels = c
-}
-func (w *SpamModule) GetChannelMap() *map[uint64]bool {
-  return w.channels
 }
 
 func (w *SpamModule) Name() string {
@@ -33,20 +25,18 @@ func (w *SpamModule) Register(hooks *ModuleHooks) {
   hooks.OnGuildMemberAdd = append(hooks.OnGuildMemberAdd, w)
   hooks.OnGuildMemberUpdate = append(hooks.OnGuildMemberUpdate, w)
 }
-func (w *SpamModule) Channels() []string {
-  return []string{}
-}
 
 func KillSpammer(u *discordgo.User) {  
   // Manually set our internal state to say this user has the Silent role, to prevent race conditions
   m, err := sb.dg.State.Member(sb.GuildID, u.ID)
   if err == nil {
+    srole := strconv.FormatUint(sb.config.SilentRole, 10)
     for _, v := range m.Roles {
-      if v == sb.SilentRole {
+      if v == srole {
         return // Spammer was already killed, so don't try killing it again
       }
     }
-    m.Roles = append(m.Roles, sb.SilentRole)
+    m.Roles = append(m.Roles, srole)
   } else {
     sb.log.Log("Tried to kill spammer ", u.Username, " but they were already banned??? (Error: ", err.Error(), ")")
   }
@@ -60,11 +50,11 @@ func KillSpammer(u *discordgo.User) {
     sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))
   }
   
-  sb.SendMessage(sb.ModChannelID, "`Alert: " + u.Username + " was silenced for spamming. Please investigate.`") // Alert admins
+  sb.SendMessage(strconv.FormatUint(sb.config.ModChannel, 10), "`Alert: " + u.Username + " was silenced for spamming. Please investigate.`") // Alert admins
 }
 func (w *SpamModule) CheckSpam(s *discordgo.Session, m *discordgo.Message) bool {
   if m.Author != nil {
-    if UserHasRole(m.Author.ID, sb.SilentRole) {
+    if UserHasRole(m.Author.ID, strconv.FormatUint(sb.config.SilentRole, 10)) {
       s.ChannelMessageDelete(m.ChannelID, m.ID);
       return true
     }
@@ -88,11 +78,6 @@ func (w *SpamModule) OnMessageCreate(s *discordgo.Session, m *discordgo.Message)
 func (w *SpamModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
   return w.CheckSpam(s, m)
 }
-func (w *SpamModule) IsEnabled() bool {
-  return true // always enabled
-}
-func (w *SpamModule) Enable(b bool) {}
-
 func (w *SpamModule) OnGuildMemberAdd(s *discordgo.Session, m *discordgo.Member) {
   raidsize := sb.db.CountNewUsers(sb.config.MaxRaidTime);
   if sb.config.RaidSize > 0 && raidsize >= sb.config.RaidSize && RateLimit(&w.lastraid, sb.config.MaxRaidTime*2) {  
@@ -102,9 +87,9 @@ func (w *SpamModule) OnGuildMemberAdd(s *discordgo.Session, m *discordgo.Member)
     for _, v := range r {
       s = append(s, v.Username + "  (joined: " + v.FirstSeen.Format(time.ANSIC) + ")") 
     }
-    ch := sb.ModChannelID
+    ch := strconv.FormatUint(sb.config.ModChannel, 10)
     if sb.config.Debug { ch = sb.DebugChannelID }
-    sb.SendMessage(ch, "<@&" + sb.ModsRole + "> Possible Raid Detected!\n```" + strings.Join(s, "\n") + "```")
+    sb.SendMessage(ch, "<@&" + strconv.FormatUint(sb.config.AlertRole, 10) + "> Possible Raid Detected!\n```" + strings.Join(s, "\n") + "```")
   }
 }
 func (w *SpamModule) OnGuildMemberUpdate(s *discordgo.Session, m *discordgo.Member) {
