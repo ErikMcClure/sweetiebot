@@ -29,6 +29,15 @@ func PingAtoi(s string) uint64 {
   }
   return SBatoi(s)
 }
+func StripPing(s string) string {
+  if s[:2] == "<#" || s[:2] == "<@" {
+    if s[2:3] == "!" || s[2:3] == "&" {
+      return s[3:len(s)-1]
+    }
+    return s[2:len(s)-1]
+  }
+  return s;
+}
 func SBatoi(s string) uint64 {
   if s[:1] == "!" || s[:1] == "&" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)

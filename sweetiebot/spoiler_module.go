@@ -26,6 +26,12 @@ func (w *SpoilerModule) Register(hooks *ModuleHooks) {
 }
 
 func (w *SpoilerModule) HasSpoiler(s *discordgo.Session, m *discordgo.Message) bool {
+  cid := SBatoi(m.ChannelID)
+  for _, v := range sb.config.SpoilChannels {
+    if cid == v {
+      return false // this is a spoiler channel so we don't monitor it
+    }
+  }
   if w.spoilerban != nil && w.spoilerban.MatchString(strings.ToLower(m.Content)) {
     s.ChannelMessageDelete(m.ChannelID, m.ID)
     if RateLimit(&w.lastmsg, sb.config.Maxspoiltime) {

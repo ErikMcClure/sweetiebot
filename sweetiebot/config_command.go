@@ -24,7 +24,7 @@ func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message) (strin
   if ok {
     return "```Successfully set " + args[0] + " to " + n + ".```", false
   }
-  return "```Could not find configuration parameter " + args[0] + "!```", false
+  return "```" + n + "```", false
 }
 func (c *SetConfigCommand) Usage() string { 
   return FormatUsage(c, "[config parameter] [value]", "Attempts to set the configuration value matching [config parameter] (not case-sensitive) to [value]. Will only save the new configuration if it succeeds, and returns the new value upon success.") 
