@@ -24,5 +24,3 @@ func (c *SetStatusCommand) Usage() string {
   return FormatUsage(c, "[arbitrary string]", "Sets Sweetie Bot's status message to the given string, at least until she automatically changes it again.") 
 }
 func (c *SetStatusCommand) UsageShort() string { return "Sets the status message." }
-func (c *SetStatusCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *SetStatusCommand) Channels() []string { return []string{} }

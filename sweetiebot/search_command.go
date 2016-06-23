@@ -133,16 +133,19 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message) (string, 
     query += "C.Timestamp > DATE_SUB(NOW(6), INTERVAL ? SECOND) AND "
     params = append(params, seconds)
   }
-      
-  if msg.ChannelID != sb.SpoilerChannelID {
-    query += "C.Channel != ? AND "
-    params = append(params, SBatoi(sb.SpoilerChannelID))
+
+  cid := SBatoi(msg.ChannelID)
+  for _, v := range sb.config.SpoilChannels {
+    if cid != v {
+      query += "C.Channel != ? AND "
+      params = append(params, v)
+    }
   }
   
   query += "C.ID != ? AND C.Author != ? AND C.Channel != ? AND C.Message NOT LIKE '!search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
   params = append(params, SBatoi(msg.ID))
   params = append(params, SBatoi(sb.SelfID))
-  params = append(params, SBatoi(sb.ModChannelID))
+  params = append(params, sb.config.ModChannel)
 
   querylimit := query
   if rangeend >= 0 {
@@ -229,5 +232,3 @@ func (c *SearchCommand) Usage() string {
   return FormatUsage(c, "[*[result-range]] [@user[|@user2|...]] [#channel[|#channel2|...]] [~seconds] [message]", "This is an arbitrary search command run on sweetiebot's 7 day chat log. All parameters are optional and can be input in any order, and will all be combined into a single search as appropriate, but if no searchable parameters are given, the operation will fail. The * parameter specifies what results should be returned. Specifing '*10' will return the first 10 results, while '*5-10' will return the 5th to the 10th result (inclusive). If you ONLY specify a single * character, it will only return a count of the total number of results. @user specifies a target user name to search for. An actual ping will be more effective, as it can directly use the user ID, but a raw username will be searched for in the alias table. Multiple users can be searched for by seperating them with | for \"OR\", but each user must still be prefixed with @ even if it's not a ping. #channel must be an actual channel recognized by discord, which will filter results to that channel. Multiple channels can be specified the same way as users can. Remember that if a username has spaces in it, you have to put the entire username parameter in quotes, not just the username itself! The ~ parameter tells the search to limit it's query back N seconds, so ~600 would query only the last 10 minutes of the chat log. [message] will be constructed from all the remaining unrecognized parameters, so you don't need quotes around the message you're looking for.\n\n Example: !search #example @cloud|@JamesNotABot *4 ~600\n This will return the most recent 4 messages said by any user with \"cloud\" in the name, or the user JamesNotABot, in the #example channel, in the past 10 minutes.") 
 }
 func (c *SearchCommand) UsageShort() string { return "Performs a complex search on the chat history." }
-func (c *SearchCommand) Roles() []string { return []string{} }
-func (c *SearchCommand) Channels() []string { return []string{} }

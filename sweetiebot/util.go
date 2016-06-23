@@ -23,8 +23,23 @@ func TimeDiff(d time.Duration) string {
   return Pluralize(seconds/86400, " day")
 }
 
+func PingAtoi(s string) uint64 {
+  if s[:2] == "<#" || s[:2] == "<@" {
+    return SBatoi(s[2:len(s)-1])
+  }
+  return SBatoi(s)
+}
+func StripPing(s string) string {
+  if s[:2] == "<#" || s[:2] == "<@" {
+    if s[2:3] == "!" || s[2:3] == "&" {
+      return s[3:len(s)-1]
+    }
+    return s[2:len(s)-1]
+  }
+  return s;
+}
 func SBatoi(s string) uint64 {
-  if s[:1] == "!" { s = s[1:] }
+  if s[:1] == "!" || s[:1] == "&" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)
   if err != nil { 
     sb.log.Log("Invalid number ", s, ":", err.Error())
@@ -66,7 +81,7 @@ func boolXOR(a bool, b bool) bool {
 }
 
 func UserHasRole(user string, role string) bool {
-  m, err := sb.dg.State.Member(sb.GuildID, user)
+  m, err := sb.dg.State.Member(sb.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
       if v == role {
@@ -77,12 +92,12 @@ func UserHasRole(user string, role string) bool {
   return false
 }
 
-func UserHasAnyRole(user string, roles map[uint64]bool) bool {
+func UserHasAnyRole(user string, roles map[string]bool) bool {
   if len(roles) == 0 { return true }
-  m, err := sb.dg.State.Member(sb.GuildID, user)
+  m, err := sb.dg.State.Member(sb.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
-      _, ok := roles[SBatoi(v)]
+      _, ok := roles[v]
       if ok {
         return true
       }
@@ -262,4 +277,16 @@ func RemoveSliceInt(s *[]uint64, item uint64) bool {
     }
   }
   return false
+}
+
+func CheckMapNilBool(m *map[string]bool) {
+  if len(*m) <= 0 {
+    *m = make(map[string]bool)
+  }
+}
+
+func CheckMapNilString(m *map[string]string) {
+  if len(*m) <= 0 {
+    *m = make(map[string]string)
+  }
 }
