@@ -90,8 +90,6 @@ func (c *DropCommand) Usage() string {
   return FormatUsage(c, "[arbitrary string]", "Drops the specified object from sweetie. If no object is given, makes sweetie drop something at random.") 
 }
 func (c *DropCommand) UsageShort() string { return "Drops something from sweetie's bucket." }
-func (c *DropCommand) Roles() []string { return []string{} }
-func (c *DropCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 
 type ListCommand struct {
@@ -115,8 +113,6 @@ func (c *ListCommand) Usage() string {
   return FormatUsage(c, "", "Lists everything that sweetie has.") 
 }
 func (c *ListCommand) UsageShort() string { return "Lists everything sweetie has." }
-func (c *ListCommand) Roles() []string { return []string{} }
-func (c *ListCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 type FightCommand struct {
   monster string
@@ -169,5 +165,3 @@ func (c *FightCommand) Usage() string {
   return FormatUsage(c, "[name]", "Fights a random pony, or [name] if it is provided.") 
 }
 func (c *FightCommand) UsageShort() string { return "Fights a random pony." }
-func (c *FightCommand) Roles() []string { return []string{} }
-func (c *FightCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }

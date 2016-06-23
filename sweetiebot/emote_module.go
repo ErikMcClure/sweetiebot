@@ -4,11 +4,11 @@ import (
   "github.com/bwmarrin/discordgo"
   "regexp"
   "strings"
+  "strconv"
 )
 
 // The emote module detects banned emotes and deletes them
 type EmoteModule struct {
-  ModuleEnabled
   emoteban *regexp.Regexp
   lastmsg int64
 }
@@ -23,9 +23,6 @@ func (w *EmoteModule) Register(hooks *ModuleHooks) {
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
-}
-func (w *EmoteModule) Channels() []string {
-  return []string{}
 }
 
 func (w *EmoteModule) HasBigEmote(s *discordgo.Session, m *discordgo.Message) bool {
@@ -48,7 +45,7 @@ func (w *EmoteModule) OnMessageUpdate(s *discordgo.Session, m *discordgo.Message
 }
 
 func (w *EmoteModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
-  if UserHasAnyRole(m.Author.ID, sb.princessrole) { return false }
+  if UserHasRole(m.Author.ID, strconv.FormatUint(sb.config.AlertRole, 10)) { return false }
   return w.HasBigEmote(s, m)
 }
 
