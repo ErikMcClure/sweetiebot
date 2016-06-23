@@ -40,7 +40,9 @@ func SetCommandEnable(args []string, enable bool, success string) string {
       if enable {
         delete(sb.config.Module_disabled, name)
       } else {
+        CheckMapNilBool(&sb.config.Module_disabled)
         sb.config.Module_disabled[name] = true
+        sb.SaveConfig()
       }
       return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
     }
@@ -51,7 +53,9 @@ func SetCommandEnable(args []string, enable bool, success string) string {
       if enable {
         delete(sb.config.Command_disabled, str)
       } else {
+        CheckMapNilBool(&sb.config.Command_disabled)
         sb.config.Command_disabled[str] = true
+        sb.SaveConfig()
       }
       return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
     }

@@ -28,7 +28,7 @@ func (w *SpamModule) Register(hooks *ModuleHooks) {
 
 func KillSpammer(u *discordgo.User) {  
   // Manually set our internal state to say this user has the Silent role, to prevent race conditions
-  m, err := sb.dg.State.Member(sb.GuildID, u.ID)
+  m, err := sb.dg.State.Member(sb.Guild.ID, u.ID)
   if err == nil {
     srole := strconv.FormatUint(sb.config.SilentRole, 10)
     for _, v := range m.Roles {
@@ -43,7 +43,7 @@ func KillSpammer(u *discordgo.User) {
   
   sb.log.Log("Killing spammer ", u.Username)
   
-  sb.dg.GuildMemberEdit(sb.GuildID, u.ID, m.Roles) // Tell discord to make this spammer silent
+  sb.dg.GuildMemberEdit(sb.Guild.ID, u.ID, m.Roles) // Tell discord to make this spammer silent
   messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
 
   for _, v := range messages {

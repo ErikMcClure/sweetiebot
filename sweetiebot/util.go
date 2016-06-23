@@ -72,7 +72,7 @@ func boolXOR(a bool, b bool) bool {
 }
 
 func UserHasRole(user string, role string) bool {
-  m, err := sb.dg.State.Member(sb.GuildID, user)
+  m, err := sb.dg.State.Member(sb.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
       if v == role {
@@ -85,7 +85,7 @@ func UserHasRole(user string, role string) bool {
 
 func UserHasAnyRole(user string, roles map[string]bool) bool {
   if len(roles) == 0 { return true }
-  m, err := sb.dg.State.Member(sb.GuildID, user)
+  m, err := sb.dg.State.Member(sb.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
       _, ok := roles[v]
@@ -268,4 +268,16 @@ func RemoveSliceInt(s *[]uint64, item uint64) bool {
     }
   }
   return false
+}
+
+func CheckMapNilBool(m *map[string]bool) {
+  if len(*m) <= 0 {
+    *m = make(map[string]bool)
+  }
+}
+
+func CheckMapNilString(m *map[string]string) {
+  if len(*m) <= 0 {
+    *m = make(map[string]string)
+  }
 }
