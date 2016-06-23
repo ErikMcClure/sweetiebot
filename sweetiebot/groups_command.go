@@ -43,8 +43,6 @@ func (c *AddGroupCommand) Usage() string {
   return FormatUsage(c, "[name]", "Creates a new group and automatically adds you to it. Groups are automatically destroyed when everyone in the group leaves.") 
 }
 func (c *AddGroupCommand) UsageShort() string { return "Creates a new group." }
-func (c *AddGroupCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *AddGroupCommand) Channels() []string { return []string{} }
 
 type JoinGroupCommand struct {
 }
@@ -72,8 +70,6 @@ func (c *JoinGroupCommand) Usage() string {
   return FormatUsage(c, "[group]", "Joins an existing group.") 
 }
 func (c *JoinGroupCommand) UsageShort() string { return "Joins an existing group." }
-func (c *JoinGroupCommand) Roles() []string { return []string{} }
-func (c *JoinGroupCommand) Channels() []string { return []string{} }
 
 type ListGroupCommand struct {
 }
@@ -118,8 +114,6 @@ func (c *ListGroupCommand) Usage() string {
   return FormatUsage(c, "[group]", "If no argument is given, lists all the current groups. If a group name is given, lists all the members of that group.") 
 }
 func (c *ListGroupCommand) UsageShort() string { return "Lists all groups." }
-func (c *ListGroupCommand) Roles() []string { return []string{} }
-func (c *ListGroupCommand) Channels() []string { return []string{} }
 
 
 type LeaveGroupCommand struct {
@@ -158,8 +152,6 @@ func (c *LeaveGroupCommand) Usage() string {
   return FormatUsage(c, "[group]", "Removes you from the given group, if you are a member of it.") 
 }
 func (c *LeaveGroupCommand) UsageShort() string { return "Removes you from a group." }
-func (c *LeaveGroupCommand) Roles() []string { return []string{} }
-func (c *LeaveGroupCommand) Channels() []string { return []string{} }
 
 
 type PingCommand struct {
@@ -199,8 +191,6 @@ func (c *PingCommand) Usage() string {
   return FormatUsage(c, "[group] [arbitrary string]", "Pings everyone in a group with the given message, but only if you are a member of the group.") 
 }
 func (c *PingCommand) UsageShort() string { return "Pings a group." }
-func (c *PingCommand) Roles() []string { return []string{} }
-func (c *PingCommand) Channels() []string { return []string{} }
 
 
 type PurgeGroupCommand struct {
@@ -229,5 +219,3 @@ func (c *PurgeGroupCommand) Usage() string {
   return FormatUsage(c, "[group]", "Deletes the group, if it exists.") 
 }
 func (c *PurgeGroupCommand) UsageShort() string { return "Deletes a group." }
-func (c *PurgeGroupCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *PurgeGroupCommand) Channels() []string { return []string{} }

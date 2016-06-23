@@ -4,13 +4,11 @@ import (
   "github.com/bwmarrin/discordgo"
   "strings"
   "regexp"
-  "time"
   "math/rand"
 )
 
 // This module is intended for any witty comments sweetie bot makes in response to what users say or do.
 type WittyModule struct {
-  ModuleEnabled
   lastdelete int64
   lastcomment int64
   shutupregex *regexp.Regexp
@@ -60,10 +58,6 @@ func (w *WittyModule) UpdateRegex() bool {
   }
   return err == nil
 }
-
-func (w *WittyModule) Channels() []string {
-  return []string{"manechat", "mylittlespoilers", "mylittleactivities", "mylittlenerds", "mylittlebot", "bot-debug"}
-}
   
 func (w *WittyModule) SendWittyComment(channel string, comment string) {
   if RateLimit(&w.lastcomment, sb.config.Maxwit) {
@@ -72,12 +66,12 @@ func (w *WittyModule) SendWittyComment(channel string, comment string) {
 }
 func (w *WittyModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
   str := strings.ToLower(m.Content)
-  if w.shutupregex.MatchString(str) {
+  /*if w.shutupregex.MatchString(str) {
     if CheckRateLimit(&sb.lastshutup, sb.config.Maxshutup) {
       sb.SendMessage(m.ChannelID, "[](/sadbot) `Sorry! (All comments and public commands disabled in #manechat for the next " + TimeDiff(time.Duration(sb.config.Maxshutup) * time.Second) + ").`")
     }
     sb.lastshutup = time.Now().UTC().Unix()
-  }
+  }*/
   if CheckRateLimit(&w.lastcomment, sb.config.Maxwit) && CheckShutup(m.ChannelID) {
     if w.wittyregex != nil && w.wittyregex.MatchString(str) {
       for i := 0; i < len(w.triggerregex); i++ {
@@ -137,8 +131,6 @@ func (c *AddWitCommand) Usage() string {
   return FormatUsage(c, "[trigger] [response]", "Adds a [response] that is triggered by [trigger]. The trigger may be any valid regex string, but it must be in quotes if it has spaces.") 
 }
 func (c *AddWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
-func (c *AddWitCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *AddWitCommand) Channels() []string { return []string{} }
 
 
 type RemoveWitCommand struct {
@@ -174,5 +166,3 @@ func (c *RemoveWitCommand) Usage() string {
   return FormatUsage(c, "[trigger]", "Removes [trigger] from wittyremarks, provided it exists.") 
 }
 func (c *RemoveWitCommand) UsageShort() string { return "Removes a remark from wittyremarks." }
-func (c *RemoveWitCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *RemoveWitCommand) Channels() []string { return []string{} }
