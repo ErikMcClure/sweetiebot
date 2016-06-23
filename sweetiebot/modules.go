@@ -112,7 +112,7 @@ func GetActiveModules() string {
   s := []string{"Active Modules:"}
   for _, v := range sb.modules {
     str := v.Name()
-    _, ok := sb.config.Module_disabled[str]
+    _, ok := sb.config.Module_disabled[strings.ToLower(str)]
     if ok { str += " [disabled]" }
     s = append(s, str)
   }
@@ -123,7 +123,7 @@ func GetActiveCommands() string {
   s := []string{"Active Commands:"}
   for _, v := range sb.commands {
     str := v.Name() 
-    _, ok := sb.config.Command_disabled[str]
+    _, ok := sb.config.Command_disabled[strings.ToLower(str)]
     if ok { str += " [disabled]" }
     s = append(s, str)
   }
@@ -131,7 +131,7 @@ func GetActiveCommands() string {
 }
 
 func GetRoles(c Command) string {
-  m, ok := sb.config.Command_roles[c.Name()]
+  m, ok := sb.config.Command_roles[strings.ToLower(c.Name())]
   if !ok {
     return "";
   }

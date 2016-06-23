@@ -48,8 +48,8 @@ func SetCommandEnable(args []string, enable bool, success string) string {
     }
   }
   for _, v := range sb.commands {
-    str := v.Name()
-    if strings.ToLower(str) == name {
+    str := strings.ToLower(v.Name())
+    if str == name {
       if enable {
         delete(sb.config.Command_disabled, str)
       } else {
