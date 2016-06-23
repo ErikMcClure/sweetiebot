@@ -82,21 +82,22 @@ type GuildInfo struct {
 
 type SweetieBot struct {
   db *BotDB
-  log *Log
   dg *discordgo.Session
+  version string
+  log *Log
   SelfID string
   OwnerID uint64
+  MainGuildID uint64
   DebugChannelID string
-  version string
-  hooks ModuleHooks
   quit bool
-  emotemodule *EmoteModule
-  guilds map[string]GuildInfo
+  //guilds map[string]GuildInfo
   Guild *discordgo.Guild
   command_last map[string]map[string]int64
   commandlimit *SaturationLimit
   config BotConfig
   initialized bool
+  emotemodule *EmoteModule
+  hooks ModuleHooks
   modules []Module
   commands map[string]Command
 }
@@ -146,46 +147,53 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
           f.SetBool(value == "true")
         case map[string]string:
           if len(extra) == 0 {
-            sbot.log.Log("No extra parameter given for " + name)
-            return "", false
+            return "No extra parameter given for " + name, false
           }
           if f.IsNil() {
             f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
           }
           f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
+          return value + ": " + extra[0], true
         case map[string]int64:
           if len(extra) == 0 {
-            sbot.log.Log("No extra parameter given for " + name)
-            return "", false
+            return "No extra parameter given for " + name, false
           }
           if f.IsNil() {
             f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
           }
           k, _ := strconv.ParseInt(extra[0], 10, 64)
           f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
+          return value + ": " + strconv.FormatInt(k, 10), true
         case map[string]bool:
           f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-          f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(true))
+          f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
+          stripped := []string{ StripPing(value) }
           for _, k := range extra {
-            f.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(true))
+            f.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
+            stripped = append(stripped, StripPing(k))
           }
+          return "[" + strings.Join(stripped, ", ") + "]", true
         case map[string]map[string]bool:
-          if len(extra) < 2 {
-            sbot.log.Log("Not enough parameters for " + name)
-            return "", false
-          }
           if f.IsNil() {
             f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
           }
+          m := reflect.MakeMap(reflect.TypeOf(f.Interface()).Elem())
+          stripped := []string{}
+          for _, k := range extra {
+            m.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
+            stripped = append(stripped, StripPing(k))
+          }
+          f.SetMapIndex(reflect.ValueOf(value), m)
+          return value + ": [" + strings.Join(stripped, ", ") + "]", true
         default:
           sbot.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
-          return "", false
+          return "That config option has an unknown type!", false
       }
       sbot.SaveConfig()
       return fmt.Sprint(t.Field(i).Interface()), true
     }
   }
-  return "", false
+  return "Could not find configuration parameter " + name + "!", false
 }
 
 func sbemotereplace(s string) string {
@@ -211,10 +219,10 @@ func (sbot *SweetieBot) SendMessage(channelID string, message string) {
 }
 
 func ProcessModule(channelID string, m Module) bool {
-  _, disabled := sb.config.Module_disabled[m.Name()]
+  _, disabled := sb.config.Module_disabled[strings.ToLower(m.Name())]
   if disabled { return false }
     
-  c := sb.config.Module_channels[m.Name()]
+  c := sb.config.Module_channels[strings.ToLower(m.Name())]
   if len(channelID)>0 && len(c)>0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
     _, ok := c[channelID]
     return ok
@@ -416,8 +424,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     if ok { arg = alias }
     c, ok := sb.commands[arg]    
     if ok {
-      cch := sb.config.Command_channels[c.Name()]
-      _, disabled := sb.config.Command_disabled[c.Name()]
+      cch := sb.config.Command_channels[strings.ToLower(c.Name())]
+      _, disabled := sb.config.Command_disabled[strings.ToLower(c.Name())]
       if disabled { return }
       if !private && len(cch) > 0 {
         _, ok = cch[m.ChannelID]
@@ -425,7 +433,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
           return
         }
       }
-      if !isSBowner && !UserHasAnyRole(m.Author.ID, sb.config.Command_roles[c.Name()]) {
+      if !isSBowner && !UserHasAnyRole(m.Author.ID, sb.config.Command_roles[strings.ToLower(c.Name())]) {
         sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + GetRoles(c))
         return
       }
@@ -527,13 +535,6 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 
 func ProcessGuild(g *discordgo.Guild) {
   sb.Guild = g
-  
-  for _, v := range g.Channels {
-    switch v.Name {
-      case "bot-debug":
-        sb.DebugChannelID = v.ID
-    }
-  }
 }
 
 func FindChannelID(name string) string {
@@ -582,13 +583,16 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.7.0",
-    commands: make(map[string]Command),
+    version: "0.6.5",
     log: &Log{0},
-    commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
-    initialized: false,
     OwnerID: 95585199324143616,
     //OwnerID: 0,
+    MainGuildID: 98609319519453184,
+    DebugChannelID: "141710126628339712",
+    quit: false,
+    commands: make(map[string]Command),
+    commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
+    initialized: false,
   }
   
   rand.Intn(10)
@@ -596,7 +600,6 @@ func Initialize(Token string) {
 
   errjson := json.Unmarshal(config, &sb.config)
   if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
-  //fmt.Println("Config settings: ", sb.config)
   
   sb.commandlimit.times = make([]int64, sb.config.Commandperduration*2, sb.config.Commandperduration*2);
   
