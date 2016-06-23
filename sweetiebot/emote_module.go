@@ -48,6 +48,7 @@ func (w *EmoteModule) OnMessageUpdate(s *discordgo.Session, m *discordgo.Message
 }
 
 func (w *EmoteModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
+  if UserHasAnyRole(m.Author.ID, sb.princessrole) { return false }
   return w.HasBigEmote(s, m)
 }
 
