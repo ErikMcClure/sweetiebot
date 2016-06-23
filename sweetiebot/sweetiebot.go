@@ -66,13 +66,13 @@ type BotConfig struct {
   ModChannel uint64        `json:"modchannel"`
   IdleChannels []uint64    `json:"idlechannels"`
   SpoilChannels []uint64   `json:"spoilchannels"`
-  FreeChannels map[string]uint64    `json:"freechannels"`
-  Command_roles map[string]map[string]uint64    `json:"command_roles"`
-  Command_channels map[string]map[string]uint64  `json:"command_channels"`
+  FreeChannels map[string]bool    `json:"freechannels"`
+  Command_roles map[string]map[string]bool    `json:"command_roles"`
+  Command_channels map[string]map[string]bool  `json:"command_channels"`
   Command_limits map[string]int64 `json:command_limits`
   Command_disabled map[string]bool `json:command_disabled`
   Module_disabled map[string]bool `json:module_disabled`
-  Module_channels map[string]map[string]uint64 `json:module_channels`
+  Module_channels map[string]map[string]bool `json:module_channels`
   Collections map[string]map[string]bool `json:"collections"`
   Groups map[string]map[string]bool `json:"groups"`
 }
@@ -119,7 +119,7 @@ func (sbot *SweetieBot) SaveConfig() {
   }
 }
 
-func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
+func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (string, bool) {
   name = strings.ToLower(name)
   t := reflect.ValueOf(&sbot.config).Elem()
   n := t.NumField()
@@ -132,11 +132,55 @@ func (sbot *SweetieBot) SetConfig(name string, value string) (string, bool) {
         case int, int8, int16, int32, int64:
           k, _ := strconv.ParseInt(value, 10, 64)
           f.SetInt(k)
-        case uint, uint8, uint16, uint32, uint64:
+        case uint, uint8, uint16, uint32:
           k, _ := strconv.ParseUint(value, 10, 64)
           f.SetUint(k)
+        case uint64:
+          f.SetUint(PingAtoi(value))
+        case []uint64:
+          f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1 + len(extra)))
+          f.Set(reflect.Append(reflect.ValueOf(PingAtoi(value))))
+          for _, k := range extra {
+            f.Set(reflect.Append(reflect.ValueOf(PingAtoi(k))))
+          }
         case bool:
           f.SetBool(value == "true")
+        case map[string]string:
+          if len(extra) == 0 {
+            sbot.log.Log("No extra parameter given for " + name)
+            return "", false
+          }
+          if f.IsNil() {
+            f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+          }
+          f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
+          return "{ " + value + ":" + extra[0] + "}", true
+        case map[string]int64:
+          if len(extra) == 0 {
+            sbot.log.Log("No extra parameter given for " + name)
+            return "", false
+          }
+          if f.IsNil() {
+            f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+          }
+          k, _ := strconv.ParseInt(extra[0], 10, 64)
+          f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
+          return "{ " + value + ":" + extra[0] + "}", true
+        case map[string]bool:
+          f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+          f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(true))
+          for _, k := range extra {
+            f.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(true))
+          }
+          return "{ " + value + ", " + strings.Join(extra, ", ") + "}", true
+        case map[string]map[string]bool:
+          if len(extra) < 2 {
+            sbot.log.Log("Not enough parameters for " + name)
+            return "", false
+          }
+          if f.IsNil() {
+            f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+          }
         default:
           sbot.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
           return "", false
@@ -153,7 +197,9 @@ func sbemotereplace(s string) string {
 }
 
 func SanitizeOutput(message string) string {
-  message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
+  if sb.emotemodule != nil {
+    message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
+  }
   return message;
 }
 func ExtraSanitize(s string) string {
@@ -537,7 +583,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.6.1",
+    version: "0.7.0",
     commands: make(map[string]Command),
     log: &Log{0},
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
