@@ -64,7 +64,6 @@ type BotConfig struct {
   SilentRole uint64        `json:"silentrole"`
   LogChannel uint64        `json:"logchannel"`
   ModChannel uint64        `json:"modchannel"`
-  IdleChannels []uint64    `json:"idlechannels"`
   SpoilChannels []uint64   `json:"spoilchannels"`
   FreeChannels map[string]bool    `json:"freechannels"`
   Command_roles map[string]map[string]bool    `json:"command_roles"`
@@ -93,7 +92,7 @@ type SweetieBot struct {
   quit bool
   emotemodule *EmoteModule
   guilds map[string]GuildInfo
-  GuildID string
+  Guild *discordgo.Guild
   command_last map[string]map[string]int64
   commandlimit *SaturationLimit
   config BotConfig
@@ -139,9 +138,9 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
           f.SetUint(PingAtoi(value))
         case []uint64:
           f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1 + len(extra)))
-          f.Set(reflect.Append(reflect.ValueOf(PingAtoi(value))))
+          f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
           for _, k := range extra {
-            f.Set(reflect.Append(reflect.ValueOf(PingAtoi(k))))
+            f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
           }
         case bool:
           f.SetBool(value == "true")
@@ -154,7 +153,6 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
             f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
           }
           f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
-          return "{ " + value + ":" + extra[0] + "}", true
         case map[string]int64:
           if len(extra) == 0 {
             sbot.log.Log("No extra parameter given for " + name)
@@ -165,14 +163,12 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
           }
           k, _ := strconv.ParseInt(extra[0], 10, 64)
           f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
-          return "{ " + value + ":" + extra[0] + "}", true
         case map[string]bool:
           f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
           f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(true))
           for _, k := range extra {
             f.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(true))
           }
-          return "{ " + value + ", " + strings.Join(extra, ", ") + "}", true
         case map[string]map[string]bool:
           if len(extra) < 2 {
             sbot.log.Log("Not enough parameters for " + name)
@@ -421,6 +417,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     c, ok := sb.commands[arg]    
     if ok {
       cch := sb.config.Command_channels[c.Name()]
+      _, disabled := sb.config.Command_disabled[c.Name()]
+      if disabled { return }
       if !private && len(cch) > 0 {
         _, ok = cch[m.ChannelID]
         if !ok {
@@ -528,7 +526,7 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func ProcessGuild(g *discordgo.Guild) {
-  sb.GuildID = g.ID
+  sb.Guild = g
   
   for _, v := range g.Channels {
     switch v.Name {
@@ -555,18 +553,19 @@ func ApplyFuncRange(length int, fn func(i int)) {
 
 func IdleCheckLoop() {
   for !sb.quit {
-    ids := sb.config.IdleChannels
-    if sb.config.Debug { ids = []uint64{SBatoi(sb.DebugChannelID)} } // override this in debug mode
+    ids := sb.Guild.Channels
+    if sb.config.Debug { // override this in debug mode
+      c, err := sb.dg.State.Channel(sb.DebugChannelID)
+      if err == nil { ids = []*discordgo.Channel{c} }
+    } 
     for _, id := range ids {
-      t := sb.db.GetLatestMessage(id)
+      t := sb.db.GetLatestMessage(SBatoi(id.ID))
       diff := SinceUTC(t);
-      for _, v := range sb.hooks.OnIdle {
-        _, disabled := sb.config.Module_disabled[v.Name()]
-        if !disabled && diff >= (time.Duration(v.IdlePeriod())*time.Second) {
-          c, err := sb.dg.State.Channel(strconv.FormatUint(id, 10))
-          if err == nil { v.OnIdle(sb.dg, c) }
-        }
-      }
+      ApplyFuncRange(len(sb.hooks.OnIdle), func(i int) {
+        if ProcessModule("", sb.hooks.OnIdle[i]) && diff >= (time.Duration(sb.hooks.OnIdle[i].IdlePeriod())*time.Second) {
+          sb.hooks.OnIdle[i].OnIdle(sb.dg, id)
+          }
+        })
     }
     time.Sleep(30*time.Second)
   }  
@@ -589,6 +588,7 @@ func Initialize(Token string) {
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
     initialized: false,
     OwnerID: 95585199324143616,
+    //OwnerID: 0,
   }
   
   rand.Intn(10)
