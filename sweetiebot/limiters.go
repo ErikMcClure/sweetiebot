@@ -70,5 +70,5 @@ func RateLimit(prevtime *int64, interval int64) bool {
 }
 
 func CheckShutup(channel string) bool {
-  return channel != sb.ManeChannelID || CheckRateLimit(&sb.lastshutup, sb.config.Maxshutup);
+  return true
 }

@@ -21,5 +21,3 @@ func (c *CuteCommand) Usage() string {
   return FormatUsage(c, "[arbitrary string]", "Sets Sweetie Bot's status message to the given string, at least until she automatically changes it again.") 
 }
 func (c *CuteCommand) UsageShort() string { return "Returns a cute pony picture." }
-func (c *CuteCommand) Roles() []string { return []string{} }
-func (c *CuteCommand) Channels() []string { return []string{} }
