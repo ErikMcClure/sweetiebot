@@ -39,6 +39,7 @@ func KillSpammer(u *discordgo.User) {
     m.Roles = append(m.Roles, srole)
   } else {
     sb.log.Log("Tried to kill spammer ", u.Username, " but they were already banned??? (Error: ", err.Error(), ")")
+    return
   }
   
   sb.log.Log("Killing spammer ", u.Username)
