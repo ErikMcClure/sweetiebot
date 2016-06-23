@@ -372,12 +372,16 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
-  
+
+  if m.ChannelID == sb.DebugChannelID && !sb.config.Debug { 
+    return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
+  }
+
   ch, err := sb.dg.State.Channel(m.ChannelID)
   sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
   private := true
   if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-  
+
   if m.ChannelID != sb.LogChannelID && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), SBatoi(m.ChannelID), m.MentionEveryone) 
   }
