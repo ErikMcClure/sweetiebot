@@ -429,7 +429,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     if ok {
       cch := sb.config.Command_channels[strings.ToLower(c.Name())]
       _, disabled := sb.config.Command_disabled[strings.ToLower(c.Name())]
-      if disabled { return }
+      if disabled && !isSBowner { return }
       if !private && len(cch) > 0 {
         _, ok = cch[m.ChannelID]
         if !ok {
