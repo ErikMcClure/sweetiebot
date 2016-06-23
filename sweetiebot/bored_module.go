@@ -7,7 +7,6 @@ import (
 
 // This module picks a random action to do whenever #example has been idle for several minutes (configurable)
 type BoredModule struct {
-  ModuleEnabled
   Episodegen *EpisodeGenCommand
   lastmessage int64 // Ensures discord screwing up doesn't make us spam the chatroom.
 }
@@ -19,9 +18,6 @@ func (w *BoredModule) Name() string {
 func (w *BoredModule) Register(hooks *ModuleHooks) {
   w.lastmessage = 0
   hooks.OnIdle = append(hooks.OnIdle, w);
-}
-func (w *BoredModule) Channels() []string {
-  return []string{"example"} // This doesn't really matter because OnIdle will only fire for the example.
 }
  
 func (w *BoredModule) OnIdle(s *discordgo.Session, c *discordgo.Channel) {

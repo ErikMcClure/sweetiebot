@@ -41,8 +41,6 @@ func (c *AddCommand) Usage() string {
   return FormatUsage(c, "[collection] [arbitrary string]", "Adds [arbitrary string] to [collection] (no quotes are required), then calls a handler function for that specific collection.") 
 }
 func (c *AddCommand) UsageShort() string { return "Adds a line to a collection." }
-func (c *AddCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *AddCommand) Channels() []string { return []string{} }
 
 type RemoveCommand struct {
   funcmap map[string]func(string)string
@@ -84,9 +82,6 @@ func (c *RemoveCommand) Usage() string {
   return FormatUsage(c, "[collection] [arbitrary string]", "Removes [arbitrary string] from [collection] (no quotes are required) and calls a handler function for that collection.") 
 }
 func (c *RemoveCommand) UsageShort() string { return "Removes a line from a collection." }
-func (c *RemoveCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *RemoveCommand) Channels() []string { return []string{} }
-
 
 type CollectionsCommand struct {
 }
@@ -116,5 +111,3 @@ func (c *CollectionsCommand) Usage() string {
   return FormatUsage(c, "", "Lists all the collections that sweetiebot is using.") 
 }
 func (c *CollectionsCommand) UsageShort() string { return "Lists all collections." }
-func (c *CollectionsCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *CollectionsCommand) Channels() []string { return []string{} }
