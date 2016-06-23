@@ -109,7 +109,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message) (string, boo
   }
   // we're done with our checks
   // actually ban the user here and send the output. This is probably poorly done.
-  gID := sb.GuildID
+  gID := sb.Guild.ID
   u, _ := sb.db.GetUser(id)
   uID := strconv.FormatUint(id, 10)
   sb.dg.GuildBanCreate(gID, uID, 1)

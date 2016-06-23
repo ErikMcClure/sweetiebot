@@ -114,9 +114,8 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message) (string, 
   
   trigger := args[0]
   remark := args[1]
-  if len(sb.config.Witty) <= 0 {
-    sb.config.Witty = make(map[string]string)
-  }
+  
+  CheckMapNilString(&sb.config.Witty)
   sb.config.Witty[trigger] = remark
   sb.SaveConfig()
   r := c.wit.UpdateRegex()
