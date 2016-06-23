@@ -6,7 +6,6 @@ import (
 
 // This module sucks up all the pings in a message and adds them to the database for the !lastping command
 type PingModule struct {
-  ModuleEnabled
   channels *map[uint64]bool
 }
 
@@ -17,9 +16,6 @@ func (w *PingModule) Name() string {
 func (w *PingModule) Register(hooks *ModuleHooks) {
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
-}
-func (w *PingModule) Channels() []string {
-  return []string{"example", "mylittlespoilers", "mylittleactivities", "mylittleroleplay", "mylittlenerds", "mylittlebot", "bot-debug"}
 }
   
 func (w *PingModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {

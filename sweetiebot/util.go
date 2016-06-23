@@ -77,12 +77,12 @@ func UserHasRole(user string, role string) bool {
   return false
 }
 
-func UserHasAnyRole(user string, roles map[uint64]bool) bool {
+func UserHasAnyRole(user string, roles map[string]uint64) bool {
   if len(roles) == 0 { return true }
   m, err := sb.dg.State.Member(sb.GuildID, user)
   if err == nil {
     for _, v := range m.Roles {
-      _, ok := roles[SBatoi(v)]
+      _, ok := roles[v]
       if ok {
         return true
       }

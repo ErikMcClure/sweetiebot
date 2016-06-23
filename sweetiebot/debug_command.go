@@ -29,8 +29,6 @@ func (c *EchoCommand) Usage() string {
   return FormatUsage(c, "[#channel] [string]", "Makes Sweetie Bot say the given sentence in #channel, or in the current channel if no argument is provided.") 
 }
 func (c *EchoCommand) UsageShort() string { return "Makes Sweetie Bot say something in the given channel." }
-func (c *EchoCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *EchoCommand) Channels() []string { return []string{} }
 
 func SetCommandEnable(args []string, enable bool, success string) string {
   if len(args) == 0 {
@@ -39,20 +37,21 @@ func SetCommandEnable(args []string, enable bool, success string) string {
   name := strings.ToLower(args[0])
   for _, v := range sb.modules {
     if strings.ToLower(v.Name()) == name {
-      v.Enable(enable)
-      if v.IsEnabled() != enable {
-        return "Could not enable/disable " + args[0] + " module/command. Is this a restricted module?"
+      if enable {
+        delete(sb.config.Module_disabled, name)
+      } else {
+        sb.config.Module_disabled[name] = true
       }
       return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
     }
   }
   for _, v := range sb.commands {
-    str := v.c.Name()
+    str := v.Name()
     if strings.ToLower(str) == name {
       if enable {
-        delete(sb.disablecommands, str)
+        delete(sb.config.Command_disabled, str)
       } else {
-        sb.disablecommands[str] = true
+        sb.config.Command_disabled[str] = true
       }
       return args[0] + success + "\n\n" + GetActiveModules() + "\n\n" + GetActiveCommands()
     }
@@ -73,8 +72,6 @@ func (c *DisableCommand) Usage() string {
   return FormatUsage(c, "[module|command]", "Disables the given module or command, if possible. If the module/command is already disabled, does nothing.") 
 }
 func (c *DisableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
-func (c *DisableCommand) Roles() []string { return []string{"Princesses", "Royal Guard"} }
-func (c *DisableCommand) Channels() []string { return []string{} }
 
 
 type EnableCommand struct {
@@ -100,6 +97,9 @@ func (c *UpdateCommand) Name() string {
   return "Update";  
 }
 func (c *UpdateCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+  if SBatoi(msg.Author.ID) != sb.OwnerID {
+    return "```Only the owner of the bot itself can call this!```", false
+  }
   /*sb.log.Log("Update command called, current PID: ", os.Getpid())
   err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
   if err != nil {
@@ -129,5 +129,3 @@ func (c *DumpTablesCommand) Usage() string {
   return FormatUsage(c, "", "Dumps table row counts.")
 }
 func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
-func (c *DumpTablesCommand) Roles() []string { return []string{"Princesses"} }
-func (c *DumpTablesCommand) Channels() []string { return []string{} }

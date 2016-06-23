@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
   "fmt"
+  "strconv"
 )
 
 type Logger interface {
@@ -11,16 +12,17 @@ type Logger interface {
 }
 
 type Log struct {
-  bot *SweetieBot
   lasterr int64
 }
 
 func (l *Log) Log(args ...interface{}) {
   s := fmt.Sprint(args...)
   fmt.Println(s)
-  l.bot.db.Log(s)
-  if len(l.bot.LogChannelID) > 0 {
-    sb.SendMessage(l.bot.LogChannelID, "```" + s + "```") 
+  if sb.db != nil {
+    sb.db.Log(s)
+    if sb.config.LogChannel > 0 {
+      sb.SendMessage(strconv.FormatUint(sb.config.LogChannel, 10), "```" + s + "```") 
+    }
   }
 }
 
@@ -35,9 +37,4 @@ func (l *Log) Error(channelID string, message string) {
     sb.SendMessage(channelID, "```" + message + "```") 
   }
   //l.Log(message); // Always log it to the debug log. TODO: This is really annoying, maybe we shouldn't do this
-}
-
-func (l *Log) Init(bot *SweetieBot) {
-  l.bot = bot
-  l.lasterr = 0   
 }

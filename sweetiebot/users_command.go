@@ -30,8 +30,6 @@ func (c *NewUsersCommand) Usage() string {
   return FormatUsage(c, "[maxresults]", "Lists up to maxresults users, starting with the newest user to join the server. Defaults to 5 results, returns a maximum of 30.") 
 }
 func (c *NewUsersCommand) UsageShort() string { return "[PM Only] Gets a list of the most recent users to join the server." }
-func (c *NewUsersCommand) Roles() []string { return []string{} }
-func (c *NewUsersCommand) Channels() []string { return []string{} }
 
 type AKACommand struct {
 }
@@ -73,8 +71,6 @@ func (c *AKACommand) Usage() string {
   return FormatUsage(c, "[@user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.") 
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
-func (c *AKACommand) Roles() []string { return []string{} }
-func (c *AKACommand) Channels() []string { return []string{} }
 
 // experimental ban command for admins to ban users from the server with extreme prejudice
 type BanCommand struct{
@@ -124,5 +120,3 @@ func (c *BanCommand) Usage() string {
   return FormatUsage(c, "[@user]", "Commands Sweetie Bot to ban a given user.")
 }
 func (c *BanCommand) UsageShort() string { return "Commands Sweetie Bot to ban a given user." }
-func (c *BanCommand) Roles() []string { return []string{"Princesses", "Royal Guard", "Night Guard"} }
-func (c *BanCommand) Channels() []string { return []string{} }

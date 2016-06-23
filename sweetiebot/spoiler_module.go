@@ -3,12 +3,12 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "strings"
+  "strconv"
   "regexp"
 )
 
 // This module picks a random action to do whenever #example has been idle for several minutes (configurable)
 type SpoilerModule struct {
-  ModuleEnabled
   spoilerban *regexp.Regexp
   lastmsg int64 // Sanity rate limiter
 }
@@ -23,9 +23,6 @@ func (w *SpoilerModule) Register(hooks *ModuleHooks) {
   hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
   hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
   hooks.OnCommand = append(hooks.OnCommand, w)
-}
-func (w *SpoilerModule) Channels() []string {
-  return []string{"example", "mylittleactivities", "mylittleroleplay", "mylittlenerds", "mylittlebot", "bot-debug" }
 }
 
 func (w *SpoilerModule) HasSpoiler(s *discordgo.Session, m *discordgo.Message) bool {
@@ -48,7 +45,7 @@ func (w *SpoilerModule) OnMessageUpdate(s *discordgo.Session, m *discordgo.Messa
 }
 
 func (w *SpoilerModule) OnCommand(s *discordgo.Session, m *discordgo.Message) bool {
-  if UserHasAnyRole(m.Author.ID, sb.princessrole) { return false } // If we are a princess, always allow us to run this command, otherwise we can't unspoil things
+  if UserHasRole(m.Author.ID, strconv.FormatUint(sb.config.AlertRole, 10)) { return false } // If we are a princess, always allow us to run this command, otherwise we can't unspoil things
   return w.HasSpoiler(s, m)
 }
 

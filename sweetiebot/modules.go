@@ -94,23 +94,10 @@ type ModuleOnIdle interface {
   IdlePeriod() int64 
 }
 
-type ModuleEnabledInterface interface {
-  IsEnabled() bool
-  Enable(bool)
-}
-type ModuleEnabled struct {
-  enabled bool
-  channels *map[uint64]bool
-}
-
 // Modules monitor all incoming messages and users that have joined a given channel.
 type Module interface {
-  ModuleEnabledInterface
   Name() string
   Register(hooks *ModuleHooks)
-  Channels() []string // If no channels are specified, runs on all channels (except bot-log)
-  SetChannelMap(*map[uint64]bool)
-  GetChannelMap() *map[uint64]bool
 }
 
 // Commands are any command that is addressed to the bot, optionally restricted by role.
@@ -119,28 +106,14 @@ type Command interface {
   Process([]string, *discordgo.Message) (string, bool)
   Usage() string
   UsageShort() string
-  Roles() []string // If no roles are specified, everyone is assumed
-  Channels() []string // If no channels are specified, runs on all channels (except bot-log)
-}
-
-func (m *ModuleEnabled) IsEnabled() bool {
-  return m.enabled
-}
-func (m *ModuleEnabled) Enable(b bool) {
-  m.enabled = b
-}
-func (m *ModuleEnabled) SetChannelMap(c *map[uint64]bool) {
-  m.channels = c
-}
-func (m *ModuleEnabled) GetChannelMap() *map[uint64]bool {
-  return m.channels
 }
 
 func GetActiveModules() string {
   s := []string{"Active Modules:"}
   for _, v := range sb.modules {
     str := v.Name()
-    if !v.IsEnabled() { str += " [disabled]" }
+    _, ok := sb.config.Module_disabled[str]
+    if ok { str += " [disabled]" }
     s = append(s, str)
   }
   return strings.Join(s, "\n  ")
@@ -149,19 +122,36 @@ func GetActiveModules() string {
 func GetActiveCommands() string {
   s := []string{"Active Commands:"}
   for _, v := range sb.commands {
-    str := v.c.Name() 
-    _, ok := sb.disablecommands[str]
+    str := v.Name() 
+    _, ok := sb.config.Command_disabled[str]
     if ok { str += " [disabled]" }
     s = append(s, str)
   }
   return strings.Join(s, "\n  ")
 }
 
+func GetRoles(c Command) string {
+  m, ok := sb.config.Command_roles[c.Name()]
+  if !ok {
+    return "";
+  }
+  
+  s := make([]string, 0, len(m))
+  for k, _ := range m { 
+    for _, v := range sb.dg.State.Guilds[0].Roles {
+      if v.ID == k {
+        s = append(s, v.Name)
+      }
+    }
+  }
+
+  return strings.Join(s, ", ")
+}
 
 func FormatUsage(c Command, a string, b string) string {
-  r := c.Roles()
+  r := GetRoles(c)
   if len(r)>0 {
-    return a + "\n+" + strings.Join(r, ", +") + "\n\n" + b 
+    return a + "\n+" + r + "\n\n" + b 
   } else {
     return a + "\n\n" + b
   }
