@@ -23,8 +23,14 @@ func TimeDiff(d time.Duration) string {
   return Pluralize(seconds/86400, " day")
 }
 
+func PingAtoi(s string) uint64 {
+  if s[:2] == "<#" || s[:2] == "<@" {
+    return SBatoi(s[2:len(s)-1])
+  }
+  return SBatoi(s)
+}
 func SBatoi(s string) uint64 {
-  if s[:1] == "!" { s = s[1:] }
+  if s[:1] == "!" || s[:1] == "&" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)
   if err != nil { 
     sb.log.Log("Invalid number ", s, ":", err.Error())
@@ -77,7 +83,7 @@ func UserHasRole(user string, role string) bool {
   return false
 }
 
-func UserHasAnyRole(user string, roles map[string]uint64) bool {
+func UserHasAnyRole(user string, roles map[string]bool) bool {
   if len(roles) == 0 { return true }
   m, err := sb.dg.State.Member(sb.GuildID, user)
   if err == nil {
