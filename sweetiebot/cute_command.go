@@ -18,6 +18,6 @@ func (c *CuteCommand) Process(args []string, msg *discordgo.Message) (string, bo
   return "", false
 }
 func (c *CuteCommand) Usage() string { 
-  return FormatUsage(c, "[arbitrary string]", "Sets Sweetie Bot's status message to the given string, at least until she automatically changes it again.") 
+  return FormatUsage(c, "", "Returns a cute pony picture.") 
 }
 func (c *CuteCommand) UsageShort() string { return "Returns a cute pony picture." }
