@@ -246,6 +246,15 @@ func (c *RollCommand) Value(args []string, index *int) float64 {
       r = c.Eval1ArgFunc(args, index, math.Tanh)
     case "trunc":
       r = c.Eval1ArgFunc(args, index, math.Trunc)
+    case "pi":
+      r = math.Pi
+      *index++
+    case "e":
+      r = math.E
+      *index++
+    case "phi":
+      r = math.Phi
+      *index++
     default:
       a, err := strconv.ParseFloat(args[*index], 64)
       if err != nil {
