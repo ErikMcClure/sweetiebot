@@ -21,6 +21,7 @@ func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message) (strin
     return "```No value to set!```", false
   }
   n, ok := sb.SetConfig(args[0], args[1], args[2:]...)
+  sb.SaveConfig()
   if ok {
     return "```Successfully set " + args[0] + " to " + n + ".```", false
   }
