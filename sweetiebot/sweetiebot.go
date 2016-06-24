@@ -363,6 +363,7 @@ func AttachToGuild(g *discordgo.Guild) {
   sb.AddCommand(&ListCommand{})
   sb.AddCommand(&FightCommand{"",0})
   sb.AddCommand(&CuteCommand{0})
+  sb.AddCommand(&RollCommand{})
 
   go IdleCheckLoop()
   
@@ -585,7 +586,7 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.6.5",
+    version: "0.6.6",
     log: &Log{0},
     OwnerID: 95585199324143616,
     //OwnerID: 0,
