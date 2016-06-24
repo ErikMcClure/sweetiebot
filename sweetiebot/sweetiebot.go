@@ -189,7 +189,6 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
           sbot.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
           return "That config option has an unknown type!", false
       }
-      sbot.SaveConfig()
       return fmt.Sprint(t.Field(i).Interface()), true
     }
   }
@@ -221,7 +220,7 @@ func (sbot *SweetieBot) SendMessage(channelID string, message string) {
 func ProcessModule(channelID string, m Module) bool {
   _, disabled := sb.config.Module_disabled[strings.ToLower(m.Name())]
   if disabled { return false }
-    
+  
   c := sb.config.Module_channels[strings.ToLower(m.Name())]
   if len(channelID)>0 && len(c)>0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
     _, ok := c[channelID]
@@ -561,12 +560,12 @@ func IdleCheckLoop() {
     if sb.config.Debug { // override this in debug mode
       c, err := sb.dg.State.Channel(sb.DebugChannelID)
       if err == nil { ids = []*discordgo.Channel{c} }
-    } 
+    }
     for _, id := range ids {
       t := sb.db.GetLatestMessage(SBatoi(id.ID))
       diff := SinceUTC(t);
       ApplyFuncRange(len(sb.hooks.OnIdle), func(i int) {
-        if ProcessModule("", sb.hooks.OnIdle[i]) && diff >= (time.Duration(sb.hooks.OnIdle[i].IdlePeriod())*time.Second) {
+        if ProcessModule(id.ID, sb.hooks.OnIdle[i]) && diff >= (time.Duration(sb.hooks.OnIdle[i].IdlePeriod())*time.Second) {
           sb.hooks.OnIdle[i].OnIdle(sb.dg, id)
           }
         })
