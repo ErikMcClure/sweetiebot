@@ -86,7 +86,7 @@ type SweetieBot struct {
   version string
   log *Log
   SelfID string
-  OwnerID uint64
+  Owners map[uint64]bool
   MainGuildID uint64
   DebugChannelID string
   quit bool
@@ -414,7 +414,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       sb.commandlimit.append(t)
     }
     
-    isSBowner := SBatoi(m.Author.ID) == sb.OwnerID
+    _, isSBowner := sb.Owners[SBatoi(m.Author.ID)]
     ignore := false
     ApplyFuncRange(len(sb.hooks.OnCommand), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnCommand[i]) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m.Message) } })
     if ignore && !isSBowner { // if true, a module wants us to ignore this command
@@ -586,10 +586,9 @@ func Initialize(Token string) {
   config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
-    version: "0.6.6",
+    version: "0.6.7",
     log: &Log{0},
-    OwnerID: 95585199324143616,
-    //OwnerID: 0,
+    Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
     MainGuildID: 98609319519453184,
     DebugChannelID: "141710126628339712",
     quit: false,
