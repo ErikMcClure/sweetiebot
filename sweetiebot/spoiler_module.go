@@ -35,7 +35,7 @@ func (w *SpoilerModule) HasSpoiler(s *discordgo.Session, m *discordgo.Message) b
   if w.spoilerban != nil && w.spoilerban.MatchString(strings.ToLower(m.Content)) {
     s.ChannelMessageDelete(m.ChannelID, m.ID)
     if RateLimit(&w.lastmsg, sb.config.Maxspoiltime) {
-      sb.SendMessage(m.ChannelID, "[](/sbtarget) ```POSTING SPOILERS IS A BANNABLE OFFENSE. All discussion about future episodes or seasons MUST be in #mylittlespoilers.```")
+      sb.SendMessage(m.ChannelID, "[](/nospoilers) ```NO SPOILERS! Posting spoilers is a bannable offense. All discussion about new and future content MUST be in #mylittlespoilers.```")
     }
     return true
   }
