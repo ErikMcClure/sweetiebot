@@ -101,7 +101,8 @@ func (c *UpdateCommand) Name() string {
   return "Update";  
 }
 func (c *UpdateCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  if SBatoi(msg.Author.ID) != sb.OwnerID {
+  _, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+  if !isOwner {
     return "```Only the owner of the bot itself can call this!```", false
   }
   /*sb.log.Log("Update command called, current PID: ", os.Getpid())
