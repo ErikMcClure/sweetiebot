@@ -76,7 +76,6 @@ type BotConfig struct {
 }
 
 type GuildInfo struct {
-  GuildOwner uint64
   Guild *discordgo.Guild
   log *Log
   command_last map[string]map[string]int64
@@ -280,7 +279,6 @@ func AttachToGuild(g *discordgo.Guild) {
   fmt.Println("Initializing " + g.Name)
   
   guild = &GuildInfo{
-    GuildOwner: 0,
     Guild: g,
     command_last: make(map[string]map[string]int64),
     commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
@@ -288,15 +286,29 @@ func AttachToGuild(g *discordgo.Guild) {
     emotemodule: nil,
   }
   guild.log = &Log{0, guild}
-  config, _ := ioutil.ReadFile(g.ID + ".json")
-  errjson := json.Unmarshal(config, &guild.config)
-  if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
-  
+  config, err := ioutil.ReadFile(g.ID + ".json")
+  disableall := false
+  if err != nil {
+    config, _ = ioutil.ReadFile("default.json")
+    disableall = true
+  }
+  err = json.Unmarshal(config, &guild.config)
+  if err != nil { fmt.Println("Error reading config file for " + g.Name + ": ", err.Error()) }
+
   guild.commandlimit.times = make([]int64, guild.config.Commandperduration*2, guild.config.Commandperduration*2);
 
-  if len(guild.config.Collections) == 0 {
-    guild.config.Collections = make(map[string]map[string]bool);
-  }
+  if len(guild.config.Witty) == 0 { guild.config.Witty = make(map[string]string); }
+  if len(guild.config.Aliases) == 0 { guild.config.Aliases = make(map[string]string); }
+  if len(guild.config.FreeChannels) == 0 { guild.config.FreeChannels = make(map[string]bool); }
+  if len(guild.config.Command_roles) == 0 { guild.config.Command_roles = make(map[string]map[string]bool); }
+  if len(guild.config.Command_channels) == 0 { guild.config.Command_channels = make(map[string]map[string]bool); }
+  if len(guild.config.Command_limits) == 0 { guild.config.Command_limits = make(map[string]int64); }
+  if len(guild.config.Command_disabled) == 0 { guild.config.Command_disabled = make(map[string]bool); }
+  if len(guild.config.Module_disabled) == 0 { guild.config.Module_disabled = make(map[string]bool); }
+  if len(guild.config.Module_channels) == 0 { guild.config.Module_channels = make(map[string]map[string]bool); }
+  if len(guild.config.Groups) == 0 { guild.config.Groups = make(map[string]map[string]bool); }
+  if len(guild.config.Collections) == 0 { guild.config.Collections = make(map[string]map[string]bool); }
+
   collections := []string{"emote", "bored", "cute", "status", "spoiler", "bucket"};
   for _, v := range collections {
     _, ok := guild.config.Collections[v]
@@ -404,6 +416,15 @@ func AttachToGuild(g *discordgo.Guild) {
   guild.AddCommand(&CuteCommand{0})
   guild.AddCommand(&RollCommand{})
 
+  if disableall {
+    for k, _ := range guild.commands {
+      guild.config.Command_disabled[k] = true
+    }
+    for _, v := range guild.modules {
+      guild.config.Module_disabled[strings.ToLower(v.Name())] = true
+    }
+    guild.SaveConfig()
+  }
   go guild.IdleCheckLoop()
   go guild.SwapStatusLoop()
 
@@ -443,12 +464,13 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   private := true
   if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
   cid := SBatoi(m.ChannelID)
+  ismainguild := SBatoi(ch.GuildID) == sb.MainGuildID
 
-  if cid != info.config.LogChannel && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
+  if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
   if m.Author.ID == sb.SelfID || cid == info.config.LogChannel { // ALWAYS discard any of our own messages or our log messages before analysis.
-    SBAddPings(m.Message) // If we're discarding a message we still need to add any pings to the ping table
+    SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
     return
   }
   
@@ -469,10 +491,11 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
       info.commandlimit.append(t)
     }
     
-    _, isSBowner := sb.Owners[SBatoi(m.Author.ID)]
+    _, isOwner := sb.Owners[SBatoi(m.Author.ID)]
+    isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
     ignore := false
     ApplyFuncRange(len(info.hooks.OnCommand), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) { ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m.Message) } })
-    if ignore && !isSBowner { // if true, a module wants us to ignore this command
+    if ignore && !isOwner { // if true, a module wants us to ignore this command
       return
     }
     
@@ -482,16 +505,19 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     if ok { arg = alias }
     c, ok := info.commands[arg]    
     if ok {
-      cch := info.config.Command_channels[strings.ToLower(c.Name())]
-      _, disabled := info.config.Command_disabled[strings.ToLower(c.Name())]
-      if disabled && !isSBowner { return }
+      cmdname := strings.ToLower(c.Name())
+      cch := info.config.Command_channels[cmdname]
+      _, disabled := info.config.Command_disabled[cmdname]
+      _, restricted := sb.RestrictedCommands[cmdname]
+      if disabled && !isOwner { return }
+      if restricted && !ismainguild { return } 
       if !private && len(cch) > 0 {
         _, ok = cch[m.ChannelID]
         if !ok {
           return
         }
       }
-      if !isSBowner && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[strings.ToLower(c.Name())]) {
+      if !isOwner && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[cmdname]) {
         info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + info.GetRoles(c))
         return
       }
@@ -542,8 +568,13 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
+  
+  ch, err := sb.dg.State.Channel(m.ChannelID)
+  info.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
+  private := true
+  if err == nil { private = ch.IsPrivate }
   cid := SBatoi(m.ChannelID)
-  if cid != info.config.LogChannel { // Always ignore messages from the log channel
+  if cid != info.config.LogChannel && !private && SBatoi(ch.GuildID) == sb.MainGuildID { // Always ignore messages from the log channel
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
   ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageUpdate[i]) { info.hooks.OnMessageUpdate[i].OnMessageUpdate(info, m.Message) } })
@@ -653,9 +684,9 @@ func Initialize(Token string) {
   dbauth, _ := ioutil.ReadFile("db.auth")
 
   sb = &SweetieBot{
-    version: "0.6.7",
+    version: "0.6.8",
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
-    RestrictedCommands: map[string]bool { "search" : true },
+    RestrictedCommands: map[string]bool { "search" : true, "lastping" : true },
     MainGuildID: 98609319519453184,
     DebugChannelID: "141710126628339712",
     GuildChannels: make(map[string]*GuildInfo),

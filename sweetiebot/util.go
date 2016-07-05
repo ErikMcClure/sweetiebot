@@ -39,6 +39,7 @@ func StripPing(s string) string {
   return s;
 }
 func SBatoi(s string) uint64 {
+  if len(s) < 1 { return 0 }
   if s[:1] == "!" || s[:1] == "&" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)
   if err != nil { 
