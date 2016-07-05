@@ -39,10 +39,11 @@ func StripPing(s string) string {
   return s;
 }
 func SBatoi(s string) uint64 {
+  if len(s) < 1 { return 0 }
   if s[:1] == "!" || s[:1] == "&" { s = s[1:] }
   i, err := strconv.ParseUint(strings.Replace(s, "\u200B", "", -1), 10, 64)
   if err != nil { 
-    sb.log.Log("Invalid number ", s, ":", err.Error())
+    fmt.Println("Invalid number ", s, ":", err.Error())
     return 0 
   }
   return i
@@ -80,8 +81,8 @@ func boolXOR(a bool, b bool) bool {
   return (a && !b) || (!a && b)
 }
 
-func UserHasRole(user string, role string) bool {
-  m, err := sb.dg.State.Member(sb.Guild.ID, user)
+func (info *GuildInfo) UserHasRole(user string, role string) bool {
+  m, err := sb.dg.State.Member(info.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
       if v == role {
@@ -92,9 +93,9 @@ func UserHasRole(user string, role string) bool {
   return false
 }
 
-func UserHasAnyRole(user string, roles map[string]bool) bool {
+func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
   if len(roles) == 0 { return true }
-  m, err := sb.dg.State.Member(sb.Guild.ID, user)
+  m, err := sb.dg.State.Member(info.Guild.ID, user)
   if err == nil {
     for _, v := range m.Roles {
       _, ok := roles[v]
