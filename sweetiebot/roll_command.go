@@ -53,21 +53,21 @@ func (c *RollCommand) EatSymbols(args []string, index *int, s... string) int {
   }
   return -1
 }
-func (c *RollCommand) Eval(args []string, index *int) float64 {
-  //sb.log.Log(strings.Join(args, "\u00B7"))
+func (c *RollCommand) Eval(args []string, index *int, info *GuildInfo) float64 {
+  //info.log.Log(strings.Join(args, "\u00B7"))
   var r float64
   if c.EatSymbols(args, index, "+", "-") == 1 {
-    r = -c.Factor(args, index)
+    r = -c.Factor(args, index, info)
   } else {
-    r = c.Factor(args, index)
+    r = c.Factor(args, index, info)
   }
   
   for *index < len(args) {
     switch c.EatSymbols(args, index, "+", "-") {
       case 0:
-        r += c.Factor(args, index)
+        r += c.Factor(args, index, info)
       case 1:
-        r -= c.Factor(args, index)
+        r -= c.Factor(args, index, info)
       case -1:
         return r
     }
@@ -75,80 +75,80 @@ func (c *RollCommand) Eval(args []string, index *int) float64 {
 
   return r
 }
-func (c *RollCommand) Factor(args []string, index *int) float64 {
-  r := c.Term(args, index)
+func (c *RollCommand) Factor(args []string, index *int, info *GuildInfo) float64 {
+  r := c.Term(args, index, info)
   for *index < len(args) {
     switch c.EatSymbols(args, index, "*", "/") {
       case 0:
-        r *= c.Term(args, index)
+        r *= c.Term(args, index, info)
       case 1:
-        r /= c.Term(args, index)
+        r /= c.Term(args, index, info)
       case -1:
         return r
     }
   }
   return r
 }
-func (c *RollCommand) Term(args []string, index *int) float64 {
-  r := c.Bitwise(args, index)
+func (c *RollCommand) Term(args []string, index *int, info *GuildInfo) float64 {
+  r := c.Bitwise(args, index, info)
   for *index < len(args) {
     switch c.EatSymbols(args, index, "^") {
       case 0:
-        r = math.Pow(r, c.Bitwise(args, index))
+        r = math.Pow(r, c.Bitwise(args, index, info))
       case -1:
         return r
     }
   }
   return r
 }
-func (c *RollCommand) Bitwise(args []string, index *int) float64 {
-  r := c.Value(args, index)
+func (c *RollCommand) Bitwise(args []string, index *int, info *GuildInfo) float64 {
+  r := c.Value(args, index, info)
   for *index < len(args) {
     switch c.EatSymbols(args, index, "&", "|") {
       case 0:
-        r = float64(int64(r) & int64(c.Value(args, index)))
+        r = float64(int64(r) & int64(c.Value(args, index, info)))
       case 1:
-        r = float64(int64(r) | int64(c.Value(args, index)))
+        r = float64(int64(r) | int64(c.Value(args, index, info)))
       case -1:
         return r
     }
   }
   return r
 }
-func (c *RollCommand) Eval1ArgFunc(args []string, index *int, fn func(float64)float64) float64 {
+func (c *RollCommand) Eval1ArgFunc(args []string, index *int, fn func(float64)float64, info *GuildInfo) float64 {
   *index++
   if c.EatSymbols(args, index, "(") == 0 {
-    r := c.Eval(args, index)
+    r := c.Eval(args, index, info)
     if c.EatSymbols(args, index, ")") != 0 {
-      sb.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+      info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
     }
     return fn(r)
   }
-  sb.log.Log("Function has no parameters??? ", strings.Join(args, ""))
+  info.log.Log("Function has no parameters??? ", strings.Join(args, ""))
   return 0.0
 }
-func (c *RollCommand) Eval2ArgFunc(args []string, index *int, fn func(float64, float64)float64) float64 {
+func (c *RollCommand) Eval2ArgFunc(args []string, index *int, fn func(float64, float64)float64, info *GuildInfo) float64 {
   *index++
   if c.EatSymbols(args, index, "(") == 0 {
-    r := c.Eval(args, index)
+    r := c.Eval(args, index, info)
     if c.EatSymbols(args, index, ",") != 0 {
-      sb.log.Log("Expression missing second argument: ", strings.Join(args, ""))
+      info.log.Log("Expression missing second argument: ", strings.Join(args, ""))
       return 0.0
     }
-    r2 := c.Eval(args, index)
+    r2 := c.Eval(args, index, info)
     if c.EatSymbols(args, index, ")") != 0 {
-      sb.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+      info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
     }
     return fn(r, r2)
   }
-  sb.log.Log("Function has no parameters??? ", strings.Join(args, ""))
+  info.log.Log("Function has no parameters??? ", strings.Join(args, ""))
   return 0.0
 }
-func (c *RollCommand) Value(args []string, index *int) float64 {
+func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 {
   if c.EatSymbols(args, index, "(") == 0 {
-    r := c.Eval(args, index)
+    r := c.Eval(args, index, info)
     if c.EatSymbols(args, index, ")") != 0 {
-      sb.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+      info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
     }
     return r
   }
@@ -187,65 +187,65 @@ func (c *RollCommand) Value(args []string, index *int) float64 {
   r := 0.0
   switch strings.ToLower(args[*index]) {
     case "abs":
-      r = c.Eval1ArgFunc(args, index, math.Abs)
+      r = c.Eval1ArgFunc(args, index, math.Abs, info)
     case "acos":
-      r = c.Eval1ArgFunc(args, index, math.Acos)
+      r = c.Eval1ArgFunc(args, index, math.Acos, info)
     case "acosh":
-      r = c.Eval1ArgFunc(args, index, math.Acosh)
+      r = c.Eval1ArgFunc(args, index, math.Acosh, info)
     case "asin":
-      r = c.Eval1ArgFunc(args, index, math.Asin)
+      r = c.Eval1ArgFunc(args, index, math.Asin, info)
     case "asinh":
-      r = c.Eval1ArgFunc(args, index, math.Asinh)
+      r = c.Eval1ArgFunc(args, index, math.Asinh, info)
     case "atan":
-      r = c.Eval1ArgFunc(args, index, math.Atan)
+      r = c.Eval1ArgFunc(args, index, math.Atan, info)
     case "atan2":
-      r = c.Eval2ArgFunc(args, index, math.Atan2)
+      r = c.Eval2ArgFunc(args, index, math.Atan2, info)
     case "atanh":
-      r = c.Eval1ArgFunc(args, index, math.Atanh)
+      r = c.Eval1ArgFunc(args, index, math.Atanh, info)
     case "cbrt":
-      r = c.Eval1ArgFunc(args, index, math.Cbrt)
+      r = c.Eval1ArgFunc(args, index, math.Cbrt, info)
     case "ceil":
-      r = c.Eval1ArgFunc(args, index, math.Ceil)
+      r = c.Eval1ArgFunc(args, index, math.Ceil, info)
     case "cos":
-      r = c.Eval1ArgFunc(args, index, math.Cos)
+      r = c.Eval1ArgFunc(args, index, math.Cos, info)
     case "cosh":
-      r = c.Eval1ArgFunc(args, index, math.Cosh)
+      r = c.Eval1ArgFunc(args, index, math.Cosh, info)
     case "erf":
-      r = c.Eval1ArgFunc(args, index, math.Erf)
+      r = c.Eval1ArgFunc(args, index, math.Erf, info)
     case "exp":
-      r = c.Eval1ArgFunc(args, index, math.Exp)
+      r = c.Eval1ArgFunc(args, index, math.Exp, info)
     case "floor":
-      r = c.Eval1ArgFunc(args, index, math.Floor)
+      r = c.Eval1ArgFunc(args, index, math.Floor, info)
     case "gamma":
-      r = c.Eval1ArgFunc(args, index, math.Gamma)
+      r = c.Eval1ArgFunc(args, index, math.Gamma, info)
     case "log":
-      r = c.Eval1ArgFunc(args, index, math.Log)
+      r = c.Eval1ArgFunc(args, index, math.Log, info)
     case "log10":
-      r = c.Eval1ArgFunc(args, index, math.Log10)
+      r = c.Eval1ArgFunc(args, index, math.Log10, info)
     case "log2":
-      r = c.Eval1ArgFunc(args, index, math.Log2)
+      r = c.Eval1ArgFunc(args, index, math.Log2, info)
     case "min":
-      r = c.Eval2ArgFunc(args, index, math.Min)
+      r = c.Eval2ArgFunc(args, index, math.Min, info)
     case "max":
-      r = c.Eval2ArgFunc(args, index, math.Max)
+      r = c.Eval2ArgFunc(args, index, math.Max, info)
     case "mod":
-      r = c.Eval2ArgFunc(args, index, math.Mod)
+      r = c.Eval2ArgFunc(args, index, math.Mod, info)
     case "pow":
-      r = c.Eval2ArgFunc(args, index, math.Pow)
+      r = c.Eval2ArgFunc(args, index, math.Pow, info)
     case "remainder":
-      r = c.Eval2ArgFunc(args, index, math.Remainder)
+      r = c.Eval2ArgFunc(args, index, math.Remainder, info)
     case "sin":
-      r = c.Eval1ArgFunc(args, index, math.Sin)
+      r = c.Eval1ArgFunc(args, index, math.Sin, info)
     case "sinh":
-      r = c.Eval1ArgFunc(args, index, math.Sinh)
+      r = c.Eval1ArgFunc(args, index, math.Sinh, info)
     case "sqrt":
-      r = c.Eval1ArgFunc(args, index, math.Sqrt)
+      r = c.Eval1ArgFunc(args, index, math.Sqrt, info)
     case "tan":
-      r = c.Eval1ArgFunc(args, index, math.Tan)
+      r = c.Eval1ArgFunc(args, index, math.Tan, info)
     case "tanh":
-      r = c.Eval1ArgFunc(args, index, math.Tanh)
+      r = c.Eval1ArgFunc(args, index, math.Tanh, info)
     case "trunc":
-      r = c.Eval1ArgFunc(args, index, math.Trunc)
+      r = c.Eval1ArgFunc(args, index, math.Trunc, info)
     case "pi":
       r = math.Pi
       *index++
@@ -258,7 +258,7 @@ func (c *RollCommand) Value(args []string, index *int) float64 {
     default:
       a, err := strconv.ParseFloat(args[*index], 64)
       if err != nil {
-        sb.log.Log("could not parse value: ", err.Error())
+        info.log.Log("could not parse value: ", err.Error())
       }
       *index++
       r = a
@@ -266,16 +266,16 @@ func (c *RollCommand) Value(args []string, index *int) float64 {
 
   return r
 }
-func (c *RollCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *RollCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```Nothing to roll or calculate!```", false
   }
   index := 0
-  r := c.Eval(c.OpSplit(strings.Join(args, "")), &index)
+  r := c.Eval(c.OpSplit(strings.Join(args, "")), &index, info)
   s := strconv.FormatFloat(r, 'f', -1, 64)  
   return "```" + s + "```", false
 }
-func (c *RollCommand) Usage() string { 
-  return FormatUsage(c, "[expression]", "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of n random numbers from 1 to **X**, inclusive. For example, !roll d10 will return 1-10, whereas !roll 2d10 + 2 will return a number between 4 and 22.") 
+func (c *RollCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[expression]", "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of n random numbers from 1 to **X**, inclusive. For example, !roll d10 will return 1-10, whereas !roll 2d10 + 2 will return a number between 4 and 22.") 
 }
 func (c *RollCommand) UsageShort() string { return "Evaluates a dice expression." } 
