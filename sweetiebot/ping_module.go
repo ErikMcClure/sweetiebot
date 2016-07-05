@@ -13,22 +13,24 @@ func (w *PingModule) Name() string {
   return "Ping"
 }
 
-func (w *PingModule) Register(hooks *ModuleHooks) {
-  hooks.OnMessageCreate = append(hooks.OnMessageCreate, w)
-  hooks.OnMessageUpdate = append(hooks.OnMessageUpdate, w)
+func (w *PingModule) Register(info *GuildInfo) {
+  info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
+  info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
 }
   
-func (w *PingModule)  OnMessageCreate(s *discordgo.Session, m *discordgo.Message) {
-  w.OnMessageUpdate(s, m)
+func (w *PingModule)  OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
+  w.OnMessageUpdate(info, m)
 }
 
-func SBAddPings(m *discordgo.Message) {
-  id := SBatoi(m.ID)
-  for _, v := range m.Mentions {
-    sb.db.AddPing(id, SBatoi(v.ID))
+func SBAddPings(info *GuildInfo, m *discordgo.Message) {
+  if sb.IsMainGuild(info) {
+    id := SBatoi(m.ID)
+    for _, v := range m.Mentions {
+      sb.db.AddPing(id, SBatoi(v.ID))
+    }
   }
 }
 
-func (w *PingModule)  OnMessageUpdate(s *discordgo.Session, m *discordgo.Message) {
-  SBAddPings(m)
+func (w *PingModule)  OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
+  SBAddPings(info, m)
 }
