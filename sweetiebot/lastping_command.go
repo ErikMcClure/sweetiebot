@@ -12,7 +12,7 @@ type LastPingCommand struct {
 func (c *LastPingCommand) Name() string {
   return "LastPing";  
 }
-func (c *LastPingCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   index := 1
   maxrows := 2
   if len(args) > 0 {
@@ -24,7 +24,7 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message) (string
   if index < 1 { index = 1 }
   if maxrows < 0 { maxrows = 0 }
   if maxrows > 3 { maxrows = 3 }
-  id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index - 1, sb.config.ModChannel)
+  id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index - 1, info.config.ModChannel)
   if id == 0 { return "```No recent pings in the chat log.```", false }
   
   after := sb.db.GetPingContext(id, channel, maxrows + 1)
@@ -40,7 +40,7 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message) (string
   }
   return s, true
 }
-func (c *LastPingCommand) Usage() string { 
-  return FormatUsage(c, "[ping index] [max context rows]", "Returns the nth most recent ping (where n is the ping index) in the chat, plus up to [max context rows] messages before and after it. Max context rows is 2 by default and 3 at maximum.") 
+func (c *LastPingCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[ping index] [max context rows]", "Returns the nth most recent ping (where n is the ping index) in the chat, plus up to [max context rows] messages before and after it. Max context rows is 2 by default and 3 at maximum.") 
 }
 func (c *LastPingCommand) UsageShort() string { return "[PM Only] Returns the last message that pinged you." }
