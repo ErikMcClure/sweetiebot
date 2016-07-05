@@ -13,49 +13,49 @@ type GiveCommand struct {
 func (c *GiveCommand) Name() string {
   return "Give";  
 }
-func (c *GiveCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
+func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {  
   if len(args) < 1 {
     return "[](/sadbot) `You didn't give me anything!`", false
   }
-  if sb.config.MaxBucket == 0 {
+  if info.config.MaxBucket == 0 {
     return "```I don't have a bucket right now.```", false 
   }
 
   arg := ExtraSanitize(strings.Join(args, " "))
-  if len(arg) > sb.config.MaxBucketLength {
+  if len(arg) > info.config.MaxBucketLength {
     return "```That's too big! Give me something smaller!'```", false
   }
 
-  _, ok := sb.config.Collections["bucket"][arg]
+  _, ok := info.config.Collections["bucket"][arg]
   if ok {
     return "```I already have " + arg + "!```", false
   }
 
-  if len(sb.config.Collections["bucket"]) >= sb.config.MaxBucket {
-    dropped := BucketDropRandom()
-    sb.config.Collections["bucket"][arg] = true
-    sb.SaveConfig()
+  if len(info.config.Collections["bucket"]) >= info.config.MaxBucket {
+    dropped := BucketDropRandom(info)
+    info.config.Collections["bucket"][arg] = true
+    info.SaveConfig()
     return "```I dropped " + dropped + " and picked up " + arg + ".```", false
   }
 
-  sb.config.Collections["bucket"][arg] = true
-  sb.SaveConfig()
+  info.config.Collections["bucket"][arg] = true
+  info.SaveConfig()
   return "```I picked up " + arg + ".```", false
 }
-func (c *GiveCommand) Usage() string { 
-  return FormatUsage(c, "[arbitrary string]", "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.") 
+func (c *GiveCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[arbitrary string]", "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.") 
 }
 func (c *GiveCommand) UsageShort() string { return "Gives something to sweetie." }
 func (c *GiveCommand) Roles() []string { return []string{} }
 func (c *GiveCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
-func BucketDropRandom() string {
-  index := rand.Intn(len(sb.config.Collections["bucket"]))
+func BucketDropRandom(info *GuildInfo) string {
+  index := rand.Intn(len(info.config.Collections["bucket"]))
   i := 0
-  for k, _ := range sb.config.Collections["bucket"] {
+  for k, _ := range info.config.Collections["bucket"] {
     if i == index {
-      delete(sb.config.Collections["bucket"], k)
-      sb.SaveConfig()
+      delete(info.config.Collections["bucket"], k)
+      info.SaveConfig()
       return k
     }
     i++
@@ -70,24 +70,24 @@ func (c *DropCommand) Name() string {
   return "Drop";  
 }
 
-func (c *DropCommand) Process(args []string, msg *discordgo.Message) (string, bool) {  
-  if len(sb.config.Collections["bucket"]) == 0 {
+func (c *DropCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {  
+  if len(info.config.Collections["bucket"]) == 0 {
     return "```I'm not carrying anything.```", false
   }
   if len(args) < 1 {
-    return "```Dropped " + BucketDropRandom() + ".```", false
+    return "```Dropped " + BucketDropRandom(info) + ".```", false
   }
   arg := strings.Join(args, " ")
-  _, ok := sb.config.Collections["bucket"][arg]
+  _, ok := info.config.Collections["bucket"][arg]
   if !ok {
     return "```I don't have " + arg + "!```", false
   }
-  delete(sb.config.Collections["bucket"], arg)
-  sb.SaveConfig()
+  delete(info.config.Collections["bucket"], arg)
+  info.SaveConfig()
   return "```Dropped " + arg + ".```", false
 }
-func (c *DropCommand) Usage() string { 
-  return FormatUsage(c, "[arbitrary string]", "Drops the specified object from sweetie. If no object is given, makes sweetie drop something at random.") 
+func (c *DropCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[arbitrary string]", "Drops the specified object from sweetie. If no object is given, makes sweetie drop something at random.") 
 }
 func (c *DropCommand) UsageShort() string { return "Drops something from sweetie's bucket." }
 
@@ -98,8 +98,8 @@ type ListCommand struct {
 func (c *ListCommand) Name() string {
   return "List";  
 }
-func (c *ListCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  things := MapToSlice(sb.config.Collections["bucket"])
+func (c *ListCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+  things := MapToSlice(info.config.Collections["bucket"])
   if len(things) == 0 {
     return "```I'm not carrying anything.```", false
   }
@@ -109,8 +109,8 @@ func (c *ListCommand) Process(args []string, msg *discordgo.Message) (string, bo
 
   return "```I'm carrying " + strings.Join(things[:len(things)-1], ", ") + " and " + things[len(things)-1] + ".```", false
 }
-func (c *ListCommand) Usage() string { 
-  return FormatUsage(c, "", "Lists everything that sweetie has.") 
+func (c *ListCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "", "Lists everything that sweetie has.") 
 }
 func (c *ListCommand) UsageShort() string { return "Lists everything sweetie has." }
 
@@ -122,8 +122,8 @@ type FightCommand struct {
 func (c *FightCommand) Name() string {
   return "Fight";  
 }
-func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
-  things := MapToSlice(sb.config.Collections["bucket"])
+func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+  things := MapToSlice(info.config.Collections["bucket"])
   if len(things) == 0 {
     return "```I have nothing to fight with!```", false
   }
@@ -136,11 +136,11 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, b
     } else {
       c.monster = sb.db.GetRandomSpeaker()
     }
-    c.hp = 10 + rand.Intn(sb.config.MaxFightHP)
+    c.hp = 10 + rand.Intn(info.config.MaxFightHP)
     return "```I have engaged " + c.monster + ", who has " + strconv.Itoa(c.hp) + " HP!```", false
   }
 
-  damage := 1 + rand.Intn(sb.config.MaxFightDamage)
+  damage := 1 + rand.Intn(info.config.MaxFightDamage)
   c.hp -= damage
   end := " and deal " + strconv.Itoa(damage) + " damage!"
   monster := c.monster
@@ -151,7 +151,7 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, b
   end += "```"
   thing := things[rand.Intn(len(things))]
   switch rand.Intn(7) {
-    case 0: return "```I throw " + BucketDropRandom() + " at " + monster + end, false
+    case 0: return "```I throw " + BucketDropRandom(info) + " at " + monster + end, false
     case 1: return "```I stab " + monster + " with " + thing + end, false
     case 2: return "```I use " + thing + " on " + monster + end, false
     case 3: return "```I summon " + thing + end, false
@@ -161,7 +161,7 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message) (string, b
   }
   return "```Stuff happens" + end, false
 }
-func (c *FightCommand) Usage() string { 
-  return FormatUsage(c, "[name]", "Fights a random pony, or [name] if it is provided.") 
+func (c *FightCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[name]", "Fights a random pony, or [name] if it is provided.") 
 }
 func (c *FightCommand) UsageShort() string { return "Fights a random pony." }
