@@ -13,16 +13,17 @@ type Logger interface {
 
 type Log struct {
   lasterr int64
+  info *GuildInfo
 }
 
 func (l *Log) Log(args ...interface{}) {
   s := fmt.Sprint(args...)
   fmt.Println(s)
-  if sb.db != nil {
+  if sb.db != nil && l.info != nil && sb.IsMainGuild(l.info) {
     sb.db.Log(s)
-    if sb.config.LogChannel > 0 {
-      sb.SendMessage(strconv.FormatUint(sb.config.LogChannel, 10), "```" + s + "```") 
-    }
+  }
+  if l.info != nil && l.info.config.LogChannel > 0 {
+    l.info.SendMessage(strconv.FormatUint(l.info.config.LogChannel, 10), "```" + s + "```") 
   }
 }
 
@@ -33,8 +34,8 @@ func (l *Log) LogError(msg string, err error) {
 }
 
 func (l *Log) Error(channelID string, message string) {
-  if RateLimit(&l.lasterr, sb.config.Maxerror) { // Don't print more than one error message every n seconds.
-    sb.SendMessage(channelID, "```" + message + "```") 
+  if l.info != nil && RateLimit(&l.lasterr, l.info.config.Maxerror) { // Don't print more than one error message every n seconds.
+    l.info.SendMessage(channelID, "```" + message + "```") 
   }
   //l.Log(message); // Always log it to the debug log. TODO: This is really annoying, maybe we shouldn't do this
 }

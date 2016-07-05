@@ -16,7 +16,7 @@ func (c *AddGroupCommand) Name() string {
 
 var nameargregex = regexp.MustCompile("[a-zA-Z0-9]+")
 
-func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```You have to name the group!```", false
   }
@@ -24,23 +24,23 @@ func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message) (string
   if !nameargregex.MatchString(arg) {
     return "```A group name must be alphanumeric, no special characters.```", false
   }
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if ok {
     return "```That group already exists!```", false
   }
   
-  if len(sb.config.Groups) <= 0 {
-    sb.config.Groups = make(map[string]map[string]bool)
+  if len(info.config.Groups) <= 0 {
+    info.config.Groups = make(map[string]map[string]bool)
   } 
   group := make(map[string]bool)
   group[msg.Author.ID] = true
-  sb.config.Groups[arg] = group
-  sb.SaveConfig()
+  info.config.Groups[arg] = group
+  info.SaveConfig()
   
   return "```Successfully created the " + arg + " group! Join it using !joingroup " + arg + " and ping it using !ping " + arg + "```", false
 }
-func (c *AddGroupCommand) Usage() string { 
-  return FormatUsage(c, "[name]", "Creates a new group and automatically adds you to it. Groups are automatically destroyed when everyone in the group leaves.") 
+func (c *AddGroupCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[name]", "Creates a new group and automatically adds you to it. Groups are automatically destroyed when everyone in the group leaves.") 
 }
 func (c *AddGroupCommand) UsageShort() string { return "Creates a new group." }
 
@@ -51,23 +51,23 @@ func (c *JoinGroupCommand) Name() string {
   return "JoinGroup";  
 }
 
-func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
   arg := strings.ToLower(args[0])
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
-  sb.config.Groups[arg][msg.Author.ID] = true
-  sb.SaveConfig()
+  info.config.Groups[arg][msg.Author.ID] = true
+  info.SaveConfig()
   
   return "```Successfully joined the " + arg + " group! Ping it using !ping " + arg + " or leave it using !leavegroup " + arg + "```", false
 }
-func (c *JoinGroupCommand) Usage() string { 
-  return FormatUsage(c, "[group]", "Joins an existing group.") 
+func (c *JoinGroupCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[group]", "Joins an existing group.") 
 }
 func (c *JoinGroupCommand) UsageShort() string { return "Joins an existing group." }
 
@@ -77,15 +77,15 @@ func (c *ListGroupCommand) Name() string {
   return "ListGroup";  
 }
 
-func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
-    if len(sb.config.Groups) <= 0 {
+    if len(info.config.Groups) <= 0 {
       return "```No groups to list!```", false
     }
-    keys := make([]string, len(sb.config.Groups))
+    keys := make([]string, len(info.config.Groups))
 
     i := 0
-    for k := range sb.config.Groups {
+    for k := range info.config.Groups {
         keys[i] = k
         i++
     }
@@ -94,15 +94,15 @@ func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message) (strin
   }
   
   arg := strings.ToLower(args[0])
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroup with no arguments to list existing groups.```", false
   }
   
-  pings := make([]string, len(sb.config.Groups[arg])) 
+  pings := make([]string, len(info.config.Groups[arg])) 
   
   i := 0
-  for k := range sb.config.Groups[arg] {
+  for k := range info.config.Groups[arg] {
     m, _ := sb.db.GetUser(SBatoi(k))
     pings[i] = m.Username
     i++
@@ -110,8 +110,8 @@ func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message) (strin
   
   return "```" + strings.Join(pings, ", ") + "```", false
 }
-func (c *ListGroupCommand) Usage() string { 
-  return FormatUsage(c, "[group]", "If no argument is given, lists all the current groups. If a group name is given, lists all the members of that group.") 
+func (c *ListGroupCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[group]", "If no argument is given, lists all the current groups. If a group name is given, lists all the members of that group.") 
 }
 func (c *ListGroupCommand) UsageShort() string { return "Lists all groups." }
 
@@ -123,33 +123,33 @@ func (c *LeaveGroupCommand) Name() string {
   return "LeaveGroup";  
 }
 
-func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
   arg := strings.ToLower(args[0])
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
-  _, ok = sb.config.Groups[arg][msg.Author.ID]
+  _, ok = info.config.Groups[arg][msg.Author.ID]
   if !ok {
     return "```You aren't in that group!```", false
   }
   
-  delete(sb.config.Groups[arg], msg.Author.ID)
+  delete(info.config.Groups[arg], msg.Author.ID)
   
-  if len(sb.config.Groups[arg]) <= 0 {
-    delete(sb.config.Groups, arg)
+  if len(info.config.Groups[arg]) <= 0 {
+    delete(info.config.Groups, arg)
   }
   
-  sb.SaveConfig()
+  info.SaveConfig()
   
   return "```You have been removed from " + arg + "```", false
 }
-func (c *LeaveGroupCommand) Usage() string { 
-  return FormatUsage(c, "[group]", "Removes you from the given group, if you are a member of it.") 
+func (c *LeaveGroupCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[group]", "Removes you from the given group, if you are a member of it.") 
 }
 func (c *LeaveGroupCommand) UsageShort() string { return "Removes you from a group." }
 
@@ -161,34 +161,34 @@ func (c *PingCommand) Name() string {
   return "Ping";  
 }
 
-func (c *PingCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
   arg := strings.ToLower(args[0])
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
-  _, ok = sb.config.Groups[arg][msg.Author.ID]
+  _, ok = info.config.Groups[arg][msg.Author.ID]
   if !ok {
     return "```You can only ping groups you are a member of.```", false
   }
   
-  pings := make([]string, len(sb.config.Groups[arg])) 
+  pings := make([]string, len(info.config.Groups[arg])) 
 
   i := 0
-  for k := range sb.config.Groups[arg] {
+  for k := range info.config.Groups[arg] {
       pings[i] = strconv.FormatUint(SBatoi(k), 10) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
       i++
   }
   
-  sb.dg.ChannelMessageSend(msg.ChannelID, "<@" + strings.Join(pings, "> <@") + "> " + SanitizeOutput(strings.Join(args[1:], " ")))
+  sb.dg.ChannelMessageSend(msg.ChannelID, "<@" + strings.Join(pings, "> <@") + "> " + info.SanitizeOutput(strings.Join(args[1:], " ")))
   return "", false;
 }
-func (c *PingCommand) Usage() string { 
-  return FormatUsage(c, "[group] [arbitrary string]", "Pings everyone in a group with the given message, but only if you are a member of the group.") 
+func (c *PingCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[group] [arbitrary string]", "Pings everyone in a group with the given message, but only if you are a member of the group.") 
 }
 func (c *PingCommand) UsageShort() string { return "Pings a group." }
 
@@ -200,22 +200,22 @@ func (c *PurgeGroupCommand) Name() string {
   return "PurgeGroup";  
 }
 
-func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message) (string, bool) {
+func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
   if len(args) < 1 {
     return "```You have to provide a group name!```", false
   }
   arg := strings.ToLower(args[0])
-  _, ok := sb.config.Groups[arg]
+  _, ok := info.config.Groups[arg]
   if !ok {
     return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
   }
   
-  delete(sb.config.Groups, arg)
-  sb.SaveConfig()
+  delete(info.config.Groups, arg)
+  info.SaveConfig()
   
   return "```Deleted " + arg + "```", false
 }
-func (c *PurgeGroupCommand) Usage() string { 
-  return FormatUsage(c, "[group]", "Deletes the group, if it exists.") 
+func (c *PurgeGroupCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[group]", "Deletes the group, if it exists.") 
 }
 func (c *PurgeGroupCommand) UsageShort() string { return "Deletes a group." }

@@ -2,12 +2,12 @@ package sweetiebot
 
 import (
   "fmt"
-  "strconv"
   "time"
   "io/ioutil"
   "github.com/bwmarrin/discordgo"
   "database/sql"
   "strings"
+  "strconv"
   "encoding/json"
   "reflect"
   "math/rand"
@@ -22,7 +22,6 @@ type ModuleHooks struct {
     OnMessageUpdate           []ModuleOnMessageUpdate
     OnMessageDelete           []ModuleOnMessageDelete
     OnMessageAck              []ModuleOnMessageAck
-    OnUserUpdate              []ModuleOnUserUpdate
     OnPresenceUpdate          []ModuleOnPresenceUpdate
     OnVoiceStateUpdate        []ModuleOnVoiceStateUpdate
     OnGuildUpdate             []ModuleOnGuildUpdate
@@ -78,50 +77,54 @@ type BotConfig struct {
 
 type GuildInfo struct {
   GuildOwner uint64
-}
-
-type SweetieBot struct {
-  db *BotDB
-  dg *discordgo.Session
-  version string
-  log *Log
-  SelfID string
-  Owners map[uint64]bool
-  MainGuildID uint64
-  DebugChannelID string
-  quit bool
-  //guilds map[string]GuildInfo
   Guild *discordgo.Guild
+  log *Log
   command_last map[string]map[string]int64
   commandlimit *SaturationLimit
   config BotConfig
-  initialized bool
   emotemodule *EmoteModule
   hooks ModuleHooks
   modules []Module
   commands map[string]Command
 }
 
+type SweetieBot struct {
+  db *BotDB
+  dg *discordgo.Session
+  version string
+  SelfID string
+  Owners map[uint64]bool
+  RestrictedCommands map[string]bool
+  MainGuildID uint64
+  DebugChannelID string
+  quit bool
+  guilds map[string]*GuildInfo
+  GuildChannels map[string]*GuildInfo
+}
+
 var sb *SweetieBot
 var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
 
-func (sbot *SweetieBot) AddCommand(c Command) {
-  sbot.commands[strings.ToLower(c.Name())] = c
+func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
+  return SBatoi(info.Guild.ID) == sbot.MainGuildID
+}
+func (info *GuildInfo) AddCommand(c Command) {
+  info.commands[strings.ToLower(c.Name())] = c
 }
 
-func (sbot *SweetieBot) SaveConfig() {
-  data, err := json.Marshal(sb.config)
+func (info *GuildInfo) SaveConfig() {
+  data, err := json.Marshal(info.config)
   if err == nil {
-    ioutil.WriteFile("config.json", data, 0)
+    ioutil.WriteFile(info.Guild.ID + ".json", data, 0)
   } else {
-    sbot.log.Log("Error writing json: ", err.Error())
+    info.log.Log("Error writing json: ", err.Error())
   }
 }
 
-func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (string, bool) {
+func (info *GuildInfo) SetConfig(name string, value string, extra... string) (string, bool) {
   name = strings.ToLower(name)
-  t := reflect.ValueOf(&sbot.config).Elem()
+  t := reflect.ValueOf(&info.config).Elem()
   n := t.NumField()
   for i := 0; i < n; i++ {
     if strings.ToLower(t.Type().Field(i).Name) == name {
@@ -186,7 +189,7 @@ func (sbot *SweetieBot) SetConfig(name string, value string, extra... string) (s
           f.SetMapIndex(reflect.ValueOf(value), m)
           return value + ": [" + strings.Join(stripped, ", ") + "]", true
         default:
-          sbot.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
+          info.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
           return "That config option has an unknown type!", false
       }
       return fmt.Sprint(t.Field(i).Interface()), true
@@ -199,12 +202,13 @@ func sbemotereplace(s string) string {
   return strings.Replace(s, "[](/", "[\u200B](/", -1)
 }
 
-func SanitizeOutput(message string) string {
-  if sb.emotemodule != nil {
-    message = sb.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
+func (info *GuildInfo) SanitizeOutput(message string) string {
+  if info.emotemodule != nil {
+    message = info.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
   }
   return message;
 }
+
 func ExtraSanitize(s string) string {
   s = strings.Replace(s,"`","",-1)
   s = strings.Replace(s, "[](/", "[\u200B](/", -1)
@@ -213,15 +217,15 @@ func ExtraSanitize(s string) string {
   return s
 }
 
-func (sbot *SweetieBot) SendMessage(channelID string, message string) {
-  sbot.dg.ChannelMessageSend(channelID, SanitizeOutput(message));
+func (info *GuildInfo) SendMessage(channelID string, message string) {
+  sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message));
 }
 
-func ProcessModule(channelID string, m Module) bool {
-  _, disabled := sb.config.Module_disabled[strings.ToLower(m.Name())]
+func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
+  _, disabled := info.config.Module_disabled[strings.ToLower(m.Name())]
   if disabled { return false }
   
-  c := sb.config.Module_channels[strings.ToLower(m.Name())]
+  c := info.config.Module_channels[strings.ToLower(m.Name())]
   if len(channelID)>0 && len(c)>0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
     _, ok := c[channelID]
     return ok
@@ -229,12 +233,12 @@ func ProcessModule(channelID string, m Module) bool {
   return true
 }
 
-func SwapStatusLoop() {
+func (info *GuildInfo) SwapStatusLoop() {
   for !sb.quit {
-    if len(sb.config.Collections["status"]) > 0 {
-      sb.dg.UpdateStatus(0, MapGetRandomItem(sb.config.Collections["status"]))
+    if len(info.config.Collections["status"]) > 0 {
+      sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
     }
-    time.Sleep(time.Duration(sb.config.StatusDelayTime)*time.Second)
+    time.Sleep(time.Duration(info.config.StatusDelayTime)*time.Second)
   }
 }
 
@@ -252,10 +256,9 @@ func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
   }
 }
 
-//func SBEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(sb.hooks.OnEvent), func(i int) { if(ProcessModule("", sb.hooks.OnEvent[i])) { sb.hooks.OnEvent[i].OnEvent(s, e) } }) }
+//func SBEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
   fmt.Println("Ready message receieved, waiting for guilds...")
-  go SwapStatusLoop()
   sb.SelfID = r.User.ID
   
   // Only used to change sweetiebot's name or avatar
@@ -263,54 +266,90 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 }
 
 func AttachToGuild(g *discordgo.Guild) {
-  if sb.initialized {
-    sb.log.Log("Multiple initialization detected - updating guild only")
-    ProcessGuild(g);
+  guild, exists := sb.guilds[g.ID]
+  if exists {
+    guild.log.Log("Multiple initialization detected - updating guild " + g.Name)
+    guild.ProcessGuild(g);
     
     for _, v := range g.Members {
-      ProcessMember(v)
+      guild.ProcessMember(v)
     }
     return
   }
-  sb.initialized = true
-  fmt.Println("Initializing...")
-  ProcessGuild(g);
+
+  fmt.Println("Initializing " + g.Name)
+  
+  guild = &GuildInfo{
+    GuildOwner: 0,
+    Guild: g,
+    command_last: make(map[string]map[string]int64),
+    commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
+    commands: make(map[string]Command),
+    emotemodule: nil,
+  }
+  guild.log = &Log{0, guild}
+  config, _ := ioutil.ReadFile(g.ID + ".json")
+  errjson := json.Unmarshal(config, &guild.config)
+  if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
+  
+  guild.commandlimit.times = make([]int64, guild.config.Commandperduration*2, guild.config.Commandperduration*2);
+
+  if len(guild.config.Collections) == 0 {
+    guild.config.Collections = make(map[string]map[string]bool);
+  }
+  collections := []string{"emote", "bored", "cute", "status", "spoiler", "bucket"};
+  for _, v := range collections {
+    _, ok := guild.config.Collections[v]
+    if !ok {
+      guild.config.Collections[v] = make(map[string]bool)
+    }
+  }
+
+  if sb.IsMainGuild(guild) {
+    sb.db.log = guild.log
+  }
+  if guild.config.Debug { // The server does not necessarily tie a standard input to the program
+    go WaitForInput()
+  }  
+  
+  sb.guilds[g.ID] = guild
+  guild.ProcessGuild(g);
   
   for _, v := range g.Members {
-    ProcessMember(v)
+    guild.ProcessMember(v)
   }
   
   episodegencommand := &EpisodeGenCommand{}
-  sb.emotemodule = &EmoteModule{}
+  guild.emotemodule = &EmoteModule{}
   spoilermodule := &SpoilerModule{}
   wittymodule := &WittyModule{}
-  sb.modules = make([]Module, 0, 6)
-  sb.modules = append(sb.modules, &SpamModule{})
-  sb.modules = append(sb.modules, &PingModule{})
-  sb.modules = append(sb.modules, sb.emotemodule)
-  sb.modules = append(sb.modules, wittymodule)
-  sb.modules = append(sb.modules, &BoredModule{Episodegen: episodegencommand})
-  sb.modules = append(sb.modules, spoilermodule)
+  guild.modules = make([]Module, 0, 6)
+  guild.modules = append(guild.modules, &SpamModule{})
+  guild.modules = append(guild.modules, &PingModule{})
+  guild.modules = append(guild.modules, guild.emotemodule)
+  guild.modules = append(guild.modules, wittymodule)
+  guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
+  guild.modules = append(guild.modules, spoilermodule)
   
-  for _, v := range sb.modules {
-    v.Register(&sb.hooks)
+  for _, v := range guild.modules {
+    v.Register(guild)
   }
   
   addfuncmap := map[string]func(string)string{
     "emote": func(arg string) string { 
-      r := sb.emotemodule.UpdateRegex()
+      r := guild.emotemodule.UpdateRegex(guild)
       if !r {
-        delete(sb.config.Collections["emote"], arg)
-        sb.emotemodule.UpdateRegex()
+        delete(guild.config.Collections["emote"], arg)
+        guild.emotemodule.UpdateRegex(guild)
         return "```Failed to ban " + arg + " because regex compilation failed.```"
       }
       return "```Banned " + arg + " and recompiled the emote regex.```"  
     },
     "spoiler": func(arg string) string { 
-      r := spoilermodule.UpdateRegex()
+      r := spoilermodule.UpdateRegex(guild)
       if !r {
-        delete(sb.config.Collections["spoiler"], arg)
-        spoilermodule.UpdateRegex()
+        delete(guild.config.Collections["spoiler"], arg)
+        spoilermodule.UpdateRegex(guild)
         return "```Failed to ban " + arg + " because regex compilation failed.```"
       }
       return "```Banned " + arg + " and recompiled the spoiler regex.```"
@@ -318,86 +357,102 @@ func AttachToGuild(g *discordgo.Guild) {
   }
   removefuncmap := map[string]func(string)string{
     "emote": func(arg string) string { 
-      sb.emotemodule.UpdateRegex()
+      guild.emotemodule.UpdateRegex(guild)
       return "```Unbanned " + arg + " and recompiled the emote regex.```"
     },
     "spoiler": func(arg string) string { 
-      spoilermodule.UpdateRegex()
+      spoilermodule.UpdateRegex(guild)
       return "```Unbanned " + arg + " and recompiled the spoiler regex.```"
     },
   }
   // We have to initialize commands and modules up here because they depend on the discord channel state
-  sb.AddCommand(&AddCommand{addfuncmap})
-  sb.AddCommand(&RemoveCommand{removefuncmap})
-  sb.AddCommand(&CollectionsCommand{})
-  sb.AddCommand(&EchoCommand{})
-  sb.AddCommand(&HelpCommand{})
-  sb.AddCommand(&NewUsersCommand{})
-  sb.AddCommand(&EnableCommand{})
-  sb.AddCommand(&DisableCommand{})
-  sb.AddCommand(&UpdateCommand{})
-  sb.AddCommand(&AKACommand{})
-  sb.AddCommand(&AboutCommand{})
-  sb.AddCommand(&LastPingCommand{})
-  sb.AddCommand(&SetConfigCommand{})
-  sb.AddCommand(&GetConfigCommand{})
-  sb.AddCommand(&LastSeenCommand{})
-  sb.AddCommand(&DumpTablesCommand{})
-  sb.AddCommand(episodegencommand)
-  sb.AddCommand(&QuoteCommand{})
-  sb.AddCommand(&ShipCommand{})
-  sb.AddCommand(&AddWitCommand{wittymodule})
-  sb.AddCommand(&RemoveWitCommand{wittymodule})
-  sb.AddCommand(&SearchCommand{emotes: sb.emotemodule, statements: make(map[string][]*sql.Stmt)})
-  sb.AddCommand(&SetStatusCommand{})
-  sb.AddCommand(&AddGroupCommand{})
-  sb.AddCommand(&JoinGroupCommand{})
-  sb.AddCommand(&ListGroupCommand{})
-  sb.AddCommand(&LeaveGroupCommand{})
-  sb.AddCommand(&PingCommand{})
-  sb.AddCommand(&PurgeGroupCommand{})
-  sb.AddCommand(&BestPonyCommand{})
-  sb.AddCommand(&BanCommand{})
-  sb.AddCommand(&DropCommand{})
-  sb.AddCommand(&GiveCommand{})
-  sb.AddCommand(&ListCommand{})
-  sb.AddCommand(&FightCommand{"",0})
-  sb.AddCommand(&CuteCommand{0})
-  sb.AddCommand(&RollCommand{})
+  guild.AddCommand(&AddCommand{addfuncmap})
+  guild.AddCommand(&RemoveCommand{removefuncmap})
+  guild.AddCommand(&CollectionsCommand{})
+  guild.AddCommand(&EchoCommand{})
+  guild.AddCommand(&HelpCommand{})
+  guild.AddCommand(&NewUsersCommand{})
+  guild.AddCommand(&EnableCommand{})
+  guild.AddCommand(&DisableCommand{})
+  guild.AddCommand(&UpdateCommand{})
+  guild.AddCommand(&AKACommand{})
+  guild.AddCommand(&AboutCommand{})
+  guild.AddCommand(&LastPingCommand{})
+  guild.AddCommand(&SetConfigCommand{})
+  guild.AddCommand(&GetConfigCommand{})
+  guild.AddCommand(&LastSeenCommand{})
+  guild.AddCommand(&DumpTablesCommand{})
+  guild.AddCommand(episodegencommand)
+  guild.AddCommand(&QuoteCommand{})
+  guild.AddCommand(&ShipCommand{})
+  guild.AddCommand(&AddWitCommand{wittymodule})
+  guild.AddCommand(&RemoveWitCommand{wittymodule})
+  guild.AddCommand(&SearchCommand{emotes: guild.emotemodule, statements: make(map[string][]*sql.Stmt)})
+  guild.AddCommand(&SetStatusCommand{})
+  guild.AddCommand(&AddGroupCommand{})
+  guild.AddCommand(&JoinGroupCommand{})
+  guild.AddCommand(&ListGroupCommand{})
+  guild.AddCommand(&LeaveGroupCommand{})
+  guild.AddCommand(&PingCommand{})
+  guild.AddCommand(&PurgeGroupCommand{})
+  guild.AddCommand(&BestPonyCommand{})
+  guild.AddCommand(&BanCommand{})
+  guild.AddCommand(&DropCommand{})
+  guild.AddCommand(&GiveCommand{})
+  guild.AddCommand(&ListCommand{})
+  guild.AddCommand(&FightCommand{"",0})
+  guild.AddCommand(&CuteCommand{0})
+  guild.AddCommand(&RollCommand{})
 
-  go IdleCheckLoop()
-  
+  go guild.IdleCheckLoop()
+  go guild.SwapStatusLoop()
+
   debug := ". \n\n"
-  if sb.config.Debug {
+  if guild.config.Debug {
     debug = ".\n[DEBUG BUILD]\n\n"
   }
-  sb.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug, GetActiveModules(), "\n\n", GetActiveCommands());
+  guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug, guild.GetActiveModules(), "\n\n", guild.GetActiveCommands());
 }
-
-func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { ApplyFuncRange(len(sb.hooks.OnTypingStart), func(i int) { if ProcessModule("", sb.hooks.OnTypingStart[i]) { sb.hooks.OnTypingStart[i].OnTypingStart(s, t) } }) }
+func GetChannelGuild(id string) *GuildInfo {
+  g, ok := sb.GuildChannels[id]
+  if !ok {
+    return sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+  }
+  return g
+}
+func GetGuildFromID(id string) *GuildInfo {
+  g, ok := sb.guilds[id]
+  if !ok {
+    return sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+  }
+  return g
+}
+func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { info := GetChannelGuild(t.ChannelID); ApplyFuncRange(len(info.hooks.OnTypingStart), func(i int) { if info.ProcessModule("", info.hooks.OnTypingStart[i]) { info.hooks.OnTypingStart[i].OnTypingStart(info, t) } }) }
 func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
-
-  if m.ChannelID == sb.DebugChannelID && !sb.config.Debug { 
+  
+  info := GetChannelGuild(m.ChannelID)
+  if m.ChannelID == sb.DebugChannelID && !info.config.Debug { 
     return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
   }
 
   ch, err := sb.dg.State.Channel(m.ChannelID)
-  sb.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
+  info.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
   private := true
   if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
   cid := SBatoi(m.ChannelID)
-  if cid != sb.config.LogChannel && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
+
+  if cid != info.config.LogChannel && !private { // Log this message provided it wasn't sent to the bot-log channel or in a PM
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
-  if m.Author.ID == sb.SelfID || cid == sb.config.LogChannel { // ALWAYS discard any of our own messages or our log messages before analysis.
+  if m.Author.ID == sb.SelfID || cid == info.config.LogChannel { // ALWAYS discard any of our own messages or our log messages before analysis.
     SBAddPings(m.Message) // If we're discarding a message we still need to add any pings to the ping table
     return
   }
   
-  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
+  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
     return
   }
   
@@ -405,30 +460,30 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
     t := time.Now().UTC().Unix()
     
-    _, isfree := sb.config.FreeChannels[m.ChannelID]
+    _, isfree := info.config.FreeChannels[m.ChannelID]
     if err != nil || (!private && m.ChannelID != sb.DebugChannelID && !isfree) { // Private channels are not limited, nor is the debug channel
-      if sb.commandlimit.check(sb.config.Commandperduration, sb.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-        sb.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
+      if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+        info.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
       }
-      sb.commandlimit.append(t)
+      info.commandlimit.append(t)
     }
     
     _, isSBowner := sb.Owners[SBatoi(m.Author.ID)]
     ignore := false
-    ApplyFuncRange(len(sb.hooks.OnCommand), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnCommand[i]) { ignore = ignore || sb.hooks.OnCommand[i].OnCommand(s, m.Message) } })
+    ApplyFuncRange(len(info.hooks.OnCommand), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) { ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m.Message) } })
     if ignore && !isSBowner { // if true, a module wants us to ignore this command
       return
     }
     
     args := ParseArguments(m.Content[1:])
     arg := strings.ToLower(args[0])
-    alias, ok := sb.config.Aliases[arg]
+    alias, ok := info.config.Aliases[arg]
     if ok { arg = alias }
-    c, ok := sb.commands[arg]    
+    c, ok := info.commands[arg]    
     if ok {
-      cch := sb.config.Command_channels[strings.ToLower(c.Name())]
-      _, disabled := sb.config.Command_disabled[strings.ToLower(c.Name())]
+      cch := info.config.Command_channels[strings.ToLower(c.Name())]
+      _, disabled := info.config.Command_disabled[strings.ToLower(c.Name())]
       if disabled && !isSBowner { return }
       if !private && len(cch) > 0 {
         _, ok = cch[m.ChannelID]
@@ -436,22 +491,22 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
           return
         }
       }
-      if !isSBowner && !UserHasAnyRole(m.Author.ID, sb.config.Command_roles[strings.ToLower(c.Name())]) {
-        sb.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + GetRoles(c))
+      if !isSBowner && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[strings.ToLower(c.Name())]) {
+        info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + info.GetRoles(c))
         return
       }
-      result, usepm := c.Process(args[1:], m.Message)
+      result, usepm := c.Process(args[1:], m.Message, info)
       if len(result) > 0 {
         targetchannel := m.ChannelID
         if usepm && !private {
           channel, err := s.UserChannelCreate(m.Author.ID)
-          sb.log.LogError("Error opening private channel: ", err);
+          info.log.LogError("Error opening private channel: ", err);
           if err == nil {
             targetchannel = channel.ID
             if rand.Float32() < 0.01 {
-              sb.SendMessage(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
+              info.SendMessage(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
             } else {
-              sb.SendMessage(m.ChannelID, "```Check your Private Messages for my reply!```")
+              info.SendMessage(m.ChannelID, "```Check your Private Messages for my reply!```")
             }
           }
         } 
@@ -460,69 +515,79 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
           if result[0:3] == "```" {
             index := strings.LastIndex(result[:1996], "\n")
             if index < 0 { index = 1996 }
-            sb.SendMessage(targetchannel, result[:index] + "```")
+            info.SendMessage(targetchannel, result[:index] + "```")
             result = "```" + result[index:]
           } else {
             index := strings.LastIndex(result[:1999], "\n")
             if index < 0 { index = 1999 }
-            sb.SendMessage(targetchannel, result[:index])
+            info.SendMessage(targetchannel, result[:index])
             result = result[index:]
           }
         }
-        sb.SendMessage(targetchannel, result)
+        info.SendMessage(targetchannel, result)
       }
     } else {
       if args[0] != "airhorn" {
-        sb.log.Error(m.ChannelID, "Sorry, " + args[0] + " is not a valid command.\nFor a list of valid commands, type !help.")
+        info.log.Error(m.ChannelID, "Sorry, " + args[0] + " is not a valid command.\nFor a list of valid commands, type !help.")
       }
     }
   } else {
-    ApplyFuncRange(len(sb.hooks.OnMessageCreate), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnMessageCreate[i]) { sb.hooks.OnMessageCreate[i].OnMessageCreate(s, m.Message) } })
+    ApplyFuncRange(len(info.hooks.OnMessageCreate), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageCreate[i]) { info.hooks.OnMessageCreate[i].OnMessageCreate(info, m.Message) } })
   }  
 }
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
-  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  info := GetChannelGuild(m.ChannelID)
+  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
   cid := SBatoi(m.ChannelID)
-  if cid != sb.config.LogChannel { // Always ignore messages from the log channel
+  if cid != info.config.LogChannel { // Always ignore messages from the log channel
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
   }
-  ApplyFuncRange(len(sb.hooks.OnMessageUpdate), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnMessageUpdate[i]) { sb.hooks.OnMessageUpdate[i].OnMessageUpdate(s, m.Message) } })
+  ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageUpdate[i]) { info.hooks.OnMessageUpdate[i].OnMessageUpdate(info, m.Message) } })
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
-  if boolXOR(sb.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
-  ApplyFuncRange(len(sb.hooks.OnMessageDelete), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnMessageDelete[i]) { sb.hooks.OnMessageDelete[i].OnMessageDelete(s, m.Message) } })
+  info := GetChannelGuild(m.ChannelID)
+  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  ApplyFuncRange(len(info.hooks.OnMessageDelete), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageDelete[i]) { info.hooks.OnMessageDelete[i].OnMessageDelete(info, m.Message) } })
 }
-func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { ApplyFuncRange(len(sb.hooks.OnMessageAck), func(i int) { if ProcessModule(m.ChannelID, sb.hooks.OnMessageAck[i]) { sb.hooks.OnMessageAck[i].OnMessageAck(s, m) } }) }
-func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User); ApplyFuncRange(len(sb.hooks.OnUserUpdate), func(i int) { if ProcessModule("", sb.hooks.OnUserUpdate[i]) { sb.hooks.OnUserUpdate[i].OnUserUpdate(s, m.User) } }) }
-func SBUserSettingsUpdate(s *discordgo.Session, m *discordgo.UserSettingsUpdate) { fmt.Println("OnUserSettingsUpdate called") }
-func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) { ProcessUser(m.User); ApplyFuncRange(len(sb.hooks.OnPresenceUpdate), func(i int) { if ProcessModule("", sb.hooks.OnPresenceUpdate[i]) { sb.hooks.OnPresenceUpdate[i].OnPresenceUpdate(s, m) } }) }
-func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) { ApplyFuncRange(len(sb.hooks.OnVoiceStateUpdate), func(i int) { if ProcessModule("", sb.hooks.OnVoiceStateUpdate[i]) { sb.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(s, m.VoiceState) } }) }
+func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { info := GetChannelGuild(m.ChannelID); ApplyFuncRange(len(info.hooks.OnMessageAck), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageAck[i]) { info.hooks.OnMessageAck[i].OnMessageAck(info, m) } }) }
+func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User); }
+func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) { info := GetGuildFromID(m.GuildID); ProcessUser(m.User); ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) { if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) { info.hooks.OnPresenceUpdate[i].OnPresenceUpdate(info, m) } }) }
+func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) { info := GetGuildFromID(m.GuildID); ApplyFuncRange(len(info.hooks.OnVoiceStateUpdate), func(i int) { if info.ProcessModule("", info.hooks.OnVoiceStateUpdate[i]) { info.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(info, m.VoiceState) } }) }
 func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
-  sb.log.Log("Guild update detected, updating ", m.Name)
-  ProcessGuild(m.Guild)
-  ApplyFuncRange(len(sb.hooks.OnGuildUpdate), func(i int) { if ProcessModule("", sb.hooks.OnGuildUpdate[i]) { sb.hooks.OnGuildUpdate[i].OnGuildUpdate(s, m.Guild) } })
+  info := GetChannelGuild(m.ID)
+  info.log.Log("Guild update detected, updating ", m.Name)
+  info.ProcessGuild(m.Guild)
+  ApplyFuncRange(len(info.hooks.OnGuildUpdate), func(i int) { if info.ProcessModule("", info.hooks.OnGuildUpdate[i]) { info.hooks.OnGuildUpdate[i].OnGuildUpdate(info, m.Guild) } })
 }
-func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) { ProcessMember(m.Member); ApplyFuncRange(len(sb.hooks.OnGuildMemberAdd), func(i int) { if ProcessModule("", sb.hooks.OnGuildMemberAdd[i]) { sb.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(s, m.Member) } }) }
-func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) { ApplyFuncRange(len(sb.hooks.OnGuildMemberRemove), func(i int) { if ProcessModule("", sb.hooks.OnGuildMemberRemove[i]) { sb.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(s, m.Member) } }) }
-func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) { ProcessMember(m.Member); ApplyFuncRange(len(sb.hooks.OnGuildMemberUpdate), func(i int) { if ProcessModule("", sb.hooks.OnGuildMemberUpdate[i]) { sb.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(s, m.Member) } }) }
-func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) { ApplyFuncRange(len(sb.hooks.OnGuildBanAdd), func(i int) { if ProcessModule("", sb.hooks.OnGuildBanAdd[i]) { sb.hooks.OnGuildBanAdd[i].OnGuildBanAdd(s, m.GuildBan) } }) }
-func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) { ApplyFuncRange(len(sb.hooks.OnGuildBanRemove), func(i int) { if ProcessModule("", sb.hooks.OnGuildBanRemove[i]) { sb.hooks.OnGuildBanRemove[i].OnGuildBanRemove(s, m.GuildBan) } }) }
+func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) { info := GetGuildFromID(m.GuildID); info.ProcessMember(m.Member); ApplyFuncRange(len(info.hooks.OnGuildMemberAdd), func(i int) { if info.ProcessModule("", info.hooks.OnGuildMemberAdd[i]) { info.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(info, m.Member) } }) }
+func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) { info := GetGuildFromID(m.GuildID); ApplyFuncRange(len(info.hooks.OnGuildMemberRemove), func(i int) { if info.ProcessModule("", info.hooks.OnGuildMemberRemove[i]) { info.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(info, m.Member) } }) }
+func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) { info := GetGuildFromID(m.GuildID); info.ProcessMember(m.Member); ApplyFuncRange(len(info.hooks.OnGuildMemberUpdate), func(i int) { if info.ProcessModule("", info.hooks.OnGuildMemberUpdate[i]) { info.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(info, m.Member) } }) }
+func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) { info := GetGuildFromID(m.GuildID); ApplyFuncRange(len(info.hooks.OnGuildBanAdd), func(i int) { if info.ProcessModule("", info.hooks.OnGuildBanAdd[i]) { info.hooks.OnGuildBanAdd[i].OnGuildBanAdd(info, m.GuildBan) } }) }
+func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) { info := GetGuildFromID(m.GuildID); ApplyFuncRange(len(info.hooks.OnGuildBanRemove), func(i int) { if info.ProcessModule("", info.hooks.OnGuildBanRemove[i]) { info.hooks.OnGuildBanRemove[i].OnGuildBanRemove(info, m.GuildBan) } }) }
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
-
+func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
+  guild, ok := sb.guilds[c.GuildID]
+  if ok {
+    sb.GuildChannels[c.ID] = guild
+  }
+}
+func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
+  delete(sb.GuildChannels, c.ID)
+}
 func ProcessUser(u *discordgo.User) uint64 {
   id := SBatoi(u.ID)
   sb.db.AddUser(id, u.Email, u.Username, u.Avatar, u.Verified)
   return id
 }
 
-func ProcessMember(u *discordgo.Member) {
+func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
   ProcessUser(u.User)
   
-  if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
+  if len(u.JoinedAt) > 0 && sb.IsMainGuild(info) { // Parse join date and update user table only if it is less than our current first seen date.
     t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
     if err == nil {
       sb.db.UpdateUserJoinTime(SBatoi(u.User.ID), t)
@@ -536,12 +601,15 @@ func ProcessGuildCreate(g *discordgo.Guild) {
   AttachToGuild(g);
 }
 
-func ProcessGuild(g *discordgo.Guild) {
-  sb.Guild = g
+func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
+  info.Guild = g
+  for _, v := range info.Guild.Channels {
+    sb.GuildChannels[v.ID] = info
+  }
 }
 
-func FindChannelID(name string) string {
-  channels := sb.dg.State.Guilds[0].Channels 
+func (info *GuildInfo) FindChannelID(name string) string {
+  channels := info.Guild.Channels 
   for _, v := range channels {
     if v.Name == name {
       return v.ID
@@ -555,19 +623,19 @@ func ApplyFuncRange(length int, fn func(i int)) {
   for i := 0; i < length; i++ { fn(i) }
 }
 
-func IdleCheckLoop() {
+func (info *GuildInfo) IdleCheckLoop() {
   for !sb.quit {
-    ids := sb.Guild.Channels
-    if sb.config.Debug { // override this in debug mode
+    ids := info.Guild.Channels
+    if info.config.Debug { // override this in debug mode
       c, err := sb.dg.State.Channel(sb.DebugChannelID)
       if err == nil { ids = []*discordgo.Channel{c} }
     }
     for _, id := range ids {
       t := sb.db.GetLatestMessage(SBatoi(id.ID))
       diff := SinceUTC(t);
-      ApplyFuncRange(len(sb.hooks.OnIdle), func(i int) {
-        if ProcessModule(id.ID, sb.hooks.OnIdle[i]) && diff >= (time.Duration(sb.hooks.OnIdle[i].IdlePeriod())*time.Second) {
-          sb.hooks.OnIdle[i].OnIdle(sb.dg, id)
+      ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+        if info.ProcessModule(id.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+          info.hooks.OnIdle[i].OnIdle(info, id)
           }
         })
     }
@@ -583,29 +651,23 @@ func WaitForInput() {
 
 func Initialize(Token string) {  
   dbauth, _ := ioutil.ReadFile("db.auth")
-  config, _ := ioutil.ReadFile("config.json")
 
   sb = &SweetieBot{
     version: "0.6.7",
-    log: &Log{0},
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
+    RestrictedCommands: map[string]bool { "search" : true },
     MainGuildID: 98609319519453184,
     DebugChannelID: "141710126628339712",
+    GuildChannels: make(map[string]*GuildInfo),
     quit: false,
-    commands: make(map[string]Command),
-    commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
-    initialized: false,
+    guilds: make(map[string]*GuildInfo),
   }
   
   rand.Intn(10)
   for i := 0; i < 20 + rand.Intn(20); i++ { rand.Intn(50) }
 
-  errjson := json.Unmarshal(config, &sb.config)
-  if errjson != nil { fmt.Println("Error reading config file: ", errjson.Error()) }
   
-  sb.commandlimit.times = make([]int64, sb.config.Commandperduration*2, sb.config.Commandperduration*2);
-  
-  db, err := DB_Load(sb.log, "mysql", strings.TrimSpace(string(dbauth)))
+  db, err := DB_Load(&Log{0, nil}, "mysql", strings.TrimSpace(string(dbauth)))
   if err != nil { 
     fmt.Println("Error loading database", err.Error())
     return 
@@ -618,17 +680,6 @@ func Initialize(Token string) {
     return
   }
   
-  if len(sb.config.Collections) == 0 {
-    sb.config.Collections = make(map[string]map[string]bool);
-  }
-  collections := []string{"emote", "bored", "cute", "status", "spoiler", "bucket"};
-  for _, v := range collections {
-    _, ok := sb.config.Collections[v]
-    if !ok {
-      sb.config.Collections[v] = make(map[string]bool)
-    }
-  }
-
   sb.dg.AddHandler(SBReady)
   sb.dg.AddHandler(SBTypingStart)
   sb.dg.AddHandler(SBMessageCreate)
@@ -636,7 +687,6 @@ func Initialize(Token string) {
   sb.dg.AddHandler(SBMessageDelete)
   sb.dg.AddHandler(SBMessageAck)
   sb.dg.AddHandler(SBUserUpdate)
-  sb.dg.AddHandler(SBUserSettingsUpdate)
   sb.dg.AddHandler(SBPresenceUpdate)
   sb.dg.AddHandler(SBVoiceStateUpdate)
   sb.dg.AddHandler(SBGuildUpdate)
@@ -646,22 +696,20 @@ func Initialize(Token string) {
   sb.dg.AddHandler(SBGuildBanAdd)
   sb.dg.AddHandler(SBGuildBanRemove)
   sb.dg.AddHandler(SBGuildCreate)
+  sb.dg.AddHandler(SBChannelCreate)
+  sb.dg.AddHandler(SBChannelDelete)
   
   sb.db.LoadStatements()
-  sb.log.Log("Finished loading database statements")
+  fmt.Println("Finished loading database statements")
   
   //BuildMarkov(1, 1)
   //return
   err = sb.dg.Open()
   if err == nil {
     fmt.Println("Connection established");
-    
-    if sb.config.Debug { // The server does not necessarily tie a standard input to the program
-      go WaitForInput()
-    }  
     for !sb.quit { time.Sleep(400 * time.Millisecond) }
   } else {
-    sb.log.LogError("Error opening websocket connection: ", err);
+    fmt.Println("Error opening websocket connection: ", err.Error());
   }
   
   fmt.Println("Sweetiebot quitting");
