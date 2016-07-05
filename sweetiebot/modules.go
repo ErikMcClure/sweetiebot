@@ -10,135 +10,130 @@ import (
 
 type ModuleOnEvent interface {
   Module
-  OnEvent(*discordgo.Session, *discordgo.Event)
+  OnEvent(*GuildInfo, *discordgo.Event)
 }
 
 type ModuleOnTypingStart interface {
   Module
-  OnTypingStart(*discordgo.Session, *discordgo.TypingStart)
+  OnTypingStart(*GuildInfo, *discordgo.TypingStart)
 }
 
 type ModuleOnMessageCreate interface {
   Module
-  OnMessageCreate(*discordgo.Session, *discordgo.Message)
+  OnMessageCreate(*GuildInfo, *discordgo.Message)
 }
 
 type ModuleOnMessageUpdate interface {
   Module
-  OnMessageUpdate(*discordgo.Session, *discordgo.Message)
+  OnMessageUpdate(*GuildInfo, *discordgo.Message)
 }
 
 type ModuleOnMessageDelete interface {
   Module
-  OnMessageDelete(*discordgo.Session, *discordgo.Message)
+  OnMessageDelete(*GuildInfo, *discordgo.Message)
 }
 
 type ModuleOnMessageAck interface {
   Module
-  OnMessageAck(*discordgo.Session, *discordgo.MessageAck)
-}
-
-type ModuleOnUserUpdate interface {
-  Module
-  OnUserUpdate(*discordgo.Session, *discordgo.User)
+  OnMessageAck(*GuildInfo, *discordgo.MessageAck)
 }
 
 type ModuleOnPresenceUpdate interface {
   Module
-  OnPresenceUpdate(*discordgo.Session, *discordgo.PresenceUpdate)
+  OnPresenceUpdate(*GuildInfo, *discordgo.PresenceUpdate)
 }
 
 type ModuleOnVoiceStateUpdate interface {
   Module
-  OnVoiceStateUpdate(*discordgo.Session, *discordgo.VoiceState)
+  OnVoiceStateUpdate(*GuildInfo, *discordgo.VoiceState)
 }
 
 type ModuleOnGuildUpdate interface {
   Module
-  OnGuildUpdate(*discordgo.Session, *discordgo.Guild)
+  OnGuildUpdate(*GuildInfo, *discordgo.Guild)
 }
 
 type ModuleOnGuildMemberAdd interface {
   Module
-  OnGuildMemberAdd(*discordgo.Session, *discordgo.Member)
+  OnGuildMemberAdd(*GuildInfo, *discordgo.Member)
 }
 
 type ModuleOnGuildMemberRemove interface {
   Module
-  OnGuildMemberRemove(*discordgo.Session, *discordgo.Member)
+  OnGuildMemberRemove(*GuildInfo, *discordgo.Member)
 }
 
 type ModuleOnGuildMemberUpdate interface {
   Module
-  OnGuildMemberUpdate(*discordgo.Session, *discordgo.Member)
+  OnGuildMemberUpdate(*GuildInfo, *discordgo.Member)
 }
 
 type ModuleOnGuildBanAdd interface {
   Module
-  OnGuildBanAdd(*discordgo.Session, *discordgo.GuildBan)
+  OnGuildBanAdd(*GuildInfo, *discordgo.GuildBan)
 }
 
 type ModuleOnGuildBanRemove interface {
   Module
-  OnGuildBanRemove(*discordgo.Session, *discordgo.GuildBan)
+  OnGuildBanRemove(*GuildInfo, *discordgo.GuildBan)
 }
 
 type ModuleOnCommand interface {
   Module
-  OnCommand(*discordgo.Session, *discordgo.Message) bool
+  OnCommand(*GuildInfo, *discordgo.Message) bool
 }
 
 type ModuleOnIdle interface {
   Module
-  OnIdle(*discordgo.Session, *discordgo.Channel)
-  IdlePeriod() int64 
+  OnIdle(*GuildInfo, *discordgo.Channel)
+  IdlePeriod(*GuildInfo) int64 
 }
 
 // Modules monitor all incoming messages and users that have joined a given channel.
 type Module interface {
   Name() string
-  Register(hooks *ModuleHooks)
+  Register(*GuildInfo)
 }
 
 // Commands are any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
   Name() string
-  Process([]string, *discordgo.Message) (string, bool)
-  Usage() string
+  Process([]string, *discordgo.Message, *GuildInfo) (string, bool)
+  Usage(*GuildInfo) string
   UsageShort() string
 }
 
-func GetActiveModules() string {
+func (info *GuildInfo) GetActiveModules() string {
   s := []string{"Active Modules:"}
-  for _, v := range sb.modules {
+  for _, v := range info.modules {
     str := v.Name()
-    _, ok := sb.config.Module_disabled[strings.ToLower(str)]
+    _, ok := info.config.Module_disabled[strings.ToLower(str)]
     if ok { str += " [disabled]" }
     s = append(s, str)
   }
   return strings.Join(s, "\n  ")
 }
 
-func GetActiveCommands() string {
+func (info *GuildInfo) GetActiveCommands() string {
   s := []string{"Active Commands:"}
-  for _, v := range sb.commands {
+  for _, v := range info.commands {
     str := v.Name() 
-    _, ok := sb.config.Command_disabled[strings.ToLower(str)]
+    _, ok := info.config.Command_disabled[strings.ToLower(str)]
     if ok { str += " [disabled]" }
     s = append(s, str)
   }
   return strings.Join(s, "\n  ")
 }
 
-func GetRoles(c Command) string {
-  m, ok := sb.config.Command_roles[strings.ToLower(c.Name())]
+func (info *GuildInfo) GetRoles(c Command) string {
+  m, ok := info.config.Command_roles[strings.ToLower(c.Name())]
   if !ok {
     return "";
   }
   
   s := make([]string, 0, len(m))
   for k, _ := range m { 
-    for _, v := range sb.dg.State.Guilds[0].Roles {
+    for _, v := range info.Guild.Roles {
       if v.ID == k {
         s = append(s, v.Name)
       }
@@ -148,8 +143,8 @@ func GetRoles(c Command) string {
   return strings.Join(s, ", ")
 }
 
-func FormatUsage(c Command, a string, b string) string {
-  r := GetRoles(c)
+func (info *GuildInfo) FormatUsage(c Command, a string, b string) string {
+  r := info.GetRoles(c)
   if len(r)>0 {
     return a + "\n+" + r + "\n\n" + b 
   } else {
