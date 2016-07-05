@@ -66,7 +66,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
     }
     limit := w.tracker[id]
     limit.append(time.Now().UTC().Unix())
-    if limit.checkafter(5, 1) || limit.checkafter(10, 5) || limit.checkafter(12, 10) {
+    if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
       KillSpammer(m.Author, info)
       return true
     }
