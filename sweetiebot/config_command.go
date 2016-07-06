@@ -87,11 +87,11 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
     return "```You must provide all 5 parameters to this function. Carefully review each one and make sure it is accurate.```", false
   }
 
-  log := args[0]
-  mod := args[1]
-  modchannel := args[2]
-  free := args[3]
-  silent := args[4]
+  log := StripPing(args[0])
+  mod := StripPing(args[1])
+  modchannel := StripPing(args[2])
+  free := StripPing(args[3])
+  silent := StripPing(args[4])
 
   info.config.LogChannel = SBatoi(log)
   info.config.AlertRole = SBatoi(mod)
@@ -114,6 +114,6 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
   return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "```", false
 }
 func (c *QuickConfigCommand) Usage(info *GuildInfo) string { 
-  return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role]", "Quickly performs basic configuration on the server and restricts all sensitive commands to the given moderator role, then enables all commands and all modules.")
+  return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules.")
 }
 func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }
