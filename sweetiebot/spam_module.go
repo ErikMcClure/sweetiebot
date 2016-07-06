@@ -89,7 +89,7 @@ func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
       s = append(s, v.Username + "  (joined: " + v.FirstSeen.Format(time.ANSIC) + ")") 
     }
     ch := strconv.FormatUint(info.config.ModChannel, 10)
-    if info.config.Debug { ch = sb.DebugChannelID }
+    if info.config.Debug { ch, _ = sb.DebugChannels[info.Guild.ID] }
     info.SendMessage(ch, "<@&" + strconv.FormatUint(info.config.AlertRole, 10) + "> Possible Raid Detected!\n```" + strings.Join(s, "\n") + "```")
   }
 }
