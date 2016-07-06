@@ -18,7 +18,7 @@ func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, info *G
   if len(args) > 0 { maxresults, _ = strconv.Atoi(args[0]) }
   if maxresults < 1 { return "```How I return no results???```", false }
   if maxresults > 30 { maxresults = 30 }
-  r := sb.db.GetNewestUsers(maxresults)
+  r := sb.db.GetNewestUsers(maxresults, SBatoi(info.Guild.ID))
   s := make([]string, 0, len(r))
   
   for _, v := range r {
