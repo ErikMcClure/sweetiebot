@@ -478,13 +478,14 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   }
 
   var info *GuildInfo
+  ismainguild := true
   if !private {
     info = GetChannelGuild(m.ChannelID)
+    ismainguild = SBatoi(ch.GuildID) == sb.MainGuildID
   } else {
     info = sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
   }
   cid := SBatoi(m.ChannelID)
-  ismainguild := SBatoi(ch.GuildID) == sb.MainGuildID
   isdebug := info.IsDebug(m.ChannelID)
   if isdebug && !info.config.Debug { 
     return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
