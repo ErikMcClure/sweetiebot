@@ -115,7 +115,7 @@ func (info *GuildInfo) AddCommand(c Command) {
 func (info *GuildInfo) SaveConfig() {
   data, err := json.Marshal(info.config)
   if err == nil {
-    ioutil.WriteFile(info.Guild.ID + ".json", data, 0)
+    ioutil.WriteFile(info.Guild.ID + ".json", data, 0700)
   } else {
     info.log.Log("Error writing json: ", err.Error())
   }
