@@ -95,7 +95,7 @@ type SweetieBot struct {
   Owners map[uint64]bool
   RestrictedCommands map[string]bool
   MainGuildID uint64
-  DebugChannelID string
+  DebugChannels map[string]string
   quit bool
   guilds map[string]*GuildInfo
   GuildChannels map[string]*GuildInfo
@@ -448,6 +448,13 @@ func GetGuildFromID(id string) *GuildInfo {
   }
   return g
 }
+func (info *GuildInfo) IsDebug(channel string) bool {
+  debugchannel, isdebug := sb.DebugChannels[info.Guild.ID]
+  if isdebug {
+    return channel == debugchannel;
+  }
+  return false
+}
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { info := GetChannelGuild(t.ChannelID); ApplyFuncRange(len(info.hooks.OnTypingStart), func(i int) { if info.ProcessModule("", info.hooks.OnTypingStart[i]) { info.hooks.OnTypingStart[i].OnTypingStart(info, t) } }) }
 func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
@@ -455,7 +462,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   }
   
   info := GetChannelGuild(m.ChannelID)
-  if m.ChannelID == sb.DebugChannelID && !info.config.Debug { 
+  isdebug := info.IsDebug(m.ChannelID)
+  if isdebug && !info.config.Debug { 
     return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
   }
 
@@ -474,7 +482,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     return
   }
   
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
+  if boolXOR(info.config.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
     return
   }
   
@@ -483,7 +491,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     t := time.Now().UTC().Unix()
     
     _, isfree := info.config.FreeChannels[m.ChannelID]
-    if err != nil || (!private && m.ChannelID != sb.DebugChannelID && !isfree) { // Private channels are not limited, nor is the debug channel
+    if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
       if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
         info.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
         return
@@ -564,7 +572,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
   info := GetChannelGuild(m.ChannelID)
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) { return }
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
@@ -581,7 +589,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
   info := GetChannelGuild(m.ChannelID)
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) { return }
   ApplyFuncRange(len(info.hooks.OnMessageDelete), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageDelete[i]) { info.hooks.OnMessageDelete[i].OnMessageDelete(info, m.Message) } })
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { info := GetChannelGuild(m.ChannelID); ApplyFuncRange(len(info.hooks.OnMessageAck), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageAck[i]) { info.hooks.OnMessageAck[i].OnMessageAck(info, m) } }) }
@@ -658,7 +666,7 @@ func (info *GuildInfo) IdleCheckLoop() {
   for !sb.quit {
     ids := info.Guild.Channels
     if info.config.Debug { // override this in debug mode
-      c, err := sb.dg.State.Channel(sb.DebugChannelID)
+      c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
       if err == nil { ids = []*discordgo.Channel{c} }
     }
     for _, id := range ids {
@@ -688,7 +696,7 @@ func Initialize(Token string) {
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
     RestrictedCommands: map[string]bool { "search" : true, "lastping" : true },
     MainGuildID: 98609319519453184,
-    DebugChannelID: "141710126628339712",
+    DebugChannels: map[string]string { "98609319519453184" : "141710126628339712", "105443346608095232" : "200112394494541824" },
     GuildChannels: make(map[string]*GuildInfo),
     quit: false,
     guilds: make(map[string]*GuildInfo),
