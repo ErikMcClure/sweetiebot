@@ -99,6 +99,7 @@ type SweetieBot struct {
   guilds map[string]*GuildInfo
   GuildChannels map[string]*GuildInfo
   LastMessages map[string]int64
+  MaxConfigSize int
 }
 
 var sb *SweetieBot
@@ -115,7 +116,11 @@ func (info *GuildInfo) AddCommand(c Command) {
 func (info *GuildInfo) SaveConfig() {
   data, err := json.Marshal(info.config)
   if err == nil {
-    ioutil.WriteFile(info.Guild.ID + ".json", data, 0664)
+    if len(data) > sb.MaxConfigSize {
+      info.log.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(sb.MaxConfigSize) + " bytes.")
+    } else {
+      ioutil.WriteFile(info.Guild.ID + ".json", data, 0664)
+    }
   } else {
     info.log.Log("Error writing json: ", err.Error())
   }
@@ -733,6 +738,7 @@ func Initialize(Token string) {
     quit: false,
     guilds: make(map[string]*GuildInfo),
     LastMessages: make(map[string]int64),
+    MaxConfigSize: 1000000,
   }
   
   rand.Intn(10)
