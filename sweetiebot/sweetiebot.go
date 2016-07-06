@@ -664,7 +664,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
   if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
     t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
     if err == nil {
-      sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t)
+      sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t.Add(-7*time.Hour))
     } else {
       fmt.Println(err.Error())
     }
