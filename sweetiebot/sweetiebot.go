@@ -47,7 +47,6 @@ type BotConfig struct {
   Maxsearchresults int     `json:"maxsearchresults"`
   Defaultmarkovlines int   `json:"defaultmarkovlines"`
   Maxshutup int64          `json:"maxshutup"`
-  Maxcute int64            `json:"maxcute"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   StatusDelayTime int      `json:"statusdelaytime"`
@@ -99,6 +98,7 @@ type SweetieBot struct {
   quit bool
   guilds map[string]*GuildInfo
   GuildChannels map[string]*GuildInfo
+  LastMessages map[string]int64
 }
 
 var sb *SweetieBot
@@ -413,8 +413,11 @@ func AttachToGuild(g *discordgo.Guild) {
   guild.AddCommand(&GiveCommand{})
   guild.AddCommand(&ListCommand{})
   guild.AddCommand(&FightCommand{"",0})
-  guild.AddCommand(&CuteCommand{0})
+  guild.AddCommand(&CuteCommand{})
   guild.AddCommand(&RollCommand{})
+  guild.AddCommand(&ListGuildsCommand{})
+  guild.AddCommand(&AnnounceCommand{})
+  guild.AddCommand(&QuickConfigCommand{})
 
   if disableall {
     for k, _ := range guild.commands {
@@ -461,6 +464,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     return
   }
   
+  t := time.Now().UTC().Unix()
+  sb.LastMessages[m.ChannelID] = t
   info := GetChannelGuild(m.ChannelID)
   isdebug := info.IsDebug(m.ChannelID)
   if isdebug && !info.config.Debug { 
@@ -487,13 +492,11 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   }
   
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
-  if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
-    t := time.Now().UTC().Unix()
-    
+  if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command    
     _, isfree := info.config.FreeChannels[m.ChannelID]
     if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
       if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-        info.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
+        info.log.Error(m.ChannelID, "You can't input more than " + strconv.Itoa(info.config.Commandperduration) + " commands every " + TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second) + "!")
         return
       }
       info.commandlimit.append(t)
@@ -529,6 +532,20 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + info.GetRoles(c))
         return
       }
+
+      cmdlimit := info.config.Command_limits[cmdname]
+      if !isfree && cmdlimit > 0 {
+        lastcmd := info.command_last[m.ChannelID][cmdname]
+        if !RateLimit(&lastcmd, cmdlimit) {
+          info.log.Error(m.ChannelID, "You can only run that command once every " + TimeDiff(time.Duration(cmdlimit)*time.Second) + "!")
+          return
+        }
+        if len(info.command_last[m.ChannelID]) == 0 {
+          info.command_last[m.ChannelID] = make(map[string]int64)
+        }
+        info.command_last[m.ChannelID][cmdname] = t
+      }
+
       result, usepm := c.Process(args[1:], m.Message, info)
       if len(result) > 0 {
         targetchannel := m.ChannelID
@@ -664,19 +681,21 @@ func ApplyFuncRange(length int, fn func(i int)) {
 
 func (info *GuildInfo) IdleCheckLoop() {
   for !sb.quit {
-    ids := info.Guild.Channels
+    channels := info.Guild.Channels
     if info.config.Debug { // override this in debug mode
       c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
-      if err == nil { ids = []*discordgo.Channel{c} }
+      if err == nil { channels = []*discordgo.Channel{c} }
     }
-    for _, id := range ids {
-      t := sb.db.GetLatestMessage(SBatoi(id.ID))
-      diff := SinceUTC(t);
-      ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-        if info.ProcessModule(id.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-          info.hooks.OnIdle[i].OnIdle(info, id)
-          }
-        })
+    for _, ch := range channels {
+      t, exists := sb.LastMessages[ch.ID]
+      if exists {
+        diff := time.Now().UTC().Sub(time.Unix(t, 0))
+        ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+          if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+            info.hooks.OnIdle[i].OnIdle(info, ch)
+            }
+          })
+      }
     }
     time.Sleep(30*time.Second)
   }  
@@ -692,7 +711,7 @@ func Initialize(Token string) {
   dbauth, _ := ioutil.ReadFile("db.auth")
 
   sb = &SweetieBot{
-    version: "0.6.8",
+    version: "0.6.9",
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
     RestrictedCommands: map[string]bool { "search" : true, "lastping" : true },
     MainGuildID: 98609319519453184,
@@ -700,6 +719,7 @@ func Initialize(Token string) {
     GuildChannels: make(map[string]*GuildInfo),
     quit: false,
     guilds: make(map[string]*GuildInfo),
+    LastMessages: make(map[string]int64),
   }
   
   rand.Intn(10)
@@ -753,4 +773,5 @@ func Initialize(Token string) {
   
   fmt.Println("Sweetiebot quitting");
   sb.db.Close();
+  sb.dg.Logout();
 }
