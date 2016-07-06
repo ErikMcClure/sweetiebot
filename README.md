@@ -21,7 +21,7 @@ If you get compiler errors, sweetiebot has two dependences you should get:
 
 ## Adding Sweetiebot To Your Server
 
-A limited version of sweetiebot can be added to any server. Simply follow [this link]() to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search and !lastping are unavailable. All other commands and modules still function, however. 
+A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=0) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search and !lastping are unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
 
 ### Configuration
 
@@ -41,7 +41,6 @@ Additional configuration is optional, depending on what features of the bot are 
 * **aliases** can be used to redirect commands, such as making !listgroup call the !listgroups command. Useful for making shortcuts.
 * **witty** stores the replies used by the Witty module and must be configured using !addwit or !removewit
 * **maxbored** specifies the duration of inactivity that will trigger Sweetiebot's bored module.
-* **statusdelaytime** specifies how long sweetiebot will wait to randomly change her status
 * **maxraidtime** specifies the time period sweetiebot should search for a potential raid
 * **raidsize** specifies how many people must have joined the server within the **maxraidtime** period to qualify as a raid.
 * **maxbucket** determines the maximum number of items sweetiebot can carry in her bucket.

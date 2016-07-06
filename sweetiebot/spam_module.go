@@ -80,9 +80,9 @@ func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
   return w.CheckSpam(info, m)
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
-  raidsize := sb.db.CountNewUsers(info.config.MaxRaidTime);
+  raidsize := sb.db.CountNewUsers(info.config.MaxRaidTime, SBatoi(info.Guild.ID));
   if info.config.RaidSize > 0 && raidsize >= info.config.RaidSize && RateLimit(&w.lastraid, info.config.MaxRaidTime*2) {  
-    r := sb.db.GetNewestUsers(raidsize)
+    r := sb.db.GetNewestUsers(raidsize, SBatoi(info.Guild.ID))
     s := make([]string, 0, len(r))
     
     for _, v := range r {

@@ -233,11 +233,13 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 }
 
 func (info *GuildInfo) SwapStatusLoop() {
-  for !sb.quit {
-    if len(info.config.Collections["status"]) > 0 {
-      sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
+  if sb.IsMainGuild(info) {
+    for !sb.quit {
+      if len(info.config.Collections["status"]) > 0 {
+        sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
+      }
+      time.Sleep(time.Duration(info.config.StatusDelayTime)*time.Second)
     }
-    time.Sleep(time.Duration(info.config.StatusDelayTime)*time.Second)
   }
 }
 
@@ -466,18 +468,28 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   
   t := time.Now().UTC().Unix()
   sb.LastMessages[m.ChannelID] = t
-  info := GetChannelGuild(m.ChannelID)
+  
+  ch, err := sb.dg.State.Channel(m.ChannelID)
+  private := true
+  if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
+    private = ch.IsPrivate
+  } else {
+    fmt.Println("Error retrieving channel " + m.ChannelID + ": ", err.Error())
+  }
+
+  var info *GuildInfo
+  if !private {
+    info = GetChannelGuild(m.ChannelID)
+  } else {
+    info = sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+  }
+  cid := SBatoi(m.ChannelID)
+  ismainguild := SBatoi(ch.GuildID) == sb.MainGuildID
   isdebug := info.IsDebug(m.ChannelID)
   if isdebug && !info.config.Debug { 
     return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
   }
 
-  ch, err := sb.dg.State.Channel(m.ChannelID)
-  info.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
-  private := true
-  if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-  cid := SBatoi(m.ChannelID)
-  ismainguild := SBatoi(ch.GuildID) == sb.MainGuildID
 
   if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
@@ -643,10 +655,10 @@ func ProcessUser(u *discordgo.User) uint64 {
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
   ProcessUser(u.User)
   
-  if len(u.JoinedAt) > 0 && sb.IsMainGuild(info) { // Parse join date and update user table only if it is less than our current first seen date.
+  if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
     t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
     if err == nil {
-      sb.db.UpdateUserJoinTime(SBatoi(u.User.ID), t)
+      sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t)
     } else {
       fmt.Println(err.Error())
     }
@@ -711,9 +723,9 @@ func Initialize(Token string) {
   dbauth, _ := ioutil.ReadFile("db.auth")
 
   sb = &SweetieBot{
-    version: "0.6.9",
+    version: "0.7.0",
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
-    RestrictedCommands: map[string]bool { "search" : true, "lastping" : true },
+    RestrictedCommands: map[string]bool { "search" : true, "lastping" : true, "setstatus" : true },
     MainGuildID: 98609319519453184,
     DebugChannels: map[string]string { "98609319519453184" : "141710126628339712", "105443346608095232" : "200112394494541824" },
     GuildChannels: make(map[string]*GuildInfo),
