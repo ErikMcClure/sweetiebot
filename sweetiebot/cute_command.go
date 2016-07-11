@@ -5,14 +5,13 @@ import (
 )
 
 type CuteCommand struct {
-  lastcute int64;
 }
 
 func (c *CuteCommand) Name() string {
   return "Cute";  
 }
 func (c *CuteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
-  if len(info.config.Collections["cute"]) > 0 && RateLimit(&c.lastcute, info.config.Maxcute) {
+  if len(info.config.Collections["cute"]) > 0 {
     return MapGetRandomItem(info.config.Collections["cute"]), false
   }
   return "", false
