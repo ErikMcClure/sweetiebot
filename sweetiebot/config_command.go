@@ -84,7 +84,7 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
     return "```Only the owner of this server can use this command!```", false
   }
   if len(args) < 5 {
-    return "```You must provide all 5 parameters to this function. Carefully review each one and make sure it is accurate.```", false
+    return "```You must provide all 6 parameters to this function. Carefully review each one and make sure it is accurate.```", false
   }
 
   log := StripPing(args[0])
@@ -92,13 +92,13 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
   modchannel := StripPing(args[2])
   free := StripPing(args[3])
   silent := StripPing(args[4])
+  boredchannel := StripPing(args[5])
 
   info.config.LogChannel = SBatoi(log)
   info.config.AlertRole = SBatoi(mod)
   info.config.ModChannel = SBatoi(modchannel)
   info.config.FreeChannels = make(map[string]bool)
   info.config.FreeChannels[strconv.FormatUint(SBatoi(free), 10)] = true
-  info.config.SilentRole = SBatoi(silent)
 
   sensitive := []string { "add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce" }
   modint := strconv.FormatUint(info.config.AlertRole, 10)
@@ -110,10 +110,18 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
   
   info.config.Command_disabled = make(map[string]bool)
   info.config.Module_disabled = make(map[string]bool)
+
+  silentint := SBatoi(silent)
+  if silentint > 0 {
+    info.config.Module_channels["bored"] = map[string]bool { strconv.FormatUint(silentint, 10) : true }
+  } else {
+    info.config.Module_disabled["bored"] = true
+  }
+
   info.SaveConfig()
   return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "```", false
 }
 func (c *QuickConfigCommand) Usage(info *GuildInfo) string { 
-  return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules.")
+  return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role] [Bored Channel]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules. If [bored channel] is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels.")
 }
 func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }
