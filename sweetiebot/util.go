@@ -30,8 +30,8 @@ func PingAtoi(s string) uint64 {
   return SBatoi(s)
 }
 func StripPing(s string) string {
-  if s[:2] == "<#" || s[:2] == "<@" {
-    if s[2:3] == "!" || s[2:3] == "&" {
+  if len(s) >= 2 && (s[:2] == "<#" || s[:2] == "<@") {
+    if len(s) >= 3 && (s[2:3] == "!" || s[2:3] == "&") {
       return s[3:len(s)-1]
     }
     return s[2:len(s)-1]
