@@ -3,6 +3,7 @@ package sweetiebot
 import (
   "github.com/bwmarrin/discordgo"
   "strings"
+  "strconv"
 )
 
 type EchoCommand struct {
@@ -110,7 +111,12 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, info *Gui
   if err != nil {
     sb.log.Log("Command.Start() error: ", err.Error())
     return "```Could not start update script!```"
-  }*/ 
+  }*/
+  
+  for _, v := range sb.guilds {
+    v.SendMessage(strconv.FormatUint(v.config.LogChannel, 10), "```Shutting down for update...```")
+  }
+
   sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
   return "```Shutting down for update...```", false
 }
@@ -134,3 +140,44 @@ func (c *DumpTablesCommand) Usage(info *GuildInfo) string {
   return info.FormatUsage(c, "", "Dumps table row counts.")
 }
 func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
+
+type ListGuildsCommand struct {
+}
+
+func (c *ListGuildsCommand) Name() string {
+  return "ListGuilds";  
+}
+func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+  s := make([]string, 0, len(sb.guilds))
+  for _, v := range sb.guilds {
+    s = append(s, v.Guild.Name)
+  }
+  return "```Sweetie has joined these servers:\n" + strings.Join(s, "\n") + "```", len(s) > 8
+}
+func (c *ListGuildsCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "", "Lists the servers that sweetiebot has joined.")
+}
+func (c *ListGuildsCommand) UsageShort() string { return "Lists servers." }
+
+type AnnounceCommand struct {
+}
+
+func (c *AnnounceCommand) Name() string {
+  return "Announce";  
+}
+func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+  _, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+  if !isOwner {
+    return "```Only the owner of the bot itself can call this!```", false
+  }
+
+  arg := strings.Join(args, " ")
+  for _, v := range sb.guilds {
+    v.SendMessage(strconv.FormatUint(v.config.LogChannel, 10), "<@&" + strconv.FormatUint(v.config.AlertRole, 10) + "> " + arg)
+  }
+  return "", false
+}
+func (c *AnnounceCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[arbitrary message]", "Restricted command that announces a message to all the log channels of all guilds.")
+}
+func (c *AnnounceCommand) UsageShort() string { return "Restricted announcement command." }
