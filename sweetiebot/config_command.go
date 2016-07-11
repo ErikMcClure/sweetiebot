@@ -4,6 +4,7 @@ import (
   "github.com/bwmarrin/discordgo"
   "encoding/json"
   "strings"
+  "strconv"
   "reflect"
 )
 
@@ -71,3 +72,48 @@ func (c *GetConfigCommand) Usage(info *GuildInfo) string {
   return info.FormatUsage(c, "", "Returns the current configuration as a JSON string.") 
 }
 func (c *GetConfigCommand) UsageShort() string { return "Returns the current configuration." }
+
+type QuickConfigCommand struct {
+}
+
+func (c *QuickConfigCommand) Name() string {
+  return "QuickConfig";  
+}
+func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+  if msg.Author.ID != info.Guild.OwnerID {
+    return "```Only the owner of this server can use this command!```", false
+  }
+  if len(args) < 5 {
+    return "```You must provide all 5 parameters to this function. Carefully review each one and make sure it is accurate.```", false
+  }
+
+  log := StripPing(args[0])
+  mod := StripPing(args[1])
+  modchannel := StripPing(args[2])
+  free := StripPing(args[3])
+  silent := StripPing(args[4])
+
+  info.config.LogChannel = SBatoi(log)
+  info.config.AlertRole = SBatoi(mod)
+  info.config.ModChannel = SBatoi(modchannel)
+  info.config.FreeChannels = make(map[string]bool)
+  info.config.FreeChannels[strconv.FormatUint(SBatoi(free), 10)] = true
+  info.config.SilentRole = SBatoi(silent)
+
+  sensitive := []string { "add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce" }
+  modint := strconv.FormatUint(info.config.AlertRole, 10)
+
+  for _, v := range sensitive {
+    info.config.Command_roles[v] = make(map[string]bool)
+    info.config.Command_roles[v][modint] = true
+  }
+  
+  info.config.Command_disabled = make(map[string]bool)
+  info.config.Module_disabled = make(map[string]bool)
+  info.SaveConfig()
+  return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "```", false
+}
+func (c *QuickConfigCommand) Usage(info *GuildInfo) string { 
+  return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules.")
+}
+func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }

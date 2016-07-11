@@ -47,7 +47,6 @@ type BotConfig struct {
   Maxsearchresults int     `json:"maxsearchresults"`
   Defaultmarkovlines int   `json:"defaultmarkovlines"`
   Maxshutup int64          `json:"maxshutup"`
-  Maxcute int64            `json:"maxcute"`
   Commandperduration int   `json:"commandperduration"`
   Commandmaxduration int64 `json:"commandmaxduration"`
   StatusDelayTime int      `json:"statusdelaytime"`
@@ -95,10 +94,12 @@ type SweetieBot struct {
   Owners map[uint64]bool
   RestrictedCommands map[string]bool
   MainGuildID uint64
-  DebugChannelID string
+  DebugChannels map[string]string
   quit bool
   guilds map[string]*GuildInfo
   GuildChannels map[string]*GuildInfo
+  LastMessages map[string]int64
+  MaxConfigSize int
 }
 
 var sb *SweetieBot
@@ -115,7 +116,11 @@ func (info *GuildInfo) AddCommand(c Command) {
 func (info *GuildInfo) SaveConfig() {
   data, err := json.Marshal(info.config)
   if err == nil {
-    ioutil.WriteFile(info.Guild.ID + ".json", data, 0)
+    if len(data) > sb.MaxConfigSize {
+      info.log.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(sb.MaxConfigSize) + " bytes.")
+    } else {
+      ioutil.WriteFile(info.Guild.ID + ".json", data, 0664)
+    }
   } else {
     info.log.Log("Error writing json: ", err.Error())
   }
@@ -233,11 +238,13 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 }
 
 func (info *GuildInfo) SwapStatusLoop() {
-  for !sb.quit {
-    if len(info.config.Collections["status"]) > 0 {
-      sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
+  if sb.IsMainGuild(info) {
+    for !sb.quit {
+      if len(info.config.Collections["status"]) > 0 {
+        sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
+      }
+      time.Sleep(time.Duration(info.config.StatusDelayTime)*time.Second)
     }
-    time.Sleep(time.Duration(info.config.StatusDelayTime)*time.Second)
   }
 }
 
@@ -413,8 +420,11 @@ func AttachToGuild(g *discordgo.Guild) {
   guild.AddCommand(&GiveCommand{})
   guild.AddCommand(&ListCommand{})
   guild.AddCommand(&FightCommand{"",0})
-  guild.AddCommand(&CuteCommand{0})
+  guild.AddCommand(&CuteCommand{})
   guild.AddCommand(&RollCommand{})
+  guild.AddCommand(&ListGuildsCommand{})
+  guild.AddCommand(&AnnounceCommand{})
+  guild.AddCommand(&QuickConfigCommand{})
 
   if disableall {
     for k, _ := range guild.commands {
@@ -448,23 +458,44 @@ func GetGuildFromID(id string) *GuildInfo {
   }
   return g
 }
+func (info *GuildInfo) IsDebug(channel string) bool {
+  debugchannel, isdebug := sb.DebugChannels[info.Guild.ID]
+  if isdebug {
+    return channel == debugchannel;
+  }
+  return false
+}
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) { info := GetChannelGuild(t.ChannelID); ApplyFuncRange(len(info.hooks.OnTypingStart), func(i int) { if info.ProcessModule("", info.hooks.OnTypingStart[i]) { info.hooks.OnTypingStart[i].OnTypingStart(info, t) } }) }
 func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
   if m.Author == nil { // This shouldn't ever happen but we check for it anyway
     return
   }
   
-  info := GetChannelGuild(m.ChannelID)
-  if m.ChannelID == sb.DebugChannelID && !info.config.Debug { 
+  t := time.Now().UTC().Unix()
+  sb.LastMessages[m.ChannelID] = t
+  
+  ch, err := sb.dg.State.Channel(m.ChannelID)
+  private := true
+  if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
+    private = ch.IsPrivate
+  } else {
+    fmt.Println("Error retrieving channel " + m.ChannelID + ": ", err.Error())
+  }
+
+  var info *GuildInfo
+  ismainguild := true
+  if !private {
+    info = GetChannelGuild(m.ChannelID)
+    ismainguild = SBatoi(ch.GuildID) == sb.MainGuildID
+  } else {
+    info = sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+  }
+  cid := SBatoi(m.ChannelID)
+  isdebug := info.IsDebug(m.ChannelID)
+  if isdebug && !info.config.Debug { 
     return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
   }
 
-  ch, err := sb.dg.State.Channel(m.ChannelID)
-  info.log.LogError("Error retrieving channel ID " + m.ChannelID + ": ", err)
-  private := true
-  if err == nil { private = ch.IsPrivate } // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-  cid := SBatoi(m.ChannelID)
-  ismainguild := SBatoi(ch.GuildID) == sb.MainGuildID
 
   if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
     sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone) 
@@ -474,18 +505,16 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     return
   }
   
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { // debug builds only respond to the debug channel, and release builds ignore it
+  if boolXOR(info.config.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
     return
   }
   
   // Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
-  if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
-    t := time.Now().UTC().Unix()
-    
+  if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command    
     _, isfree := info.config.FreeChannels[m.ChannelID]
-    if err != nil || (!private && m.ChannelID != sb.DebugChannelID && !isfree) { // Private channels are not limited, nor is the debug channel
+    if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
       if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-        info.log.Error(m.ChannelID, "You can't input more than 3 commands every 30 seconds!")
+        info.log.Error(m.ChannelID, "You can't input more than " + strconv.Itoa(info.config.Commandperduration) + " commands every " + TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second) + "!")
         return
       }
       info.commandlimit.append(t)
@@ -521,6 +550,20 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
         info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: " + info.GetRoles(c))
         return
       }
+
+      cmdlimit := info.config.Command_limits[cmdname]
+      if !isfree && cmdlimit > 0 {
+        lastcmd := info.command_last[m.ChannelID][cmdname]
+        if !RateLimit(&lastcmd, cmdlimit) {
+          info.log.Error(m.ChannelID, "You can only run that command once every " + TimeDiff(time.Duration(cmdlimit)*time.Second) + "!")
+          return
+        }
+        if len(info.command_last[m.ChannelID]) == 0 {
+          info.command_last[m.ChannelID] = make(map[string]int64)
+        }
+        info.command_last[m.ChannelID][cmdname] = t
+      }
+
       result, usepm := c.Process(args[1:], m.Message, info)
       if len(result) > 0 {
         targetchannel := m.ChannelID
@@ -564,7 +607,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
   info := GetChannelGuild(m.ChannelID)
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) { return }
   if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
     return
   }
@@ -581,7 +624,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
   info := GetChannelGuild(m.ChannelID)
-  if boolXOR(info.config.Debug, m.ChannelID == sb.DebugChannelID) { return }
+  if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) { return }
   ApplyFuncRange(len(info.hooks.OnMessageDelete), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageDelete[i]) { info.hooks.OnMessageDelete[i].OnMessageDelete(info, m.Message) } })
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) { info := GetChannelGuild(m.ChannelID); ApplyFuncRange(len(info.hooks.OnMessageAck), func(i int) { if info.ProcessModule(m.ChannelID, info.hooks.OnMessageAck[i]) { info.hooks.OnMessageAck[i].OnMessageAck(info, m) } }) }
@@ -618,10 +661,10 @@ func ProcessUser(u *discordgo.User) uint64 {
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
   ProcessUser(u.User)
   
-  if len(u.JoinedAt) > 0 && sb.IsMainGuild(info) { // Parse join date and update user table only if it is less than our current first seen date.
+  if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
     t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
     if err == nil {
-      sb.db.UpdateUserJoinTime(SBatoi(u.User.ID), t)
+      sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t.Add(-7*time.Hour))
     } else {
       fmt.Println(err.Error())
     }
@@ -656,19 +699,21 @@ func ApplyFuncRange(length int, fn func(i int)) {
 
 func (info *GuildInfo) IdleCheckLoop() {
   for !sb.quit {
-    ids := info.Guild.Channels
+    channels := info.Guild.Channels
     if info.config.Debug { // override this in debug mode
-      c, err := sb.dg.State.Channel(sb.DebugChannelID)
-      if err == nil { ids = []*discordgo.Channel{c} }
+      c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
+      if err == nil { channels = []*discordgo.Channel{c} }
     }
-    for _, id := range ids {
-      t := sb.db.GetLatestMessage(SBatoi(id.ID))
-      diff := SinceUTC(t);
-      ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-        if info.ProcessModule(id.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-          info.hooks.OnIdle[i].OnIdle(info, id)
-          }
-        })
+    for _, ch := range channels {
+      t, exists := sb.LastMessages[ch.ID]
+      if exists {
+        diff := time.Now().UTC().Sub(time.Unix(t, 0))
+        ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+          if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+            info.hooks.OnIdle[i].OnIdle(info, ch)
+            }
+          })
+      }
     }
     time.Sleep(30*time.Second)
   }  
@@ -684,14 +729,16 @@ func Initialize(Token string) {
   dbauth, _ := ioutil.ReadFile("db.auth")
 
   sb = &SweetieBot{
-    version: "0.6.8",
+    version: "0.7.0",
     Owners: map[uint64]bool { 95585199324143616 : true, 98605232707080192 : true },
-    RestrictedCommands: map[string]bool { "search" : true, "lastping" : true },
+    RestrictedCommands: map[string]bool { "search" : true, "lastping" : true, "setstatus" : true },
     MainGuildID: 98609319519453184,
-    DebugChannelID: "141710126628339712",
+    DebugChannels: map[string]string { "98609319519453184" : "141710126628339712", "105443346608095232" : "200112394494541824" },
     GuildChannels: make(map[string]*GuildInfo),
     quit: false,
     guilds: make(map[string]*GuildInfo),
+    LastMessages: make(map[string]int64),
+    MaxConfigSize: 1000000,
   }
   
   rand.Intn(10)
@@ -745,4 +792,5 @@ func Initialize(Token string) {
   
   fmt.Println("Sweetiebot quitting");
   sb.db.Close();
+  sb.dg.Logout();
 }
