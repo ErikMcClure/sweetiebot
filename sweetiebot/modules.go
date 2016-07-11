@@ -118,8 +118,11 @@ func (info *GuildInfo) GetActiveCommands() string {
   s := []string{"Active Commands:"}
   for _, v := range info.commands {
     str := v.Name() 
-    _, ok := info.config.Command_disabled[strings.ToLower(str)]
-    if ok { str += " [disabled]" }
+    _, disabled := info.config.Command_disabled[strings.ToLower(str)]
+    _, restricted := sb.RestrictedCommands[strings.ToLower(str)]
+    if restricted && sb.MainGuildID != SBatoi(info.Guild.ID) {
+      str += " [not available]"
+    } else if disabled { str += " [disabled]" }
     s = append(s, str)
   }
   return strings.Join(s, "\n  ")
