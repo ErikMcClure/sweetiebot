@@ -1,22 +1,24 @@
 package sweetiebot
 
 import (
-  "github.com/bwmarrin/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 type LastSeenCommand struct {
 }
 
 func (c *LastSeenCommand) Name() string {
-  return "LastSeen";  
+	return "LastSeen"
 }
 func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
-  id, fail := ReadUserPingArg(args)
-  if fail != "" { return fail, false }
-  u, lastseen := sb.db.GetUser(id)
-  return "```" + u.Username + " last seen " + TimeDiff(SinceUTC(lastseen)) + " ago.```", false
+	id, fail := ReadUserPingArg(args)
+	if fail != "" {
+		return fail, false
+	}
+	u, lastseen := sb.db.GetUser(id)
+	return "```" + u.Username + " last seen " + TimeDiff(SinceUTC(lastseen)) + " ago.```", false
 }
-func (c *LastSeenCommand) Usage(info *GuildInfo) string { 
-  return info.FormatUsage(c, "[@user]", "Returns when a user was last seen on discord, which is usually their last status change.") 
+func (c *LastSeenCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[@user]", "Returns when a user was last seen on discord, which is usually their last status change.")
 }
 func (c *LastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
