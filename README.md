@@ -32,6 +32,7 @@ Upon being added to a server, Sweetiebot will begin with all her commands and mo
 * **modchannel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
 * **freechannels** should be set to a list of channel IDs that are excluded from rate limiting. If you have a #bot channel for spamming the bot, add it here.
 * **silentrole** should be set to a role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.
+* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to **0**, which will disable the bored module.
 
 Once this has been done, all sensitive commands (such as setconfig) should be restricted to the appropriate moderator role. You can use sweetiebot's !quickconfig command to do all of this automatically and re-enable all modules.
 
@@ -45,6 +46,25 @@ Additional configuration is optional, depending on what features of the bot are 
 * **raidsize** specifies how many people must have joined the server within the **maxraidtime** period to qualify as a raid.
 * **maxbucket** determines the maximum number of items sweetiebot can carry in her bucket.
 * **maxbucketlength** determines the maximum length of a string that can be added to her bucket.
+
+### Using !setconfig
+Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a paramter, use `!getconfig <paramater name>`.
+
+Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
+
+    !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
+    !setconfig boredchannels #channel1 #channel2
+
+Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
+
+    !setconfig <map parameter> <key> <value>
+    !setconfig aliases listbucket list
+    !setconfig aliases listbucket ""
+
+Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
+
+    !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
+    !setconfig command_channels roll #channel1 #channel2
 
 ## Functionality
 ### Modules
