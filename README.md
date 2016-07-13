@@ -52,19 +52,19 @@ Basic configuration parameters can be set with `!setconfig <parameter name> <val
 
 Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
 
-`!setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>`
-`!setconfig boredchannels #channel1 #channel2`
+    !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
+    !setconfig boredchannels #channel1 #channel2
 
 Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
 
-`!setconfig <map parameter> <key> <value>`
-`!setconfig aliases listbucket list`
-`!setconfig aliases listbucket ""`
+    !setconfig <map parameter> <key> <value>
+    !setconfig aliases listbucket list
+    !setconfig aliases listbucket ""
 
 Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
 
-`!setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>`
-`!setconfig command_channels roll #channel1 #channel2`
+    !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
+    !setconfig command_channels roll #channel1 #channel2
 
 ## Functionality
 ### Modules
