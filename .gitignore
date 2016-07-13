@@ -5,6 +5,8 @@ main/db.auth
 main/username
 main/client_id
 main/client_secret
+main/*.json
+!main/default.json
 *.log
 main/token
 *.jpg
