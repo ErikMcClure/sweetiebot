@@ -130,6 +130,9 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *Guil
 	if len(c.monster) > 0 && len(args) > 0 {
 		return "I'm already fighting " + c.monster + ", I have to defeat them first!", false
 	}
+	if info.config.MaxFightDamage <= 0 || info.config.MaxFightHP <= 0 {
+		return "```MaxFightDamage and MaxFightHP must be greater than zero!```", false
+	}
 	if len(c.monster) == 0 {
 		if len(args) > 0 {
 			c.monster = strings.Join(args, " ")
