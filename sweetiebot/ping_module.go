@@ -10,12 +10,14 @@ type PingModule struct {
 }
 
 func (w *PingModule) Name() string {
-	return "Ping"
+	return "PingModule"
 }
 
 func (w *PingModule) Register(info *GuildInfo) {
-	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
+	if sb.IsMainGuild(info) {
+		info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
+		info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
+	}
 }
 
 func (w *PingModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
