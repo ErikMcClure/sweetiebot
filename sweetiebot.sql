@@ -1,6 +1,6 @@
 -- --------------------------------------------------------
 -- Host:                         127.0.0.1
--- Server version:               10.1.10-MariaDB - mariadb.org binary distribution
+-- Server version:               10.1.14-MariaDB - mariadb.org binary distribution
 -- Server OS:                    Win64
 -- HeidiSQL Version:             9.1.0.4867
 -- --------------------------------------------------------
@@ -61,13 +61,23 @@ END//
 DELIMITER ;
 
 
+-- Dumping structure for procedure sweetiebot.AddMember
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME)
+INSERT INTO members (ID, Guild, FirstSeen)
+VALUES (_id, _guild, _firstseen)
+ON DUPLICATE KEY UPDATE
+Guild=_guild, FirstSeen=_firstseen//
+DELIMITER ;
+
+
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
     DETERMINISTIC
-INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen, LastNameChange)
-VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6), Now(6))
-ON DUPLICATE KEY UPDATE
+INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
+VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6)) 
+ON DUPLICATE KEY UPDATE 
 Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=Now(6)//
 DELIMITER ;
 
@@ -89,12 +99,12 @@ CREATE TABLE IF NOT EXISTS `aliases` (
 
 -- Dumping structure for table sweetiebot.chatlog
 CREATE TABLE IF NOT EXISTS `chatlog` (
-  `ID` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `Author` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `Message` varchar(2000) NOT NULL DEFAULT '',
-  `Timestamp` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `Channel` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `Everyone` bit(1) NOT NULL DEFAULT b'0',
+  `ID` bigint(20) unsigned NOT NULL,
+  `Author` bigint(20) unsigned NOT NULL,
+  `Message` varchar(2000) NOT NULL,
+  `Timestamp` datetime NOT NULL,
+  `Channel` bigint(20) unsigned NOT NULL,
+  `Everyone` bit(1) NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`),
   KEY `INDEX_CHANNEL` (`Channel`),
@@ -374,6 +384,18 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
 -- Data exporting was unselected.
 
 
+-- Dumping structure for table sweetiebot.members
+CREATE TABLE IF NOT EXISTS `members` (
+  `ID` bigint(20) unsigned NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
+  `FirstSeen` datetime NOT NULL,
+  PRIMARY KEY (`ID`),
+  CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for table sweetiebot.pings
 CREATE TABLE IF NOT EXISTS `pings` (
   `Message` bigint(20) unsigned NOT NULL,
@@ -420,13 +442,9 @@ DELIMITER ;
 -- Dumping structure for procedure sweetiebot.SawUser
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `SawUser`(IN `_id` BIGINT)
-BEGIN
-
-INSERT INTO users (ID, Email, Username, Avatar, Verified, FirstSeen, LastSeen, LastNameChange)
-VALUES (_id, '', '', '', 0, Now(6), Now(6), Now(6))
-ON DUPLICATE KEY UPDATE LastSeen=Now(6);
-
-END//
+INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
+VALUES (_id, '', '', '', 0, Now(6), Now(6)) 
+ON DUPLICATE KEY UPDATE LastSeen=Now(6)//
 DELIMITER ;
 
 
@@ -443,17 +461,6 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
 -- Data exporting was unselected.
 
 
--- Dumping structure for procedure sweetiebot.UpdateUserJoinTime
-DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `UpdateUserJoinTime`(IN `_user` BIGINT, IN `_joinedat` DATETIME)
-BEGIN
-
-UPDATE users SET FirstSeen = _joinedat WHERE ID = _user AND _joinedat < FirstSeen;
-
-END//
-DELIMITER ;
-
-
 -- Dumping structure for table sweetiebot.users
 CREATE TABLE IF NOT EXISTS `users` (
   `ID` bigint(20) unsigned NOT NULL,
@@ -461,7 +468,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   `Username` varchar(128) NOT NULL DEFAULT '',
   `Avatar` varchar(512) NOT NULL DEFAULT '',
   `Verified` bit(1) NOT NULL DEFAULT b'0',
-  `FirstSeen` datetime NOT NULL,
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
   PRIMARY KEY (`ID`),
@@ -546,7 +552,8 @@ AND Phrase != 'and'
 AND Phrase != 'be'
 AND Phrase != 'he'
 AND Phrase != 'she'
-AND Phrase != '' WITH LOCAL CHECK OPTION ;
+AND Phrase != ''
+WITH LOCAL CHECK OPTION ;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
