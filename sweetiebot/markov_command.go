@@ -30,8 +30,8 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, info 
 	if len(args) > 1 {
 		double = (strings.ToLower(args[1]) != "single")
 	}
-	if maxlines > info.config.Maxmarkovlines {
-		maxlines = info.config.Maxmarkovlines
+	if maxlines > 50 {
+		maxlines = 50
 	}
 	if maxlines <= 0 {
 		maxlines = 1
