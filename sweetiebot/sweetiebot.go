@@ -39,15 +39,12 @@ type BotConfig struct {
 	Debug              bool                       `json:"debug"`
 	Maxerror           int64                      `json:"maxerror"`
 	Maxwit             int64                      `json:"maxwit"`
-	Maxspam            int                        `json:"maxspam"`
 	Maxbored           int64                      `json:"maxbored"`
-	Maxspoiltime       int64                      `json:"maxspoiltime"`
+	DisableBored       int                        `json:"disablebored"`
 	MaxPMlines         int                        `json:"maxpmlines"`
 	Maxquotelines      int                        `json:"maxquotelines"`
-	Maxmarkovlines     int                        `json:"maxmarkovlines"`
 	Maxsearchresults   int                        `json:"maxsearchresults"`
 	Defaultmarkovlines int                        `json:"defaultmarkovlines"`
-	Maxshutup          int64                      `json:"maxshutup"`
 	Commandperduration int                        `json:"commandperduration"`
 	Commandmaxduration int64                      `json:"commandmaxduration"`
 	StatusDelayTime    int                        `json:"statusdelaytime"`
@@ -878,7 +875,7 @@ func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 
 	sb = &SweetieBot{
-		version:            "0.7.1",
+		version:            "0.7.2",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
