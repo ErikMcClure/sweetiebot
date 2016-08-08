@@ -32,20 +32,31 @@ Upon being added to a server, Sweetiebot will begin with all her commands and mo
 * **modchannel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
 * **freechannels** should be set to a list of channel IDs that are excluded from rate limiting. If you have a #bot channel for spamming the bot, add it here.
 * **silentrole** should be set to a role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.
-* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to **0**, which will disable the bored module.
+* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to `0`, which will disable the bored module.
 
-Once this has been done, all sensitive commands (such as setconfig) should be restricted to the appropriate moderator role. You can use sweetiebot's !quickconfig command to do all of this automatically and re-enable all modules.
+Once this has been done, all sensitive commands (such as setconfig) should be restricted to the appropriate moderator role. You can use sweetiebot's !quickconfig command to do all of this automatically and re-enable all modules. **You must PING the role or channel that you are adding to the bot!** If you have a moderator role called "Server Moderator", you would use `!setconfig AlertRole @Server Moderator`, so that the bot recieves the actual role ID. You can go to your discord server configuration to make a specific role mentionable.
 
 Additional configuration is optional, depending on what features of the bot are being used:
 
-* **spoilchannels** is a list of channels where spoilers are allowed. Only applicable to the Spoiler module.
-* **aliases** can be used to redirect commands, such as making !listgroup call the !listgroups command. Useful for making shortcuts.
-* **witty** stores the replies used by the Witty module and must be configured using !addwit or !removewit
-* **maxbored** specifies the duration of inactivity that will trigger Sweetiebot's bored module.
+* **maxerror** is the cooldown time for sweetiebot to display an error message, intended to prevent the bot from spamming itself. Default: 4
+* **maxwit** is the cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.
+* **maxbored** is the bored cooldown timer. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
+* **disablebored** This can be used to disable bored categories. Setting it to 0 doesn't disable anything. 1 disables the markov chain, 2 disables the markov chain and the quotes, and 3 disables the markov chain, quotes, and bucket throwing.
+* **maxPMlines** This is the maximum number of lines a response can be before sweetiebot automatically sends it as a PM to avoid cluttering the chat. Default: 5
+* **maxquotelines** Maximum number of lines the `!quote` command can be given.
+* **maxsearchresults** Maximum number of search results that can be requested
+* **defaultmarkovlines** Number of lines for the markov chain to spawn when not given a line count.
+* **commandperduration** Maximum number of commands that can be run within `commandmaxduration` seconds. Default: 3
+* **commandmaxduration** Default: 30. This means that by default, at most 3 commands can be run every 30 seconds.
+* **statusdelaytime** Number of seconds sweetiebot waits before changing her status to a string picked randomly from the `status` collection
 * **maxraidtime** specifies the time period sweetiebot should search for a potential raid
-* **raidsize** specifies how many people must have joined the server within the **maxraidtime** period to qualify as a raid.
-* **maxbucket** determines the maximum number of items sweetiebot can carry in her bucket.
+* **raidsize** specifies how many people must have joined the server within the `maxraidtime` period to qualify as a raid.
+* **witty** stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`
+* **aliases** can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.
+* **maxbucket** determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.
 * **maxbucketlength** determines the maximum length of a string that can be added to her bucket.
+* **maxfightHP** Maximum HP of the randomly generated enemy for the `!fight` command.
+* **maxfightdamage** Maximum amount of damage a randomly generated weapon can deal for the `!fight` command.
 
 ### Using !setconfig
 Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a paramter, use `!getconfig <paramater name>`.
@@ -82,6 +93,9 @@ After the chat is inactive for a given amount of time, randomly chooses various 
 
 #### Witty
 In response to certain patterns (determined by a regex) will post a response picked randomly from a list of them associated with that trigger. Rate limits itself to make sure it isn't too annoying.
+
+#### Spoiler
+Deletes any messages that match a regex created by the spoiler collection, unless a message is in `spoilchannels`.
 
 ******
 
