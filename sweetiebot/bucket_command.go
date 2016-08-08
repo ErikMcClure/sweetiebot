@@ -19,7 +19,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "[](/sadbot) `You didn't give me anything!`", false
 	}
 	if info.config.MaxBucket == 0 {
-		return "```I don't have a bucket right now.```", false
+		return "```I don't have a bucket right now (maxbucket is 0).```", false
 	}
 
 	arg := ExtraSanitize(strings.Join(args, " "))
