@@ -547,7 +547,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone)
 	}
-	if m.Author.ID == sb.SelfID || cid == info.config.LogChannel { // ALWAYS discard any of our own messages or our log messages before analysis.
+	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
 		SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
 		return
 	}
