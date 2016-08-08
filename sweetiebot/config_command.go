@@ -138,6 +138,6 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + "```", false
 }
 func (c *QuickConfigCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role] [Bored Channel]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules. If [bored channel] is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels.")
+	return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role] [Bored Channel]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules. If [bored channel] is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels. You must ping each role and channel, you cannot simply input the name of a role or channel.")
 }
 func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }
