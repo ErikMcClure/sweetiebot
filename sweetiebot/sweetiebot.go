@@ -599,8 +599,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 			if !private && len(cch) > 0 {
+				_, reverse := cch["!"]
 				_, ok = cch[m.ChannelID]
-				if !ok {
+				if ok == reverse {
 					return
 				}
 			}
