@@ -27,7 +27,7 @@ func (w *SpamModule) Register(info *GuildInfo) {
 	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
 }
 
-func KillSpammer(u *discordgo.User, info *GuildInfo) {
+func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message) {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
 	m, err := sb.dg.State.Member(info.Guild.ID, u.ID)
 	if err == nil {
@@ -43,13 +43,16 @@ func KillSpammer(u *discordgo.User, info *GuildInfo) {
 		return
 	}
 
-	info.log.Log("Killing spammer ", u.Username)
+	info.log.Log("Killing spammer ", u.Username, ". Last message sent: \n", msg.ContentWithMentionsReplaced())
 
-	sb.dg.GuildMemberEdit(info.Guild.ID, u.ID, m.Roles)   // Tell discord to make this spammer silent
-	messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
+	sb.dg.GuildMemberEdit(info.Guild.ID, u.ID, m.Roles) // Tell discord to make this spammer silent
 
-	for _, v := range messages {
-		sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))
+	if sb.IsMainGuild(info) {
+		messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
+
+		for _, v := range messages {
+			sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))
+		}
 	}
 
 	info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "`Alert: "+u.Username+" was silenced for spamming. Please investigate.`") // Alert admins
@@ -68,7 +71,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 		limit := w.tracker[id]
 		limit.append(time.Now().UTC().Unix())
 		if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
-			KillSpammer(m.Author, info)
+			KillSpammer(m.Author, info, m)
 			return true
 		}
 	}
