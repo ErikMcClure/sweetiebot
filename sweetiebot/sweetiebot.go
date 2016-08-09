@@ -249,8 +249,9 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 
 	c := info.config.Module_channels[strings.ToLower(m.Name())]
 	if len(channelID) > 0 && len(c) > 0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
+		_, reverse := c["!"]
 		_, ok := c[channelID]
-		return ok
+		return ok != reverse
 	}
 	return true
 }
