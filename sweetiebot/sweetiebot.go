@@ -157,6 +157,7 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 			case bool:
 				f.SetBool(value == "true")
 			case map[string]string:
+				value = strings.ToLower(value)
 				if len(extra) == 0 {
 					return "No extra parameter given for " + name, false
 				}
@@ -170,6 +171,7 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 				f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
 				return value + ": " + extra[0], true
 			case map[string]int64:
+				value = strings.ToLower(value)
 				if len(extra) == 0 {
 					return "No extra parameter given for " + name, false
 				}
@@ -193,6 +195,7 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 				}
 				return "[" + strings.Join(stripped, ", ") + "]", true
 			case map[string]map[string]bool:
+				value = strings.ToLower(value)
 				if f.IsNil() {
 					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
 				}
