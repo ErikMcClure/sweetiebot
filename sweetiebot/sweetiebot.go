@@ -564,14 +564,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
 		_, isfree := info.config.FreeChannels[m.ChannelID]
-		if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
-			if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-				info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
-				return
-			}
-			info.commandlimit.append(t)
-		}
-
 		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
 		isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 		ignore := false
@@ -592,6 +584,14 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		c, ok := info.commands[arg]
 		if ok {
+			if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
+				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
+					return
+				}
+				info.commandlimit.append(t)
+			}
+
 			cmdname := strings.ToLower(c.Name())
 			cch := info.config.Command_channels[cmdname]
 			_, disabled := info.config.Command_disabled[cmdname]
