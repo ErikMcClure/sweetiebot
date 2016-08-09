@@ -36,40 +36,41 @@ type ModuleHooks struct {
 }
 
 type BotConfig struct {
-	Debug              bool                       `json:"debug"`
-	Maxerror           int64                      `json:"maxerror"`
-	Maxwit             int64                      `json:"maxwit"`
-	Maxbored           int64                      `json:"maxbored"`
-	DisableBored       int                        `json:"disablebored"`
-	MaxPMlines         int                        `json:"maxpmlines"`
-	Maxquotelines      int                        `json:"maxquotelines"`
-	Maxsearchresults   int                        `json:"maxsearchresults"`
-	Defaultmarkovlines int                        `json:"defaultmarkovlines"`
-	Commandperduration int                        `json:"commandperduration"`
-	Commandmaxduration int64                      `json:"commandmaxduration"`
-	StatusDelayTime    int                        `json:"statusdelaytime"`
-	MaxRaidTime        int64                      `json:"maxraidtime"`
-	RaidSize           int                        `json:"raidsize"`
-	Witty              map[string]string          `json:"witty"`
-	Aliases            map[string]string          `json:"aliases"`
-	MaxBucket          int                        `json:"maxbucket"`
-	MaxBucketLength    int                        `json:"maxbucketlength"`
-	MaxFightHP         int                        `json:"maxfighthp"`
-	MaxFightDamage     int                        `json:"maxfightdamage"`
-	AlertRole          uint64                     `json:"alertrole"`
-	SilentRole         uint64                     `json:"silentrole"`
-	LogChannel         uint64                     `json:"logchannel"`
-	ModChannel         uint64                     `json:"modchannel"`
-	SpoilChannels      []uint64                   `json:"spoilchannels"`
-	FreeChannels       map[string]bool            `json:"freechannels"`
-	Command_roles      map[string]map[string]bool `json:"command_roles"`
-	Command_channels   map[string]map[string]bool `json:"command_channels"`
-	Command_limits     map[string]int64           `json:command_limits`
-	Command_disabled   map[string]bool            `json:command_disabled`
-	Module_disabled    map[string]bool            `json:module_disabled`
-	Module_channels    map[string]map[string]bool `json:module_channels`
-	Collections        map[string]map[string]bool `json:"collections"`
-	Groups             map[string]map[string]bool `json:"groups"`
+	Debug                 bool                       `json:"debug"`
+	Maxerror              int64                      `json:"maxerror"`
+	Maxwit                int64                      `json:"maxwit"`
+	Maxbored              int64                      `json:"maxbored"`
+	DisableBored          int                        `json:"disablebored"`
+	MaxPMlines            int                        `json:"maxpmlines"`
+	Maxquotelines         int                        `json:"maxquotelines"`
+	Maxsearchresults      int                        `json:"maxsearchresults"`
+	Defaultmarkovlines    int                        `json:"defaultmarkovlines"`
+	Commandperduration    int                        `json:"commandperduration"`
+	Commandmaxduration    int64                      `json:"commandmaxduration"`
+	StatusDelayTime       int                        `json:"statusdelaytime"`
+	MaxRaidTime           int64                      `json:"maxraidtime"`
+	RaidSize              int                        `json:"raidsize"`
+	Witty                 map[string]string          `json:"witty"`
+	Aliases               map[string]string          `json:"aliases"`
+	MaxBucket             int                        `json:"maxbucket"`
+	MaxBucketLength       int                        `json:"maxbucketlength"`
+	MaxFightHP            int                        `json:"maxfighthp"`
+	MaxFightDamage        int                        `json:"maxfightdamage"`
+	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
+	AlertRole             uint64                     `json:"alertrole"`
+	SilentRole            uint64                     `json:"silentrole"`
+	LogChannel            uint64                     `json:"logchannel"`
+	ModChannel            uint64                     `json:"modchannel"`
+	SpoilChannels         []uint64                   `json:"spoilchannels"`
+	FreeChannels          map[string]bool            `json:"freechannels"`
+	Command_roles         map[string]map[string]bool `json:"command_roles"`
+	Command_channels      map[string]map[string]bool `json:"command_channels"`
+	Command_limits        map[string]int64           `json:command_limits`
+	Command_disabled      map[string]bool            `json:command_disabled`
+	Module_disabled       map[string]bool            `json:module_disabled`
+	Module_channels       map[string]map[string]bool `json:module_channels`
+	Collections           map[string]map[string]bool `json:"collections"`
+	Groups                map[string]map[string]bool `json:"groups"`
 }
 
 type GuildInfo struct {
@@ -657,7 +658,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				info.SendMessage(targetchannel, result)
 			}
 		} else {
-			if args[0] != "airhorn" {
+			if !info.config.IgnoreInvalidCommands {
 				info.log.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
 			}
 		}
@@ -875,7 +876,7 @@ func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 
 	sb = &SweetieBot{
-		version:            "0.7.2",
+		version:            "0.7.3",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
