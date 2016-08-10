@@ -150,8 +150,15 @@ func (c *ShipCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	if !CheckShutup(msg.ChannelID) {
 		return "", false
 	}
-	a := sb.db.GetRandomSpeaker()
-	b := sb.db.GetRandomSpeaker()
+	var a string
+	var b string
+	if info.config.UseMemberNames {
+		a = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
+		b = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
+	} else {
+		a = sb.db.GetRandomSpeaker()
+		b = sb.db.GetRandomSpeaker()
+	}
 	s := ""
 	if len(args) > 0 {
 		a = args[0]

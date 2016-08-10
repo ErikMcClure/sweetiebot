@@ -43,6 +43,8 @@ type BotDB struct {
 	sql_GetCharacterQuote    *sql.Stmt
 	sql_GetRandomSpeakerInt  *sql.Stmt
 	sql_GetRandomSpeaker     *sql.Stmt
+	sql_GetRandomMemberInt   *sql.Stmt
+	sql_GetRandomMember      *sql.Stmt
 	sql_GetRandomWordInt     *sql.Stmt
 	sql_GetRandomWord        *sql.Stmt
 	sql_GetTableCounts       *sql.Stmt
@@ -110,6 +112,8 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
 	db.sql_GetRandomSpeakerInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM markov_transcripts_speaker))")
 	db.sql_GetRandomSpeaker, err = db.Prepare("SELECT Speaker FROM markov_transcripts_speaker LIMIT 1 OFFSET ?")
+	db.sql_GetRandomMemberInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM members WHERE Guild = ?))")
+	db.sql_GetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
 	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
@@ -431,6 +435,15 @@ func (db *BotDB) GetRandomSpeaker() string {
 	var p string
 	err = db.sql_GetRandomSpeaker.QueryRow(i).Scan(&p)
 	db.log.LogError("GetRandomSpeaker error: ", err)
+	return p
+}
+func (db *BotDB) GetRandomMember(guild uint64) string {
+	var i uint64
+	err := db.sql_GetRandomMemberInt.QueryRow(guild).Scan(&i)
+	db.log.LogError("GetRandomMemberInt error: ", err)
+	var p string
+	err = db.sql_GetRandomMember.QueryRow(guild, i).Scan(&p)
+	db.log.LogError("GetRandomMember error: ", err)
 	return p
 }
 func (db *BotDB) GetRandomWord() string {

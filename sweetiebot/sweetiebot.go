@@ -57,6 +57,7 @@ type BotConfig struct {
 	MaxFightHP            int                        `json:"maxfighthp"`
 	MaxFightDamage        int                        `json:"maxfightdamage"`
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
+	UseMemberNames        bool                       `json:"usemembernames"`
 	AlertRole             uint64                     `json:"alertrole"`
 	SilentRole            uint64                     `json:"silentrole"`
 	LogChannel            uint64                     `json:"logchannel"`

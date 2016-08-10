@@ -137,7 +137,11 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *Guil
 		if len(args) > 0 {
 			c.monster = strings.Join(args, " ")
 		} else {
-			c.monster = sb.db.GetRandomSpeaker()
+			if info.config.UseMemberNames {
+				c.monster = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
+			} else {
+				c.monster = sb.db.GetRandomSpeaker()
+			}
 		}
 		c.hp = 10 + rand.Intn(info.config.MaxFightHP)
 		return "```I have engaged " + c.monster + ", who has " + strconv.Itoa(c.hp) + " HP!```", false
