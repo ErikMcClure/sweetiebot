@@ -94,7 +94,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
 	db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
-	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(Now(6), INTERVAL ? SECOND)")
+	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sql_GetNewestUsers, err = db.Prepare("SELECT U.Username, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
 	db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
 	db.sql_AddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
@@ -117,8 +117,8 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
 	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
-	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(NOW(), INTERVAL ? SECOND) AND Guild = ?")
-	db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, Now(6))")
+	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
+	db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, UTC_TIMESTAMP())")
 	db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
 
 	return err
@@ -149,7 +149,7 @@ func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
 	var channel uint64
 	err := db.sql_GetMessage.QueryRow(id).Scan(&author, &message, &timestamp, &channel)
 	if err == sql.ErrNoRows {
-		return 0, "", time.Now(), 0
+		return 0, "", time.Now().UTC(), 0
 	}
 	db.log.LogError("GetMessage error: ", err)
 	return author, message, timestamp, channel
@@ -159,7 +159,7 @@ func (db *BotDB) GetLatestMessage(channel uint64) time.Time {
 	var timestamp time.Time
 	err := db.sql_GetLatestMessage.QueryRow(channel).Scan(&timestamp)
 	if err == sql.ErrNoRows {
-		return time.Now()
+		return time.Now().UTC()
 	}
 	db.log.LogError("GetLatestMessage error: ", err)
 	return timestamp

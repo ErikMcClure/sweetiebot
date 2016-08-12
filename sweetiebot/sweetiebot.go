@@ -58,6 +58,7 @@ type BotConfig struct {
 	MaxFightDamage        int                        `json:"maxfightdamage"`
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
+	Timezone              int                        `json:"timezone"`
 	AlertRole             uint64                     `json:"alertrole"`
 	SilentRole            uint64                     `json:"silentrole"`
 	LogChannel            uint64                     `json:"logchannel"`
@@ -813,7 +814,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
 		t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
 		if err == nil {
-			sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t.Add(-7*time.Hour))
+			sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t)
 		} else {
 			fmt.Println(err.Error())
 		}
@@ -882,7 +883,7 @@ func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 
 	sb = &SweetieBot{
-		version:            "0.7.3",
+		version:            "0.7.4",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,

@@ -90,7 +90,7 @@ func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
-			s = append(s, v.Username+"  (joined: "+v.FirstSeen.Format(time.ANSIC)+")")
+			s = append(s, v.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+")")
 		}
 		ch := strconv.FormatUint(info.config.ModChannel, 10)
 		if info.config.Debug {

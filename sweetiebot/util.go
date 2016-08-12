@@ -136,9 +136,12 @@ func ReadUserPingArg(args []string) (uint64, string) {
 }
 
 func SinceUTC(t time.Time) time.Duration {
-	return time.Now().UTC().Sub(t.Add(7 * time.Hour))
+	return time.Now().UTC().Sub(t)
 }
 
+func ApplyTimezone(t time.Time, info *GuildInfo) time.Time {
+	return t.Add(time.Duration(info.config.Timezone) * time.Hour)
+}
 func IngestEpisode(file string, season int, episode int) {
 	f, err := ioutil.ReadFile(file)
 	if err != nil {
