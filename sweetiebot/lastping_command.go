@@ -38,7 +38,7 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *G
 
 	after := sb.db.GetPingContext(id, channel, maxrows+1)
 	before := sb.db.GetPingContextBefore(id, channel, maxrows)
-	s := "```Pinged " + TimeDiff(SinceUTC(after[0].Timestamp)) + " ago, on " + after[0].Timestamp.Format(time.RFC822) + "```\n"
+	s := "```Pinged " + TimeDiff(SinceUTC(after[0].Timestamp)) + " ago, on " + ApplyTimezone(after[0].Timestamp, info).Format(time.RFC822) + "```\n"
 
 	for i := len(before) - 1; i >= 0; i-- {
 		s += before[i].Author + ": " + before[i].Message + "\n"
