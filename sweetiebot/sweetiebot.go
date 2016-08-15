@@ -298,12 +298,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[g.ID]
 	if exists {
-		guild.log.Log("Multiple initialization detected - updating guild " + g.Name)
 		guild.ProcessGuild(g)
-
-		for _, v := range g.Members {
-			guild.ProcessMember(v)
-		}
 		return
 	}
 
@@ -381,10 +376,6 @@ func AttachToGuild(g *discordgo.Guild) {
 
 	sb.guilds[g.ID] = guild
 	guild.ProcessGuild(g)
-
-	for _, v := range g.Members {
-		guild.ProcessMember(v)
-	}
 
 	episodegencommand := &EpisodeGenCommand{}
 	guild.emotemodule = &EmoteModule{}
@@ -826,9 +817,29 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	info.Guild = g
-	for _, v := range info.Guild.Channels {
-		sb.GuildChannels[v.ID] = info
+	if len(g.Members) == 0 || len(g.Channels) == 0 { // If this is true we were given half a guild update
+		info.log.Log("Got half a guild update for " + g.Name)
+		info.Guild.Name = g.Name
+		info.Guild.Icon = g.Icon
+		info.Guild.Region = g.Region
+		info.Guild.AfkChannelID = g.AfkChannelID
+		info.Guild.EmbedChannelID = g.EmbedChannelID
+		info.Guild.OwnerID = g.OwnerID
+		info.Guild.JoinedAt = g.JoinedAt
+		info.Guild.Splash = g.Splash
+		info.Guild.AfkTimeout = g.AfkTimeout
+		info.Guild.VerificationLevel = g.VerificationLevel
+		info.Guild.EmbedEnabled = g.EmbedEnabled
+		info.Guild.Large = g.Large
+		info.Guild.DefaultMessageNotifications = g.DefaultMessageNotifications
+	} else {
+		info.Guild = g
+		for _, v := range info.Guild.Channels {
+			sb.GuildChannels[v.ID] = info
+		}
+		for _, v := range g.Members {
+			info.ProcessMember(v)
+		}
 	}
 }
 
