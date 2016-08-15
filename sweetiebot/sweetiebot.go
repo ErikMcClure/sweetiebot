@@ -577,14 +577,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		c, ok := info.commands[arg]
 		if ok {
-			if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
-				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
-					return
-				}
-				info.commandlimit.append(t)
-			}
-
 			cmdname := strings.ToLower(c.Name())
 			cch := info.config.Command_channels[cmdname]
 			_, disabled := info.config.Command_disabled[cmdname]
@@ -601,6 +593,13 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				if ok == reverse {
 					return
 				}
+			}
+			if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
+				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
+					return
+				}
+				info.commandlimit.append(t)
 			}
 			if !isOwner && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[cmdname]) {
 				info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
