@@ -161,7 +161,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 		lines = append(lines, s+ReplaceAllMentions(data))
 	}
 
-	return strings.Join(lines, "\n"), len(lines) > 5
+	return strings.Join(lines, "\n"), len(lines) > 6
 }
 func (c *ScheduleCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[bans/birthdays/messages/episodes/events/reminders] [maxresults]", "Lists up to maxresults (default: 5) upcoming events from the schedule. If the first argument is specified,  Max results: 20")
