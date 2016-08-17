@@ -164,7 +164,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	return strings.Join(lines, "\n"), len(lines) > 6
 }
 func (c *ScheduleCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[bans/birthdays/messages/episodes/events/reminders] [maxresults]", "Lists up to maxresults (default: 5) upcoming events from the schedule. If the first argument is specified,  Max results: 20")
+	return info.FormatUsage(c, "[bans/birthdays/messages/episodes/events/reminders] [maxresults]", "Lists up to maxresults (default: 5) upcoming events from the schedule. If the first argument is specified, lists only events of that type. Some event types can only be viewed by moderators. Max results: 20")
 }
 func (c *ScheduleCommand) UsageShort() string { return "Gets a list of upcoming scheduled events." }
 
@@ -235,7 +235,7 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	}
 }
 func (c *NextCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[ban/episode/birthday/message/event]", "Gets the time until the next event of the given type.")
+	return info.FormatUsage(c, "[ban/episode/birthday/message/event/reminder]", "Gets the time until the next event of the given type.")
 }
 func (c *NextCommand) UsageShort() string { return "Gets time until next event." }
 
@@ -362,7 +362,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 	return "```Added event to schedule.```", false
 }
 func (c *AddEventCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[type] [date] [REPEAT N SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS] [data]", "Adds an arbitrary event to the schedule table. The REPEAT parameter is optional, but MUST be surrounded by quotes, just like the time parameter. For example: '!addschedule message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!', or '!addschedule episode \"9 Dec 15\" Slice of Life'. Available types of events: ban, birthday, message, episode")
+	return info.FormatUsage(c, "[type] [date] [REPEAT N SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS] [data]", "Adds an arbitrary event to the schedule table. The REPEAT parameter is optional, but MUST be surrounded by quotes, just like the time parameter. For example: '!addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!', or '!addevent episode \"9 Dec 15\" Slice of Life'. Available types of events: ban, birthday, message, episode, event, reminder. You shouldn't add birthday or reminder events manually - use !addbirthday or !remindme.")
 }
 func (c *AddEventCommand) UsageShort() string { return "Adds an event to the schedule." }
 
