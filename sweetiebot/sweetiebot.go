@@ -156,9 +156,11 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 				f.SetUint(PingAtoi(value))
 			case []uint64:
 				f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1+len(extra)))
-				f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
-				for _, k := range extra {
-					f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
+				if len(value) > 0 {
+					f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
+					for _, k := range extra {
+						f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
+					}
 				}
 			case bool:
 				f.SetBool(value == "true")
