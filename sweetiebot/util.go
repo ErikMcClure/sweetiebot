@@ -317,3 +317,14 @@ func CheckMapNilString(m *map[string]string) {
 		*m = make(map[string]string)
 	}
 }
+
+func replacementionhelper(s string) string {
+	u, err := sb.dg.User(StripPing(s))
+	if err != nil {
+		return s
+	}
+	return u.Username
+}
+func ReplaceAllMentions(s string) string {
+	return regexp.MustCompile("<@!?[0-9]+>").ReplaceAllStringFunc(s, replacementionhelper)
+}
