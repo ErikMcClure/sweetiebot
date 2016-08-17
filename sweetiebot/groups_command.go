@@ -154,6 +154,18 @@ func (c *LeaveGroupCommand) Usage(info *GuildInfo) string {
 }
 func (c *LeaveGroupCommand) UsageShort() string { return "Removes you from a group." }
 
+func getGroupPings(group string, info *GuildInfo) string {
+	pings := make([]string, len(info.config.Groups[group]))
+
+	i := 0
+	for k := range info.config.Groups[group] {
+		pings[i] = strconv.FormatUint(SBatoi(k), 10) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
+		i++
+	}
+
+	return "<@" + strings.Join(pings, "> <@") + ">"
+}
+
 type PingCommand struct {
 }
 
@@ -176,15 +188,7 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```You can only ping groups you are a member of.```", false
 	}
 
-	pings := make([]string, len(info.config.Groups[arg]))
-
-	i := 0
-	for k := range info.config.Groups[arg] {
-		pings[i] = strconv.FormatUint(SBatoi(k), 10) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
-		i++
-	}
-
-	sb.dg.ChannelMessageSend(msg.ChannelID, "<@"+strings.Join(pings, "> <@")+"> "+info.SanitizeOutput(strings.Join(args[1:], " ")))
+	sb.dg.ChannelMessageSend(msg.ChannelID, getGroupPings(arg, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
 	return "", false
 }
 func (c *PingCommand) Usage(info *GuildInfo) string {
