@@ -51,6 +51,13 @@ type BotDB struct {
 	sql_CountNewUsers        *sql.Stmt
 	sql_Log                  *sql.Stmt
 	sql_ResetMarkov          *sql.Stmt
+	sql_AddSchedule          *sql.Stmt
+	sql_AddScheduleRepeat    *sql.Stmt
+	sql_GetSchedule          *sql.Stmt
+	sql_RemoveSchedule       *sql.Stmt
+	sql_GetEvents            *sql.Stmt
+	sql_GetEventsByType      *sql.Stmt
+	sql_GetNextEvent         *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -116,11 +123,17 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
-	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
+	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
 	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, UTC_TIMESTAMP())")
 	db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
-
+	db.sql_AddSchedule, err = db.Prepare("INSERT INTO schedule (Guild, Date, Type, Data) VALUES (?, ?, ?, ?)")
+	db.sql_AddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
+	db.sql_GetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
+	db.sql_RemoveSchedule, err = db.Prepare("CALL RemoveSchedule(?)")
+	db.sql_GetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? ORDER BY Date ASC LIMIT ?")
+	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
+	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
 	return err
 }
 
@@ -460,4 +473,76 @@ func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 	err := db.sql_CountNewUsers.QueryRow(seconds, guild).Scan(&i)
 	db.log.LogError("CountNewUsers error: ", err)
 	return i
+}
+
+func (db *BotDB) RemoveSchedule(id uint64) {
+	_, err := db.sql_RemoveSchedule.Exec(id)
+	db.log.LogError("RemoveSchedule error: ", err)
+}
+func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) {
+	_, err := db.sql_AddSchedule.Exec(guild, date, ty, data)
+	db.log.LogError("AddSchedule error: ", err)
+}
+func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) {
+	_, err := db.sql_AddScheduleRepeat.Exec(guild, date, repeatinterval, repeat, ty, data)
+	db.log.LogError("AddScheduleRepeat error: ", err)
+}
+
+type ScheduleEvent struct {
+	ID   uint64
+	Date time.Time
+	Type uint8
+	Data string
+}
+
+func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
+	q, err := db.sql_GetSchedule.Query(guild)
+	db.log.LogError("GetSchedule error: ", err)
+	defer q.Close()
+	r := make([]ScheduleEvent, 0, 2)
+	for q.Next() {
+		p := ScheduleEvent{}
+		if err := q.Scan(&p.ID, &p.Date, &p.Type, &p.Data); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
+	q, err := db.sql_GetEvents.Query(guild, maxnum)
+	db.log.LogError("GetEvents error: ", err)
+	defer q.Close()
+	r := make([]ScheduleEvent, 0, 2)
+	for q.Next() {
+		p := ScheduleEvent{}
+		if err := q.Scan(&p.ID, &p.Date, &p.Type, &p.Data); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleEvent {
+	q, err := db.sql_GetEventsByType.Query(guild, ty, maxnum)
+	db.log.LogError("GetEventsByType error: ", err)
+	defer q.Close()
+	r := make([]ScheduleEvent, 0, 2)
+	for q.Next() {
+		p := ScheduleEvent{}
+		if err := q.Scan(&p.ID, &p.Date, &p.Type, &p.Data); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
+	p := ScheduleEvent{}
+	err := db.sql_GetNextEvent.QueryRow(guild, ty).Scan(&p.ID, &p.Date, &p.Type, &p.Data)
+	if err == sql.ErrNoRows {
+		return ScheduleEvent{0, time.Now().UTC(), 0, ""}
+	}
+	db.log.LogError("GetNextEvent error: ", err)
+	return p
 }
