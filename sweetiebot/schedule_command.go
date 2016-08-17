@@ -80,6 +80,9 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			if err == nil {
 				info.SendMessage(ch.ID, dat[1])
 			}
+		case 7:
+			dat := strings.SplitN(v.Data, "|", 2)
+			info.SendMessage(channel, getGroupPings(dat[0], info)+" "+dat[1])
 		}
 
 		sb.db.RemoveSchedule(v.ID)
@@ -130,6 +133,9 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	} else {
 		events = sb.db.GetEventsByType(SBatoi(info.Guild.ID), ty, maxresults)
 	}
+	if len(events) == 0 {
+		return "There are no upcoming events.", false
+	}
 	lines := []string{"Upcoming Events:"}
 	for _, v := range events {
 		s := "#" + strconv.FormatUint(v.ID, 10)
@@ -155,6 +161,10 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 		case 6:
 			s += " [REMINDER] "
 			data = strings.SplitN(data, "|", 2)[1]
+		case 7:
+			datas := strings.SplitN(data, "|", 2)
+			s += " [GROUP:" + datas[0] + "] "
+			data = datas[1]
 		default:
 			s += " [UNKNOWN] "
 		}
@@ -194,6 +204,10 @@ func getScheduleType(s string) uint8 {
 		fallthrough
 	case "reminder":
 		return 6
+	case "groups":
+		fallthrough
+	case "group":
+		return 7
 	}
 	return 255
 }
@@ -230,12 +244,14 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```" + event.Data + " airs in " + diff + "```", false
 	case 5:
 		return "```" + event.Data + " starts in " + diff + "```", false
+	case 7:
+		return "```Sweetie is scheduled to send a message to " + strings.SplitN(event.Data, "|", 2)[0] + " in " + diff + "```", false
 	default:
 		return "```There are no upcoming events of that type (or you aren't allowed to view them).```", false
 	}
 }
 func (c *NextCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[ban/episode/birthday/message/event/reminder]", "Gets the time until the next event of the given type.")
+	return info.FormatUsage(c, "[ban/episode/birthday/message/event/reminder/group]", "Gets the time until the next event of the given type.")
 }
 func (c *NextCommand) UsageShort() string { return "Gets time until next event." }
 
@@ -324,7 +340,25 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 	if ty == 255 {
 		return "```Error: Invalid type specified.```", false
 	}
-
+	data := ""
+	if ty == 7 {
+		data = strings.ToLower(args[1])
+		_, ok := info.config.Groups[data]
+		if !ok {
+			return "Error: That group doesn't exist.", false
+		}
+		data += "|"
+		args = append(args[:1], args[2:]...)
+	}
+	if ty == 6 {
+		data = StripPing(args[1])
+		_, err := sb.dg.GuildMember(info.Guild.ID, data)
+		if err != nil {
+			return "Error: user ID doesn't exist.", false
+		}
+		data += "|"
+		args = append(args[:1], args[2:]...)
+	}
 	t, err := parseCommonTime(args[1], info)
 	if err != nil {
 		return "```Error: Could not parse time! Make sure it's in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional)```", false
@@ -334,7 +368,6 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 		return "```Error: Cannot specify an event in the past!```", false
 	}
 
-	data := ""
 	if len(args) > 2 && repeatregex.MatchString(strings.ToLower(args[2])) {
 		repeats := strings.Split(args[2], " ")
 		repeat, err := strconv.Atoi(repeats[1])
@@ -348,12 +381,12 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 		}
 
 		if len(args) > 3 {
-			data = strings.Join(args[3:], " ")
+			data += strings.Join(args[3:], " ")
 		}
 		sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, repeatinterval, repeat, ty, data)
 	} else {
 		if len(args) > 2 {
-			data = strings.Join(args[2:], " ")
+			data += strings.Join(args[2:], " ")
 		}
 
 		sb.db.AddSchedule(SBatoi(info.Guild.ID), t, ty, data)
@@ -362,7 +395,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 	return "```Added event to schedule.```", false
 }
 func (c *AddEventCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[type] [date] [REPEAT N SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS] [data]", "Adds an arbitrary event to the schedule table. The REPEAT parameter is optional, but MUST be surrounded by quotes, just like the time parameter. For example: '!addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!', or '!addevent episode \"9 Dec 15\" Slice of Life'. Available types of events: ban, birthday, message, episode, event, reminder. You shouldn't add birthday or reminder events manually - use !addbirthday or !remindme.")
+	return info.FormatUsage(c, "[type] [group/user] [date] [REPEAT N SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS] [data]", "Adds an arbitrary event to the schedule table. Only use the [group/user] parameter if type is 'group' or 'reminder'. The REPEAT parameter is optional, but MUST be surrounded by quotes, just like the time parameter. For example: '!addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!', or '!addevent episode \"9 Dec 15\" Slice of Life'. Available types of events: ban, birthday, message, episode, event, reminder, group. You shouldn't add birthday or reminder events manually - use !addbirthday or !remindme.")
 }
 func (c *AddEventCommand) UsageShort() string { return "Adds an event to the schedule." }
 
