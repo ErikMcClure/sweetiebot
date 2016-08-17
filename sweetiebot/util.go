@@ -23,12 +23,12 @@ func TimeDiff(d time.Duration) string {
 		return Pluralize(seconds, " second")
 	}
 	if seconds <= 60*60 {
-		return Pluralize(seconds/60, " minute")
+		return Pluralize((seconds+1)/60, " minute")
 	}
 	if seconds <= 60*60*24 {
-		return Pluralize(seconds/3600, " hour")
+		return Pluralize((seconds+10)/3600, " hour")
 	}
-	return Pluralize(seconds/86400, " day")
+	return Pluralize((seconds+100)/86400, " day")
 }
 
 func PingAtoi(s string) uint64 {
