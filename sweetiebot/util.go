@@ -25,10 +25,20 @@ func TimeDiff(d time.Duration) string {
 	if seconds <= 60*60 {
 		return Pluralize((seconds+1)/60, " minute")
 	}
-	if seconds <= 60*60*24 {
-		return Pluralize((seconds+10)/3600, " hour")
+	days := (seconds + 100) / 86400
+	hours := (seconds + 10 - (days * 86400)) / 3600
+	minutes := (seconds - (days * 86400) - (hours * 3600)) / 60
+
+	if days == 0 && minutes > 2 {
+		return Pluralize(hours, " hour") + " and " + Pluralize(minutes, " minute")
 	}
-	return Pluralize((seconds+100)/86400, " day")
+	if days == 0 {
+		return Pluralize(hours, " hour")
+	}
+	if hours > 1 {
+		return Pluralize(days, " day") + " and " + Pluralize(hours, " hour")
+	}
+	return Pluralize(days, " day")
 }
 
 func PingAtoi(s string) uint64 {
