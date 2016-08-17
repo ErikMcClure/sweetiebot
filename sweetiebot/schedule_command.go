@@ -119,12 +119,14 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxresults < 1 {
 		maxresults = 1
 	}
-	if ty == 0 || ty == 4 || ty == 6 {
+	if !info.UserHasRole(msg.Author.ID, strconv.FormatUint(info.config.AlertRole, 10)) && (ty == 0 || ty == 4) {
 		return "```You aren't allowed to view those events.```", false
 	}
 	var events []ScheduleEvent
 	if ty == 255 {
 		events = sb.db.GetEvents(SBatoi(info.Guild.ID), maxresults)
+	} else if ty == 6 {
+		events = sb.db.GetReminders(SBatoi(info.Guild.ID), msg.Author.ID, maxresults)
 	} else {
 		events = sb.db.GetEventsByType(SBatoi(info.Guild.ID), ty, maxresults)
 	}
@@ -145,8 +147,14 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 			s += " [MESSAGE] "
 		case 3:
 			s += " [EPISODE] "
+			if len(info.config.SpoilChannels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.SpoilChannels) {
+				data = "(title removed)"
+			}
 		case 5:
 			s += " [EVENT]"
+		case 6:
+			s += " [REMINDER] "
+			data = strings.SplitN(data, "|", 2)[1]
 		default:
 			s += " [UNKNOWN] "
 		}
@@ -216,6 +224,9 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	case 2:
 		return "```Sweetie is scheduled to send a message in " + diff + "```", false
 	case 3:
+		if len(info.config.SpoilChannels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.SpoilChannels) {
+			return "```The next episode airs in " + diff + "```", false
+		}
 		return "```" + event.Data + " airs in " + diff + "```", false
 	case 5:
 		return "```" + event.Data + " starts in " + diff + "```", false

@@ -58,6 +58,7 @@ type BotDB struct {
 	sql_GetEvents            *sql.Stmt
 	sql_GetEventsByType      *sql.Stmt
 	sql_GetNextEvent         *sql.Stmt
+	sql_GetReminders         *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -134,6 +135,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type != 0 AND Type != 4 AND Type != 6 ORDER BY Date ASC LIMIT ?")
 	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
+	db.sql_GetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
 	return err
 }
 
@@ -545,4 +547,18 @@ func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 	}
 	db.log.LogError("GetNextEvent error: ", err)
 	return p
+}
+
+func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEvent {
+	q, err := db.sql_GetReminders.Query(guild, id+"|%", maxnum)
+	db.log.LogError("GetReminders error: ", err)
+	defer q.Close()
+	r := make([]ScheduleEvent, 0, 2)
+	for q.Next() {
+		p := ScheduleEvent{}
+		if err := q.Scan(&p.ID, &p.Date, &p.Type, &p.Data); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
 }

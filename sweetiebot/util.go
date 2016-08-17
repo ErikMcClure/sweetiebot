@@ -32,7 +32,7 @@ func TimeDiff(d time.Duration) string {
 }
 
 func PingAtoi(s string) uint64 {
-	if s[:2] == "<#" || s[:2] == "<@" {
+	if len(s) > 2 && (s[:2] == "<#" || s[:2] == "<@") {
 		return SBatoi(s[2 : len(s)-1])
 	}
 	return SBatoi(s)
@@ -318,6 +318,14 @@ func CheckMapNilString(m *map[string]string) {
 	}
 }
 
+func FindIntSlice(item uint64, s []uint64) bool {
+	for _, v := range s {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
 func replacementionhelper(s string) string {
 	u, err := sb.dg.User(StripPing(s))
 	if err != nil {
