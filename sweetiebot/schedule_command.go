@@ -52,9 +52,9 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 1:
 			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
 			if err != nil {
-				info.log.Error(strconv.FormatUint(info.config.LogChannel, 10), "Couldn't get <@"+v.Data+"> member data!")
+				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else if info.config.BirthdayRole == 0 {
-				info.log.Error(strconv.FormatUint(info.config.LogChannel, 10), "No birthday role set!")
+				info.log.Log("No birthday role set!")
 			} else {
 				m.Roles = append(m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
 				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
@@ -69,10 +69,17 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 4:
 			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
 			if err != nil {
-				info.log.Error(strconv.FormatUint(info.config.LogChannel, 10), "Couldn't get <@"+v.Data+"> member data!")
+				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			}
 			RemoveSliceString(&m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
 			sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
+		case 6:
+			dat := strings.SplitN(v.Data, "|", 2)
+			ch, err := sb.dg.UserChannelCreate(dat[0])
+			info.log.LogError("Error opening private channel: ", err)
+			if err == nil {
+				info.SendMessage(ch.ID, dat[1])
+			}
 		}
 
 		sb.db.RemoveSchedule(v.ID)
@@ -112,7 +119,9 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxresults < 1 {
 		maxresults = 1
 	}
-
+	if ty == 0 || ty == 4 || ty == 6 {
+		return "```You aren't allowed to view those events.```", false
+	}
 	var events []ScheduleEvent
 	if ty == 255 {
 		events = sb.db.GetEvents(SBatoi(info.Guild.ID), maxresults)
@@ -121,9 +130,6 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 	lines := []string{"Upcoming Events:"}
 	for _, v := range events {
-		if v.Type == 4 {
-			continue
-		}
 		s := "#" + strconv.FormatUint(v.ID, 10)
 		if v.Date.Year() == time.Now().UTC().Year() {
 			s += ApplyTimezone(v.Date, info).Format(" **Jan 2 3:04pm**")
@@ -132,8 +138,6 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 		}
 		data := v.Data
 		switch v.Type {
-		case 0:
-			s += " [BAN] "
 		case 1:
 			s += " [BIRTHDAY] "
 			data = "<@" + data + ">"
@@ -152,7 +156,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	return strings.Join(lines, "\n"), len(lines) > 5
 }
 func (c *ScheduleCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[bans/birthdays/messages/episodes/events] [maxresults]", "Lists up to maxresults (default: 5) upcoming events from the schedule. If the first argument is specified,  Max results: 20")
+	return info.FormatUsage(c, "[bans/birthdays/messages/episodes/events/reminders] [maxresults]", "Lists up to maxresults (default: 5) upcoming events from the schedule. If the first argument is specified,  Max results: 20")
 }
 func (c *ScheduleCommand) UsageShort() string { return "Gets a list of upcoming scheduled events." }
 
@@ -178,6 +182,10 @@ func getScheduleType(s string) uint8 {
 		fallthrough
 	case "event":
 		return 5
+	case "reminders":
+		fallthrough
+	case "reminder":
+		return 6
 	}
 	return 255
 }
@@ -212,7 +220,7 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	case 5:
 		return "```" + event.Data + " starts in " + diff + "```", false
 	default:
-		return "```There are no upcoming events of that type.```", false
+		return "```There are no upcoming events of that type (or you aren't allowed to view them).```", false
 	}
 }
 func (c *NextCommand) Usage(info *GuildInfo) string {
@@ -389,7 +397,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		t = time.Now().UTC()
 		d, err := strconv.Atoi(args[1])
 		if err != nil {
-			return "```Duration is not numeric! Make sure it's in the format 'in 99 days', and DON'T put quotes around it.", false
+			return "```Duration is not numeric! Make sure it's in the format 'in 99 days', and DON'T put quotes around it.```", false
 		}
 		switch parseRepeatInterval(args[2]) {
 		case 1:
@@ -407,7 +415,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		case 8:
 			t = t.AddDate(d, 0, 0)
 		default:
-			return "```Unknown duration type! Acceptable types are seconds, minutes, hours, days, weeks, months, and years.", false
+			return "```Unknown duration type! Acceptable types are seconds, minutes, hours, days, weeks, months, and years.```", false
 		}
 		arg = strings.Join(args[3:], " ")
 	case "on":
@@ -420,7 +428,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		arg = strings.Join(args[2:], " ")
 	}
 
-	sb.db.AddSchedule(SBatoi(info.Guild.ID), t, 2, "<@"+msg.Author.ID+"> "+arg)
+	sb.db.AddSchedule(SBatoi(info.Guild.ID), t, 6, msg.Author.ID+"|"+arg)
 	return "Reminder set for " + TimeDiff(t.Sub(time.Now().UTC())) + " from now.", false
 }
 func (c *RemindMeCommand) Usage(info *GuildInfo) string {
