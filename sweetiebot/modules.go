@@ -90,6 +90,11 @@ type ModuleOnIdle interface {
 	IdlePeriod(*GuildInfo) int64
 }
 
+type ModuleOnTick interface {
+	Module
+	OnTick(*GuildInfo)
+}
+
 // Modules monitor all incoming messages and users that have joined a given channel.
 type Module interface {
 	Name() string

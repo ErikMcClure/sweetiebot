@@ -33,6 +33,7 @@ type ModuleHooks struct {
 	OnGuildBanRemove    []ModuleOnGuildBanRemove
 	OnCommand           []ModuleOnCommand
 	OnIdle              []ModuleOnIdle
+	OnTick              []ModuleOnTick
 }
 
 type BotConfig struct {
@@ -63,6 +64,7 @@ type BotConfig struct {
 	SilentRole            uint64                     `json:"silentrole"`
 	LogChannel            uint64                     `json:"logchannel"`
 	ModChannel            uint64                     `json:"modchannel"`
+	BirthdayRole          uint64                     `json:"birthdayrole"`
 	SpoilChannels         []uint64                   `json:"spoilchannels"`
 	FreeChannels          map[string]bool            `json:"freechannels"`
 	Command_roles         map[string]map[string]bool `json:"command_roles"`
@@ -106,6 +108,8 @@ type SweetieBot struct {
 var sb *SweetieBot
 var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
+var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
+var locUTC = time.FixedZone("UTC", 0)
 
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
 	return SBatoi(info.Guild.ID) == sbot.MainGuildID
@@ -239,7 +243,7 @@ func ExtraSanitize(s string) string {
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
 	s = strings.Replace(s, "http://", "http\u200B://", -1)
 	s = strings.Replace(s, "https://", "https\u200B://", -1)
-	return s
+	return ReplaceAllMentions(s)
 }
 
 func (info *GuildInfo) SendMessage(channelID string, message string) {
@@ -388,6 +392,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.modules = append(guild.modules, wittymodule)
 	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
 	guild.modules = append(guild.modules, spoilermodule)
+	guild.modules = append(guild.modules, &ScheduleModule{})
 
 	for _, v := range guild.modules {
 		v.Register(guild)
@@ -464,6 +469,12 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&ListGuildsCommand{})
 	guild.AddCommand(&AnnounceCommand{})
 	guild.AddCommand(&QuickConfigCommand{})
+	guild.AddCommand(&ScheduleCommand{})
+	guild.AddCommand(&NextCommand{})
+	guild.AddCommand(&AddEventCommand{})
+	guild.AddCommand(&RemoveEventCommand{})
+	guild.AddCommand(&AddBirthdayCommand{})
+	guild.AddCommand(&RemindMeCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -879,6 +890,12 @@ func (info *GuildInfo) IdleCheckLoop() {
 				})
 			}
 		}
+
+		ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
+			if info.ProcessModule("", info.hooks.OnTick[i]) {
+				info.hooks.OnTick[i].OnTick(info)
+			}
+		})
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -893,7 +910,7 @@ func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 
 	sb = &SweetieBot{
-		version:            "0.7.4",
+		version:            "0.7.5",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,

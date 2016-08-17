@@ -24,9 +24,9 @@ BEGIN
 CALL SawUser(_author);
 
 INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone)
-VALUES (_id, _author, _message, Now(6), _channel, _everyone)
+VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone)
 ON DUPLICATE KEY UPDATE /* This prevents a race condition from causing a serious error */
-Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = Now(6), Everyone=_everyone;
+Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Everyone=_everyone;
 
 END//
 DELIMITER ;
@@ -67,7 +67,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_gu
 INSERT INTO members (ID, Guild, FirstSeen)
 VALUES (_id, _guild, _firstseen)
 ON DUPLICATE KEY UPDATE
-Guild=_guild, FirstSeen=_firstseen//
+FirstSeen=_firstseen//
 DELIMITER ;
 
 
@@ -76,9 +76,9 @@ DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
     DETERMINISTIC
 INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
-VALUES (_id, _email, _username, _avatar, _verified, Now(6), Now(6)) 
+VALUES (_id, _email, _username, _avatar, _verified, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=Now(6)//
+Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=UTC_TIMESTAMP()//
 DELIMITER ;
 
 
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
 -- Dumping structure for event sweetiebot.CleanChatlog
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` EVENT `CleanChatlog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:04:34' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM chatlog WHERE Timestamp < DATE_SUB(NOW(6), INTERVAL 7 DAY);
+DELETE FROM chatlog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY);
 END//
 DELIMITER ;
 
@@ -126,7 +126,7 @@ DELIMITER ;
 -- Dumping structure for event sweetiebot.CleanDebugLog
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` EVENT `CleanDebugLog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:30:36' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM debuglog WHERE Timestamp < DATE_SUB(NOW(6), INTERVAL 8 DAY);
+DELETE FROM debuglog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY);
 END//
 DELIMITER ;
 
@@ -389,7 +389,7 @@ CREATE TABLE IF NOT EXISTS `members` (
   `ID` bigint(20) unsigned NOT NULL,
   `Guild` bigint(20) unsigned NOT NULL,
   `FirstSeen` datetime NOT NULL,
-  PRIMARY KEY (`ID`),
+  PRIMARY KEY (`ID`,`Guild`),
   CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -414,6 +414,28 @@ CREATE TABLE IF NOT EXISTS `pings` (
 CREATE TABLE `randomwords` (
 	`Phrase` VARCHAR(64) NOT NULL COLLATE 'utf8mb4_general_ci'
 ) ENGINE=MyISAM;
+
+
+-- Dumping structure for procedure sweetiebot.RemoveSchedule
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `RemoveSchedule`(IN `_id` BIGINT)
+    MODIFIES SQL DATA
+BEGIN
+DELETE FROM `schedule` WHERE ID = _id AND Date > UTC_TIMESTAMP();
+DELETE FROM `schedule` WHERE ID = _id AND `Repeat` IS NULL AND `RepeatInterval` IS NULL;
+CASE (SELECT `RepeatInterval` FROM `schedule` WHERE ID = _id)
+	WHEN 1 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` SECOND) WHERE ID = _id;
+	WHEN 2 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` MINUTE) WHERE ID = _id;
+	WHEN 3 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` HOUR) WHERE ID = _id;
+	WHEN 4 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` DAY) WHERE ID = _id;
+	WHEN 5 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` WEEK) WHERE ID = _id;
+	WHEN 6 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` MONTH) WHERE ID = _id;
+	WHEN 7 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` QUARTER) WHERE ID = _id;
+	WHEN 8 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` YEAR) WHERE ID = _id;
+	ELSE BEGIN END;
+END CASE;
+END//
+DELIMITER ;
 
 
 -- Dumping structure for procedure sweetiebot.ResetMarkov
@@ -443,9 +465,25 @@ DELIMITER ;
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `SawUser`(IN `_id` BIGINT)
 INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
-VALUES (_id, '', '', '', 0, Now(6), Now(6)) 
-ON DUPLICATE KEY UPDATE LastSeen=Now(6)//
+VALUES (_id, '', '', '', 0, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP()//
 DELIMITER ;
+
+
+-- Dumping structure for table sweetiebot.schedule
+CREATE TABLE IF NOT EXISTS `schedule` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Guild` bigint(20) unsigned NOT NULL,
+  `Date` datetime NOT NULL,
+  `RepeatInterval` tinyint(3) unsigned DEFAULT NULL,
+  `Repeat` int(11) DEFAULT NULL,
+  `Type` tinyint(3) unsigned NOT NULL,
+  `Data` text NOT NULL,
+  PRIMARY KEY (`ID`),
+  KEY `Index 2` (`Date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
 
 
 -- Dumping structure for table sweetiebot.transcripts
@@ -520,7 +558,7 @@ IF NEW.Email = '' THEN
 END IF;
 
 IF NEW.Username != OLD.Username THEN
-	SET NEW.LastNameChange = NOW(6);
+	SET NEW.LastNameChange = UTC_TIMESTAMP();
 	SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
 	INSERT INTO aliases (User, Alias, Duration)
 	VALUES (OLD.ID, OLD.Username, @diff)
