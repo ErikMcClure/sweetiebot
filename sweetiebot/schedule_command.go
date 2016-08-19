@@ -473,6 +473,9 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		arg = strings.Join(args[2:], " ")
 	}
 
+	if len(arg) == 0 {
+		return "```What am I reminding you about? I can't send you a blank message!```", false
+	}
 	sb.db.AddSchedule(SBatoi(info.Guild.ID), t, 6, msg.Author.ID+"|"+arg)
 	return "Reminder set for " + TimeDiff(t.Sub(time.Now().UTC())) + " from now.", false
 }
