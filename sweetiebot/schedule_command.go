@@ -70,9 +70,10 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
+			} else {
+				RemoveSliceString(&m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
+				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
 			}
-			RemoveSliceString(&m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
-			sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
 		case 6:
 			dat := strings.SplitN(v.Data, "|", 2)
 			ch, err := sb.dg.UserChannelCreate(dat[0])
