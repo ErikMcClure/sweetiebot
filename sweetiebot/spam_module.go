@@ -78,7 +78,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 			KillSpammer(m.Author, info, m, "spamming too many messages")
 			return true
 		}
-		if len(m.Mentions) > 4 {
+		if len(m.Mentions) > 24 {
 			KillSpammer(m.Author, info, m, "pinging too many people")
 			return true
 		}
