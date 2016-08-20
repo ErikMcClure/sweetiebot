@@ -27,6 +27,7 @@ type BotDB struct {
 	sql_FindUsers            *sql.Stmt
 	sql_GetRecentMessages    *sql.Stmt
 	sql_GetNewestUsers       *sql.Stmt
+	sql_GetRecentUsers       *sql.Stmt
 	sql_GetAliases           *sql.Stmt
 	sql_AddTranscript        *sql.Stmt
 	sql_GetTranscript        *sql.Stmt
@@ -104,6 +105,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sql_GetNewestUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
+	db.sql_GetRecentUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
 	db.sql_AddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
 	db.sql_GetTranscript, err = db.Prepare("SELECT Season, Episode, Line, Speaker, Text FROM transcripts WHERE Season = ? AND Episode = ? AND Line >= ? AND LINE <= ?")
@@ -306,6 +308,20 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 			FirstSeen time.Time
 		}{&discordgo.User{}, time.Now()}
 		if err := q.Scan(&p.User.ID, &p.User.Email, &p.User.Username, &p.User.Avatar, &p.FirstSeen); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User {
+	q, err := db.sql_GetRecentUsers.Query(guild, since)
+	db.log.LogError("GetRecentUsers error: ", err)
+	defer q.Close()
+	r := make([]*discordgo.User, 0, 2)
+	for q.Next() {
+		p := &discordgo.User{}
+		if err := q.Scan(&p.ID, &p.Email, &p.Username, &p.Avatar); err == nil {
 			r = append(r, p)
 		}
 	}
