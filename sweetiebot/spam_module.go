@@ -155,8 +155,8 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 
 	if c.s.AutoSilence == 0 {
 		// unsilence everyone
-	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined since the raid happened
-		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid, 0).UTC(), SBatoi(info.Guild.ID))
+	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
 		for _, v := range r {
