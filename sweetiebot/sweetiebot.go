@@ -387,8 +387,9 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.emotemodule = &EmoteModule{}
 	spoilermodule := &SpoilerModule{}
 	wittymodule := &WittyModule{}
+	spammodule := &SpamModule{}
 	guild.modules = make([]Module, 0, 6)
-	guild.modules = append(guild.modules, &SpamModule{})
+	guild.modules = append(guild.modules, spammodule)
 	guild.modules = append(guild.modules, &PingModule{})
 	guild.modules = append(guild.modules, guild.emotemodule)
 	guild.modules = append(guild.modules, wittymodule)
@@ -477,6 +478,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&RemoveEventCommand{})
 	guild.AddCommand(&AddBirthdayCommand{})
 	guild.AddCommand(&RemindMeCommand{})
+	guild.AddCommand(&AutoSilenceCommand{spammodule})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -686,8 +688,14 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
+	fmt.Println("message update")
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
-		return
+		original, err := s.ChannelMessage(m.ChannelID, m.ID)
+		if err != nil {
+			info.log.LogError("Error processing MessageUpdate: ", err)
+			return // Fuck it, we can't process this
+		}
+		m.Author = original.Author
 	}
 
 	ch, err := sb.dg.State.Channel(m.ChannelID)
@@ -912,7 +920,7 @@ func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 
 	sb = &SweetieBot{
-		version:            "0.7.5",
+		version:            "0.7.6",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
