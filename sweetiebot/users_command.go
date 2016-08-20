@@ -29,7 +29,7 @@ func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, info *G
 	s := make([]string, 0, len(r))
 
 	for _, v := range r {
-		s = append(s, v.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+")")
+		s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+") ["+v.User.ID+"]")
 	}
 	return "```" + strings.Join(s, "\n") + "```", true
 }
