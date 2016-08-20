@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +62,6 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
 }
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
-	fmt.Println("mentions:", len(m.Mentions))
 	if m.Author != nil {
 		if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.SilentRole, 10)) {
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
@@ -120,7 +118,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
-	if w.AutoSilence >= 2 {
+	if w.AutoSilence >= 2 || (w.AutoSilence >= 1 && w.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User, info)
 		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
 	}
@@ -148,10 +146,25 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 		c.s.AutoSilence = 1
 	case "off":
 		c.s.AutoSilence = 0
+	//case "debug":
+	//	subtract, _ := strconv.ParseInt(args[1], 10, 64)
+	//	c.s.lastraid = time.Now().UTC().Unix() - subtract
 	default:
 		return "```Only all, raid, and off are valid auto silence levels.```", false
 	}
 
+	if c.s.AutoSilence == 0 {
+		// unsilence everyone
+	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined since the raid happened
+		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid, 0).UTC(), SBatoi(info.Guild.ID))
+		s := make([]string, 0, len(r))
+		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
+		for _, v := range r {
+			s = append(s, v.Username)
+			SilenceMember(v, info)
+		}
+		return strings.Join(s, "\n") + "```", false
+	}
 	return "```Set the auto silence level to " + strings.ToLower(args[0]) + "```", false
 }
 func (c *AutoSilenceCommand) Usage(info *GuildInfo) string {
