@@ -122,6 +122,9 @@ func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
 		SilenceMember(m.User, info)
 		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
 	}
+	if w.AutoSilence == -1 {
+		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server.")
+	}
 	w.checkRaid(info, m)
 }
 func (w *SpamModule) OnGuildMemberUpdate(info *GuildInfo, m *discordgo.Member) {
@@ -146,6 +149,8 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 		c.s.AutoSilence = 1
 	case "off":
 		c.s.AutoSilence = 0
+	case "alert":
+		c.s.AutoSilence = -1
 	//case "debug":
 	//	subtract, _ := strconv.ParseInt(args[1], 10, 64)
 	//	c.s.lastraid = time.Now().UTC().Unix() - subtract

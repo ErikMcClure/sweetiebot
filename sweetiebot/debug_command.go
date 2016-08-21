@@ -180,6 +180,6 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, info *G
 	return "", false
 }
 func (c *AnnounceCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[arbitrary message]", "Restricted command that announces a message to all the log channels of all guilds.")
+	return info.FormatUsage(c, "[arbitrary message]", "Restricted command that announces a message to all the log channels of all servers.")
 }
 func (c *AnnounceCommand) UsageShort() string { return "Restricted announcement command." }
