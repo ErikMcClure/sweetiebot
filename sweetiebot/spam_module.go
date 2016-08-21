@@ -173,6 +173,6 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 	return "```Set the auto silence level to " + strings.ToLower(args[0]) + "```", false
 }
 func (c *AutoSilenceCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[all/raid/off]", "Toggles the auto silence level for anti-spam. All will autosilence all new members. Raid will only silence raiders. Off disables auto-silence and unsilences everyone.")
+	return info.FormatUsage(c, "[all/raid/alert/off]", "Toggles the auto silence level for anti-spam. All will autosilence all new members. Raid will only silence raiders. Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Off disables auto-silence and unsilences everyone.")
 }
 func (c *AutoSilenceCommand) UsageShort() string { return "Toggle auto silence." }
