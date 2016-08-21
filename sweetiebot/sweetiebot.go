@@ -60,6 +60,7 @@ type BotConfig struct {
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
 	Timezone              int                        `json:"timezone"`
+	AutoSilence           int                        `json:"autosilence"`
 	AlertRole             uint64                     `json:"alertrole"`
 	SilentRole            uint64                     `json:"silentrole"`
 	LogChannel            uint64                     `json:"logchannel"`
