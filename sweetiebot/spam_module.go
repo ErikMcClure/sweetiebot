@@ -10,9 +10,8 @@ import (
 
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
-	tracker     map[uint64]*SaturationLimit
-	lastraid    int64
-	AutoSilence int8
+	tracker  map[uint64]*SaturationLimit
+	lastraid int64
 }
 
 func (w *SpamModule) Name() string {
@@ -22,7 +21,6 @@ func (w *SpamModule) Name() string {
 func (w *SpamModule) Register(info *GuildInfo) {
 	w.tracker = make(map[uint64]*SaturationLimit)
 	w.lastraid = 0
-	w.AutoSilence = 0
 	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
 	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
@@ -106,7 +104,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 
 		for _, v := range r {
 			s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+")")
-			if w.AutoSilence >= 1 {
+			if info.config.AutoSilence >= 1 {
 				SilenceMember(v.User, info)
 			}
 		}
@@ -118,11 +116,11 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
-	if w.AutoSilence >= 2 || (w.AutoSilence >= 1 && w.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix()) {
+	if info.config.AutoSilence >= 2 || (info.config.AutoSilence >= 1 && w.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User, info)
 		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
 	}
-	if w.AutoSilence == -1 {
+	if info.config.AutoSilence == -1 {
 		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server.")
 	}
 	w.checkRaid(info, m)
@@ -144,13 +142,13 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 	}
 	switch strings.ToLower(args[0]) {
 	case "all":
-		c.s.AutoSilence = 2
+		info.config.AutoSilence = 2
 	case "raid":
-		c.s.AutoSilence = 1
+		info.config.AutoSilence = 1
 	case "off":
-		c.s.AutoSilence = 0
+		info.config.AutoSilence = 0
 	case "alert":
-		c.s.AutoSilence = -1
+		info.config.AutoSilence = -1
 	//case "debug":
 	//	subtract, _ := strconv.ParseInt(args[1], 10, 64)
 	//	c.s.lastraid = time.Now().UTC().Unix() - subtract
@@ -158,7 +156,9 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Only all, raid, and off are valid auto silence levels.```", false
 	}
 
-	if c.s.AutoSilence == 0 {
+	info.SaveConfig()
+
+	if info.config.AutoSilence == 0 {
 		// unsilence everyone
 	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
