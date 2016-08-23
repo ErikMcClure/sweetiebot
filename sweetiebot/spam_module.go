@@ -198,3 +198,31 @@ func (c *AutoSilenceCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[all/raid/alert/off]", "Toggles the auto silence level for anti-spam. All will autosilence all new members. Raid will only silence raiders. Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Off disables auto-silence and unsilences everyone.")
 }
 func (c *AutoSilenceCommand) UsageShort() string { return "Toggle auto silence." }
+
+type WipeWelcomeCommand struct {
+}
+
+func (c *WipeWelcomeCommand) Name() string {
+	return "WipeWelcome"
+}
+func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	ch := SBitoa(info.config.WelcomeChannel)
+	list, err := sb.dg.ChannelMessages(ch, 99, "", "")
+	if err != nil {
+		info.log.LogError("Error retrieving messages: ", err)
+		return "```Error retrieving messages.```", false
+	}
+	for len(list) > 0 {
+		IDs := make([]string, len(list), len(list))
+		for i := 0; i < len(list); i++ {
+			IDs[i] = list[i].ID
+		}
+		sb.dg.ChannelMessagesBulkDelete(ch, IDs)
+		list, err = sb.dg.ChannelMessages(ch, 99, "", "")
+	}
+	return "Deleted all messages in <#" + ch + ">.", false
+}
+func (c *WipeWelcomeCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "", "Cleans out welcome channel.")
+}
+func (c *WipeWelcomeCommand) UsageShort() string { return "Cleans out welcome channel." }

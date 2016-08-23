@@ -482,6 +482,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&AddBirthdayCommand{})
 	guild.AddCommand(&RemindMeCommand{})
 	guild.AddCommand(&AutoSilenceCommand{spammodule})
+	guild.AddCommand(&WipeWelcomeCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
