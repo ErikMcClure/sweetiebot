@@ -65,6 +65,7 @@ type BotConfig struct {
 	SilentRole            uint64                     `json:"silentrole"`
 	LogChannel            uint64                     `json:"logchannel"`
 	ModChannel            uint64                     `json:"modchannel"`
+	WelcomeChannel        uint64                     `json:"welcomechannel"`
 	BirthdayRole          uint64                     `json:"birthdayrole"`
 	SpoilChannels         []uint64                   `json:"spoilchannels"`
 	FreeChannels          map[string]bool            `json:"freechannels"`

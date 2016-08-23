@@ -61,7 +61,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 }
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
-		if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.SilentRole, 10)) {
+		if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.SilentRole, 10)) && SBatoi(m.ChannelID) != info.config.WelcomeChannel {
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
