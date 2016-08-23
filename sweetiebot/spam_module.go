@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,40 +27,60 @@ func (w *SpamModule) Register(info *GuildInfo) {
 	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
 }
 
+func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
+	srole := SBitoa(info.config.SilentRole)
+	for _, v := range m.Roles {
+		if v == srole {
+			return true
+		}
+	}
+	return false
+}
+
 func SilenceMember(u *discordgo.User, info *GuildInfo) {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
 	m, err := sb.dg.State.Member(info.Guild.ID, u.ID)
 	if err == nil {
-		srole := strconv.FormatUint(info.config.SilentRole, 10)
-		for _, v := range m.Roles {
-			if v == srole {
-				return // Spammer was already killed, so don't try killing it again
-			}
+		if IsSilenced(m, info) {
+			return
 		}
-		m.Roles = append(m.Roles, srole)
+		m.Roles = append(m.Roles, SBitoa(info.config.SilentRole))
 	} else {
 		info.log.Log("Tried to kill spammer ", u.Username, " but they were already banned??? (Error: ", err.Error(), ")")
 		return
 	}
 	sb.dg.GuildMemberEdit(info.Guild.ID, u.ID, m.Roles) // Tell discord to make this spammer silent
 }
+
+func BanMember(u *discordgo.User, info *GuildInfo) {
+	m, err := sb.dg.State.Member(info.Guild.ID, u.ID)
+	if err != nil || IsSilenced(m, info) {
+		sb.dg.GuildBanCreate(info.Guild.ID, u.ID, 1)
+	}
+}
+
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
 	info.log.Log("Killing spammer ", u.Username, ". Last message sent: \n", msg.ContentWithMentionsReplaced())
+	if SBatoi(msg.ChannelID) == info.config.WelcomeChannel {
+		BanMember(u, info)
+		info.SendMessage(SBitoa(info.config.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
+		return
+	}
 	SilenceMember(u, info)
 
 	if sb.IsMainGuild(info) {
 		messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60) // Retrieve all messages in the past 60 seconds and delete them.
 
 		for _, v := range messages {
-			sb.dg.ChannelMessageDelete(strconv.FormatUint(v.channel, 10), strconv.FormatUint(v.message, 10))
+			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 		}
 	}
 
-	info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+	info.SendMessage(SBitoa(info.config.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
 }
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
-		if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.SilentRole, 10)) && SBatoi(m.ChannelID) != info.config.WelcomeChannel {
+		if info.UserHasRole(m.Author.ID, SBitoa(info.config.SilentRole)) && SBatoi(m.ChannelID) != info.config.WelcomeChannel {
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
@@ -108,20 +127,23 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 				SilenceMember(v.User, info)
 			}
 		}
-		ch := strconv.FormatUint(info.config.ModChannel, 10)
+		ch := SBitoa(info.config.ModChannel)
 		if info.config.Debug {
 			ch, _ = sb.DebugChannels[info.Guild.ID]
 		}
-		info.SendMessage(ch, "<@&"+strconv.FormatUint(info.config.AlertRole, 10)+"> Possible Raid Detected!\n```"+strings.Join(s, "\n")+"```")
+		info.SendMessage(ch, "<@&"+SBitoa(info.config.AlertRole)+"> Possible Raid Detected!\n```"+strings.Join(s, "\n")+"```")
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
 	if info.config.AutoSilence >= 2 || (info.config.AutoSilence >= 1 && w.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User, info)
-		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
+		info.SendMessage(SBitoa(info.config.ModChannel), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
+		if len(info.config.WelcomeMessage) > 0 {
+			info.SendMessage(SBitoa(info.config.WelcomeChannel), info.config.WelcomeMessage)
+		}
 	}
 	if info.config.AutoSilence == -1 {
-		info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "<@"+m.User.ID+"> joined the server.")
+		info.SendMessage(SBitoa(info.config.ModChannel), "<@"+m.User.ID+"> joined the server.")
 	}
 	w.checkRaid(info, m)
 }
