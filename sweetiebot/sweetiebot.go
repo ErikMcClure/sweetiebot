@@ -66,6 +66,7 @@ type BotConfig struct {
 	LogChannel            uint64                     `json:"logchannel"`
 	ModChannel            uint64                     `json:"modchannel"`
 	WelcomeChannel        uint64                     `json:"welcomechannel"`
+	WelcomeMessage        string                     `json:"welcomemessage"`
 	BirthdayRole          uint64                     `json:"birthdayrole"`
 	SpoilChannels         []uint64                   `json:"spoilchannels"`
 	FreeChannels          map[string]bool            `json:"freechannels"`
@@ -921,7 +922,7 @@ func WaitForInput() {
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 	sb = &SweetieBot{
-		version:            "0.7.7",
+		version:            "0.7.8",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,

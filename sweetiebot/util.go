@@ -70,7 +70,9 @@ func SBatoi(s string) uint64 {
 	}
 	return i
 }
-
+func SBitoa(i uint64) string {
+	return strconv.FormatUint(i, 10)
+}
 func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
