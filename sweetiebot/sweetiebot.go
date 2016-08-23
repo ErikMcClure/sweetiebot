@@ -838,7 +838,7 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	if len(g.Members) == 0 || len(g.Channels) == 0 { // If this is true we were given half a guild update
+	if len(g.Members) == 0 || len(g.Channels) == 0 || len(g.Roles) == 0 { // If this is true we were given half a guild update
 		info.log.Log("Got half a guild update for " + g.Name)
 		info.Guild.Name = g.Name
 		info.Guild.Icon = g.Icon
@@ -919,7 +919,6 @@ func WaitForInput() {
 
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
-
 	sb = &SweetieBot{
 		version:            "0.7.7",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
