@@ -115,7 +115,7 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	info.config.FreeChannels = make(map[string]bool)
 	info.config.FreeChannels[SBitoa(SBatoi(free))] = true
 
-	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "addevent", "addbirthday", "autosilence", "silence", "unsilence"}
+	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
 	modint := SBitoa(info.config.AlertRole)
 
 	for _, v := range sensitive {

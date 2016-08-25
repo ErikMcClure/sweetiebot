@@ -91,15 +91,18 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 		}
 		limit := w.tracker[id]
 		limit.append(time.Now().UTC().Unix())
-		if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
-			KillSpammer(m.Author, info, m, "spamming too many messages")
-			return true
+		//if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
+		for k, v := range info.config.MaxMessageSpam {
+			if limit.checkafter(v, k) {
+				KillSpammer(m.Author, info, m, "spamming too many messages")
+				return true
+			}
 		}
-		if len(m.Mentions) > 24 {
+		if len(m.Mentions) > info.config.MaxPingSpam {
 			KillSpammer(m.Author, info, m, "pinging too many people")
 			return true
 		}
-		if len(m.Embeds) > 3 || len(m.Attachments) > 1 {
+		if len(m.Embeds) > info.config.MaxImageSpam || len(m.Attachments) > info.config.MaxAttachSpam {
 			KillSpammer(m.Author, info, m, "embedding too many images")
 			return true
 		}
