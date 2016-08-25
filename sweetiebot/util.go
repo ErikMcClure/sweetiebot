@@ -363,3 +363,32 @@ func replacementionhelper(s string) string {
 func ReplaceAllMentions(s string) string {
 	return regexp.MustCompile("<@!?[0-9]+>").ReplaceAllStringFunc(s, replacementionhelper)
 }
+
+// migrate settings from earlier config version
+func MigrateSettings(guild *GuildInfo) {
+	if guild.config.Version == 0 {
+		newcommands := []string{"addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
+		if len(guild.config.Command_roles) == 0 {
+			guild.config.Command_roles = make(map[string]map[string]bool)
+		}
+		for _, v := range newcommands {
+			_, ok := guild.config.Command_roles[v]
+			if !ok && guild.config.AlertRole != 0 {
+				guild.config.Command_roles[v] = make(map[string]bool)
+				guild.config.Command_roles[v][SBitoa(guild.config.AlertRole)] = true
+			}
+		}
+		guild.config.MaxImageSpam = 3
+		guild.config.MaxAttachSpam = 1
+		guild.config.MaxPingSpam = 24
+		guild.config.MaxMessageSpam = make(map[int64]int)
+		guild.config.MaxMessageSpam[1] = 4
+		guild.config.MaxMessageSpam[9] = 10
+		guild.config.MaxMessageSpam[12] = 15
+	}
+
+	if guild.config.Version != 1 {
+		guild.config.Version = 1 // set version to most recent config version
+		guild.SaveConfig()
+	}
+}
