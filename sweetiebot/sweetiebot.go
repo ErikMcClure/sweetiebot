@@ -919,6 +919,8 @@ func (info *GuildInfo) IdleCheckLoop() {
 			c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
 			if err == nil {
 				channels = []*discordgo.Channel{c}
+			} else {
+				channels = []*discordgo.Channel{}
 			}
 		}
 		for _, ch := range channels {
