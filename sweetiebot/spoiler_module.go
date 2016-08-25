@@ -2,7 +2,6 @@ package sweetiebot
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -52,7 +51,7 @@ func (w *SpoilerModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
 }
 
 func (w *SpoilerModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
-	if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.AlertRole, 10)) {
+	if info.UserHasRole(m.Author.ID, SBitoa(info.config.AlertRole)) {
 		return false
 	} // If we are a princess, always allow us to run this command, otherwise we can't unspoil things
 	return w.HasSpoiler(info, m)
