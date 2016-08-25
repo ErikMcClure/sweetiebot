@@ -77,6 +77,15 @@ func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
 
+func IDsToUsernames(IDs []uint64) []string {
+	s := make([]string, 0, len(IDs))
+
+	for _, v := range IDs {
+		u, _ := sb.db.GetUser(v)
+		s = append(s, u.Username)
+	}
+	return s
+}
 func ParseArguments(s string) []string {
 	r := []string{}
 	l := len(s)
@@ -270,6 +279,12 @@ func BuildMarkov(season_start int, episode_start int) {
 	}
 }
 
+func FindUsername(user string) []uint64 {
+	if userregex.MatchString(user) {
+		return []uint64{SBatoi(user[2 : len(user)-1])}
+	}
+	return sb.db.FindUsers("%"+user+"%", 20, 0)
+}
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
 	for k, _ := range m {

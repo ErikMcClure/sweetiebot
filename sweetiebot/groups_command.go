@@ -2,7 +2,6 @@ package sweetiebot
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -159,7 +158,7 @@ func getGroupPings(group string, info *GuildInfo) string {
 
 	i := 0
 	for k := range info.config.Groups[group] {
-		pings[i] = strconv.FormatUint(SBatoi(k), 10) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
+		pings[i] = SBitoa(SBatoi(k)) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
 		i++
 	}
 
