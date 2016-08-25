@@ -37,6 +37,7 @@ type ModuleHooks struct {
 }
 
 type BotConfig struct {
+	Version               int                        `json:"version"`
 	Debug                 bool                       `json:"debug"`
 	Maxerror              int64                      `json:"maxerror"`
 	Maxwit                int64                      `json:"maxwit"`
@@ -57,6 +58,10 @@ type BotConfig struct {
 	MaxBucketLength       int                        `json:"maxbucketlength"`
 	MaxFightHP            int                        `json:"maxfighthp"`
 	MaxFightDamage        int                        `json:"maxfightdamage"`
+	MaxImageSpam          int                        `json:"maximagespam"`
+	MaxAttachSpam         int                        `json:"maxattachspam"`
+	MaxPingSpam           int                        `json:"maxpingspam"`
+	MaxMessageSpam        map[int64]int              `json:"maxmessagespam"`
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
 	Timezone              int                        `json:"timezone"`
@@ -196,6 +201,25 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 				k, _ := strconv.ParseInt(extra[0], 10, 64)
 				f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
 				return value + ": " + strconv.FormatInt(k, 10), true
+			case map[int64]int:
+				ivalue, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return value + " is not an integer.", false
+				}
+				if len(extra) == 0 {
+					return "No extra parameter given for " + name, false
+				}
+				if f.IsNil() {
+					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+				}
+				if len(extra[0]) == 0 {
+					f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
+					return "Deleted " + value, false
+				}
+
+				k, _ := strconv.Atoi(extra[0])
+				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(k))
+				return value + ": " + strconv.Itoa(k), true
 			case map[string]bool:
 				f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
 				f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
@@ -332,6 +356,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		fmt.Println("Error reading config file for "+g.Name+": ", err.Error())
 	}
 
+	MigrateSettings(guild)
 	guild.commandlimit.times = make([]int64, guild.config.Commandperduration*2, guild.config.Commandperduration*2)
 
 	if len(guild.config.Witty) == 0 {
