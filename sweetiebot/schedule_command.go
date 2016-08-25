@@ -21,7 +21,7 @@ func (w *ScheduleModule) Register(info *GuildInfo) {
 
 func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	events := sb.db.GetSchedule(SBatoi(info.Guild.ID))
-	channel := strconv.FormatUint(info.config.ModChannel, 10)
+	channel := SBitoa(info.config.ModChannel)
 	if len(info.config.Module_channels[strings.ToLower(w.Name())]) > 0 {
 		for k := range info.config.Module_channels[strings.ToLower(w.Name())] {
 			channel = k
@@ -40,7 +40,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	}
 
 	if len(channel) == 0 {
-		//info.log.Error(strconv.FormatUint(info.config.LogChannel, 10), "No channel available to process events on. No events processed. If you want to suppress this message, you should either disable the schedule module, or use '!setconfig module_channels schedule #channel'.")
+		//info.log.Error(SBitoa(info.config.LogChannel), "No channel available to process events on. No events processed. If you want to suppress this message, you should either disable the schedule module, or use '!setconfig module_channels schedule #channel'.")
 		return
 	}
 
@@ -48,7 +48,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		switch v.Type {
 		case 0:
 			sb.dg.GuildBanDelete(info.Guild.ID, v.Data)
-			info.SendMessage(strconv.FormatUint(info.config.ModChannel, 10), "Unbanned <@"+v.Data+">")
+			info.SendMessage(SBitoa(info.config.ModChannel), "Unbanned <@"+v.Data+">")
 		case 1:
 			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
 			if err != nil {
@@ -56,7 +56,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			} else if info.config.BirthdayRole == 0 {
 				info.log.Log("No birthday role set!")
 			} else {
-				m.Roles = append(m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
+				m.Roles = append(m.Roles, SBitoa(info.config.BirthdayRole))
 				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
 			}
 			info.SendMessage(channel, "Happy Birthday <@"+v.Data+">!")
@@ -71,7 +71,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else {
-				RemoveSliceString(&m.Roles, strconv.FormatUint(info.config.BirthdayRole, 10))
+				RemoveSliceString(&m.Roles, SBitoa(info.config.BirthdayRole))
 				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
 			}
 		case 6:
@@ -123,7 +123,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxresults < 1 {
 		maxresults = 1
 	}
-	if !info.UserHasRole(msg.Author.ID, strconv.FormatUint(info.config.AlertRole, 10)) && (ty == 0 || ty == 4) {
+	if !info.UserHasRole(msg.Author.ID, SBitoa(info.config.AlertRole)) && (ty == 0 || ty == 4) {
 		return "```You aren't allowed to view those events.```", false
 	}
 	var events []ScheduleEvent
@@ -139,7 +139,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 	lines := []string{"Upcoming Events:"}
 	for _, v := range events {
-		s := "#" + strconv.FormatUint(v.ID, 10)
+		s := "#" + SBitoa(v.ID)
 		if v.Date.Year() == time.Now().UTC().Year() {
 			s += ApplyTimezone(v.Date, info).Format(" **Jan 2 3:04pm**")
 		} else {
@@ -415,7 +415,7 @@ func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Could not parse event ID. Make sure you only specify the number itself.```", false
 	}
 	sb.db.RemoveSchedule(id)
-	return "```Removed Event #" + strconv.FormatUint(id, 10) + " from schedule.```", false
+	return "```Removed Event #" + SBitoa(id) + " from schedule.```", false
 }
 func (c *RemoveEventCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[ID]", "Removes an event with the given ID from the schedule.")

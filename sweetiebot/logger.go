@@ -1,9 +1,6 @@
 package sweetiebot
 
-import (
-	"fmt"
-	"strconv"
-)
+import "fmt"
 
 type Logger interface {
 	Log(args ...interface{})
@@ -23,7 +20,7 @@ func (l *Log) Log(args ...interface{}) {
 		sb.db.Log(s)
 	}
 	if l.info != nil && l.info.config.LogChannel > 0 {
-		l.info.SendMessage(strconv.FormatUint(l.info.config.LogChannel, 10), "```"+s+"```")
+		l.info.SendMessage(SBitoa(l.info.config.LogChannel), "```"+s+"```")
 	}
 }
 

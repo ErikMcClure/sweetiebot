@@ -483,7 +483,10 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&RemindMeCommand{})
 	guild.AddCommand(&AutoSilenceCommand{spammodule})
 	guild.AddCommand(&WipeWelcomeCommand{})
+	guild.AddCommand(&SilenceCommand{})
+	guild.AddCommand(&UnsilenceCommand{})
 
+	println(guild.commands)
 	if disableall {
 		for k, _ := range guild.commands {
 			guild.config.Command_disabled[k] = true
@@ -505,14 +508,14 @@ func AttachToGuild(g *discordgo.Guild) {
 func GetChannelGuild(id string) *GuildInfo {
 	g, ok := sb.GuildChannels[id]
 	if !ok {
-		return sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+		return sb.guilds[SBitoa(sb.MainGuildID)]
 	}
 	return g
 }
 func GetGuildFromID(id string) *GuildInfo {
 	g, ok := sb.guilds[id]
 	if !ok {
-		return sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+		return sb.guilds[SBitoa(sb.MainGuildID)]
 	}
 	return g
 }
@@ -553,7 +556,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		info = GetChannelGuild(m.ChannelID)
 		ismainguild = SBatoi(ch.GuildID) == sb.MainGuildID
 	} else {
-		info = sb.guilds[strconv.FormatUint(sb.MainGuildID, 10)]
+		info = sb.guilds[SBitoa(sb.MainGuildID)]
 	}
 	cid := SBatoi(m.ChannelID)
 	isdebug := info.IsDebug(m.ChannelID)

@@ -3,7 +3,6 @@ package sweetiebot
 import (
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -114,10 +113,10 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	info.config.AlertRole = SBatoi(mod)
 	info.config.ModChannel = SBatoi(modchannel)
 	info.config.FreeChannels = make(map[string]bool)
-	info.config.FreeChannels[strconv.FormatUint(SBatoi(free), 10)] = true
+	info.config.FreeChannels[SBitoa(SBatoi(free))] = true
 
-	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "addevent", "addbirthday"}
-	modint := strconv.FormatUint(info.config.AlertRole, 10)
+	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "addevent", "addbirthday", "autosilence", "silence", "unsilence"}
+	modint := SBitoa(info.config.AlertRole)
 
 	for _, v := range sensitive {
 		info.config.Command_roles[v] = make(map[string]bool)
@@ -129,7 +128,7 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 
 	boredint := SBatoi(boredchannel)
 	if boredint > 0 {
-		info.config.Module_channels["bored"] = map[string]bool{strconv.FormatUint(boredint, 10): true}
+		info.config.Module_channels["bored"] = map[string]bool{SBitoa(boredint): true}
 	} else {
 		info.config.Module_disabled["bored"] = true
 	}

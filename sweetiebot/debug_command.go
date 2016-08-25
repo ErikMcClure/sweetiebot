@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -116,7 +115,7 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	  }*/
 
 	for _, v := range sb.guilds {
-		v.SendMessage(strconv.FormatUint(v.config.LogChannel, 10), "```Shutting down for update...```")
+		v.SendMessage(SBitoa(v.config.LogChannel), "```Shutting down for update...```")
 	}
 
 	sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
@@ -175,7 +174,7 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, info *G
 
 	arg := strings.Join(args, " ")
 	for _, v := range sb.guilds {
-		v.SendMessage(strconv.FormatUint(v.config.LogChannel, 10), "<@&"+strconv.FormatUint(v.config.AlertRole, 10)+"> "+arg)
+		v.SendMessage(SBitoa(v.config.LogChannel), "<@&"+SBitoa(v.config.AlertRole)+"> "+arg)
 	}
 	return "", false
 }
@@ -183,3 +182,69 @@ func (c *AnnounceCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[arbitrary message]", "Restricted command that announces a message to all the log channels of all servers.")
 }
 func (c *AnnounceCommand) UsageShort() string { return "Restricted announcement command." }
+
+type SilenceCommand struct {
+}
+
+func (c *SilenceCommand) Name() string {
+	return "Silence"
+}
+func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must provide a user to silence.```", false
+	}
+	arg := strings.Join(args, " ")
+	IDs := FindUsername(arg)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+	}
+
+	SilenceMember(SBitoa(IDs[0]), info)
+	return "```Silenced " + IDsToUsernames(IDs)[0] + ".```", false
+}
+func (c *SilenceCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user]", "Silences the given user.")
+}
+func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
+
+type UnsilenceCommand struct {
+}
+
+func (c *UnsilenceCommand) Name() string {
+	return "Unsilence"
+}
+func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must provide a user to unsilence.```", false
+	}
+	arg := strings.Join(args, " ")
+	IDs := FindUsername(arg)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+	}
+
+	srole := SBitoa(info.config.SilentRole)
+	userID := SBitoa(IDs[0])
+	m, err := sb.dg.State.Member(info.Guild.ID, userID)
+	if err != nil {
+		return "```Could not get member: " + err.Error(), false
+	}
+	for i := 0; i < len(m.Roles); i++ {
+		if m.Roles[i] == srole {
+			m.Roles = append(m.Roles[:i], m.Roles[i+1:]...)
+			sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles)
+			return "```Unsilenced " + IDsToUsernames(IDs)[0] + ".```", false
+		}
+	}
+	return "```" + IDsToUsernames(IDs)[0] + " wasn't silenced in the first place!```", false
+}
+func (c *UnsilenceCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user]", "Unsilences the given user.")
+}
+func (c *UnsilenceCommand) UsageShort() string { return "Unsilences a user." }

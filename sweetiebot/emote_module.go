@@ -2,7 +2,6 @@ package sweetiebot
 
 import (
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -46,7 +45,7 @@ func (w *EmoteModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
 }
 
 func (w *EmoteModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
-	if info.UserHasRole(m.Author.ID, strconv.FormatUint(info.config.AlertRole, 10)) {
+	if info.UserHasRole(m.Author.ID, SBitoa(info.config.AlertRole)) {
 		return false
 	}
 	return w.HasBigEmote(info, m)

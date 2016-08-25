@@ -51,29 +51,16 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```You must provide a user to search for.```", false
 	}
 	arg := strings.Join(args, " ")
-	var id uint64
-	if userregex.MatchString(arg) {
-		id = SBatoi(arg[2 : len(arg)-1])
-	} else {
-		IDs := sb.db.FindUsers("%"+arg+"%", 20, 0)
-		if len(IDs) == 0 { // no matches!
-			return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
-		}
-		if len(IDs) > 1 {
-			s := []string{}
-
-			for _, v := range IDs {
-				u, _ := sb.db.GetUser(v)
-				s = append(s, u.Username)
-			}
-
-			return "```Could be any of the following users or their aliases:\n" + strings.Join(s, "\n") + "```", len(s) > 5
-		}
-		id = IDs[0]
+	IDs := FindUsername(arg)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
 	}
 
-	r := sb.db.GetAliases(id)
-	u, _ := sb.db.GetUser(id)
+	r := sb.db.GetAliases(IDs[0])
+	u, _ := sb.db.GetUser(IDs[0])
 	return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)
 }
 func (c *AKACommand) Usage(info *GuildInfo) string {
@@ -96,31 +83,18 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	}
 	// get the user ID and deal with Discord's alias bullshit
 	arg := strings.Join(args, " ")
-	var id uint64
-	if userregex.MatchString(arg) {
-		id = SBatoi(arg[2 : len(arg)-1])
-	} else {
-		IDs := sb.db.FindUsers("%"+arg+"%", 20, 0) // how exactly does this work?
-		if len(IDs) == 0 {                         // no matches
-			return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
-		}
-		if len(IDs) > 1 {
-			s := []string{}
-
-			for _, v := range IDs {
-				u, _ := sb.db.GetUser(v)
-				s = append(s, u.Username)
-			}
-
-			return "```Could be any of the following users or their aliases:\n" + strings.Join(s, "\n") + "```", len(s) > 5
-		}
-		id = IDs[0]
+	IDs := FindUsername(arg)
+	if len(IDs) == 0 { // no matches
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
 	}
 	// we're done with our checks
 	// actually ban the user here and send the output. This is probably poorly done.
 	gID := info.Guild.ID
-	u, _ := sb.db.GetUser(id)
-	uID := strconv.FormatUint(id, 10)
+	u, _ := sb.db.GetUser(IDs[0])
+	uID := SBitoa(IDs[0])
 	sb.dg.GuildBanCreate(gID, uID, 1)
 
 	return "```Banned " + u.Username + " from the server. Harmony restored.```", !CheckShutup(msg.ChannelID)
