@@ -187,7 +187,7 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```You can only ping groups you are a member of.```", false
 	}
 
-	sb.dg.ChannelMessageSend(msg.ChannelID, getGroupPings(arg, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
+	sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(arg, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
 	return "", false
 }
 func (c *PingCommand) Usage(info *GuildInfo) string {
