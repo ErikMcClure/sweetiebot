@@ -384,13 +384,17 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 		if len(args) > 3 {
 			data += strings.Join(args[3:], " ")
 		}
-		sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, repeatinterval, repeat, ty, data)
+		if !sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, repeatinterval, repeat, ty, data) {
+			return "```Error: servers can't have more than 5000 events!```", false
+		}
 	} else {
 		if len(args) > 2 {
 			data += strings.Join(args[2:], " ")
 		}
 
-		sb.db.AddSchedule(SBatoi(info.Guild.ID), t, ty, data)
+		if !sb.db.AddSchedule(SBatoi(info.Guild.ID), t, ty, data) {
+			return "```Error: servers can't have more than 5000 events!```", false
+		}
 	}
 
 	return "```Added event to schedule.```", false
@@ -476,7 +480,9 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 	if len(arg) == 0 {
 		return "```What am I reminding you about? I can't send you a blank message!```", false
 	}
-	sb.db.AddSchedule(SBatoi(info.Guild.ID), t, 6, msg.Author.ID+"|"+arg)
+	if !sb.db.AddSchedule(SBatoi(info.Guild.ID), t, 6, msg.Author.ID+"|"+arg) {
+		return "```Error: servers can't have more than 5000 events!```", false
+	}
 	return "Reminder set for " + TimeDiff(t.Sub(time.Now().UTC())) + " from now.", false
 }
 func (c *RemindMeCommand) Usage(info *GuildInfo) string {
@@ -513,8 +519,10 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Error: Invalid ping for member! Make sure you actually ping them via @MemberName, don't just type the name in.```", false
 	}
 
-	sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, 8, 1, 1, ping)                  // Create the normal birthday event at 12 AM on this server's timezone
-	sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t.AddDate(0, 0, 1), 8, 1, 4, ping) // Create the hidden "remove birthday role" event 24 hours later.
+	sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, 8, 1, 1, ping)                        // Create the normal birthday event at 12 AM on this server's timezone
+	if !sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t.AddDate(0, 0, 1), 8, 1, 4, ping) { // Create the hidden "remove birthday role" event 24 hours later.
+		return "```Error: servers can't have more than 5000 events!```", false
+	}
 	return ReplaceAllMentions("```Added a birthday for <@" + ping + ">```"), false
 }
 func (c *AddBirthdayCommand) Usage(info *GuildInfo) string {
