@@ -56,6 +56,7 @@ type BotDB struct {
 	sql_AddScheduleRepeat    *sql.Stmt
 	sql_GetSchedule          *sql.Stmt
 	sql_RemoveSchedule       *sql.Stmt
+	sql_CountEvents          *sql.Stmt
 	sql_GetEvents            *sql.Stmt
 	sql_GetEventsByType      *sql.Stmt
 	sql_GetNextEvent         *sql.Stmt
@@ -134,6 +135,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
 	db.sql_GetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
 	db.sql_RemoveSchedule, err = db.Prepare("CALL RemoveSchedule(?)")
+	db.sql_CountEvents, err = db.Prepare("SELECT COUNT(*) FROM schedule WHERE Guild = ?")
 	db.sql_GetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type != 0 AND Type != 4 AND Type != 6 ORDER BY Date ASC LIMIT ?")
 	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
@@ -497,13 +499,27 @@ func (db *BotDB) RemoveSchedule(id uint64) {
 	_, err := db.sql_RemoveSchedule.Exec(id)
 	db.log.LogError("RemoveSchedule error: ", err)
 }
-func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) {
-	_, err := db.sql_AddSchedule.Exec(guild, date, ty, data)
-	db.log.LogError("AddSchedule error: ", err)
+func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) bool {
+	var i int
+	err := db.sql_CountEvents.QueryRow(guild).Scan(&i)
+	db.log.LogError("sql_CountEvents error: ", err)
+	if err == nil && i < 5000 {
+		_, err = db.sql_AddSchedule.Exec(guild, date, ty, data)
+		db.log.LogError("AddSchedule error: ", err)
+		return err == nil
+	}
+	return false
 }
-func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) {
-	_, err := db.sql_AddScheduleRepeat.Exec(guild, date, repeatinterval, repeat, ty, data)
-	db.log.LogError("AddScheduleRepeat error: ", err)
+func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) bool {
+	var i int
+	err := db.sql_CountEvents.QueryRow(guild).Scan(&i)
+	db.log.LogError("sql_CountEvents error: ", err)
+	if err == nil && i < 5000 {
+		_, err := db.sql_AddScheduleRepeat.Exec(guild, date, repeatinterval, repeat, ty, data)
+		db.log.LogError("AddScheduleRepeat error: ", err)
+		return err == nil
+	}
+	return false
 }
 
 type ScheduleEvent struct {
