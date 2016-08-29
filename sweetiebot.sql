@@ -508,6 +508,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `Verified` bit(1) NOT NULL DEFAULT b'0',
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
+  `Timezone` int(11) DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_USERNAME` (`Username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
