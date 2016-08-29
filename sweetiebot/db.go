@@ -23,7 +23,6 @@ type BotDB struct {
 	sql_AddUser              *sql.Stmt
 	sql_AddMember            *sql.Stmt
 	sql_GetUser              *sql.Stmt
-	sql_GetUserByName        *sql.Stmt
 	sql_FindUsers            *sql.Stmt
 	sql_GetRecentMessages    *sql.Stmt
 	sql_GetNewestUsers       *sql.Stmt
@@ -61,6 +60,8 @@ type BotDB struct {
 	sql_GetEventsByType      *sql.Stmt
 	sql_GetNextEvent         *sql.Stmt
 	sql_GetReminders         *sql.Stmt
+	sql_GetTimeZone          *sql.Stmt
+	sql_SetTimeZone          *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -102,7 +103,6 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
-	db.sql_GetUserByName, err = db.Prepare("SELECT * FROM users WHERE Username = ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sql_GetNewestUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
@@ -140,6 +140,8 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
 	db.sql_GetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
+	db.sql_GetTimeZone, err = db.Prepare("SELECT Timezone FROM users WHERE ID = ?")
+	db.sql_SetTimeZone, err = db.Prepare("UPDATE users SET Timezone = ? WHERE ID = ?")
 	return err
 }
 
@@ -250,10 +252,6 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time) {
 	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen)
 	db.log.LogError("GetUser error: ", err)
 	return u, lastseen
-}
-
-func (db *BotDB) GetUserByName(name string) {
-
 }
 
 func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
@@ -593,4 +591,17 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 		}
 	}
 	return r
+}
+
+func (db *BotDB) GetTimeZone(user uint64) sql.NullInt64 {
+	var i sql.NullInt64
+	err := db.sql_GetTimeZone.QueryRow(user).Scan(&i)
+	db.log.LogError("GetTimeZone error: ", err)
+	return i
+}
+
+func (db *BotDB) SetTimeZone(user uint64, tz int64) error {
+	_, err := db.sql_SetTimeZone.Exec(tz, user)
+	db.log.LogError("SetTimeZone error: ", err)
+	return err
 }

@@ -510,8 +510,9 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&WipeWelcomeCommand{})
 	guild.AddCommand(&SilenceCommand{})
 	guild.AddCommand(&UnsilenceCommand{})
+	guild.AddCommand(&TimeCommand{})
+	guild.AddCommand(&SetTimeZoneCommand{})
 
-	println(guild.commands)
 	if disableall {
 		for k, _ := range guild.commands {
 			guild.config.Command_disabled[k] = true
@@ -524,11 +525,11 @@ func AttachToGuild(g *discordgo.Guild) {
 	go guild.IdleCheckLoop()
 	go guild.SwapStatusLoop()
 
-	debug := ". \n\n"
+	debug := "."
 	if guild.config.Debug {
-		debug = ".\n[DEBUG BUILD]\n\n"
+		debug = ".\n[DEBUG BUILD]"
 	}
-	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug, guild.GetActiveModules(), "\n\n", guild.GetActiveCommands())
+	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug)
 }
 func GetChannelGuild(id string) *GuildInfo {
 	g, ok := sb.GuildChannels[id]
@@ -720,7 +721,6 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
-	fmt.Println("message update")
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
 		original, err := s.ChannelMessage(m.ChannelID, m.ID)
 		if err != nil {
@@ -1018,6 +1018,6 @@ func Initialize(Token string) {
 	}
 
 	fmt.Println("Sweetiebot quitting")
-	sb.db.Close()
 	sb.dg.Logout()
+	sb.db.Close()
 }
