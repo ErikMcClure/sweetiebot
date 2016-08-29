@@ -103,3 +103,62 @@ func (c *BanCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[@user]", "Commands Sweetie Bot to ban a given user.")
 }
 func (c *BanCommand) UsageShort() string { return "Commands Sweetie Bot to ban a given user." }
+
+type TimeCommand struct {
+}
+
+func (c *TimeCommand) Name() string {
+	return "time"
+}
+
+func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```This server's local time is: " + ApplyTimezone(time.Now().UTC(), info).Format("Jan 2, 3:04pm```"), false
+	}
+
+	arg := strings.Join(args, " ")
+	IDs := FindUsername(arg)
+	if len(IDs) == 0 { // no matches
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+	}
+
+	tz := sb.db.GetTimeZone(IDs[0])
+	if !tz.Valid {
+		return "```That user has not specified what their timezone is.```", false
+	}
+	return "```That user's local time is: " + time.Now().UTC().Add(time.Duration(tz.Int64)*time.Hour).Format("Jan 2, 3:04pm```"), false
+}
+func (c *TimeCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user]", "Gets the local time for the specified user, or simply gets the local time for this server.")
+}
+func (c *TimeCommand) UsageShort() string { return "Gets a user's local time." }
+
+type SetTimeZoneCommand struct {
+}
+
+func (c *SetTimeZoneCommand) Name() string {
+	return "settimezone"
+}
+
+func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "You have to specify what your timezone is!", false
+	}
+
+	tz, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return "Could not parse timezone. The timezone must be the number of hours difference between you and GMT. For example, if your timezone is EST, that's GMT-5, so use '-5' as the argument. This does not account for daylight savings!", false
+	}
+
+	if sb.db.SetTimeZone(SBatoi(msg.Author.ID), tz) != nil {
+		return "Error: could not set timezone!", false
+	}
+	return "Set your timezone to " + args[0], false
+}
+func (c *SetTimeZoneCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[timezone]", "Sets your timezone to the given GMT offset, in hours. For example, '-7' would set your timezone to GMT-7, or PDT. This does not account for daylight savings!")
+}
+func (c *SetTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
