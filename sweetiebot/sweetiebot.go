@@ -686,14 +686,14 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				for len(result) > 1999 { // discord has a 2000 character limit
 					if result[0:3] == "```" {
 						index := strings.LastIndex(result[:1996], "\n")
-						if index < 0 {
+						if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
 							index = 1996
 						}
 						info.SendMessage(targetchannel, result[:index]+"```")
 						result = "```" + result[index:]
 					} else {
 						index := strings.LastIndex(result[:1999], "\n")
-						if index < 0 {
+						if index < 10 {
 							index = 1999
 						}
 						info.SendMessage(targetchannel, result[:index])
@@ -1018,6 +1018,6 @@ func Initialize(Token string) {
 	}
 
 	fmt.Println("Sweetiebot quitting")
-	sb.dg.Logout()
+	sb.dg.Close()
 	sb.db.Close()
 }
