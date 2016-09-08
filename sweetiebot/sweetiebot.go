@@ -854,14 +854,16 @@ func ProcessUser(u *discordgo.User) uint64 {
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	ProcessUser(u.User)
 
+	t := time.Now().UTC()
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
-		t, err := time.Parse(time.RFC3339Nano, u.JoinedAt)
-		if err == nil {
-			sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t)
-		} else {
+		var err error
+		t, err = time.Parse(time.RFC3339Nano, u.JoinedAt)
+		if err != nil {
 			fmt.Println(err.Error())
+			return
 		}
 	}
+	sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t, u.Nick)
 }
 
 func ProcessGuildCreate(g *discordgo.Guild) {
@@ -953,7 +955,7 @@ func WaitForInput() {
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 	sb = &SweetieBot{
-		version:            "0.7.9",
+		version:            "0.8.0",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
