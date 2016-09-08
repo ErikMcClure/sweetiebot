@@ -392,3 +392,36 @@ func MigrateSettings(guild *GuildInfo) {
 		guild.SaveConfig()
 	}
 }
+
+func parseCommonTime(s string, info *GuildInfo) (time.Time, error) {
+	t, err := time.ParseInLocation("_2 Jan 06 3:04pm -0700", s, locUTC)
+	tz := time.FixedZone("SBtime", info.config.Timezone*3600)
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2 2006 3:04pm", s, tz)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2 2006 15:04", s, tz)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2 2006", s, tz)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2 3:04pm", s, tz)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2 15:04", s, tz)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("Jan _2", s, tz)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("_2 Jan 06 3:04pm", s, tz)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("_2 Jan 06", s, tz)
+	}
+	return t, err
+}
