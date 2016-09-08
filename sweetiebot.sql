@@ -63,11 +63,11 @@ DELIMITER ;
 
 -- Dumping structure for procedure sweetiebot.AddMember
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME)
-INSERT INTO members (ID, Guild, FirstSeen)
-VALUES (_id, _guild, _firstseen)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME, IN `_nickname` VARCHAR(128))
+INSERT INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange)
+VALUES (_id, _guild, _firstseen, _nickname, UTC_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-FirstSeen=_firstseen//
+FirstSeen=GetMinDate(_firstseen,FirstSeen), Nickname=_nickname//
 DELIMITER ;
 
 
@@ -342,6 +342,26 @@ END//
 DELIMITER ;
 
 
+-- Dumping structure for function sweetiebot.GetMinDate
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `GetMinDate`(`date1` DATETIME, `date2` DATETIME) RETURNS datetime
+    NO SQL
+    DETERMINISTIC
+BEGIN
+IF date1 = '0000-00-00 00:00:00' THEN
+	RETURN date2;
+END IF;
+IF date2 = '0000-00-00 00:00:00' THEN
+	RETURN date1;
+END IF;
+IF date1 < date2 THEN
+	RETURN date1;
+END IF;
+RETURN date2;
+END//
+DELIMITER ;
+
+
 -- Dumping structure for table sweetiebot.markov_transcripts
 CREATE TABLE IF NOT EXISTS `markov_transcripts` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -389,6 +409,8 @@ CREATE TABLE IF NOT EXISTS `members` (
   `ID` bigint(20) unsigned NOT NULL,
   `Guild` bigint(20) unsigned NOT NULL,
   `FirstSeen` datetime NOT NULL,
+  `Nickname` varchar(128) NOT NULL DEFAULT '',
+  `LastNickChange` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`ID`,`Guild`),
   CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -517,7 +539,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 
 -- Dumping structure for trigger sweetiebot.chatlog_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW BEGIN
 DELETE FROM pings WHERE Message = OLD.ID;
@@ -541,29 +563,47 @@ DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
--- Dumping structure for trigger sweetiebot.users_before_update
+-- Dumping structure for trigger sweetiebot.members_before_update
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `members_before_update` BEFORE UPDATE ON `members` FOR EACH ROW BEGIN
+
+IF NEW.Nickname != OLD.Nickname AND OLD.Nickname != '' THEN
+SET NEW.LastNickChange = UTC_TIMESTAMP();
+SET @diff = UNIX_TIMESTAMP(NEW.LastNickChange) - UNIX_TIMESTAMP(OLD.LastNickChange);
+INSERT INTO aliases (User, Alias, Duration)
+VALUES (OLD.ID, OLD.Nickname, @diff)
+ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
+END IF;
+
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+
+-- Dumping structure for trigger sweetiebot.users_before_update
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
 
 IF NEW.Username = '' THEN
-	SET NEW.Username = OLD.Username;
+SET NEW.Username = OLD.Username;
 END IF;
 
 IF NEW.Avatar = '' THEN
-	SET NEW.Avatar = OLD.Avatar;
+SET NEW.Avatar = OLD.Avatar;
 END IF;
 
 IF NEW.Email = '' THEN
-	SET NEW.Email = OLD.Email;
+SET NEW.Email = OLD.Email;
 END IF;
 
 IF NEW.Username != OLD.Username THEN
-	SET NEW.LastNameChange = UTC_TIMESTAMP();
-	SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
-	INSERT INTO aliases (User, Alias, Duration)
-	VALUES (OLD.ID, OLD.Username, @diff)
-	ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
+SET NEW.LastNameChange = UTC_TIMESTAMP();
+SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
+INSERT INTO aliases (User, Alias, Duration)
+VALUES (OLD.ID, OLD.Username, @diff)
+ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
 END IF;
 
 END//
@@ -574,25 +614,8 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 -- Dumping structure for view sweetiebot.randomwords
 -- Removing temporary table and create final VIEW structure
 DROP TABLE IF EXISTS `randomwords`;
-CREATE ALGORITHM=MERGE DEFINER=`root`@`localhost` VIEW `randomwords` AS SELECT Phrase FROM markov_transcripts 
-WHERE Phrase != '.'
-AND Phrase != '!'
-AND Phrase != '?'
-AND Phrase != 'the'
-AND Phrase != 'of'
-AND Phrase != 'a'
-AND Phrase != 'to'
-AND Phrase != 'too'
-AND Phrase != 'as'
-AND Phrase != 'at'
-AND Phrase != 'an'
-AND Phrase != 'am'
-AND Phrase != 'and'
-AND Phrase != 'be'
-AND Phrase != 'he'
-AND Phrase != 'she'
-AND Phrase != ''
-WITH LOCAL CHECK OPTION ;
+CREATE ALGORITHM=MERGE DEFINER=`root`@`localhost` VIEW `randomwords` AS select `markov_transcripts`.`Phrase` AS `Phrase` from `markov_transcripts` where ((`markov_transcripts`.`Phrase` <> '.') and (`markov_transcripts`.`Phrase` <> '!') and (`markov_transcripts`.`Phrase` <> '?') and (`markov_transcripts`.`Phrase` <> 'the') and (`markov_transcripts`.`Phrase` <> 'of') and (`markov_transcripts`.`Phrase` <> 'a') and (`markov_transcripts`.`Phrase` <> 'to') and (`markov_transcripts`.`Phrase` <> 'too') and (`markov_transcripts`.`Phrase` <> 'as') and (`markov_transcripts`.`Phrase` <> 'at') and (`markov_transcripts`.`Phrase` <> 'an') and (`markov_transcripts`.`Phrase` <> 'am') and (`markov_transcripts`.`Phrase` <> 'and') and (`markov_transcripts`.`Phrase` <> 'be') and (`markov_transcripts`.`Phrase` <> 'he') and (`markov_transcripts`.`Phrase` <> 'she') and (`markov_transcripts`.`Phrase` <> '')) 
+ WITH LOCAL CHECK OPTION ;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -101,7 +101,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetPingContext, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
 	db.sql_GetPingContextBefore, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
-	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?)")
+	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID WHERE U.Username LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
@@ -241,8 +241,8 @@ func (db *BotDB) AddUser(id uint64, email string, username string, avatar string
 	db.log.LogError("AddUser error: ", err)
 }
 
-func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time) {
-	_, err := db.sql_AddMember.Exec(id, guild, firstseen)
+func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nickname string) {
+	_, err := db.sql_AddMember.Exec(id, guild, firstseen, nickname)
 	db.log.LogError("AddMember error: ", err)
 }
 
