@@ -21,10 +21,10 @@ func (c *EchoCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		if len(args) < 2 {
 			return "```You have to tell me to say something, silly!```", false
 		}
-		info.SendMessage(arg[2:len(arg)-1], "```"+strings.Join(args[1:], " ")+"```")
+		info.SendMessage(arg[2:len(arg)-1], strings.Join(args[1:], " "))
 		return "", false
 	}
-	return "```" + strings.Join(args, " ") + "```", false
+	return strings.Join(args, " "), false
 }
 func (c *EchoCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[#channel] [string]", "Makes Sweetie Bot say the given sentence in #channel, or in the current channel if no argument is provided.")
