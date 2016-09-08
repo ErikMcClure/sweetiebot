@@ -979,7 +979,7 @@ func Initialize(Token string) {
 	}
 
 	sb.db = db
-	sb.dg, err = discordgo.New(Token)
+	sb.dg, err = discordgo.New("Bot " + Token)
 	if err != nil {
 		fmt.Println("Error creating discord session", err.Error())
 		return
