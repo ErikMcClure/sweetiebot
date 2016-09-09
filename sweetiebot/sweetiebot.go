@@ -635,8 +635,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		alias, ok := info.config.Aliases[arg]
 		if ok {
 			nargs := ParseArguments(alias)
-			arg = strings.ToLower(nargs[0])
-			args = append(nargs[1:], args...)
+			args = append(nargs, args[1:]...)
+			arg = strings.ToLower(args[0])
 		}
 		c, ok := info.commands[arg]
 		if ok {
