@@ -283,7 +283,12 @@ func FindUsername(user string) []uint64 {
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}
-	return sb.db.FindUsers("%"+user+"%", 20, 0)
+	if user[len(user)-1] == '@' {
+		user = user[:len(user)-1]
+	} else {
+		user = "%" + user + "%"
+	}
+	return sb.db.FindUsers(user, 20, 0)
 }
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
@@ -353,6 +358,13 @@ func FindIntSlice(item uint64, s []uint64) bool {
 	}
 	return false
 }
+func getUserName(user uint64) string {
+	u, err := sb.dg.User(SBitoa(user))
+	if err != nil {
+		return "<@" + SBitoa(user) + ">"
+	}
+	return u.Username
+}
 func replacementionhelper(s string) string {
 	u, err := sb.dg.User(StripPing(s))
 	if err != nil {
@@ -363,6 +375,13 @@ func replacementionhelper(s string) string {
 func ReplaceAllMentions(s string) string {
 	return regexp.MustCompile("<@!?[0-9]+>").ReplaceAllStringFunc(s, replacementionhelper)
 }
+func RestrictCommand(v string, guild *GuildInfo) {
+	_, ok := guild.config.Command_roles[v]
+	if !ok && guild.config.AlertRole != 0 {
+		guild.config.Command_roles[v] = make(map[string]bool)
+		guild.config.Command_roles[v][SBitoa(guild.config.AlertRole)] = true
+	}
+}
 
 // migrate settings from earlier config version
 func MigrateSettings(guild *GuildInfo) {
@@ -372,11 +391,7 @@ func MigrateSettings(guild *GuildInfo) {
 			guild.config.Command_roles = make(map[string]map[string]bool)
 		}
 		for _, v := range newcommands {
-			_, ok := guild.config.Command_roles[v]
-			if !ok && guild.config.AlertRole != 0 {
-				guild.config.Command_roles[v] = make(map[string]bool)
-				guild.config.Command_roles[v][SBitoa(guild.config.AlertRole)] = true
-			}
+			RestrictCommand(v, guild)
 		}
 		guild.config.MaxImageSpam = 3
 		guild.config.MaxAttachSpam = 1
@@ -387,8 +402,18 @@ func MigrateSettings(guild *GuildInfo) {
 		guild.config.MaxMessageSpam[12] = 15
 	}
 
-	if guild.config.Version != 1 {
-		guild.config.Version = 1 // set version to most recent config version
+	if guild.config.Version == 1 {
+		if len(guild.config.Aliases) == 0 {
+			guild.config.Aliases = make(map[string]string)
+		}
+		guild.config.Aliases["cute"] = "pick cute"
+		RestrictCommand("new", guild)
+		RestrictCommand("addquote", guild)
+		RestrictCommand("removequote", guild)
+	}
+
+	if guild.config.Version != 2 {
+		guild.config.Version = 2 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }

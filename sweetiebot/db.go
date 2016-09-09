@@ -93,7 +93,7 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 
 func (db *BotDB) LoadStatements() error {
 	var err error
-	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?)")
+	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
 	db.sql_GetLatestMessage, err = db.Prepare("SELECT Timestamp FROM chatlog WHERE Channel = ? ORDER BY Timestamp DESC LIMIT 1")
 	db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message")
@@ -158,8 +158,8 @@ func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 	return r
 }
 
-func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool) {
-	_, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone)
+func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool, guild uint64) {
+	_, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone, guild)
 	db.log.LogError("AddMessage error: ", err)
 }
 
