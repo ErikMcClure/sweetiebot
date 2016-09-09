@@ -114,8 +114,11 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	info.config.ModChannel = SBatoi(modchannel)
 	info.config.FreeChannels = make(map[string]bool)
 	info.config.FreeChannels[SBitoa(SBatoi(free))] = true
+	info.config.Aliases["cute"] = "pick cute"
+	info.config.Aliases["calc"] = "roll"
+	info.config.Aliases["calculate"] = "roll"
 
-	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
+	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome", "new"}
 	modint := SBitoa(info.config.AlertRole)
 
 	for _, v := range sensitive {

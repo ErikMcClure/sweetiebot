@@ -83,6 +83,7 @@ type BotConfig struct {
 	Module_channels       map[string]map[string]bool `json:module_channels`
 	Collections           map[string]map[string]bool `json:"collections"`
 	Groups                map[string]map[string]bool `json:"groups"`
+	Quotes                map[uint64][]string        `json:"quotes"`
 }
 
 type GuildInfo struct {
@@ -477,7 +478,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&LastSeenCommand{})
 	guild.AddCommand(&DumpTablesCommand{})
 	guild.AddCommand(episodegencommand)
-	guild.AddCommand(&QuoteCommand{})
+	guild.AddCommand(&EpisodeQuoteCommand{})
 	guild.AddCommand(&ShipCommand{})
 	guild.AddCommand(&AddWitCommand{wittymodule})
 	guild.AddCommand(&RemoveWitCommand{wittymodule})
@@ -495,7 +496,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&GiveCommand{})
 	guild.AddCommand(&ListCommand{})
 	guild.AddCommand(&FightCommand{"", 0})
-	guild.AddCommand(&CuteCommand{})
+	guild.AddCommand(&PickCommand{})
 	guild.AddCommand(&RollCommand{})
 	guild.AddCommand(&ListGuildsCommand{})
 	guild.AddCommand(&AnnounceCommand{})
@@ -512,6 +513,12 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&UnsilenceCommand{})
 	guild.AddCommand(&TimeCommand{})
 	guild.AddCommand(&SetTimeZoneCommand{})
+	guild.AddCommand(&NewCommand{})
+	guild.AddCommand(&SearchCollectionCommand{})
+	guild.AddCommand(&QuoteCommand{})
+	guild.AddCommand(&AddQuoteCommand{})
+	guild.AddCommand(&RemoveQuoteCommand{})
+	guild.AddCommand(&SearchQuoteCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -591,7 +598,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone)
+		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
 		SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
@@ -621,7 +628,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		arg := strings.ToLower(args[0])
 		alias, ok := info.config.Aliases[arg]
 		if ok {
-			arg = alias
+			nargs := ParseArguments(alias)
+			arg = strings.ToLower(nargs[0])
+			args = append(nargs[1:], args...)
 		}
 		c, ok := info.commands[arg]
 		if ok {
@@ -738,7 +747,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	}
 	cid := SBatoi(m.ChannelID)
 	if cid != info.config.LogChannel && !private && SBatoi(ch.GuildID) == sb.MainGuildID { // Always ignore messages from the log channel
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone)
+		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) {
 		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageUpdate[i]) {
@@ -955,7 +964,7 @@ func WaitForInput() {
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 	sb = &SweetieBot{
-		version:            "0.8.0",
+		version:            "0.8.1",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
