@@ -106,6 +106,7 @@ type SweetieBot struct {
 	Owners             map[uint64]bool
 	RestrictedCommands map[string]bool
 	MainGuildID        uint64
+	DBGuilds           map[uint64]bool
 	DebugChannels      map[string]string
 	quit               bool
 	guilds             map[string]*GuildInfo
@@ -122,6 +123,10 @@ var locUTC = time.FixedZone("UTC", 0)
 
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
 	return SBatoi(info.Guild.ID) == sbot.MainGuildID
+}
+func (sbot *SweetieBot) IsDBGuild(info *GuildInfo) bool {
+	_, ok := sbot.DBGuilds[SBatoi(info.Guild.ID)]
+	return ok
 }
 func (info *GuildInfo) AddCommand(c Command) {
 	info.commands[strings.ToLower(c.Name())] = c
@@ -585,10 +590,10 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	var info *GuildInfo
-	ismainguild := true
+	isdbguild := true
 	if !private {
 		info = GetChannelGuild(m.ChannelID)
-		ismainguild = SBatoi(ch.GuildID) == sb.MainGuildID
+		isdbguild = sb.IsDBGuild(info)
 	} else {
 		info = sb.guilds[SBitoa(sb.MainGuildID)]
 	}
@@ -598,7 +603,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 
-	if cid != info.config.LogChannel && !private && ismainguild { // Log this message if it was sent to the main guild only.
+	if cid != info.config.LogChannel && !private && isdbguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
@@ -642,7 +647,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if disabled && !isOwner {
 				return
 			}
-			if restricted && !ismainguild {
+			if restricted && !isdbguild {
 				return
 			}
 			if !private && len(cch) > 0 {
@@ -747,7 +752,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 		private = ch.IsPrivate
 	}
 	cid := SBatoi(m.ChannelID)
-	if cid != info.config.LogChannel && !private && SBatoi(ch.GuildID) == sb.MainGuildID { // Always ignore messages from the log channel
+	if cid != info.config.LogChannel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) {
@@ -965,10 +970,11 @@ func WaitForInput() {
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 	sb = &SweetieBot{
-		version:            "0.8.1",
+		version:            "0.8.2",
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
+		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
 		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               false,

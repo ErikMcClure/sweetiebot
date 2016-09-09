@@ -105,6 +105,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 
 	// Assemble query string and parameter list
 	params := make([]interface{}, 0, 3)
+	params = append(params, SBatoi(info.Guild.ID))
 	query := ""
 
 	if len(userIDs) > 0 {
@@ -160,8 +161,8 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	// if not cached, prepare the statement and store it in a map.
 	stmt, ok := c.statements[querylimit]
 	if !ok {
-		stmt1, err := sb.db.Prepare("SELECT COUNT(*) FROM chatlog C WHERE " + query)
-		stmt2, err2 := sb.db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE " + querylimit)
+		stmt1, err := sb.db.Prepare("SELECT COUNT(*) FROM chatlog C WHERE C.Guild = ? AND " + query)
+		stmt2, err2 := sb.db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.Guild = ? AND " + querylimit)
 		if err == nil {
 			err = err2
 		}
