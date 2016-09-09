@@ -519,6 +519,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&AddQuoteCommand{})
 	guild.AddCommand(&RemoveQuoteCommand{})
 	guild.AddCommand(&SearchQuoteCommand{})
+	guild.AddCommand(&RemoveAliasCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {

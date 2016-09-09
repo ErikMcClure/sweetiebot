@@ -19,7 +19,7 @@ func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, info *G
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	u, lastseen := sb.db.GetUser(IDs[0])

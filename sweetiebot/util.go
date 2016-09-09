@@ -77,12 +77,20 @@ func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
 
-func IDsToUsernames(IDs []uint64) []string {
+func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 	s := make([]string, 0, len(IDs))
 
 	for _, v := range IDs {
-		u, _ := sb.db.GetUser(v)
-		s = append(s, u.Username)
+		m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(v))
+		if err == nil {
+			if len(m.Nick) > 0 {
+				s = append(s, m.Nick)
+			}
+			s = append(s, m.User.Username)
+		} else {
+			u, _ := sb.db.GetUser(v)
+			s = append(s, u.Username)
+		}
 	}
 	return s
 }
@@ -358,7 +366,14 @@ func FindIntSlice(item uint64, s []uint64) bool {
 	}
 	return false
 }
-func getUserName(user uint64) string {
+func getUserName(user uint64, info *GuildInfo) string {
+	m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(user))
+	if err == nil {
+		if len(m.Nick) > 0 {
+			return m.Nick
+		}
+		return m.User.Username
+	}
 	u, err := sb.dg.User(SBitoa(user))
 	if err != nil {
 		return "<@" + SBitoa(user) + ">"
@@ -412,8 +427,12 @@ func MigrateSettings(guild *GuildInfo) {
 		RestrictCommand("removequote", guild)
 	}
 
-	if guild.config.Version != 2 {
-		guild.config.Version = 2 // set version to most recent config version
+	if guild.config.Version == 2 {
+		RestrictCommand("removealias", guild)
+	}
+
+	if guild.config.Version != 3 {
+		guild.config.Version = 3 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
