@@ -14,7 +14,7 @@ func (w *PingModule) Name() string {
 }
 
 func (w *PingModule) Register(info *GuildInfo) {
-	if sb.IsMainGuild(info) {
+	if sb.IsDBGuild(info) {
 		info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 		info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
 	}
@@ -25,7 +25,7 @@ func (w *PingModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 }
 
 func SBAddPings(info *GuildInfo, m *discordgo.Message) {
-	if sb.IsMainGuild(info) {
+	if sb.IsDBGuild(info) {
 		id := SBatoi(m.ID)
 		for _, v := range m.Mentions {
 			sb.db.AddPing(id, SBatoi(v.ID))

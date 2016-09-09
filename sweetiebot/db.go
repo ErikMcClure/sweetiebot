@@ -15,7 +15,6 @@ type BotDB struct {
 	log                      Logger
 	sql_AddMessage           *sql.Stmt
 	sql_GetMessage           *sql.Stmt
-	sql_GetLatestMessage     *sql.Stmt
 	sql_AddPing              *sql.Stmt
 	sql_GetPing              *sql.Stmt
 	sql_GetPingContext       *sql.Stmt
@@ -96,7 +95,6 @@ func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
-	db.sql_GetLatestMessage, err = db.Prepare("SELECT Timestamp FROM chatlog WHERE Channel = ? ORDER BY Timestamp DESC LIMIT 1")
 	db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message")
 	db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR (C.Everyone = 1 AND C.Channel != ?) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
 	db.sql_GetPingContext, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
@@ -105,7 +103,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
-	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
+	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sql_GetNewestUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
 	db.sql_GetRecentUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sql_GetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
@@ -177,17 +175,6 @@ func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
 	db.log.LogError("GetMessage error: ", err)
 	return author, message, timestamp, channel
 }
-
-func (db *BotDB) GetLatestMessage(channel uint64) time.Time {
-	var timestamp time.Time
-	err := db.sql_GetLatestMessage.QueryRow(channel).Scan(&timestamp)
-	if err == sql.ErrNoRows {
-		return time.Now().UTC()
-	}
-	db.log.LogError("GetLatestMessage error: ", err)
-	return timestamp
-}
-
 func (db *BotDB) AddPing(message uint64, user uint64) {
 	_, err := db.sql_AddPing.Exec(message, user)
 	db.log.LogError("AddPing error: ", err)
@@ -270,11 +257,11 @@ func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint
 	return r
 }
 
-func (db *BotDB) GetRecentMessages(user uint64, duration uint64) []struct {
+func (db *BotDB) GetRecentMessages(user uint64, duration uint64, guild uint64) []struct {
 	message uint64
 	channel uint64
 } {
-	q, err := db.sql_GetRecentMessages.Query(user, duration)
+	q, err := db.sql_GetRecentMessages.Query(guild, user, duration)
 	db.log.LogError("GetRecentMessages error: ", err)
 	defer q.Close()
 	r := make([]struct {

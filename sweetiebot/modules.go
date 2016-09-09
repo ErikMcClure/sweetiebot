@@ -128,7 +128,7 @@ func (info *GuildInfo) GetActiveCommands() string {
 		str := v.Name()
 		_, disabled := info.config.Command_disabled[strings.ToLower(str)]
 		_, restricted := sb.RestrictedCommands[strings.ToLower(str)]
-		if restricted && sb.MainGuildID != SBatoi(info.Guild.ID) {
+		if restricted && !sb.IsDBGuild(info) {
 			str += " [not available]"
 		} else if disabled {
 			str += " [disabled]"
