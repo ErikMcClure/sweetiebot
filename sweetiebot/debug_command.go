@@ -256,6 +256,10 @@ func (c *RemoveAliasCommand) Name() string {
 	return "RemoveAlias"
 }
 func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+	if !isOwner {
+		return "```Only the owner of the bot itself can call this!```", false
+	}
 	if len(args) < 1 {
 		return "```You must PING the user you want to remove an alias from.```", false
 	}
