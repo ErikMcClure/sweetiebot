@@ -85,8 +85,9 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 		if err == nil {
 			if len(m.Nick) > 0 {
 				s = append(s, m.Nick)
+			} else {
+				s = append(s, m.User.Username)
 			}
-			s = append(s, m.User.Username)
 		} else {
 			u, _ := sb.db.GetUser(v)
 			s = append(s, u.Username)
