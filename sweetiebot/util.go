@@ -289,6 +289,9 @@ func BuildMarkov(season_start int, episode_start int) {
 }
 
 func FindUsername(user string) []uint64 {
+	if len(user) <= 0 {
+		return []uint64{}
+	}
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}

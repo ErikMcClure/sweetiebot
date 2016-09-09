@@ -151,7 +151,13 @@ func (c *SearchQuoteCommand) Name() string {
 }
 func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
-		return "```Must specify username.```", false
+		s := make([]uint64, 0, len(info.config.Quotes))
+		for k, v := range info.config.Quotes {
+			if len(v) > 0 { // Map entries can have 0 quotes associated with them
+				s = append(s, k)
+			}
+		}
+		return "```The following users have at least one quote:\n" + strings.Join(IDsToUsernames(s, info), "\n") + "```", false
 	}
 
 	arg := strings.ToLower(args[0])
