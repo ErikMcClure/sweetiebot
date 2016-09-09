@@ -31,7 +31,7 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxrows > 3 {
 		maxrows = 3
 	}
-	id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index-1, info.config.ModChannel)
+	id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index-1, info.config.ModChannel, SBatoi(info.Guild.ID))
 	if id == 0 {
 		return "```No recent pings in the chat log.```", false
 	}
