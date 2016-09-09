@@ -56,7 +56,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	r := sb.db.GetAliases(IDs[0])
@@ -88,7 +88,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 	// we're done with our checks
 	// actually ban the user here and send the output. This is probably poorly done.
@@ -122,7 +122,7 @@ func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	tz := sb.db.GetTimeZone(IDs[0])

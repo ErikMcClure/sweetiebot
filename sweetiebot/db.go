@@ -62,6 +62,7 @@ type BotDB struct {
 	sql_GetReminders         *sql.Stmt
 	sql_GetTimeZone          *sql.Stmt
 	sql_SetTimeZone          *sql.Stmt
+	sql_RemoveAlias          *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -142,6 +143,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetTimeZone, err = db.Prepare("SELECT Timezone FROM users WHERE ID = ?")
 	db.sql_SetTimeZone, err = db.Prepare("UPDATE users SET Timezone = ? WHERE ID = ?")
+	db.sql_RemoveAlias, err = db.Prepare("DELETE FROM aliases WHERE User = ? AND Alias = ?")
 	return err
 }
 
@@ -604,4 +606,9 @@ func (db *BotDB) SetTimeZone(user uint64, tz int64) error {
 	_, err := db.sql_SetTimeZone.Exec(tz, user)
 	db.log.LogError("SetTimeZone error: ", err)
 	return err
+}
+
+func (db *BotDB) RemoveAlias(user uint64, alias string) {
+	_, err := db.sql_RemoveAlias.Exec(user, alias)
+	db.log.LogError("RemoveAlias error: ", err)
 }
