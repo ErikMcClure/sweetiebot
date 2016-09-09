@@ -55,6 +55,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 		if err != nil {
 			return "```Could not parse quote index. Make sure your username is in quotes.```", false
 		}
+		i--
 		if i >= l || i < 0 {
 			return "```Invalid quote index. Use !searchquote [user] to list a user's quotes and their indexes.```", false
 		}
