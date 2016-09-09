@@ -204,7 +204,7 @@ func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message,
 	}
 
 	if len(results) > 0 {
-		return "```The following collection entries match your query:\n" + strings.Join(results, "\n") + "```", len(results) > 6
+		return "```The following collection entries match your query:\n" + ExtraSanitize(strings.Join(results, "\n")) + "```", len(results) > 6
 	}
 	return "```No results found in the " + collection + " collection.```", false
 }
