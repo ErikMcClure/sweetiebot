@@ -1,12 +1,13 @@
 package main
 
 import (
-  "../sweetiebot"
 	"io/ioutil"
-  "strings"
+	"strings"
+
+	"../sweetiebot"
 )
 
 func main() {
-  token, _ := ioutil.ReadFile("token")
-  sweetiebot.Initialize(strings.TrimSpace(string(token)))
+	token, _ := ioutil.ReadFile("token")
+	sweetiebot.Initialize(strings.TrimSpace(string(token)))
 }
