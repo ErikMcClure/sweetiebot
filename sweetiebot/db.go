@@ -96,7 +96,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
 	db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message")
-	db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE P.User = ? OR (C.Everyone = 1 AND C.Channel != ?) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
+	db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE C.Guild = ? AND (P.User = ? OR (C.Everyone = 1 AND C.Channel != ?)) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
 	db.sql_GetPingContext, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
 	db.sql_GetPingContextBefore, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
@@ -180,10 +180,10 @@ func (db *BotDB) AddPing(message uint64, user uint64) {
 	db.log.LogError("AddPing error: ", err)
 }
 
-func (db *BotDB) GetPing(user uint64, offset int, modchannel uint64) (uint64, uint64) {
+func (db *BotDB) GetPing(user uint64, offset int, modchannel uint64, guild uint64) (uint64, uint64) {
 	var id uint64
 	var channel uint64
-	err := db.sql_GetPing.QueryRow(user, modchannel, offset).Scan(&id, &channel)
+	err := db.sql_GetPing.QueryRow(guild, user, modchannel, offset).Scan(&id, &channel)
 	if err == sql.ErrNoRows {
 		return 0, 0
 	}
