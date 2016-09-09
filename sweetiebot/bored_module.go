@@ -29,11 +29,11 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 		if disable < 0 {
 			disable = 0
 		}
-		if disable > 3 {
-			disable = 3
+		if disable > 4 {
+			disable = 4
 		}
 
-		switch rand.Intn(4 - disable) {
+		switch rand.Intn(5 - disable) {
 		case 0:
 			if len(info.config.Collections["bored"]) > 0 {
 				info.SendMessage(id, MapGetRandomItem(info.config.Collections["bored"]))
@@ -50,6 +50,11 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 			r, _ := q.Process([]string{}, m, info) // We pass in nil for the user because this particular function ignores it.
 			info.SendMessage(id, r)
 		case 3:
+			q := &EpisodeQuoteCommand{}
+			m := &discordgo.Message{ChannelID: id}
+			r, _ := q.Process([]string{}, m, info) // We pass in nil for the user because this particular function ignores it.
+			info.SendMessage(id, r)
+		case 4:
 			m := &discordgo.Message{ChannelID: id}
 			r, _ := w.Episodegen.Process([]string{"2"}, m, info)
 			info.SendMessage(id, r)
