@@ -199,11 +199,11 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *Gu
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	SilenceMember(SBitoa(IDs[0]), info)
-	return "```Silenced " + IDsToUsernames(IDs)[0] + ".```", false
+	return "```Silenced " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *SilenceCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user]", "Silences the given user.")
@@ -226,7 +226,7 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	srole := SBitoa(info.config.SilentRole)
@@ -239,12 +239,33 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *
 		if m.Roles[i] == srole {
 			m.Roles = append(m.Roles[:i], m.Roles[i+1:]...)
 			sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles)
-			return "```Unsilenced " + IDsToUsernames(IDs)[0] + ".```", false
+			return "```Unsilenced " + IDsToUsernames(IDs, info)[0] + ".```", false
 		}
 	}
-	return "```" + IDsToUsernames(IDs)[0] + " wasn't silenced in the first place!```", false
+	return "```" + IDsToUsernames(IDs, info)[0] + " wasn't silenced in the first place!```", false
 }
 func (c *UnsilenceCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user]", "Unsilences the given user.")
 }
 func (c *UnsilenceCommand) UsageShort() string { return "Unsilences a user." }
+
+type RemoveAliasCommand struct {
+}
+
+func (c *RemoveAliasCommand) Name() string {
+	return "RemoveAlias"
+}
+func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must PING the user you want to remove an alias from.```", false
+	}
+	if len(args) < 2 {
+		return "```You must provide an alias to remove.```", false
+	}
+	sb.db.RemoveAlias(PingAtoi(args[0]), strings.Join(args[1:], " "))
+	return "```Attempted to remove the alias. Use !aka to check if it worked.```", false
+}
+func (c *RemoveAliasCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user] [alias]", "Removes the alias for the given user. The user must be pinged, and the alias must match precisely.")
+}
+func (c *RemoveAliasCommand) UsageShort() string { return "Removes an alias." }

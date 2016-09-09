@@ -27,7 +27,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 
 		for k, v := range info.config.Quotes {
 			if i < len(v) {
-				return "**" + getUserName(k) + "**: " + v[i], false
+				return "**" + getUserName(k, info) + "**: " + v[i], false
 			}
 			i -= len(v)
 		}
@@ -40,7 +40,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	q, ok := info.config.Quotes[IDs[0]]
@@ -60,7 +60,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 			return "```Invalid quote index. Use !searchquote [user] to list a user's quotes and their indexes.```", false
 		}
 	}
-	return "**" + getUserName(IDs[0]) + "**: " + q[i], false
+	return "**" + IDsToUsernames(IDs, info)[0] + "**: " + q[i], false
 }
 func (c *QuoteCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user] [quote index]", "If no arguments are specified, returns a random quote. If a user is specified, returns a random quote from that user. If a quote index is specified, returns that specific quote.")
@@ -87,7 +87,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *G
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	if len(info.config.Quotes) == 0 {
@@ -95,7 +95,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 	info.config.Quotes[IDs[0]] = append(info.config.Quotes[IDs[0]], strings.Join(args[1:], " "))
 	info.SaveConfig()
-	return "```Quote added to " + getUserName(IDs[0]) + ".```", false
+	return "```Quote added to " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *AddQuoteCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user] [quote]", "Adds a quote to the quote database for the given user. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches.")
@@ -127,7 +127,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
 	index--
@@ -136,7 +136,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info
 	}
 	info.config.Quotes[IDs[0]] = append(info.config.Quotes[IDs[0]][:index], info.config.Quotes[IDs[0]][index+1:]...)
 	info.SaveConfig()
-	return "```Deleted quote #" + strconv.Itoa(index+1) + " from " + getUserName(IDs[0]) + ".```", false
+	return "```Deleted quote #" + strconv.Itoa(index+1) + " from " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *RemoveQuoteCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user] [quote index]", "Removes the quote with the given quote index from the user's set of quotes. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches.")
@@ -160,7 +160,7 @@ func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs), "\n") + "```", len(IDs) > 5
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 	l := len(info.config.Quotes[IDs[0]])
 	if l == 0 {
@@ -170,7 +170,7 @@ func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info
 	for i := 0; i < l; i++ {
 		quotes[i] = strconv.Itoa(i+1) + ". " + info.config.Quotes[IDs[0]][i]
 	}
-	return "All quotes for " + getUserName(IDs[0]) + ":\n" + strings.Join(quotes, "\n"), l > 6
+	return "All quotes for " + IDsToUsernames(IDs, info)[0] + ":\n" + strings.Join(quotes, "\n"), l > 6
 }
 func (c *SearchQuoteCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user]", "Lists all quotes for the given user.")
