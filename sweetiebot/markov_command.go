@@ -61,18 +61,16 @@ func (c *EpisodeGenCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[lines] [single]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5. Uses double-lookback by default, but can revert to single-lookback if [single] is specified.")
 }
 func (c *EpisodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
-func (c *EpisodeGenCommand) Roles() []string    { return []string{} }
-func (c *EpisodeGenCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
-type QuoteCommand struct {
+type EpisodeQuoteCommand struct {
 }
 
 var quoteargregex = regexp.MustCompile("s[0-9]+e[0-9]+")
 
-func (c *QuoteCommand) Name() string {
-	return "Quote"
+func (c *EpisodeQuoteCommand) Name() string {
+	return "EpisodeQuote"
 }
-func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if !CheckShutup(msg.ChannelID) {
 		return "", false
 	}
@@ -133,12 +131,12 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 	}
 	return strings.Join(process, "\n"), len(process) > info.config.MaxPMlines
 }
-func (c *QuoteCommand) Usage(info *GuildInfo) string {
+func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[S0E00:000-000|action|speech|\"Character Name\"]", "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of "+strconv.Itoa(info.config.Maxquotelines)+" lines, but a line count above 5 will be sent in a private message. Example: !quote S4E22:7-14\n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.")
 }
-func (c *QuoteCommand) UsageShort() string { return "Quotes random or specific lines from the show." }
-func (c *QuoteCommand) Roles() []string    { return []string{} }
-func (c *QuoteCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
+func (c *EpisodeQuoteCommand) UsageShort() string {
+	return "Quotes random or specific lines from the show."
+}
 
 type ShipCommand struct {
 }
@@ -197,8 +195,6 @@ func (c *ShipCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[first] [second]", "Generates a random pairing of ponies from the show. If a first or second argument is supplied, uses those ponies instead.")
 }
 func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
-func (c *ShipCommand) Roles() []string    { return []string{} }
-func (c *ShipCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 type BestPonyCommand struct {
 }
@@ -228,5 +224,3 @@ func (c *BestPonyCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "", "Generates a random pony name.")
 }
 func (c *BestPonyCommand) UsageShort() string { return "Generates a random pony name." }
-func (c *BestPonyCommand) Roles() []string    { return []string{} }
-func (c *BestPonyCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }

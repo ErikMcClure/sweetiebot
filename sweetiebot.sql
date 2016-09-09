@@ -17,14 +17,14 @@ USE `sweetiebot`;
 
 -- Dumping structure for procedure sweetiebot.AddChat
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT, IN `_guild` BIGINT)
     DETERMINISTIC
 BEGIN
 
 CALL SawUser(_author);
 
-INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone)
-VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone)
+INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
+VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone, _guild)
 ON DUPLICATE KEY UPDATE /* This prevents a race condition from causing a serious error */
 Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Everyone=_everyone;
 
@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   `Timestamp` datetime NOT NULL,
   `Channel` bigint(20) unsigned NOT NULL,
   `Everyone` bit(1) NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`),
   KEY `INDEX_CHANNEL` (`Channel`),
@@ -151,6 +152,7 @@ CREATE TABLE IF NOT EXISTS `editlog` (
   `Timestamp` datetime NOT NULL,
   `Channel` bigint(20) unsigned NOT NULL,
   `Everyone` bit(1) NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`),
   KEY `INDEX_CHANNEL` (`Channel`),
@@ -554,8 +556,8 @@ SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTIT
 DELIMITER //
 CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW BEGIN
 
-INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone)
-VALUES (OLD.ID, OLD.Author, OLD.Message, OLD.Timestamp, OLD.Channel, OLD.Everyone)
+INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
+VALUES (OLD.ID, OLD.Author, OLD.Message, OLD.Timestamp, OLD.Channel, OLD.Everyone, OLD.Guild)
 ON DUPLICATE KEY UPDATE ID = OLD.ID;
 
 END//
