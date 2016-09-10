@@ -157,7 +157,7 @@ func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info
 				s = append(s, k)
 			}
 		}
-		return "```The following users have at least one quote:\n" + strings.Join(IDsToUsernames(s, info), "\n") + "```", false
+		return "```The following users have at least one quote:\n" + strings.Join(IDsToUsernames(s, info), "\n") + "```", len(s) > 6
 	}
 
 	arg := strings.ToLower(args[0])

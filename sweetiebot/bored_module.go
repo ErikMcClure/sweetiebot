@@ -1,7 +1,7 @@
 package sweetiebot
 
 import (
-	"math/rand"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -24,46 +24,17 @@ func (w *BoredModule) Register(info *GuildInfo) {
 func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
 
-	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) {
-		disable := info.config.DisableBored
-		if disable < 0 {
-			disable = 0
-		}
-		if disable > 4 {
-			disable = 4
+	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.BoredCommands) > 0 {
+		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.BoredCommands),
+			Author: &discordgo.User{
+				ID:       sb.SelfID,
+				Username: "Sweetie",
+				Verified: true,
+				Bot:      true,
+			},
 		}
 
-		switch rand.Intn(5 - disable) {
-		case 0:
-			if len(info.config.Collections["bored"]) > 0 {
-				info.SendMessage(id, MapGetRandomItem(info.config.Collections["bored"]))
-			}
-		case 1:
-			if len(info.config.Collections["bucket"]) > 0 {
-				info.SendMessage(id, "Throws "+BucketDropRandom(info))
-			} else {
-				info.SendMessage(id, "[Realizes her bucket is empty]")
-			}
-		case 2:
-			q := &QuoteCommand{}
-			m := &discordgo.Message{ChannelID: id}
-			r, _ := q.Process([]string{}, m, info) // We pass in nil for the user because this particular function ignores it.
-			info.SendMessage(id, r)
-		case 3:
-			q := &EpisodeQuoteCommand{}
-			m := &discordgo.Message{ChannelID: id}
-			r, _ := q.Process([]string{}, m, info) // We pass in nil for the user because this particular function ignores it.
-			info.SendMessage(id, r)
-		case 4:
-			m := &discordgo.Message{ChannelID: id}
-			r, _ := w.Episodegen.Process([]string{"2"}, m, info)
-			info.SendMessage(id, r)
-			//case 3: // Removed because tchernobog hates fun
-			//  q := &BestPonyCommand{};
-			//  m := &discordgo.Message{ChannelID: id}
-			//  r, _ := q.Process([]string{}, m) // We pass in nil for the user because this particular function ignores it.
-			//  info.SendMessage(id, r)
-		}
+		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), false, info.IsDebug(m.ChannelID), nil)
 	}
 }
 

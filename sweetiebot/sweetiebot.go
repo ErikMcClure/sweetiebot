@@ -38,11 +38,11 @@ type ModuleHooks struct {
 
 type BotConfig struct {
 	Version               int                        `json:"version"`
-	Debug                 bool                       `json:"debug"`
 	Maxerror              int64                      `json:"maxerror"`
 	Maxwit                int64                      `json:"maxwit"`
 	Maxbored              int64                      `json:"maxbored"`
 	DisableBored          int                        `json:"disablebored"`
+	BoredCommands         map[string]bool            `json:"boredcommands"`
 	MaxPMlines            int                        `json:"maxpmlines"`
 	Maxquotelines         int                        `json:"maxquotelines"`
 	Maxsearchresults      int                        `json:"maxsearchresults"`
@@ -101,6 +101,7 @@ type GuildInfo struct {
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
+	Debug              bool
 	version            string
 	SelfID             string
 	Owners             map[uint64]bool
@@ -336,6 +337,12 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[g.ID]
+	if sb.Debug {
+		_, ok := sb.DebugChannels[g.ID]
+		if !ok {
+			return
+		}
+	}
 	if exists {
 		guild.ProcessGuild(g)
 		return
@@ -409,9 +416,6 @@ func AttachToGuild(g *discordgo.Guild) {
 
 	if sb.IsMainGuild(guild) {
 		sb.db.log = guild.log
-	}
-	if guild.config.Debug { // The server does not necessarily tie a standard input to the program
-		go WaitForInput()
 	}
 
 	sb.guilds[g.ID] = guild
@@ -539,7 +543,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	go guild.SwapStatusLoop()
 
 	debug := "."
-	if guild.config.Debug {
+	if sb.Debug {
 		debug = ".\n[DEBUG BUILD]"
 	}
 	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug)
@@ -573,48 +577,7 @@ func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) {
 		}
 	})
 }
-func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
-		return
-	}
-
-	t := time.Now().UTC().Unix()
-	sb.LastMessages[m.ChannelID] = t
-
-	ch, err := sb.dg.State.Channel(m.ChannelID)
-	private := true
-	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-		private = ch.IsPrivate
-	} else {
-		fmt.Println("Error retrieving channel "+m.ChannelID+": ", err.Error())
-	}
-
-	var info *GuildInfo
-	isdbguild := true
-	if !private {
-		info = GetChannelGuild(m.ChannelID)
-		isdbguild = sb.IsDBGuild(info)
-	} else {
-		info = sb.guilds[SBitoa(sb.MainGuildID)]
-	}
-	cid := SBatoi(m.ChannelID)
-	isdebug := info.IsDebug(m.ChannelID)
-	if isdebug && !info.config.Debug {
-		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
-	}
-
-	if cid != info.config.LogChannel && !private && isdbguild { // Log this message if it was sent to the main guild only.
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
-	}
-	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
-		SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
-		return
-	}
-
-	if boolXOR(info.config.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
-		return
-	}
-
+func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, private bool, isdebug bool, err error) {
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
 		_, isfree := info.config.FreeChannels[m.ChannelID]
@@ -623,7 +586,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		ignore := false
 		ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
 			if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) {
-				ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m.Message)
+				ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
 			}
 		})
 		if ignore && !isOwner { // if true, a module wants us to ignore this command
@@ -682,7 +645,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				info.command_last[m.ChannelID][cmdname] = t
 			}
 
-			result, usepm := c.Process(args[1:], m.Message, info)
+			result, usepm := c.Process(args[1:], m, info)
 			if len(result) > 0 {
 				targetchannel := m.ChannelID
 				if usepm && !private {
@@ -725,15 +688,60 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else {
 		ApplyFuncRange(len(info.hooks.OnMessageCreate), func(i int) {
 			if info.ProcessModule(m.ChannelID, info.hooks.OnMessageCreate[i]) {
-				info.hooks.OnMessageCreate[i].OnMessageCreate(info, m.Message)
+				info.hooks.OnMessageCreate[i].OnMessageCreate(info, m)
 			}
 		})
 	}
 }
 
+func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
+		return
+	}
+
+	t := time.Now().UTC().Unix()
+	sb.LastMessages[m.ChannelID] = t
+
+	ch, err := sb.dg.State.Channel(m.ChannelID)
+	private := true
+	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
+		private = ch.IsPrivate
+	} else {
+		fmt.Println("Error retrieving channel "+m.ChannelID+": ", err.Error())
+	}
+
+	var info *GuildInfo
+	isdbguild := true
+	if !private {
+		info = GetChannelGuild(m.ChannelID)
+		isdbguild = sb.IsDBGuild(info)
+	} else {
+		info = sb.guilds[SBitoa(sb.MainGuildID)]
+	}
+	cid := SBatoi(m.ChannelID)
+	isdebug := info.IsDebug(m.ChannelID)
+	if isdebug && !sb.Debug {
+		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
+	}
+
+	if cid != info.config.LogChannel && !private && isdbguild { // Log this message if it was sent to the main guild only.
+		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+	}
+	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
+		SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
+		return
+	}
+
+	if boolXOR(sb.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
+		return
+	}
+
+	SBProcessCommand(s, m.Message, info, t, isdbguild, private, isdebug, err)
+}
+
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	info := GetChannelGuild(m.ChannelID)
-	if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) {
+	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
@@ -763,7 +771,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 	info := GetChannelGuild(m.ChannelID)
-	if boolXOR(info.config.Debug, info.IsDebug(m.ChannelID)) {
+	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
 	ApplyFuncRange(len(info.hooks.OnMessageDelete), func(i int) {
@@ -932,7 +940,7 @@ func ApplyFuncRange(length int, fn func(i int)) {
 func (info *GuildInfo) IdleCheckLoop() {
 	for !sb.quit {
 		channels := info.Guild.Channels
-		if info.config.Debug { // override this in debug mode
+		if sb.Debug { // override this in debug mode
 			c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
 			if err == nil {
 				channels = []*discordgo.Channel{c}
@@ -969,8 +977,11 @@ func WaitForInput() {
 
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
+	isdebug, err := ioutil.ReadFile("isdebug")
+
 	sb = &SweetieBot{
-		version:            "0.8.2",
+		version:            "0.8.3",
+		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
@@ -1022,6 +1033,10 @@ func Initialize(Token string) {
 
 	sb.db.LoadStatements()
 	fmt.Println("Finished loading database statements")
+
+	if sb.Debug { // The server does not necessarily tie a standard input to the program
+		go WaitForInput()
+	}
 
 	//BuildMarkov(1, 1)
 	//return

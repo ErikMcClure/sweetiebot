@@ -131,7 +131,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 			}
 		}
 		ch := SBitoa(info.config.ModChannel)
-		if info.config.Debug {
+		if sb.Debug {
 			ch, _ = sb.DebugChannels[info.Guild.ID]
 		}
 		info.SendMessage(ch, "<@&"+SBitoa(info.config.AlertRole)+"> Possible Raid Detected!\n```"+strings.Join(s, "\n")+"```")
