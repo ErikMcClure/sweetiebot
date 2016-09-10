@@ -584,14 +584,16 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
 		isSelf := m.Author.ID == sb.SelfID
 		isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
-		ignore := false
-		ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
-			if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) {
-				ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
+		if !isSelf {
+			ignore := false
+			ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
+				if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) {
+					ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
+				}
+			})
+			if ignore && !isOwner { // if true, a module wants us to ignore this command
+				return
 			}
-		})
-		if ignore && !isOwner { // if true, a module wants us to ignore this command
-			return
 		}
 
 		args := ParseArguments(m.Content[1:])
@@ -763,6 +765,9 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	cid := SBatoi(m.ChannelID)
 	if cid != info.config.LogChannel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+	}
+	if m.Author.ID == sb.SelfID {
+		return
 	}
 	ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) {
 		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageUpdate[i]) {
