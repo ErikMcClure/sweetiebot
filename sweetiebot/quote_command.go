@@ -53,7 +53,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 		var err error
 		i, err = strconv.Atoi(args[1])
 		if err != nil {
-			return "```Could not parse quote index. Make sure your username is in quotes.```", false
+			return "```Could not parse quote index. Make sure your username is in quotes. Use !searchquote [user] to list a user's quotes and their indexes.```", false
 		}
 		i--
 		if i >= l || i < 0 {
@@ -98,7 +98,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *G
 	return "```Quote added to " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *AddQuoteCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[user] [quote]", "Adds a quote to the quote database for the given user. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches.")
+	return info.FormatUsage(c, "[user] [quote]", "Adds a quote to the quote database for the given user. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches. Use !searchquote to find a quote index.")
 }
 func (c *AddQuoteCommand) UsageShort() string { return "Adds a quote." }
 
@@ -119,7 +119,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info
 	arg := strings.ToLower(args[0])
 	index, err := strconv.Atoi(args[1])
 	if err != nil {
-		return "```Error: could not parse quote index. Did you surround your username with quotes?```", false
+		return "```Error: could not parse quote index. Did you surround your username with quotes? Use !searchquote to find a quote index.```", false
 	}
 
 	IDs := FindUsername(arg)
@@ -139,7 +139,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info
 	return "```Deleted quote #" + strconv.Itoa(index+1) + " from " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *RemoveQuoteCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[user] [quote index]", "Removes the quote with the given quote index from the user's set of quotes. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches.")
+	return info.FormatUsage(c, "[user] [quote index]", "Removes the quote with the given quote index from the user's set of quotes. If the username has spaces, it must be in quotes. If the user is ambiguous, sweetiebot will return all possible matches. Use !searchquote to find a quote index.")
 }
 func (c *RemoveQuoteCommand) UsageShort() string { return "Removes a quote." }
 
