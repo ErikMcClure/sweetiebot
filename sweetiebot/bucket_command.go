@@ -73,10 +73,10 @@ func (c *DropCommand) Name() string {
 
 func (c *DropCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(info.config.Collections["bucket"]) == 0 {
-		return "```I'm not carrying anything.```", false
+		return "[Realizes her bucket is empty]", false
 	}
 	if len(args) < 1 {
-		return "```Dropped " + BucketDropRandom(info) + ".```", false
+		return "Throws " + BucketDropRandom(info), false
 	}
 	arg := strings.Join(args, " ")
 	_, ok := info.config.Collections["bucket"][arg]

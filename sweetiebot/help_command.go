@@ -42,7 +42,7 @@ func (c *AboutCommand) Name() string {
 }
 func (c *AboutCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	s := "```Sweetie Bot version " + sb.version
-	if info.config.Debug {
+	if sb.Debug {
 		return s + " [debug]```", false
 	}
 	return s + " [release]```", false
