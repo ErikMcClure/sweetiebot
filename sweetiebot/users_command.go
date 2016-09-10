@@ -61,7 +61,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildI
 
 	r := sb.db.GetAliases(IDs[0])
 	u, _ := sb.db.GetUser(IDs[0])
-	return "```All known aliases for " + u.Username + "\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)
+	return "```All known aliases for " + u.Username + " [" + u.ID + "]\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)
 }
 func (c *AKACommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[@user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.")
