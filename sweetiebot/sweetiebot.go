@@ -582,6 +582,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
 		_, isfree := info.config.FreeChannels[m.ChannelID]
 		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
+		isSelf := m.Author.ID == sb.SelfID
 		isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 		ignore := false
 		ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
@@ -607,33 +608,33 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			cch := info.config.Command_channels[cmdname]
 			_, disabled := info.config.Command_disabled[cmdname]
 			_, restricted := sb.RestrictedCommands[cmdname]
-			if disabled && !isOwner {
+			if disabled && !isOwner && !isSelf {
 				return
 			}
 			if restricted && !isdbguild {
 				return
 			}
-			if !private && len(cch) > 0 {
+			if !private && len(cch) > 0 && !isSelf {
 				_, reverse := cch["!"]
 				_, ok = cch[m.ChannelID]
 				if ok == reverse {
 					return
 				}
 			}
-			if err != nil || (!private && !isdebug && !isfree) { // Private channels are not limited, nor is the debug channel
+			if err != nil || (!private && !isdebug && !isfree && !isSelf) { // Private channels are not limited, nor is the debug channel
 				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
 					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
 					return
 				}
 				info.commandlimit.append(t)
 			}
-			if !isOwner && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[cmdname]) {
+			if !isOwner && !isSelf && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[cmdname]) {
 				info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
 				return
 			}
 
 			cmdlimit := info.config.Command_limits[cmdname]
-			if !isfree && cmdlimit > 0 {
+			if !isfree && cmdlimit > 0 && !isSelf {
 				lastcmd := info.command_last[m.ChannelID][cmdname]
 				if !RateLimit(&lastcmd, cmdlimit) {
 					info.log.Error(m.ChannelID, "You can only run that command once every "+TimeDiff(time.Duration(cmdlimit)*time.Second)+"!")

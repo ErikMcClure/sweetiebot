@@ -41,7 +41,7 @@ Additional configuration is optional, depending on what features of the bot are 
 * **maxerror** is the cooldown time for sweetiebot to display an error message, intended to prevent the bot from spamming itself. Default: 4
 * **maxwit** is the cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.
 * **maxbored** is the bored cooldown timer. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
-* **disablebored** This can be used to disable bored categories. Setting it to 0 doesn't disable anything. 1 disables the markov chain, 2 disables the markov chain and the quotes, and 3 disables the markov chain, quotes, and bucket throwing.
+* **boredcommands** This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.
 * **maxPMlines** This is the maximum number of lines a response can be before sweetiebot automatically sends it as a PM to avoid cluttering the chat. Default: 5
 * **maxquotelines** Maximum number of lines the `!quote` command can be given.
 * **maxsearchresults** Maximum number of search results that can be requested
