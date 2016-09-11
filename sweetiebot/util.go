@@ -74,7 +74,7 @@ func SBitoa(i uint64) string {
 	return strconv.FormatUint(i, 10)
 }
 func IsSpace(b byte) bool {
-	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
+	return b == ' ' || b == '\t' || b == '\r'
 }
 
 func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
