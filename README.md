@@ -1,6 +1,8 @@
 # Sweetie Bot
 Sweetie Bot is an administration bot for the /r/mylittlepony Discord chat. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and it's users, and provides a command to find the last message that pinged a given user.
 
+**If you use Sweetie Bot, consider [contributing to it's Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
+
 ## Compiling
 Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
 
