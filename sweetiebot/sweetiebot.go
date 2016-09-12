@@ -406,7 +406,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		guild.config.Collections = make(map[string]map[string]bool)
 	}
 
-	collections := []string{"emote", "bored", "cute", "status", "spoiler", "bucket"}
+	collections := []string{"emote", "bored", "status", "spoiler", "bucket", "cute"}
 	for _, v := range collections {
 		_, ok := guild.config.Collections[v]
 		if !ok {
@@ -529,6 +529,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&RemoveQuoteCommand{})
 	guild.AddCommand(&SearchQuoteCommand{})
 	guild.AddCommand(&RemoveAliasCommand{})
+	guild.AddCommand(&DeleteCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -987,7 +988,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.3",
+		version:            "0.8.4",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
