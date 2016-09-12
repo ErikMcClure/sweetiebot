@@ -984,6 +984,7 @@ func WaitForInput() {
 func Initialize(Token string) {
 	dbauth, _ := ioutil.ReadFile("db.auth")
 	isdebug, err := ioutil.ReadFile("isdebug")
+	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
 		version:            "0.8.3",
