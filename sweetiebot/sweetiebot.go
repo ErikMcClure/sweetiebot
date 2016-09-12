@@ -41,7 +41,6 @@ type BotConfig struct {
 	Maxerror              int64                      `json:"maxerror"`
 	Maxwit                int64                      `json:"maxwit"`
 	Maxbored              int64                      `json:"maxbored"`
-	DisableBored          int                        `json:"disablebored"`
 	BoredCommands         map[string]bool            `json:"boredcommands"`
 	MaxPMlines            int                        `json:"maxpmlines"`
 	Maxquotelines         int                        `json:"maxquotelines"`
