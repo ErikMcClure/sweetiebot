@@ -173,6 +173,36 @@ func (c *NewCommand) Usage(info *GuildInfo) string {
 }
 func (c *NewCommand) UsageShort() string { return "Creates a new collection." }
 
+type DeleteCommand struct {
+}
+
+func (c *DeleteCommand) Name() string {
+	return "Delete"
+}
+func (c *DeleteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You have to provide a collection name.```", false
+	}
+
+	collection := strings.ToLower(args[0])
+	_, ok := info.config.Collections[collection]
+	if !ok {
+		return "```That collection doesn't exist!```", false
+	}
+	_, ok = map[string]bool{"emote": true, "bored": true, "status": true, "spoiler": true, "bucket": true}[collection]
+	if ok {
+		return "```You can't delete that collection!```", false
+	}
+	delete(info.config.Collections, collection)
+	info.SaveConfig()
+
+	return "```Deleted the " + collection + " collection.```", false
+}
+func (c *DeleteCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[collection]", "Deletes the collection with the given name.")
+}
+func (c *DeleteCommand) UsageShort() string { return "Deletes a collection." }
+
 type SearchCollectionCommand struct {
 }
 

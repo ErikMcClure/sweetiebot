@@ -437,22 +437,14 @@ func MigrateSettings(guild *GuildInfo) {
 
 	if guild.config.Version == 3 {
 		guild.config.BoredCommands = make(map[string]bool)
-		if guild.config.DisableBored < 1 {
-			guild.config.BoredCommands["!episodegen 2"] = true
-		}
-		if guild.config.DisableBored < 2 {
-			guild.config.BoredCommands["!episodequote"] = true
-		}
-		if guild.config.DisableBored < 3 {
-			guild.config.BoredCommands["!drop"] = true
-		}
-		if guild.config.DisableBored < 4 {
-			guild.config.BoredCommands["!pick bored"] = true
-		}
 	}
 
-	if guild.config.Version != 4 {
-		guild.config.Version = 4 // set version to most recent config version
+	if guild.config.Version == 4 {
+		RestrictCommand("delete", guild)
+	}
+
+	if guild.config.Version != 5 {
+		guild.config.Version = 5 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
