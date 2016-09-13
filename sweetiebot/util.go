@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 func Pluralize(i int64, s string) string {
@@ -168,8 +170,21 @@ func SinceUTC(t time.Time) time.Duration {
 	return time.Now().UTC().Sub(t)
 }
 
-func ApplyTimezone(t time.Time, info *GuildInfo) time.Time {
-	return t.Add(time.Duration(info.config.Timezone) * time.Hour)
+func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
+	if user != nil {
+		loc := sb.db.GetTimeZone(SBatoi(user.ID))
+		if loc != nil {
+			return loc
+		}
+	}
+	loc, err := time.LoadLocation(info.config.TimezoneLocation)
+	if err == nil {
+		return loc
+	}
+	return time.UTC
+}
+func ApplyTimezone(t time.Time, info *GuildInfo, user *discordgo.User) time.Time {
+	return t.In(getTimezone(info, user))
 }
 func IngestEpisode(file string, season int, episode int) {
 	f, err := ioutil.ReadFile(file)
@@ -438,15 +453,23 @@ func MigrateSettings(guild *GuildInfo) {
 		RestrictCommand("delete", guild)
 	}
 
-	if guild.config.Version != 5 {
-		guild.config.Version = 5 // set version to most recent config version
+	if guild.config.Version == 5 {
+		guild.config.TimezoneLocation = "Etc/GMT"
+		if guild.config.Timezone < 0 {
+			guild.config.TimezoneLocation += "+"
+		}
+		guild.config.TimezoneLocation += strconv.Itoa(-guild.config.Timezone) // Etc has the sign reversed
+	}
+
+	if guild.config.Version != 6 {
+		guild.config.Version = 6 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
 
-func parseCommonTime(s string, info *GuildInfo) (time.Time, error) {
+func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time, error) {
 	t, err := time.ParseInLocation("_2 Jan 06 3:04pm -0700", s, locUTC)
-	tz := time.FixedZone("SBtime", info.config.Timezone*3600)
+	tz := getTimezone(info, user)
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 2006 3:04pm", s, tz)
 	}
@@ -458,15 +481,15 @@ func parseCommonTime(s string, info *GuildInfo) (time.Time, error) {
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 3:04pm", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 15:04", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info).Year(), 0, 0)
+		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("_2 Jan 06 3:04pm", s, tz)

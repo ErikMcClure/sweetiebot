@@ -64,6 +64,7 @@ type BotConfig struct {
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
 	Timezone              int                        `json:"timezone"`
+	TimezoneLocation      string                     `json:"timezonelocation"`
 	AutoSilence           int                        `json:"autosilence"`
 	AlertRole             uint64                     `json:"alertrole"`
 	SilentRole            uint64                     `json:"silentrole"`
@@ -988,7 +989,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.5",
+		version:            "0.8.6",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},

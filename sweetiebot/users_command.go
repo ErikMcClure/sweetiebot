@@ -30,7 +30,7 @@ func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, info *G
 	s := make([]string, 0, len(r))
 
 	for _, v := range r {
-		s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+") ["+v.User.ID+"]")
+		s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info, msg.Author).Format(time.ANSIC)+") ["+v.User.ID+"]")
 	}
 	return "```" + strings.Join(s, "\n") + "```", true
 }
@@ -101,7 +101,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	// we're done with our checks
 	// actually ban the user here and send the output. This is probably poorly done.
 	gID := info.Guild.ID
-	u, _ := sb.db.GetUser(IDs[0])
+	u, _, _ := sb.db.GetUser(IDs[0])
 	if u == nil {
 		return "```Error: User does not exist!```", false
 	}
@@ -124,7 +124,7 @@ func (c *TimeCommand) Name() string {
 
 func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
-		return "```This server's local time is: " + ApplyTimezone(time.Now().UTC(), info).Format("Jan 2, 3:04pm```"), false
+		return "```This server's local time is: " + ApplyTimezone(time.Now().UTC(), info, nil).Format("Jan 2, 3:04pm```"), false
 	}
 
 	arg := strings.Join(args, " ")
@@ -137,10 +137,10 @@ func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	}
 
 	tz := sb.db.GetTimeZone(IDs[0])
-	if !tz.Valid {
+	if tz == nil {
 		return "```That user has not specified what their timezone is.```", false
 	}
-	return "```That user's local time is: " + time.Now().UTC().Add(time.Duration(tz.Int64)*time.Hour).Format("Jan 2, 3:04pm```"), false
+	return "```That user's local time is: " + time.Now().In(tz).Format("Jan 2, 3:04pm```"), false
 }
 func (c *TimeCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[user]", "Gets the local time for the specified user, or simply gets the local time for this server.")
@@ -156,21 +156,42 @@ func (c *SetTimeZoneCommand) Name() string {
 
 func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
-		return "You have to specify what your timezone is!", false
+		return "```You have to specify what your timezone is!```", false
+	}
+	tz := []string{}
+	if len(args) < 2 {
+		tz = sb.db.FindTimeZone("%" + args[0] + "%")
+	} else {
+		offset, err := strconv.Atoi(args[1])
+		if err != nil {
+			return "```Could not parse offset. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you'd put -7.```", false
+		}
+		tz = sb.db.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
 	}
 
-	tz, err := strconv.ParseInt(args[0], 10, 64)
+	if len(tz) < 1 {
+		if len(args) < 2 {
+			return "```Could not find any timezone locations that match that string. Try broadening your search (for example, search for 'America' or 'Pacific').```", false
+		} else {
+			return "```Could not find any timezone locations that match that string and offset combination. Try broadening your search, or leaving out the timezone offset parameter.```", false
+		}
+	}
+	if len(tz) > 1 {
+		return "Could be any of the following timezones:\n" + strings.Join(tz, "\n"), len(tz) > 6
+	}
+
+	loc, err := time.LoadLocation(tz[0])
 	if err != nil {
-		return "Could not parse timezone. The timezone must be the number of hours difference between you and GMT. For example, if your timezone is EST, that's GMT-5, so use '-5' as the argument. This does not account for daylight savings!", false
+		return "```Could not load location! Is the timezone data missing or corrupt? Error: " + err.Error() + "```", false
 	}
 
-	if sb.db.SetTimeZone(SBatoi(msg.Author.ID), tz) != nil {
-		return "Error: could not set timezone!", false
+	if sb.db.SetTimeZone(SBatoi(msg.Author.ID), loc) != nil {
+		return "```Error: could not set timezone!```", false
 	}
-	return "Set your timezone to " + args[0], false
+	return "```Set your timezone to " + loc.String() + "```", false
 }
 func (c *SetTimeZoneCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[timezone]", "Sets your timezone to the given GMT offset, in hours. For example, '-7' would set your timezone to GMT-7, or PDT. This does not account for daylight savings!")
+	return info.FormatUsage(c, "[timezone] [offset]", "Sets your timezone to the given location, such as \"America/Los_Angeles\". Providing a partial timezone name, like \"America\", will return a list of all possible timezones that contain that string. You can also specify your expected timezone offset in hours to narrow the search. For example, if you know you're in the PDT timezone, which is GMT-7, you could search for \"America -7\" to list all timezones in america with a standard or DST timezone offset of -7.")
 }
 func (c *SetTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
 
@@ -194,7 +215,13 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 
 	aliases := sb.db.GetAliases(IDs[0])
-	dbuser, lastseen := sb.db.GetUser(IDs[0])
+	dbuser, lastseen, tz := sb.db.GetUser(IDs[0])
+	localtime := ""
+	if tz == nil {
+		tz = time.FixedZone("[Not Set]", 0)
+	} else {
+		localtime = time.Now().In(tz).Format(time.RFC1123)
+	}
 	m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(IDs[0]))
 	if err != nil {
 		m = &discordgo.Member{Roles: []string{}}
@@ -207,10 +234,11 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 		}
 		m.User = u
 	}
+	authortz := getTimezone(info, msg.Author)
 	joinedat, err := time.Parse(time.RFC3339Nano, m.JoinedAt)
 	joined := ""
 	if err == nil {
-		joined = joinedat.Format(time.RFC1123)
+		joined = joinedat.In(authortz).Format(time.RFC1123)
 	}
 	guildroles, err := sb.dg.GuildRoles(info.Guild.ID)
 	roles := make([]string, 0, len(m.Roles))
@@ -227,9 +255,9 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 		}
 	}
 
-	return ExtraSanitize(fmt.Sprintf("ID: %v\nUsername: %v#%v\nNickname: %v\nJoined: %v\nRoles: %v\nBot: %v\nLast Seen: %v\nAliases: %v\nAvatar: ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.Format(time.RFC1123), strings.Join(aliases, ", "))) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false
+	return ExtraSanitize(fmt.Sprintf("**ID:** %v\n**Username:** %v#%v\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Joined:** %v\n**Roles:** %v\n**Bot:** %v\n**Last Seen:** %v\n**Aliases:** %v\n**Avatar:** ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, tz, localtime, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.In(authortz).Format(time.RFC1123), strings.Join(aliases, ", "))) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false
 }
 func (c *UserInfoCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[@user]", "Lists the ID, username, nickname, roles, avatar, join date, and other information about a given user.")
+	return info.FormatUsage(c, "[@user]", "Lists the ID, username, nickname, timezone, roles, avatar, join date, and other information about a given user.")
 }
 func (c *UserInfoCommand) UsageShort() string { return "Lists information about a user." }

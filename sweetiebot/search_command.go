@@ -74,7 +74,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 			}
 		case v[0] == '~':
 			var err error
-			t, err = parseCommonTime(v[1:], info)
+			t, err = parseCommonTime(v[1:], info, msg.Author)
 			if err != nil {
 				return "```Error: " + err.Error() + "```", false
 			}
@@ -231,7 +231,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	}
 
 	for _, v := range r {
-		ret += "[" + ApplyTimezone(v.Timestamp, info).Format("1/2 3:04:05PM") + "] " + v.Author + ": " + MsgHighlightMatch(v.Message, message) + "\n"
+		ret += "[" + ApplyTimezone(v.Timestamp, info, msg.Author).Format("1/2 3:04:05PM") + "] " + v.Author + ": " + MsgHighlightMatch(v.Message, message) + "\n"
 	}
 
 	ret = strings.Replace(ret, "http://", "http\u200B://", -1)
