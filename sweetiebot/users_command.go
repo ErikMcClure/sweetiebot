@@ -164,7 +164,7 @@ func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, info
 	} else {
 		offset, err := strconv.Atoi(args[1])
 		if err != nil {
-			return "```Could not parse offset. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you'd put -7.```", false
+			return "```Could not parse offset. Note that timezones do not have spaces - use underscores (_) instead. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you could search for \"America -7\".```", false
 		}
 		tz = sb.db.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
 	}
@@ -191,7 +191,7 @@ func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, info
 	return "```Set your timezone to " + loc.String() + "```", false
 }
 func (c *SetTimeZoneCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[timezone] [offset]", "Sets your timezone to the given location, such as \"America/Los_Angeles\". Providing a partial timezone name, like \"America\", will return a list of all possible timezones that contain that string. You can also specify your expected timezone offset in hours to narrow the search. For example, if you know you're in the PDT timezone, which is GMT-7, you could search for \"America -7\" to list all timezones in america with a standard or DST timezone offset of -7.")
+	return info.FormatUsage(c, "[timezone] [offset]", "Sets your timezone to the given location, such as \"America/Los_Angeles\". Providing a partial timezone name, like \"America\", will return a list of all possible timezones that contain that string. Timezones do not have spaces. You can also specify your expected timezone offset in hours to narrow the search. For example, if you know you're in the PDT timezone, which is GMT-7, you could search for \"America -7\" to list all timezones in america with a standard or DST timezone offset of -7.")
 }
 func (c *SetTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
 
