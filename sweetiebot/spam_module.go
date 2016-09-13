@@ -130,7 +130,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
-			s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info).Format(time.ANSIC)+")")
+			s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info, nil).Format(time.ANSIC)+")")
 			if info.config.AutoSilence >= 1 {
 				SilenceMember(v.User.ID, info)
 			}
