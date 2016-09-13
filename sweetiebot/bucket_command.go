@@ -24,7 +24,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *Guild
 
 	arg := ExtraSanitize(strings.Join(args, " "))
 	if len(arg) > info.config.MaxBucketLength {
-		return "```That's too big! Give me something smaller!'```", false
+		return "```That's too big! Give me something smaller!```", false
 	}
 
 	_, ok := info.config.Collections["bucket"][arg]
