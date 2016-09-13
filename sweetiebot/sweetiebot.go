@@ -995,7 +995,7 @@ func Initialize(Token string) {
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
-		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
+		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824", "140359933341204481": "140374581897723904"},
 		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               false,
 		guilds:             make(map[string]*GuildInfo),
