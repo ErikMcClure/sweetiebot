@@ -79,18 +79,17 @@ func IsSpace(b byte) bool {
 
 func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 	s := make([]string, 0, len(IDs))
-
+	gid := SBatoi(info.Guild.ID)
 	for _, v := range IDs {
-		m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(v))
-		if err == nil {
+		m, _ := sb.db.GetMember(v, gid)
+		if m != nil {
 			if len(m.Nick) > 0 {
 				s = append(s, m.Nick)
 			} else {
 				s = append(s, m.User.Username)
 			}
 		} else {
-			u, _ := sb.db.GetUser(v)
-			s = append(s, u.Username)
+			s = append(s, "<@"+SBitoa(v)+">")
 		}
 	}
 	return s
@@ -128,7 +127,7 @@ func boolXOR(a bool, b bool) bool {
 }
 
 func (info *GuildInfo) UserHasRole(user string, role string) bool {
-	m, err := sb.dg.State.Member(info.Guild.ID, user)
+	m, err := sb.dg.GuildMember(info.Guild.ID, user)
 	if err == nil {
 		for _, v := range m.Roles {
 			if v == role {
@@ -143,7 +142,7 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 	if len(roles) == 0 {
 		return true
 	}
-	m, err := sb.dg.State.Member(info.Guild.ID, user)
+	m, err := sb.dg.GuildMember(info.Guild.ID, user)
 	if err == nil {
 		for _, v := range m.Roles {
 			_, ok := roles[v]
@@ -288,7 +287,7 @@ func BuildMarkov(season_start int, episode_start int) {
 	}
 }
 
-func FindUsername(user string) []uint64 {
+func FindUsername(user string, info *GuildInfo) []uint64 {
 	if len(user) <= 0 {
 		return []uint64{}
 	}
@@ -300,7 +299,7 @@ func FindUsername(user string) []uint64 {
 	} else {
 		user = "%" + user + "%"
 	}
-	return sb.db.FindUsers(user, 20, 0)
+	return sb.db.FindUsers(user, 20, 0, SBatoi(info.Guild.ID))
 }
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
@@ -371,18 +370,14 @@ func FindIntSlice(item uint64, s []uint64) bool {
 	return false
 }
 func getUserName(user uint64, info *GuildInfo) string {
-	m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(user))
-	if err == nil {
-		if len(m.Nick) > 0 {
-			return m.Nick
-		}
-		return m.User.Username
-	}
-	u, err := sb.dg.User(SBitoa(user))
-	if err != nil {
+	m, _ := sb.db.GetMember(user, SBatoi(info.Guild.ID))
+	if m == nil {
 		return "<@" + SBitoa(user) + ">"
 	}
-	return u.Username
+	if len(m.Nick) > 0 {
+		return m.Nick
+	}
+	return m.User.Username
 }
 func replacementionhelper(s string) string {
 	u, err := sb.dg.User(StripPing(s))

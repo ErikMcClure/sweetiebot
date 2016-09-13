@@ -194,7 +194,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *Gu
 		return "```You must provide a user to silence.```", false
 	}
 	arg := strings.Join(args, " ")
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -202,7 +202,9 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *Gu
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
 
-	SilenceMember(SBitoa(IDs[0]), info)
+	if SilenceMember(SBitoa(IDs[0]), info) < 0 {
+		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false
+	}
 	return "```Silenced " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
 func (c *SilenceCommand) Usage(info *GuildInfo) string {
@@ -221,7 +223,7 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *
 		return "```You must provide a user to unsilence.```", false
 	}
 	arg := strings.Join(args, " ")
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -231,9 +233,9 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *
 
 	srole := SBitoa(info.config.SilentRole)
 	userID := SBitoa(IDs[0])
-	m, err := sb.dg.State.Member(info.Guild.ID, userID)
+	m, err := sb.dg.GuildMember(info.Guild.ID, userID)
 	if err != nil {
-		return "```Could not get member: " + err.Error(), false
+		return "```Could not get member: " + err.Error() + "```", false
 	}
 	for i := 0; i < len(m.Roles); i++ {
 		if m.Roles[i] == srole {

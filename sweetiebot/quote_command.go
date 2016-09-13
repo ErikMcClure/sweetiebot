@@ -35,7 +35,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *Guil
 	}
 
 	arg := strings.ToLower(args[0])
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -82,7 +82,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 
 	arg := strings.ToLower(args[0])
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -122,7 +122,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info
 		return "```Error: could not parse quote index. Did you surround your username with quotes? Use !searchquote to find a quote index.```", false
 	}
 
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -161,7 +161,7 @@ func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info
 	}
 
 	arg := strings.ToLower(args[0])
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
