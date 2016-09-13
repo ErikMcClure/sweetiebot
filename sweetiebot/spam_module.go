@@ -37,23 +37,28 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 	return false
 }
 
-func SilenceMember(userID string, info *GuildInfo) {
+func SilenceMember(userID string, info *GuildInfo) int8 {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
-	m, err := sb.dg.State.Member(info.Guild.ID, userID)
+	m, err := sb.dg.GuildMember(info.Guild.ID, userID)
 	if err == nil {
 		if IsSilenced(m, info) {
-			return
+			return 1
 		}
 		m.Roles = append(m.Roles, SBitoa(info.config.SilentRole))
 	} else {
-		info.log.Log("Tried to kill spammer <@"+userID+"> but they were already banned??? (Error: ", err.Error(), ")")
-		return
+		info.log.Log("Could not silence <@"+userID+"> because discordgo can't find them. (Error: ", err.Error(), ")")
+		return -1
 	}
-	sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
+	err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
+	if err == nil {
+		return 0
+	}
+	info.log.Log("GuildMemberEdit returned error: ", err.Error())
+	return -2
 }
 
 func BanMember(u *discordgo.User, info *GuildInfo) {
-	m, err := sb.dg.State.Member(info.Guild.ID, u.ID)
+	m, err := sb.dg.GuildMember(info.Guild.ID, u.ID)
 	if err != nil || IsSilenced(m, info) {
 		sb.dg.GuildBanCreate(info.Guild.ID, u.ID, 1)
 	}

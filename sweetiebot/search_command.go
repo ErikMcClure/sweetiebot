@@ -90,7 +90,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 		if userregex.MatchString(v) {
 			userIDs = append(userIDs, SBatoi(v[2:len(v)-1]))
 		} else {
-			IDs := sb.db.FindUsers("%"+v[1:]+"%", 20, 0)
+			IDs := sb.db.FindUsers("%"+v[1:]+"%", 20, 0, SBatoi(info.Guild.ID))
 			if len(IDs) == 0 { // we failed to resolve this username, so return an error.
 				return "```Error: Could not find any usernames or aliases matching " + v[1:] + "!```", false
 			}
@@ -162,7 +162,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	stmt, ok := c.statements[querylimit]
 	if !ok {
 		stmt1, err := sb.db.Prepare("SELECT COUNT(*) FROM chatlog C WHERE C.Guild = ? AND " + query)
-		stmt2, err2 := sb.db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.Guild = ? AND " + querylimit)
+		stmt2, err2 := sb.db.Prepare("SELECT U.Username, C.Message, C.Timestamp, U.ID FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.Guild = ? AND " + querylimit)
 		if err == nil {
 			err = err2
 		}
@@ -219,7 +219,9 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	r := make([]PingContext, 0, 5)
 	for q.Next() {
 		p := PingContext{}
-		if err := q.Scan(&p.Author, &p.Message, &p.Timestamp); err == nil {
+		var uid uint64
+		if err := q.Scan(&p.Author, &p.Message, &p.Timestamp, &uid); err == nil {
+			p.Author = getUserName(uid, info)
 			r = append(r, p)
 		}
 	}

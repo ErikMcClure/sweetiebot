@@ -22,6 +22,7 @@ type BotDB struct {
 	sql_AddUser              *sql.Stmt
 	sql_AddMember            *sql.Stmt
 	sql_GetUser              *sql.Stmt
+	sql_GetMember            *sql.Stmt
 	sql_FindUsers            *sql.Stmt
 	sql_GetRecentMessages    *sql.Stmt
 	sql_GetNewestUsers       *sql.Stmt
@@ -55,6 +56,7 @@ type BotDB struct {
 	sql_GetSchedule          *sql.Stmt
 	sql_RemoveSchedule       *sql.Stmt
 	sql_CountEvents          *sql.Stmt
+	sql_GetEvent             *sql.Stmt
 	sql_GetEvents            *sql.Stmt
 	sql_GetEventsByType      *sql.Stmt
 	sql_GetNextEvent         *sql.Stmt
@@ -102,7 +104,8 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen FROM users WHERE ID = ?")
-	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
+	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
+	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sql_GetNewestUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
 	db.sql_GetRecentUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
@@ -135,6 +138,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
 	db.sql_RemoveSchedule, err = db.Prepare("CALL RemoveSchedule(?)")
 	db.sql_CountEvents, err = db.Prepare("SELECT COUNT(*) FROM schedule WHERE Guild = ?")
+	db.sql_GetEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE ID = ?")
 	db.sql_GetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type != 0 AND Type != 4 AND Type != 6 ORDER BY Date ASC LIMIT ?")
 	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
@@ -239,12 +243,27 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time) {
 	u := &discordgo.User{}
 	var lastseen time.Time
 	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen)
+	if err == sql.ErrNoRows {
+		return nil, lastseen
+	}
 	db.log.LogError("GetUser error: ", err)
 	return u, lastseen
 }
 
-func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
-	q, err := db.sql_FindUsers.Query(name, name, name, maxresults, offset)
+func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time) {
+	m := &discordgo.Member{}
+	m.User = &discordgo.User{}
+	var lastseen time.Time
+	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &m.User.Avatar, &lastseen, &m.Nick, &m.JoinedAt)
+	if err == sql.ErrNoRows {
+		return nil, lastseen
+	}
+	db.log.LogError("GetMember error: ", err)
+	return m, lastseen
+}
+
+func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
+	q, err := db.sql_FindUsers.Query(guild, name, name, name, maxresults, offset)
 	db.log.LogError("FindUsers error: ", err)
 	defer q.Close()
 	r := make([]uint64, 0, 4)
@@ -528,6 +547,16 @@ func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 		}
 	}
 	return r
+}
+
+func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
+	e := &ScheduleEvent{}
+	err := db.sql_GetEvent.QueryRow(id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	db.log.LogError("GetEvents error: ", err)
+	return e
 }
 
 func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
