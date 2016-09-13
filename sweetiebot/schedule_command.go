@@ -141,9 +141,9 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	for _, v := range events {
 		s := "#" + SBitoa(v.ID)
 		if v.Date.Year() == time.Now().UTC().Year() {
-			s += ApplyTimezone(v.Date, info).Format(" **Jan 2 3:04pm**")
+			s += ApplyTimezone(v.Date, info, msg.Author).Format(" **Jan 2 3:04pm**")
 		} else {
-			s += ApplyTimezone(v.Date, info).Format(" **Jan 2 2006 3:04pm**")
+			s += ApplyTimezone(v.Date, info, msg.Author).Format(" **Jan 2 2006 3:04pm**")
 		}
 		data := v.Data
 		switch v.Type {
@@ -327,7 +327,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 		data += "|"
 		args = append(args[:1], args[2:]...)
 	}
-	t, err := parseCommonTime(args[1], info)
+	t, err := parseCommonTime(args[1], info, msg.Author)
 	if err != nil {
 		return "```Error: Could not parse time! Make sure it's in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional)```", false
 	}
@@ -455,7 +455,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		arg = strings.Join(args[3:], " ")
 	case "on":
 		var err error
-		t, err = parseCommonTime(strings.ToLower(args[1]), info)
+		t, err = parseCommonTime(strings.ToLower(args[1]), info, msg.Author)
 		if err != nil {
 			return "```Could not parse time! Make sure its in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional). Make sure you surround it with quotes!```", false
 		}
@@ -490,9 +490,9 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, info
 	}
 	ping := StripPing(args[0])
 	arg := strings.Join(args[1:], " ") + " 16"
-	t, err := time.ParseInLocation("_2 Jan 06", arg, time.FixedZone("SBtime", info.config.Timezone*3600))
+	t, err := time.ParseInLocation("_2 Jan 06", arg, getTimezone(info, nil)) // Deliberately do not include the user timezone here. We want this to operate on the server timezone.
 	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 06", arg, time.FixedZone("SBtime", info.config.Timezone*3600))
+		t, err = time.ParseInLocation("Jan _2 06", arg, getTimezone(info, nil))
 	}
 	t = t.UTC()
 	if err != nil {

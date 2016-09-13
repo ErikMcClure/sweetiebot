@@ -510,6 +510,17 @@ CREATE TABLE IF NOT EXISTS `schedule` (
 -- Data exporting was unselected.
 
 
+-- Dumping structure for table sweetiebot.timezones
+CREATE TABLE IF NOT EXISTS `timezones` (
+  `Location` varchar(40) NOT NULL,
+  `Offset` int(11) NOT NULL,
+  `DST` int(11) NOT NULL,
+  PRIMARY KEY (`Location`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for table sweetiebot.transcripts
 CREATE TABLE IF NOT EXISTS `transcripts` (
   `Season` int(10) unsigned NOT NULL,
@@ -533,8 +544,11 @@ CREATE TABLE IF NOT EXISTS `users` (
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
   `Timezone` int(11) DEFAULT NULL,
+  `Location` varchar(40) DEFAULT NULL,
   PRIMARY KEY (`ID`),
-  KEY `INDEX_USERNAME` (`Username`)
+  KEY `INDEX_USERNAME` (`Username`),
+  KEY `FK_Location_timezone` (`Location`),
+  CONSTRAINT `FK_Location_timezone` FOREIGN KEY (`Location`) REFERENCES `timezones` (`Location`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
