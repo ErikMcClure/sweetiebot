@@ -50,7 +50,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			sb.dg.GuildBanDelete(info.Guild.ID, v.Data)
 			info.SendMessage(SBitoa(info.config.ModChannel), "Unbanned <@"+v.Data+">")
 		case 1:
-			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
+			m, err := sb.dg.GuildMember(info.Guild.ID, v.Data)
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else if info.config.BirthdayRole == 0 {
@@ -67,7 +67,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 3:
 			info.SendMessage(channel, v.Data+" is starting now!")
 		case 4:
-			m, err := sb.dg.State.Member(info.Guild.ID, v.Data)
+			m, err := sb.dg.GuildMember(info.Guild.ID, v.Data)
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else {
@@ -371,6 +371,16 @@ func (c *AddEventCommand) Usage(info *GuildInfo) string {
 }
 func (c *AddEventCommand) UsageShort() string { return "Adds an event to the schedule." }
 
+func userOwnsEvent(e *ScheduleEvent, u *discordgo.User) bool {
+	if e.Type == 6 {
+		dat := strings.SplitN(e.Data, "|", 2)
+		if dat[0] == u.ID {
+			return true
+		}
+	}
+	return false
+}
+
 type RemoveEventCommand struct {
 }
 
@@ -385,6 +395,15 @@ func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, info
 	if err != nil {
 		return "```Could not parse event ID. Make sure you only specify the number itself.```", false
 	}
+
+	e := sb.db.GetEvent(id)
+	if e == nil {
+		return "```Error: Event does not exist.```", false
+	}
+	if !info.UserHasRole(msg.Author.ID, SBitoa(info.config.AlertRole)) && !userOwnsEvent(e, msg.Author) {
+		return "```Error: You do not have permission to delete that event.```", false
+	}
+
 	sb.db.RemoveSchedule(id)
 	return "```Removed Event #" + SBitoa(id) + " from schedule.```", false
 }

@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -51,7 +52,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```You must provide a user to search for.```", false
 	}
 	arg := strings.Join(args, " ")
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -60,8 +61,15 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	}
 
 	r := sb.db.GetAliases(IDs[0])
-	u, _ := sb.db.GetUser(IDs[0])
-	return "```All known aliases for " + u.Username + " [" + u.ID + "]\n  " + strings.Join(r, "\n  ") + "```", !CheckShutup(msg.ChannelID)
+	u, _ := sb.db.GetMember(IDs[0], SBatoi(info.Guild.ID))
+	if u == nil {
+		return "```Error: User does not exist!```", false
+	}
+	nick := u.User.Username
+	if len(u.Nick) > 0 {
+		nick = u.Nick
+	}
+	return "```All known aliases for " + nick + " [" + u.User.ID + "]\n  " + strings.Join(r, "\n  ") + "```", false
 }
 func (c *AKACommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[@user]", "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.")
@@ -83,7 +91,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	}
 	// get the user ID and deal with Discord's alias bullshit
 	arg := strings.Join(args, " ")
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -94,6 +102,9 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	// actually ban the user here and send the output. This is probably poorly done.
 	gID := info.Guild.ID
 	u, _ := sb.db.GetUser(IDs[0])
+	if u == nil {
+		return "```Error: User does not exist!```", false
+	}
 	uID := SBitoa(IDs[0])
 	sb.dg.GuildBanCreate(gID, uID, 1)
 
@@ -117,7 +128,7 @@ func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	}
 
 	arg := strings.Join(args, " ")
-	IDs := FindUsername(arg)
+	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
 	}
@@ -162,3 +173,63 @@ func (c *SetTimeZoneCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[timezone]", "Sets your timezone to the given GMT offset, in hours. For example, '-7' would set your timezone to GMT-7, or PDT. This does not account for daylight savings!")
 }
 func (c *SetTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
+
+type UserInfoCommand struct {
+}
+
+func (c *UserInfoCommand) Name() string {
+	return "UserInfo"
+}
+func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must provide a user to search for.```", false
+	}
+	arg := strings.Join(args, " ")
+	IDs := FindUsername(arg, info)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
+	}
+
+	aliases := sb.db.GetAliases(IDs[0])
+	dbuser, lastseen := sb.db.GetUser(IDs[0])
+	m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(IDs[0]))
+	if err != nil {
+		m = &discordgo.Member{Roles: []string{}}
+		u, err := sb.dg.User(SBitoa(IDs[0]))
+		if err != nil {
+			if dbuser == nil {
+				return "```Error retrieving user information: " + err.Error() + "```", false
+			}
+			u = dbuser
+		}
+		m.User = u
+	}
+	joinedat, err := time.Parse(time.RFC3339Nano, m.JoinedAt)
+	joined := ""
+	if err == nil {
+		joined = joinedat.Format(time.RFC1123)
+	}
+	guildroles, err := sb.dg.GuildRoles(info.Guild.ID)
+	roles := make([]string, 0, len(m.Roles))
+	for _, v := range m.Roles {
+		if err == nil {
+			for _, role := range guildroles {
+				if role.ID == v {
+					roles = append(roles, role.Name)
+					break
+				}
+			}
+		} else {
+			roles = append(roles, "<@&"+v+">")
+		}
+	}
+
+	return ExtraSanitize(fmt.Sprintf("ID: %v\nUsername: %v#%v\nNickname: %v\nJoined: %v\nRoles: %v\nBot: %v\nLast Seen: %v\nAliases: %v\nAvatar: ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.Format(time.RFC1123), strings.Join(aliases, ", "))) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false
+}
+func (c *UserInfoCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[@user]", "Lists the ID, username, nickname, roles, avatar, join date, and other information about a given user.")
+}
+func (c *UserInfoCommand) UsageShort() string { return "Lists information about a user." }
