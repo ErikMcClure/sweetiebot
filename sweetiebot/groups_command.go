@@ -105,7 +105,9 @@ func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, info *
 	i := 0
 	for k := range info.config.Groups[arg] {
 		m, _ := sb.db.GetUser(SBatoi(k))
-		pings[i] = m.Username
+		if m != nil {
+			pings[i] = m.Username
+		}
 		i++
 	}
 
