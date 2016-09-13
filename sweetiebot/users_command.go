@@ -241,6 +241,10 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 		joined = joinedat.In(authortz).Format(time.RFC1123)
 	}
 	guildroles, err := sb.dg.GuildRoles(info.Guild.ID)
+	if err != nil {
+		guildroles = info.Guild.Roles
+	}
+
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {
 		if err == nil {
@@ -251,8 +255,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 				}
 			}
 		} else {
-			//roles = append(roles, "<@&"+v+">")
-			roles = append(roles, v)
+			roles = append(roles, "<@&"+v+">")
 		}
 	}
 
