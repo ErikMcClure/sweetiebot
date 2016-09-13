@@ -251,7 +251,8 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 				}
 			}
 		} else {
-			roles = append(roles, "<@&"+v+">")
+			//roles = append(roles, "<@&"+v+">")
+			roles = append(roles, v)
 		}
 	}
 
