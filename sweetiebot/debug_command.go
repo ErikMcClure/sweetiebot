@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -143,6 +144,18 @@ func (c *DumpTablesCommand) Usage(info *GuildInfo) string {
 }
 func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
 
+type GuildSlice []*GuildInfo
+
+func (s GuildSlice) Len() int {
+	return len(s)
+}
+func (s GuildSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s GuildSlice) Less(i, j int) bool {
+	return len(s[i].Guild.Members) > len(s[j].Guild.Members)
+}
+
 type ListGuildsCommand struct {
 }
 
@@ -151,12 +164,17 @@ func (c *ListGuildsCommand) Name() string {
 }
 func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	s := make([]string, 0, len(sb.guilds))
+	guilds := []*GuildInfo{}
 	for _, v := range sb.guilds {
+		guilds = append(guilds, v)
+	}
+	sort.Sort(GuildSlice(guilds))
+	s := make([]string, 0, len(guilds))
+	for _, v := range guilds {
 		if !isOwner {
 			s = append(s, ExtraSanitize(v.Guild.Name))
 		} else {
-			s = append(s, fmt.Sprintf("%v (%v users) [%v channels] - %v", ExtraSanitize(v.Guild.Name), len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v)))
+			s = append(s, ExtraSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v))))
 		}
 	}
 	return "```Sweetie has joined these servers:\n" + strings.Join(s, "\n") + "```", len(s) > 8
