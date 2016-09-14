@@ -314,7 +314,11 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	} else {
 		user = "%" + user + "%"
 	}
-	return sb.db.FindUsers(user, 20, 0, SBatoi(info.Guild.ID))
+	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
+	if len(r) != 0 {
+		return r
+	}
+	return sb.db.FindUsers(user, 20, 0)
 }
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))

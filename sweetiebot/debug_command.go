@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -149,9 +150,14 @@ func (c *ListGuildsCommand) Name() string {
 	return "ListGuilds"
 }
 func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	s := make([]string, 0, len(sb.guilds))
 	for _, v := range sb.guilds {
-		s = append(s, v.Guild.Name)
+		if !isOwner {
+			s = append(s, ExtraSanitize(v.Guild.Name))
+		} else {
+			s = append(s, fmt.Sprintf("%v (%v users) [%v channels] - %v", ExtraSanitize(v.Guild.Name), len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v)))
+		}
 	}
 	return "```Sweetie has joined these servers:\n" + strings.Join(s, "\n") + "```", len(s) > 8
 }

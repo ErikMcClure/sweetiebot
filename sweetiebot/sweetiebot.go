@@ -553,14 +553,14 @@ func AttachToGuild(g *discordgo.Guild) {
 func GetChannelGuild(id string) *GuildInfo {
 	g, ok := sb.GuildChannels[id]
 	if !ok {
-		return sb.guilds[SBitoa(sb.MainGuildID)]
+		return nil
 	}
 	return g
 }
 func GetGuildFromID(id string) *GuildInfo {
 	g, ok := sb.guilds[id]
 	if !ok {
-		return sb.guilds[SBitoa(sb.MainGuildID)]
+		return nil
 	}
 	return g
 }
@@ -573,6 +573,9 @@ func (info *GuildInfo) IsDebug(channel string) bool {
 }
 func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) {
 	info := GetChannelGuild(t.ChannelID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnTypingStart), func(i int) {
 		if info.ProcessModule("", info.hooks.OnTypingStart[i]) {
 			info.hooks.OnTypingStart[i].OnTypingStart(info, t)
@@ -719,6 +722,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	isdbguild := true
 	if !private {
 		info = GetChannelGuild(m.ChannelID)
+		if info == nil {
+			return
+		}
 		isdbguild = sb.IsDBGuild(info)
 	} else {
 		info = sb.guilds[SBitoa(sb.MainGuildID)]
@@ -746,6 +752,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	info := GetChannelGuild(m.ChannelID)
+	if info == nil {
+		return
+	}
 	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
@@ -779,6 +788,9 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 }
 func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 	info := GetChannelGuild(m.ChannelID)
+	if info == nil {
+		return
+	}
 	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
@@ -790,6 +802,9 @@ func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
 }
 func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
 	info := GetChannelGuild(m.ChannelID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnMessageAck), func(i int) {
 		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageAck[i]) {
 			info.hooks.OnMessageAck[i].OnMessageAck(info, m)
@@ -799,6 +814,9 @@ func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
 func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User) }
 func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	ProcessUser(m.User)
 	ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) {
@@ -808,6 +826,9 @@ func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 }
 func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnVoiceStateUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnVoiceStateUpdate[i]) {
 			info.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(info, m.VoiceState)
@@ -816,6 +837,9 @@ func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) {
 }
 func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 	info := GetChannelGuild(m.ID)
+	if info == nil {
+		return
+	}
 	info.log.Log("Guild update detected, updating ", m.Name)
 	info.ProcessGuild(m.Guild)
 	ApplyFuncRange(len(info.hooks.OnGuildUpdate), func(i int) {
@@ -826,6 +850,9 @@ func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 }
 func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	info.ProcessMember(m.Member)
 	ApplyFuncRange(len(info.hooks.OnGuildMemberAdd), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberAdd[i]) {
@@ -835,6 +862,9 @@ func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 }
 func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnGuildMemberRemove), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberRemove[i]) {
 			info.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(info, m.Member)
@@ -843,6 +873,9 @@ func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 }
 func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	info.ProcessMember(m.Member)
 	ApplyFuncRange(len(info.hooks.OnGuildMemberUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberUpdate[i]) {
@@ -852,6 +885,9 @@ func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 }
 func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnGuildBanAdd), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildBanAdd[i]) {
 			info.hooks.OnGuildBanAdd[i].OnGuildBanAdd(info, m.GuildBan)
@@ -860,6 +896,9 @@ func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
 }
 func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
 	ApplyFuncRange(len(info.hooks.OnGuildBanRemove), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildBanRemove[i]) {
 			info.hooks.OnGuildBanRemove[i].OnGuildBanRemove(info, m.GuildBan)
@@ -989,7 +1028,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.6",
+		version:            "0.8.7",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
