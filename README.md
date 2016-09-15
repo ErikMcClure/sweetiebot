@@ -27,16 +27,16 @@ A limited version of sweetiebot can be added to any server. Simply follow [this 
 
 ### Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update and !announce, which can only be run by the bot owner). It is highly recommended the following settings are configured at a bare minimum:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update and !announce, which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
 
 * **logchannel** should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
 * **alertrole** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
 * **modchannel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
 * **freechannels** should be set to a list of channel IDs that are excluded from rate limiting. If you have a #bot channel for spamming the bot, add it here.
 * **silentrole** should be set to a role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.
-* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to `0`, which will disable the bored module.
+* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to `0`, which will disable the bored module. **This is not a real config option**, it only exists as a shortcut inside `!quickconfig`. To manually set this option, use `!setconfig module_channels bored #channelname`
 
-Once this has been done, all sensitive commands (such as setconfig) should be restricted to the appropriate moderator role. You can use sweetiebot's !quickconfig command to do all of this automatically and re-enable all modules. **You must PING the role or channel that you are adding to the bot!** If you have a moderator role called "Server Moderator", you would use `!setconfig AlertRole @Server Moderator`, so that the bot recieves the actual role ID. You can go to your discord server configuration to make a specific role mentionable.
+Use `!help quickconfig` for an example of how to use the command. `!quickconfig` will automatically restrict all sensitive commands to `alertrole` and re-enable all modules. **You must PING the role or channel that you are adding to the bot!** For example, `!quickconfig #botlog @Server Moderator #modchat #bots @Silence #bots` would be a valid configuration. If you are manually setting a configuration option and you have a moderator role called "Server Moderator", you would use `!setconfig AlertRole @Server Moderator`, so that the bot recieves the actual role ID. You can go to your discord server configuration to make a specific role mentionable.
 
 Additional configuration is optional, depending on what features of the bot are being used:
 
