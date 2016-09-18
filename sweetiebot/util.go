@@ -475,6 +475,12 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 	t, err := time.ParseInLocation("_2 Jan 06 3:04pm -0700", s, locUTC)
 	tz := getTimezone(info, user)
 	if err != nil {
+		t, err = time.ParseInLocation("_2 Jan 2006 3:04pm -0700", s, tz)
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("_2 Jan 2006 15:04 -0700", s, tz)
+	}
+	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 2006 3:04pm", s, tz)
 	}
 	if err != nil {
@@ -485,15 +491,21 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 3:04pm", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		if err == nil {
+			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		}
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 15:04", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		if err == nil {
+			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		}
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2", s, tz)
-		t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		if err == nil {
+			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+		}
 	}
 	if err != nil {
 		t, err = time.ParseInLocation("_2 Jan 06 3:04pm", s, tz)
