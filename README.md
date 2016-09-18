@@ -38,6 +38,8 @@ Upon being added to a server, Sweetiebot will begin with all her commands and mo
 
 Use `!help quickconfig` for an example of how to use the command. `!quickconfig` will automatically restrict all sensitive commands to `alertrole` and re-enable all modules. **You must PING the role or channel that you are adding to the bot!** For example, `!quickconfig #botlog @Server Moderator #modchat #bots @Silence #bots` would be a valid configuration. If you are manually setting a configuration option and you have a moderator role called "Server Moderator", you would use `!setconfig AlertRole @Server Moderator`, so that the bot recieves the actual role ID. You can go to your discord server configuration to make a specific role mentionable.
 
+**DO NOT GIVE SWEETIE BOT ADMINISTRATIVE PERMISSIONS OR THE ABILITY TO PING EVERYONE!** Sweetie bot does not and will never attempt to filter `@everyone` pings, because if you don't want her to be able to ping everyone, you shouldn't give her the ability to do so in the first place. Sweetie bot only requires the following permissions: `Manage Roles`, `Ban Members`, `Manage Messages`, plus all the default read/write permissions given to everyone.
+
 Additional configuration is optional, depending on what features of the bot are being used:
 
 * **maxerror** is the cooldown time for sweetiebot to display an error message, intended to prevent the bot from spamming itself. Default: 4
