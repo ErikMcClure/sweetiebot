@@ -17,7 +17,7 @@ func (l *Log) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
 	fmt.Println(s)
 	if sb.db != nil && l.info != nil && sb.IsMainGuild(l.info) {
-		sb.db.Log(s)
+		sb.db.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(l.info.Guild.ID))
 	}
 	if l.info != nil && l.info.config.LogChannel > 0 {
 		l.info.SendMessage(SBitoa(l.info.config.LogChannel), "```"+s+"```")
