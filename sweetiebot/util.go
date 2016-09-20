@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -514,4 +515,21 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 		t, err = time.ParseInLocation("_2 Jan 06", s, tz)
 	}
 	return t, err
+}
+
+func getAllPerms(info *GuildInfo, user string) (int64, error) {
+	for _, v := range info.Guild.Members {
+		if v.User.ID == user {
+			var perms int64 = 0
+			for _, r := range v.Roles {
+				for _, x := range info.Guild.Roles {
+					if x.ID == r {
+						perms |= int64(x.Permissions)
+					}
+				}
+			}
+			return perms, nil
+		}
+	}
+	return 0, errors.New("Cannot find member!")
 }
