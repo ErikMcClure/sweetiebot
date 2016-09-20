@@ -613,6 +613,12 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			gIDs := sb.db.GetUserGuilds(SBatoi(m.Author.ID))
 			if len(gIDs) != 1 {
 				// Check if the main server is in the guild list and default to that
+				for _, v := range gIDs {
+					if v == sb.MainGuildID {
+						gIDs = []uint64{v}
+						break
+					}
+				}
 			}
 			_, independent := sb.NonServerCommands[arg]
 			if !independent && len(gIDs) != 1 {
