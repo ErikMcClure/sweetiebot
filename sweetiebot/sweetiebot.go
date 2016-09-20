@@ -61,6 +61,7 @@ type BotConfig struct {
 	MaxAttachSpam         int                        `json:"maxattachspam"`
 	MaxPingSpam           int                        `json:"maxpingspam"`
 	MaxMessageSpam        map[int64]int              `json:"maxmessagespam"`
+	MaxSpamRemoveLookback int                        `json:maxspamremovelookback`
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
 	Timezone              int                        `json:"timezone"`
@@ -737,9 +738,13 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if cid != info.config.LogChannel && !private && isdbguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+
+		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
+			SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
+			return
+		}
 	}
-	if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
-		SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
+	if m.Author.ID == sb.SelfID { // if this is true here, it means we were unable to log the message, so we can't possibly add the ping.
 		return
 	}
 
