@@ -137,7 +137,24 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	}
 
 	info.SaveConfig()
-	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + "```", false
+	warning := "```"
+	perms, _ := getAllPerms(info, sb.SelfID)
+	if perms&0x00000008 != 0 {
+		warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitely gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+	}
+	if perms&0x00020000 != 0 {
+		warning = "\nWARNING: You have given sweetiebot the Mention Everyone role, which means users will be able to abuse her to ping everyone on the server! Sweetie Bot does NOT attempt to filter @\u200Beveryone from her messages!" + warning
+	}
+	if perms&0x00000004 == 0 {
+		warning = "\nWARNING: Sweetiebot cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
+	}
+	if perms&0x10000000 == 0 {
+		warning = "\nWARNING: Sweetiebot cannot silence members or give birthday roles without the Manage Roles role! (If you do not use these features, it is safe to ignore this warning)." + warning
+	}
+	if perms&0x00002000 == 0 {
+		warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
+	}
+	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + warning, false
 }
 func (c *QuickConfigCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role] [Bored Channel]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules. If [bored channel] is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels. You must ping each role and channel, you cannot simply input the name of a role or channel.")
