@@ -51,7 +51,7 @@ type BotDB struct {
 	sql_GetRandomWord        *sql.Stmt
 	sql_GetTableCounts       *sql.Stmt
 	sql_CountNewUsers        *sql.Stmt
-	sql_Log                  *sql.Stmt
+	sql_Audit                *sql.Stmt
 	sql_ResetMarkov          *sql.Stmt
 	sql_AddSchedule          *sql.Stmt
 	sql_AddScheduleRepeat    *sql.Stmt
@@ -137,7 +137,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
 	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
 	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
-	db.sql_Log, err = db.Prepare("INSERT INTO debuglog (Message, Timestamp) VALUE(?, UTC_TIMESTAMP())")
+	db.sql_Audit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
 	db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
 	db.sql_AddSchedule, err = db.Prepare("INSERT INTO schedule (Guild, Date, Type, Data) VALUES (?, ?, ?, ?)")
 	db.sql_AddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
@@ -157,6 +157,12 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
 	return err
 }
+
+const (
+	AUDIT_TYPE_LOG     = iota
+	AUDIT_TYPE_ACTION  = iota
+	AUDIT_TYPE_COMMAND = iota
+)
 
 func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 	r := make([]string, 0, 3)
@@ -372,8 +378,14 @@ func (db *BotDB) GetAliases(user uint64) []string {
 	return db.ParseStringResults(q)
 }
 
-func (db *BotDB) Log(message string) {
-	_, err := db.sql_Log.Exec(message)
+func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uint64) {
+	var err error
+	if user == nil {
+		_, err = db.sql_Audit.Exec(ty, nil, message, guild)
+	} else {
+		_, err = db.sql_Audit.Exec(ty, SBatoi(user.ID), message, guild)
+	}
+
 	if err != nil {
 		fmt.Println("Logger failed to log to database! ", err.Error())
 	}
