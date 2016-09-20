@@ -107,6 +107,7 @@ type SweetieBot struct {
 	SelfID             string
 	Owners             map[uint64]bool
 	RestrictedCommands map[string]bool
+	NonServerCommands  map[string]bool
 	MainGuildID        uint64
 	DBGuilds           map[uint64]bool
 	DebugChannels      map[string]string
@@ -583,27 +584,47 @@ func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) {
 		}
 	})
 }
-func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, private bool, isdebug bool, err error) {
+func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool, err error) {
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
-		_, isfree := info.config.FreeChannels[m.ChannelID]
+		private := info == nil
+		isfree := private
+		if info != nil {
+			_, isfree = info.config.FreeChannels[m.ChannelID]
+		}
 		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
 		isSelf := m.Author.ID == sb.SelfID
-		isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
-		if !isSelf {
+		if !isSelf && info != nil {
 			ignore := false
 			ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
 				if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) {
 					ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
 				}
 			})
-			if ignore && !isOwner { // if true, a module wants us to ignore this command
+			if ignore && !isOwner && m.Author.ID != info.Guild.OwnerID { // if true, a module wants us to ignore this command
 				return
 			}
 		}
 
 		args := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
+
+		if info == nil {
+			gIDs := sb.db.GetUserGuilds(SBatoi(m.Author.ID))
+			if len(gIDs) != 1 {
+				// Check if the main server is in the guild list and default to that
+			}
+			_, independent := sb.NonServerCommands[arg]
+			if !independent && len(gIDs) != 1 {
+				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to!```")
+				return
+			}
+			info = sb.guilds[SBitoa(gIDs[0])]
+			if info == nil {
+				s.ChannelMessageSend(m.ChannelID, "```I haven't been loaded on that server yet!```")
+				return
+			}
+		}
 		alias, ok := info.config.Aliases[arg]
 		if ok {
 			nargs := ParseArguments(alias)
@@ -612,6 +633,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		c, ok := info.commands[arg]
 		if ok {
+			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 			cmdname := strings.ToLower(c.Name())
 			cch := info.config.Command_channels[cmdname]
 			_, disabled := info.config.Command_disabled[cmdname]
@@ -629,7 +651,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					return
 				}
 			}
-			if err != nil || (!private && !isdebug && !isfree && !isSelf) { // Private channels are not limited, nor is the debug channel
+			if err != nil || (!isdebug && !isfree && !isSelf) { // debug channels aren't limited
 				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
 					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
 					return
@@ -694,7 +716,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				info.log.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
 			}
 		}
-	} else {
+	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
 		ApplyFuncRange(len(info.hooks.OnMessageCreate), func(i int) {
 			if info.ProcessModule(m.ChannelID, info.hooks.OnMessageCreate[i]) {
 				info.hooks.OnMessageCreate[i].OnMessageCreate(info, m)
@@ -719,24 +741,23 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		fmt.Println("Error retrieving channel "+m.ChannelID+": ", err.Error())
 	}
 
-	var info *GuildInfo
+	var info *GuildInfo = nil
 	isdbguild := true
+	isdebug := false
 	if !private {
 		info = GetChannelGuild(m.ChannelID)
 		if info == nil {
 			return
 		}
 		isdbguild = sb.IsDBGuild(info)
-	} else {
-		info = sb.guilds[SBitoa(sb.MainGuildID)]
+		isdebug = info.IsDebug(m.ChannelID)
 	}
 	cid := SBatoi(m.ChannelID)
-	isdebug := info.IsDebug(m.ChannelID)
 	if isdebug && !sb.Debug {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 
-	if cid != info.config.LogChannel && !private && isdbguild { // Log this message if it was sent to the main guild only.
+	if info != nil && cid != info.config.LogChannel && isdbguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
@@ -752,7 +773,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	SBProcessCommand(s, m.Message, info, t, isdbguild, private, isdebug, err)
+	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug, err)
 }
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
@@ -1037,6 +1058,7 @@ func Initialize(Token string) {
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
+		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
