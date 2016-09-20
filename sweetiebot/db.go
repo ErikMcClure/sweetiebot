@@ -68,6 +68,7 @@ type BotDB struct {
 	sql_FindTimeZoneOffset   *sql.Stmt
 	sql_SetTimeZone          *sql.Stmt
 	sql_RemoveAlias          *sql.Stmt
+	sql_GetUserGuilds        *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -153,6 +154,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_FindTimeZoneOffset, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ? AND (Offset = ? OR DST = ?)")
 	db.sql_SetTimeZone, err = db.Prepare("UPDATE users SET Location = ? WHERE ID = ?")
 	db.sql_RemoveAlias, err = db.Prepare("DELETE FROM aliases WHERE User = ? AND Alias = ?")
+	db.sql_GetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
 	return err
 }
 
@@ -699,4 +701,18 @@ func (db *BotDB) SetTimeZone(user uint64, tz *time.Location) error {
 func (db *BotDB) RemoveAlias(user uint64, alias string) {
 	_, err := db.sql_RemoveAlias.Exec(user, alias)
 	db.log.LogError("RemoveAlias error: ", err)
+}
+
+func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
+	q, err := db.sql_GetUserGuilds.Query(user)
+	db.log.LogError("GetUserGuilds error: ", err)
+	defer q.Close()
+	r := make([]uint64, 0, 2)
+	for q.Next() {
+		var s uint64
+		if err := q.Scan(&s); err == nil {
+			r = append(r, s)
+		}
+	}
+	return r
 }
