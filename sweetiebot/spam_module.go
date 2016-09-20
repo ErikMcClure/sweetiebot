@@ -73,13 +73,17 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 	SilenceMember(u.ID, info)
 
-	if sb.IsDBGuild(info) {
-		messages := sb.db.GetRecentMessages(SBatoi(u.ID), 60, SBatoi(info.Guild.ID)) // Retrieve all messages in the past 60 seconds and delete them.
+	if info.config.MaxSpamRemoveLookback > 0 {
+		if sb.IsDBGuild(info) {
+			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.MaxSpamRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
-		for _, v := range messages {
-			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
+			for _, v := range messages {
+				sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
+			}
 		}
-	}
+	} else if info.config.MaxSpamRemoveLookback == 0 {
+		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
+	} // otherwise we don't delete anything
 
 	info.SendMessage(SBitoa(info.config.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
 }
