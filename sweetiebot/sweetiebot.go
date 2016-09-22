@@ -846,13 +846,13 @@ func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
 		}
 	})
 }
-func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User) }
+func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User, nil) }
 func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 	info := GetGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	ProcessUser(m.User)
+	ProcessUser(m.User, info)
 	ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) {
 			info.hooks.OnPresenceUpdate[i].OnPresenceUpdate(info, m)
@@ -950,14 +950,24 @@ func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
 	delete(sb.GuildChannels, c.ID)
 }
-func ProcessUser(u *discordgo.User) uint64 {
+func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
+	isonline := true
+	if info != nil {
+		var p *discordgo.Presence = nil
+		for _, v := range info.Guild.Presences {
+			if v.User.ID == u.ID {
+				p = v
+			}
+		}
+		isonline = (p != nil && p.Status != "Offline")
+	}
 	id := SBatoi(u.ID)
-	sb.db.AddUser(id, u.Email, u.Username, u.Avatar, u.Verified)
+	sb.db.AddUser(id, u.Email, u.Username, u.Avatar, u.Verified, isonline)
 	return id
 }
 
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
-	ProcessUser(u.User)
+	ProcessUser(u.User, info)
 
 	t := time.Now().UTC()
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
@@ -1063,7 +1073,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.8",
+		version:            "0.8.9",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},

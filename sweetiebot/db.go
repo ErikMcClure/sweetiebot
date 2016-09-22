@@ -106,7 +106,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE C.Guild = ? AND (P.User = ? OR (C.Everyone = 1 AND C.Channel != ?)) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
 	db.sql_GetPingContext, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
 	db.sql_GetPingContextBefore, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
-	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
+	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen, Timezone, Location FROM users WHERE ID = ?")
 	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
@@ -244,8 +244,8 @@ func (db *BotDB) GetPingContextBefore(message uint64, channel uint64, maxresults
 	return r
 }
 
-func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool) {
-	_, err := db.sql_AddUser.Exec(id, email, username, avatar, verified)
+func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool, isonline bool) {
+	_, err := db.sql_AddUser.Exec(id, email, username, avatar, verified, isonline)
 	db.log.LogError("AddUser error: ", err)
 }
 
