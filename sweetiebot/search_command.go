@@ -41,46 +41,48 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 
 	// Fill in parameters from args
 	for _, v := range args {
-		switch {
-		case v[0] == '*':
-			if len(v) < 2 {
-				rangeend = -1
-			} else {
-				s := strings.Split(v[1:], "-")
-				if len(s) > 1 {
-					rangebegin, _ = strconv.Atoi(s[0])
-					rangeend, _ = strconv.Atoi(s[1])
+		if len(v) > 0 {
+			switch {
+			case v[0] == '*':
+				if len(v) < 2 {
+					rangeend = -1
 				} else {
-					rangeend, _ = strconv.Atoi(s[0])
+					s := strings.Split(v[1:], "-")
+					if len(s) > 1 {
+						rangebegin, _ = strconv.Atoi(s[0])
+						rangeend, _ = strconv.Atoi(s[1])
+					} else {
+						rangeend, _ = strconv.Atoi(s[0])
+					}
 				}
-			}
-		case v[0] == '@' || (v[0] == '<' && v[1] == '@'):
-			if len(v) < 2 {
-				return "```Error: No users specified```", false
-			}
-			users = strings.Split(v, "|")
-		case v[0] == '#':
-			return "```Error: Unknown channel format " + v + " - Must be an actual recognized channel by discord!```", false
-		case (v[0] == '<' && v[1] == '#'):
-			if len(v) < 2 {
-				return "```Error: No channels specified```", false
-			}
-			s := strings.Split(v, "|")
-			for _, c := range s {
-				if !channelregex.MatchString(c) {
-					return "```Error: Unknown channel format " + c + " - Must be an actual recognized channel by discord!```", false
+			case v[0] == '@' || (v[0] == '<' && v[1] == '@'):
+				if len(v) < 2 {
+					return "```Error: No users specified```", false
 				}
-				channels = append(channels, SBatoi(c[2:len(c)-1]))
+				users = strings.Split(v, "|")
+			case v[0] == '#':
+				return "```Error: Unknown channel format " + v + " - Must be an actual recognized channel by discord!```", false
+			case (v[0] == '<' && v[1] == '#'):
+				if len(v) < 2 {
+					return "```Error: No channels specified```", false
+				}
+				s := strings.Split(v, "|")
+				for _, c := range s {
+					if !channelregex.MatchString(c) {
+						return "```Error: Unknown channel format " + c + " - Must be an actual recognized channel by discord!```", false
+					}
+					channels = append(channels, SBatoi(c[2:len(c)-1]))
+				}
+			case v[0] == '~':
+				var err error
+				t, err = parseCommonTime(v[1:], info, msg.Author)
+				if err != nil {
+					return "```Error: " + err.Error() + "```", false
+				}
+				t = t.UTC()
+			default:
+				messages = append(messages, v)
 			}
-		case v[0] == '~':
-			var err error
-			t, err = parseCommonTime(v[1:], info, msg.Author)
-			if err != nil {
-				return "```Error: " + err.Error() + "```", false
-			}
-			t = t.UTC()
-		default:
-			messages = append(messages, v)
 		}
 	}
 
