@@ -230,7 +230,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *Gu
 		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false
 	}
 	if len(info.config.SilenceMessage) > 0 {
-		sb.dg.ChannelMessageSend(SBitoa(info.config.WelcomeChannel), info.config.SilenceMessage)
+		sb.dg.ChannelMessageSend(SBitoa(info.config.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.SilenceMessage)
 	}
 	return "```Silenced " + IDsToUsernames(IDs, info)[0] + ".```", false
 }
