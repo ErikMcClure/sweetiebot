@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -14,16 +13,11 @@ func (c *AddGroupCommand) Name() string {
 	return "AddGroup"
 }
 
-var nameargregex = regexp.MustCompile("[a-zA-Z0-9]+")
-
 func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
 		return "```You have to name the group!```", false
 	}
-	arg := strings.ToLower(args[0])
-	if !nameargregex.MatchString(arg) {
-		return "```A group name must be alphanumeric, no special characters.```", false
-	}
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if ok {
 		return "```That group already exists!```", false
@@ -55,7 +49,7 @@ func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message, info *
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false
 	}
-	arg := strings.ToLower(args[0])
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
 		return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
@@ -94,7 +88,7 @@ func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, info *
 		return "```" + strings.Join(keys, ", ") + "```", false
 	}
 
-	arg := strings.ToLower(args[0])
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
 		return "```That group doesn't exist! Use !listgroup with no arguments to list existing groups.```", false
@@ -129,7 +123,7 @@ func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message, info 
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false
 	}
-	arg := strings.ToLower(args[0])
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
 		return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
@@ -178,7 +172,9 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false
 	}
-	arg := strings.ToLower(args[0])
+	nargs := strings.SplitN(args[0], "\n", 2)
+	args = append(nargs, args[1:]...)
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
 		return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
@@ -208,7 +204,7 @@ func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message, info 
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false
 	}
-	arg := strings.ToLower(args[0])
+	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
 		return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
