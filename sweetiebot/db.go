@@ -69,6 +69,7 @@ type BotDB struct {
 	sql_SetTimeZone          *sql.Stmt
 	sql_RemoveAlias          *sql.Stmt
 	sql_GetUserGuilds        *sql.Stmt
+	sql_FindBanEvent         *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -155,6 +156,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_SetTimeZone, err = db.Prepare("UPDATE users SET Location = ? WHERE ID = ?")
 	db.sql_RemoveAlias, err = db.Prepare("DELETE FROM aliases WHERE User = ? AND Alias = ?")
 	db.sql_GetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
+	db.sql_FindBanEvent, err = db.Prepare("SELECT ID FROM `schedule` WHERE `Type` = 0 AND `Data` = ? AND `Guild` = ?")
 	return err
 }
 
@@ -727,4 +729,16 @@ func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 		}
 	}
 	return r
+}
+
+func (db *BotDB) FindBanEvent(user string, guild uint64) *uint64 {
+	var id uint64
+	err := db.sql_FindBanEvent.QueryRow(user, guild).Scan(&id)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		db.log.LogError("FindBanEvent error: ", err)
+		return nil
+	}
+	return &id
 }
