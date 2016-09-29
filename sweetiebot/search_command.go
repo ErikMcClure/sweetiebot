@@ -238,7 +238,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 
 	ret = strings.Replace(ret, "http://", "http\u200B://", -1)
 	ret = strings.Replace(ret, "https://", "https\u200B://", -1)
-	return ret, len(r) > 5
+	return ReplaceAllMentions(ret), len(r) > 5
 	//return c.emotes.emoteban.ReplaceAllStringFunc(ret, emotereplace), len(r) > 5
 }
 func (c *SearchCommand) Usage(info *GuildInfo) string {

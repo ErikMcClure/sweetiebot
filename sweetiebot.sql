@@ -73,12 +73,12 @@ DELIMITER ;
 
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT, IN `_isonline` BIT)
     DETERMINISTIC
 INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
 VALUES (_id, _email, _username, _avatar, _verified, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=UTC_TIMESTAMP()//
+Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
 DELIMITER ;
 
 
@@ -135,10 +135,15 @@ DELIMITER ;
 -- Dumping structure for table sweetiebot.debuglog
 CREATE TABLE IF NOT EXISTS `debuglog` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `Message` varchar(2048) NOT NULL,
+  `Type` tinyint(3) unsigned NOT NULL,
+  `User` bigint(20) unsigned DEFAULT NULL,
+  `Message` varchar(4096) NOT NULL,
   `Timestamp` datetime NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`ID`),
-  KEY `INDEX_TIMESTAMP` (`Timestamp`)
+  KEY `INDEX_TIMESTAMP` (`Timestamp`),
+  KEY `debuglog_Users` (`User`),
+  CONSTRAINT `debuglog_Users` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.

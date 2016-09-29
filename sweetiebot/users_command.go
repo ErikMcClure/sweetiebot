@@ -76,7 +76,7 @@ func (c *AKACommand) Usage(info *GuildInfo) string {
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 
-// experimental ban command for admins to ban users from the server with extreme prejudice
+// Ban command that tracks who banned someone, why, and optionally make the ban temporary
 type BanCommand struct {
 }
 
@@ -90,7 +90,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```You didn't tell me who to zap with the friendship gun, silly.```", false
 	}
 	// get the user ID and deal with Discord's alias bullshit
-	arg := strings.Join(args, " ")
+	arg := args[0]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
@@ -98,22 +98,75 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	if len(IDs) > 1 {
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
 	}
-	// we're done with our checks
-	// actually ban the user here and send the output. This is probably poorly done.
-	gID := info.Guild.ID
+
+	gID := SBatoi(info.Guild.ID)
 	u, _, _ := sb.db.GetUser(IDs[0])
 	if u == nil {
 		return "```Error: User does not exist!```", false
 	}
 	uID := SBitoa(IDs[0])
-	sb.dg.GuildBanCreate(gID, uID, 1)
 
-	return "```Banned " + u.Username + " from the server. Harmony restored.```", !CheckShutup(msg.ChannelID)
+	reason := ""
+	if len(args) > 1 {
+		if strings.ToLower(args[1]) == "for:" {
+			if len(args) < 4 {
+				return "```Error: Duration should be specified as 'for: 5 DAYS' or 'for: 72 HOURS'```", false
+			}
+			duration, err := strconv.Atoi(args[2])
+			if err != nil {
+				return "```Error: Duration number was not an integer.```", false
+			}
+
+			t := time.Now().UTC()
+			switch parseRepeatInterval(args[3]) {
+			case 1:
+				t = t.Add(time.Duration(duration) * time.Second)
+			case 2:
+				t = t.Add(time.Duration(duration) * time.Minute)
+			case 3:
+				t = t.Add(time.Duration(duration) * time.Hour)
+			case 4:
+				t = t.AddDate(0, 0, duration)
+			case 5:
+				t = t.AddDate(0, 0, duration*7)
+			case 6:
+				t = t.AddDate(0, duration, 0)
+			case 8:
+				t = t.AddDate(duration, 0, 0)
+			case 7:
+				fallthrough
+			case 255:
+				return "```Error: unrecognized interval.```", false
+			}
+
+			if !sb.db.AddSchedule(gID, t, 0, uID) {
+				return "```Error: servers can't have more than 5000 events!```", false
+			}
+
+			scheduleID := sb.db.FindBanEvent(uID, gID)
+			if scheduleID == nil {
+				return "```Error: Could not find inserted ban event!```", false
+			}
+
+			if len(args) > 4 {
+				reason = strings.Join(args[4:], " ")
+			}
+		} else {
+			reason = strings.Join(args[1:], " ")
+		}
+	}
+
+	fmt.Printf("Banned %s because: %s\n", u.Username, reason)
+	err := sb.dg.GuildBanCreate(info.Guild.ID, uID, 1) // Note that this will probably generate a SawBan event
+	if err != nil {
+		return "```Error: " + err.Error() + "```", false
+	}
+	return "```Banned " + u.Username + " from the server. Harmony restored.```", false
 }
 func (c *BanCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[@user]", "Commands Sweetie Bot to ban a given user.")
+	return info.FormatUsage(c, "[@user] [for: duration] [reason]", "Bans the given user. The username must be a single argument, so if it has spaces, it must be put in quotes, like \"User Name\". If the keyword 'for:' is used after the username, looks for a duration of the form 'for: 50 MINUTES' and creates an unban event that will be fired after that much time has passed from now. The rest of the message is treated as a reason for the ban. Examples: '!ban @CrystalFlash for: 5 MINUTES because he's a dunce' or '!ban \"Name With Spaces\" caught stealing cookies'.")
 }
-func (c *BanCommand) UsageShort() string { return "Commands Sweetie Bot to ban a given user." }
+func (c *BanCommand) UsageShort() string { return "Bans a user." }
 
 type TimeCommand struct {
 }
