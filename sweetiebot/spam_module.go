@@ -192,7 +192,7 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 
 	info.SaveConfig()
 
-	if info.config.AutoSilence == 0 {
+	if info.config.AutoSilence <= 0 {
 		// unsilence everyone
 	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
