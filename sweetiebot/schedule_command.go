@@ -47,8 +47,12 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	for _, v := range events {
 		switch v.Type {
 		case 0:
-			sb.dg.GuildBanDelete(info.Guild.ID, v.Data)
-			info.SendMessage(SBitoa(info.config.ModChannel), "Unbanned <@"+v.Data+">")
+			err := sb.dg.GuildBanDelete(info.Guild.ID, v.Data)
+			if err != nil {
+				info.SendMessage(SBitoa(info.config.ModChannel), "Error unbanning <@"+v.Data+">: "+err.Error())
+			} else {
+				info.SendMessage(SBitoa(info.config.ModChannel), "Unbanned <@"+v.Data+">")
+			}
 		case 1:
 			m, err := sb.dg.GuildMember(info.Guild.ID, v.Data)
 			if err != nil {
