@@ -113,7 +113,7 @@ type SweetieBot struct {
 	DBGuilds           map[uint64]bool
 	DebugChannels      map[string]string
 	quit               bool
-	guilds             map[string]*GuildInfo
+	guilds             map[uint64]*GuildInfo
 	GuildChannels      map[string]*GuildInfo
 	LastMessages       map[string]int64
 	MaxConfigSize      int
@@ -339,7 +339,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 }
 
 func AttachToGuild(g *discordgo.Guild) {
-	guild, exists := sb.guilds[g.ID]
+	guild, exists := sb.guilds[SBatoi(g.ID)]
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
@@ -421,7 +421,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		sb.db.log = guild.log
 	}
 
-	sb.guilds[g.ID] = guild
+	sb.guilds[SBatoi(g.ID)] = guild
 	guild.ProcessGuild(g)
 
 	episodegencommand := &EpisodeGenCommand{}
@@ -534,6 +534,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&RemoveAliasCommand{})
 	guild.AddCommand(&DeleteCommand{})
 	guild.AddCommand(&UserInfoCommand{})
+	guild.AddCommand(&DefaultServerCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -561,7 +562,7 @@ func GetChannelGuild(id string) *GuildInfo {
 	return g
 }
 func GetGuildFromID(id string) *GuildInfo {
-	g, ok := sb.guilds[id]
+	g, ok := sb.guilds[SBatoi(id)]
 	if !ok {
 		return nil
 	}
@@ -609,24 +610,17 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 
 		args := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
-
+		if info == nil {
+			info = getDefaultServer(SBatoi(m.Author.ID))
+		}
 		if info == nil {
 			gIDs := sb.db.GetUserGuilds(SBatoi(m.Author.ID))
-			if len(gIDs) != 1 {
-				// Check if the main server is in the guild list and default to that
-				for _, v := range gIDs {
-					if v == sb.MainGuildID {
-						gIDs = []uint64{v}
-						break
-					}
-				}
-			}
 			_, independent := sb.NonServerCommands[arg]
 			if !independent && len(gIDs) != 1 {
-				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to!```")
+				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
 				return
 			}
-			info = sb.guilds[SBitoa(gIDs[0])]
+			info = sb.guilds[gIDs[0]]
 			if info == nil {
 				s.ChannelMessageSend(m.ChannelID, "```I haven't been loaded on that server yet!```")
 				return
@@ -943,7 +937,7 @@ func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 }
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
 func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
-	guild, ok := sb.guilds[c.GuildID]
+	guild, ok := sb.guilds[SBatoi(c.GuildID)]
 	if ok {
 		sb.GuildChannels[c.ID] = guild
 	}
@@ -1074,7 +1068,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.11.1",
+		version:            "0.8.11.2",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1084,7 +1078,7 @@ func Initialize(Token string) {
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
 		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               false,
-		guilds:             make(map[string]*GuildInfo),
+		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 	}
