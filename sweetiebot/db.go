@@ -70,6 +70,7 @@ type BotDB struct {
 	sql_RemoveAlias          *sql.Stmt
 	sql_GetUserGuilds        *sql.Stmt
 	sql_FindBanEvent         *sql.Stmt
+	sql_SetDefaultServer     *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -109,7 +110,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetPingContextBefore, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
-	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen, Timezone, Location FROM users WHERE ID = ?")
+	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen, Timezone, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sql_FindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
@@ -157,6 +158,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_RemoveAlias, err = db.Prepare("DELETE FROM aliases WHERE User = ? AND Alias = ?")
 	db.sql_GetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
 	db.sql_FindBanEvent, err = db.Prepare("SELECT ID FROM `schedule` WHERE `Type` = 0 AND `Data` = ? AND `Guild` = ?")
+	db.sql_SetDefaultServer, err = db.Prepare("UPDATE users SET DefaultServer = ? WHERE ID = ?")
 	return err
 }
 
@@ -256,17 +258,22 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 	db.log.LogError("AddMember error: ", err)
 }
 
-func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location) {
+func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location, *uint64) {
 	u := &discordgo.User{}
 	var lastseen time.Time
 	var i sql.NullInt64
 	var loc sql.NullString
-	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen, &i, &loc)
+	var guild sql.NullInt64
+	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen, &i, &loc, &guild)
 	if err == sql.ErrNoRows {
-		return nil, lastseen, nil
+		return nil, lastseen, nil, nil
 	}
 	db.log.LogError("GetUser error: ", err)
-	return u, lastseen, evalTimeZone(i, loc)
+	if !guild.Valid {
+		return u, lastseen, evalTimeZone(i, loc), nil
+	}
+	g := uint64(guild.Int64)
+	return u, lastseen, evalTimeZone(i, loc), &g
 }
 
 func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time) {
@@ -275,7 +282,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	var lastseen time.Time
 	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &m.User.Avatar, &lastseen, &m.Nick, &m.JoinedAt)
 	if err == sql.ErrNoRows {
-		m.User, lastseen, _ = db.GetUser(id)
+		m.User, lastseen, _, _ = db.GetUser(id)
 		if m.User == nil {
 			return nil, lastseen
 		}
@@ -741,4 +748,10 @@ func (db *BotDB) FindBanEvent(user string, guild uint64) *uint64 {
 		return nil
 	}
 	return &id
+}
+
+func (db *BotDB) SetDefaultServer(user uint64, server uint64) error {
+	_, err := db.sql_SetDefaultServer.Exec(server, user)
+	db.log.LogError("SetDefaultServer error: ", err)
+	return err
 }

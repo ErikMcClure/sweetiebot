@@ -550,6 +550,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `LastNameChange` datetime NOT NULL,
   `Timezone` int(11) DEFAULT NULL,
   `Location` varchar(40) DEFAULT NULL,
+  `DefaultServer` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_USERNAME` (`Username`),
   KEY `FK_Location_timezone` (`Location`),
