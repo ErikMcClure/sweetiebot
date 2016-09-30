@@ -533,3 +533,37 @@ func getAllPerms(info *GuildInfo, user string) (int64, error) {
 	}
 	return 0, errors.New("Cannot find member!")
 }
+
+func findServers(name string, guilds []uint64) []*GuildInfo {
+	name = strings.ToLower(name)
+	info := make([]*GuildInfo, 0, len(guilds))
+	for _, g := range guilds {
+		guild, ok := sb.guilds[g]
+		if ok {
+			n := strings.ToLower(guild.Guild.Name)
+			if len(n) > 0 {
+				if n == name { // if these are an EXACT match, throw away the other results and just return this
+					return []*GuildInfo{guild}
+				}
+				if strings.Contains(n, name) {
+					info = append(info, guild)
+				}
+			} else {
+				info = append(info, guild)
+			}
+		}
+	}
+	return info
+}
+
+func getDefaultServer(user uint64) *GuildInfo {
+	_, _, _, server := sb.db.GetUser(user)
+	if server == nil {
+		return nil
+	}
+	info, ok := sb.guilds[*server]
+	if !ok {
+		return nil
+	}
+	return info
+}
