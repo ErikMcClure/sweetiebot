@@ -100,7 +100,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	}
 
 	gID := SBatoi(info.Guild.ID)
-	u, _, _ := sb.db.GetUser(IDs[0])
+	u, _, _, _ := sb.db.GetUser(IDs[0])
 	if u == nil {
 		return "```Error: User does not exist!```", false
 	}
@@ -268,7 +268,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *G
 	}
 
 	aliases := sb.db.GetAliases(IDs[0])
-	dbuser, lastseen, tz := sb.db.GetUser(IDs[0])
+	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
 	localtime := ""
 	if tz == nil {
 		tz = time.FixedZone("[Not Set]", 0)
@@ -318,3 +318,39 @@ func (c *UserInfoCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[@user]", "Lists the ID, username, nickname, timezone, roles, avatar, join date, and other information about a given user.")
 }
 func (c *UserInfoCommand) UsageShort() string { return "Lists information about a user." }
+
+type DefaultServerCommand struct {
+}
+
+func (c *DefaultServerCommand) Name() string {
+	return "DefaultServer"
+}
+func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	gIDs := sb.db.GetUserGuilds(SBatoi(msg.Author.ID))
+	guilds := findServers(strings.Join(args, " "), gIDs)
+	if len(guilds) > 1 {
+		names := make([]string, len(guilds), len(guilds))
+		for k, v := range guilds {
+			names[k] = v.Guild.Name
+		}
+
+		if len(args) < 1 {
+			server := getDefaultServer(SBatoi(msg.Author.ID))
+			if server != nil {
+				return fmt.Sprintf("```Your default server is %s. You are on the following servers:\n%s```", server.Guild.Name, strings.Join(names, "\n")), false
+			}
+			return fmt.Sprintf("```You have no default server. You are on the following servers:\n%s```", strings.Join(names, "\n")), false
+		}
+		return "```Could be any of the following servers:\n" + strings.Join(names, "\n") + "```", false
+	}
+	if len(guilds) < 1 {
+		return "```No server matches that string!```", false
+	}
+
+	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), SBatoi(guilds[0].Guild.ID))
+	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false
+}
+func (c *DefaultServerCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[server]", "Sets the default server SB will run commands on that you PM to her.")
+}
+func (c *DefaultServerCommand) UsageShort() string { return "Sets your default server." }
