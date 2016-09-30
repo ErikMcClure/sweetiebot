@@ -1068,11 +1068,11 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.11.2",
+		version:            "0.8.11.3",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
-		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true},
+		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
