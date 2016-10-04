@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -156,11 +157,32 @@ func (info *GuildInfo) GetRoles(c Command) string {
 	return strings.Join(s, ", ")
 }
 
+func (info *GuildInfo) GetChannels(c Command) string {
+	m, ok := info.config.Command_channels[strings.ToLower(c.Name())]
+	if !ok {
+		return ""
+	}
+
+	s := make([]string, 0, len(m))
+	for k, _ := range m {
+		for _, v := range info.Guild.Channels {
+			if v.ID == k {
+				s = append(s, "#"+v.Name)
+			}
+		}
+	}
+
+	return strings.Join(s, ", ")
+}
+
 func (info *GuildInfo) FormatUsage(c Command, a string, b string) string {
 	r := info.GetRoles(c)
+	ch := info.GetChannels(c)
 	if len(r) > 0 {
-		return a + "\n+" + r + "\n\n" + b
-	} else {
-		return a + "\n\n" + b
+		r = fmt.Sprintf("Roles: %s\n", r)
 	}
+	if len(ch) > 0 {
+		ch = fmt.Sprintf("Channels: %s\n", ch)
+	}
+	return fmt.Sprintf("%s\n%s%s\n%s", a, r, ch, b)
 }
