@@ -1068,7 +1068,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.11.4",
+		version:            "0.8.11.5",
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
