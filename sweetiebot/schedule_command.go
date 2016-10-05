@@ -464,6 +464,9 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 			return "```Could not parse time! Make sure its in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional). Make sure you surround it with quotes!```", false
 		}
 		t = t.UTC()
+		if t.Before(time.Now().UTC()) {
+			return "```That was " + TimeDiff(time.Now().UTC().Sub(t)) + " ago, dumbass! You have to give me a time that's in the FUTURE!```", false
+		}
 		arg = strings.Join(args[2:], " ")
 	}
 
