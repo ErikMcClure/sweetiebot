@@ -76,6 +76,59 @@ func (c *AKACommand) Usage(info *GuildInfo) string {
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 
+func ProcessDurationAndReason(args []string, ty uint8, uID string, gID uint64) (string, string) {
+	reason := ""
+	if len(args) > 0 {
+		if strings.ToLower(args[0]) == "for:" {
+			if len(args) < 3 {
+				return "", "```Error: Duration should be specified as 'for: 5 DAYS' or 'for: 72 HOURS'```"
+			}
+			duration, err := strconv.Atoi(args[1])
+			if err != nil {
+				return "", "```Error: Duration number was not an integer.```"
+			}
+
+			t := time.Now().UTC()
+			switch parseRepeatInterval(args[2]) {
+			case 1:
+				t = t.Add(time.Duration(duration) * time.Second)
+			case 2:
+				t = t.Add(time.Duration(duration) * time.Minute)
+			case 3:
+				t = t.Add(time.Duration(duration) * time.Hour)
+			case 4:
+				t = t.AddDate(0, 0, duration)
+			case 5:
+				t = t.AddDate(0, 0, duration*7)
+			case 6:
+				t = t.AddDate(0, duration, 0)
+			case 8:
+				t = t.AddDate(duration, 0, 0)
+			case 7:
+				fallthrough
+			case 255:
+				return "", "```Error: unrecognized interval.```"
+			}
+
+			if !sb.db.AddSchedule(gID, t, ty, uID) {
+				return "", "```Error: servers can't have more than 5000 events!```"
+			}
+
+			scheduleID := sb.db.FindEvent(uID, gID, ty)
+			if scheduleID == nil {
+				return "", "```Error: Could not find inserted event!```"
+			}
+
+			if len(args) > 3 {
+				reason = strings.Join(args[3:], " ")
+			}
+		} else {
+			reason = strings.Join(args, " ")
+		}
+	}
+	return reason, ""
+}
+
 // Ban command that tracks who banned someone, why, and optionally make the ban temporary
 type BanCommand struct {
 }
@@ -105,55 +158,9 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```Error: User does not exist!```", false
 	}
 	uID := SBitoa(IDs[0])
-
-	reason := ""
-	if len(args) > 1 {
-		if strings.ToLower(args[1]) == "for:" {
-			if len(args) < 4 {
-				return "```Error: Duration should be specified as 'for: 5 DAYS' or 'for: 72 HOURS'```", false
-			}
-			duration, err := strconv.Atoi(args[2])
-			if err != nil {
-				return "```Error: Duration number was not an integer.```", false
-			}
-
-			t := time.Now().UTC()
-			switch parseRepeatInterval(args[3]) {
-			case 1:
-				t = t.Add(time.Duration(duration) * time.Second)
-			case 2:
-				t = t.Add(time.Duration(duration) * time.Minute)
-			case 3:
-				t = t.Add(time.Duration(duration) * time.Hour)
-			case 4:
-				t = t.AddDate(0, 0, duration)
-			case 5:
-				t = t.AddDate(0, 0, duration*7)
-			case 6:
-				t = t.AddDate(0, duration, 0)
-			case 8:
-				t = t.AddDate(duration, 0, 0)
-			case 7:
-				fallthrough
-			case 255:
-				return "```Error: unrecognized interval.```", false
-			}
-
-			if !sb.db.AddSchedule(gID, t, 0, uID) {
-				return "```Error: servers can't have more than 5000 events!```", false
-			}
-
-			scheduleID := sb.db.FindBanEvent(uID, gID)
-			if scheduleID == nil {
-				return "```Error: Could not find inserted ban event!```", false
-			}
-
-			if len(args) > 4 {
-				reason = strings.Join(args[4:], " ")
-			}
-		} else {
-			reason = strings.Join(args[1:], " ")
-		}
+	reason, e := ProcessDurationAndReason(args[1:], 0, uID, gID)
+	if len(e) > 0 {
+		return e, false
 	}
 
 	fmt.Printf("Banned %s because: %s\n", u.Username, reason)
@@ -354,3 +361,101 @@ func (c *DefaultServerCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[server]", "Sets the default server SB will run commands on that you PM to her.")
 }
 func (c *DefaultServerCommand) UsageShort() string { return "Sets your default server." }
+
+type SilenceCommand struct {
+}
+
+func (c *SilenceCommand) Name() string {
+	return "Silence"
+}
+func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must provide a user to silence.```", false
+	}
+	index := len(args)
+	for i := 1; i < len(args); i++ {
+		if strings.ToLower(args[i]) == "for:" {
+			index = i
+			break
+		}
+	}
+	arg := strings.Join(args[0:index], " ")
+	IDs := FindUsername(arg, info)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
+	}
+
+	gID := SBatoi(info.Guild.ID)
+	uID := SBitoa(IDs[0])
+	reason, e := ProcessDurationAndReason(args[index:], 8, uID, gID)
+	if len(e) > 0 {
+		return e, false
+	}
+
+	if SilenceMember(SBitoa(IDs[0]), info) < 0 {
+		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false
+	}
+	if len(info.config.SilenceMessage) > 0 {
+		sb.dg.ChannelMessageSend(SBitoa(info.config.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.SilenceMessage)
+	}
+	if len(reason) > 0 {
+		reason = " because " + reason
+	}
+	return fmt.Sprintf("```Silenced %s%s.```", IDsToUsernames(IDs, info)[0], reason), false
+}
+func (c *SilenceCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user]", "Silences the given user.")
+}
+func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
+
+func UnsilenceMember(user uint64, info *GuildInfo) (int8, error) {
+	srole := SBitoa(info.config.SilentRole)
+	userID := SBitoa(user)
+	m, err := sb.dg.GuildMember(info.Guild.ID, userID)
+	if err != nil {
+		return -1, err
+	}
+	for i := 0; i < len(m.Roles); i++ {
+		if m.Roles[i] == srole {
+			m.Roles = append(m.Roles[:i], m.Roles[i+1:]...)
+			sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles)
+			return 0, nil
+		}
+	}
+	return 1, nil
+}
+
+type UnsilenceCommand struct {
+}
+
+func (c *UnsilenceCommand) Name() string {
+	return "Unsilence"
+}
+func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You must provide a user to unsilence.```", false
+	}
+	arg := strings.Join(args, " ")
+	IDs := FindUsername(arg, info)
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5
+	}
+
+	e, err := UnsilenceMember(IDs[0], info)
+	if e == -1 {
+		return "```Could not get member: " + err.Error() + "```", false
+	} else if e == 1 {
+		return "```" + IDsToUsernames(IDs, info)[0] + " wasn't silenced in the first place!```", false
+	}
+	return "```Unsilenced " + IDsToUsernames(IDs, info)[0] + ".```", false
+}
+func (c *UnsilenceCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[user]", "Unsilences the given user.")
+}
+func (c *UnsilenceCommand) UsageShort() string { return "Unsilences a user." }
