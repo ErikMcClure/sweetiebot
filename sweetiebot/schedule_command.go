@@ -88,6 +88,15 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 7:
 			dat := strings.SplitN(v.Data, "|", 2)
 			info.SendMessage(channel, getGroupPings(dat[0], info)+" "+dat[1])
+		case 8:
+			e, err := UnsilenceMember(SBatoi(v.Data), info)
+			if err != nil {
+				info.SendMessage(SBitoa(info.config.ModChannel), "Error unsilencing <@"+v.Data+">: "+err.Error())
+			} else if e == 1 {
+				info.SendMessage(SBitoa(info.config.ModChannel), "<@"+v.Data+"> was already unsilenced!")
+			} else {
+				info.SendMessage(SBitoa(info.config.ModChannel), "Unsilenced <@"+v.Data+">")
+			}
 		}
 
 		sb.db.RemoveSchedule(v.ID)
@@ -127,7 +136,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxresults < 1 {
 		maxresults = 1
 	}
-	if !info.UserHasRole(msg.Author.ID, SBitoa(info.config.AlertRole)) && (ty == 0 || ty == 4) {
+	if !info.UserHasRole(msg.Author.ID, SBitoa(info.config.AlertRole)) && (ty == 0 || ty == 4 || ty == 8) {
 		return "```You aren't allowed to view those events.```", false
 	}
 	var events []ScheduleEvent
@@ -213,6 +222,10 @@ func getScheduleType(s string) uint8 {
 		fallthrough
 	case "group":
 		return 7
+	case "silences":
+		fallthrough
+	case "silence":
+		return 8
 	}
 	return 255
 }
