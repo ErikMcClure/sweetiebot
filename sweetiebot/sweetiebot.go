@@ -274,8 +274,9 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 					return "Deleted " + value, false
 				}
 
-				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(extra[0]))
-				return value + ": " + extra[0], true
+				e := strings.Join(extra, " ")
+				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(e))
+				return value + ": " + e, true
 			case map[string]bool:
 				f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
 				f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
@@ -1126,7 +1127,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 13, 0},
+		version:            Version{0, 8, 13, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1140,6 +1141,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 13, 1): "- Fixed !setconfig rules",
 			AssembleVersion(0, 8, 13, 0): "- Added changelog\n- Added !rules command",
 			AssembleVersion(0, 8, 12, 0): "- Added temporary silences",
 			AssembleVersion(0, 8, 11, 5): "- Added \"dumbass\" to Sweetie Bot's vocabulary",
