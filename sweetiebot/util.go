@@ -341,6 +341,14 @@ func MapToSlice(m map[string]bool) []string {
 	return s
 }
 
+func MapIntToSlice(m map[int]string) []int {
+	s := make([]int, 0, len(m))
+	for k, _ := range m {
+		s = append(s, k)
+	}
+	return s
+}
+
 func MapStringToSlice(m map[string]string) []string {
 	s := make([]string, 0, len(m))
 	for k, _ := range m {
