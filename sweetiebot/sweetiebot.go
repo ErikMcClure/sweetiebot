@@ -38,6 +38,7 @@ type ModuleHooks struct {
 
 type BotConfig struct {
 	Version               int                        `json:"version"`
+	LastVersion           int                        `json:"lastversion"`
 	Maxerror              int64                      `json:"maxerror"`
 	Maxwit                int64                      `json:"maxwit"`
 	Maxbored              int64                      `json:"maxbored"`
@@ -86,6 +87,7 @@ type BotConfig struct {
 	Collections           map[string]map[string]bool `json:"collections"`
 	Groups                map[string]map[string]bool `json:"groups"`
 	Quotes                map[uint64][]string        `json:"quotes"`
+	Rules                 map[int]string             `json:"rules"`
 }
 
 type GuildInfo struct {
@@ -100,11 +102,37 @@ type GuildInfo struct {
 	commands     map[string]Command
 }
 
+type Version struct {
+	major    byte
+	minor    byte
+	revision byte
+	build    byte
+}
+
+func (v *Version) String() string {
+	if v.build > 0 {
+		return fmt.Sprintf("%v.%v.%v.%v", v.major, v.minor, v.revision, v.build)
+	}
+	if v.revision > 0 {
+		return fmt.Sprintf("%v.%v.%v", v.major, v.minor, v.revision)
+	}
+	return fmt.Sprintf("%v.%v", v.major, v.minor)
+}
+
+func (v *Version) Integer() int {
+	return AssembleVersion(v.major, v.minor, v.revision, v.build)
+}
+
+func AssembleVersion(major byte, minor byte, revision byte, build byte) int {
+	return int(build) | (int(revision) << 8) | (int(minor) << 16) | (int(major) << 24)
+}
+
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
 	Debug              bool
-	version            string
+	version            Version
+	changelog          map[int]string
 	SelfID             string
 	Owners             map[uint64]bool
 	RestrictedCommands map[string]bool
@@ -230,6 +258,24 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 				k, _ := strconv.Atoi(extra[0])
 				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(k))
 				return value + ": " + strconv.Itoa(k), true
+			case map[int]string:
+				ivalue, err := strconv.Atoi(value)
+				if err != nil {
+					return value + " is not an integer.", false
+				}
+				if len(extra) == 0 {
+					return "No extra parameter given for " + name, false
+				}
+				if f.IsNil() {
+					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+				}
+				if len(extra[0]) == 0 {
+					f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
+					return "Deleted " + value, false
+				}
+
+				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(extra[0]))
+				return value + ": " + extra[0], true
 			case map[string]bool:
 				f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
 				f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
@@ -535,6 +581,8 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&DeleteCommand{})
 	guild.AddCommand(&UserInfoCommand{})
 	guild.AddCommand(&DefaultServerCommand{})
+	guild.AddCommand(&RulesCommand{})
+	guild.AddCommand(&ChangelogCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -552,7 +600,17 @@ func AttachToGuild(g *discordgo.Guild) {
 	if sb.Debug {
 		debug = ".\n[DEBUG BUILD]"
 	}
-	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version, " successfully loaded on ", g.Name, debug)
+	changes := ""
+	if guild.config.LastVersion != sb.version.Integer() {
+		guild.config.LastVersion = sb.version.Integer()
+		guild.SaveConfig()
+		var ok bool
+		changes, ok = sb.changelog[sb.version.Integer()]
+		if ok {
+			changes = "\nChangelog:\n" + changes
+		}
+	}
+	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
 func GetChannelGuild(id string) *GuildInfo {
 	g, ok := sb.GuildChannels[id]
@@ -1068,7 +1126,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            "0.8.12.0",
+		version:            Version{0, 8, 13, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1081,6 +1139,27 @@ func Initialize(Token string) {
 		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
+		changelog: map[int]string{
+			AssembleVersion(0, 8, 13, 0): "- Added changelog\n- Added !rules command",
+			AssembleVersion(0, 8, 12, 0): "- Added temporary silences",
+			AssembleVersion(0, 8, 11, 5): "- Added \"dumbass\" to Sweetie Bot's vocabulary",
+			AssembleVersion(0, 8, 11, 4): "- Display channels in help for commands",
+			AssembleVersion(0, 8, 11, 3): "- Make defaultserver an independent command",
+			AssembleVersion(0, 8, 11, 2): "- Add !defaultserver command",
+			AssembleVersion(0, 8, 11, 1): "- Fix !autosilence behavior",
+			AssembleVersion(0, 8, 11, 0): "- Replace mentions in !search\n- Add temporary ban to !ban command",
+			AssembleVersion(0, 8, 10, 0): "- !ping now accepts newlines\n- Added build version to make moonwolf happy",
+			AssembleVersion(0, 8, 9, 0):  "- Add silence message for Tawmy\n- Make silence message ping user\n- Fix #27 (Sweetie Bot explodes if you search nothing)\n- Make !lastseen more reliable",
+			AssembleVersion(0, 8, 8, 0):  "- Log all commands sent to SB in DB-enabled servers",
+			AssembleVersion(0, 8, 7, 0):  "- Default to main server for PMs if it exists\n- Restrict PM commands to the server you belong in (fix #26)\n- Make spam deletion lookback configurable\n- Make !quickconfig complain if permissions are wrong\n- Add giant warning label for Tawmy\n- Prevent parse time crash\n- Make readme more clear on how things work\n- Sort !listguild by user count\n- Fallback to search all users if SB can't find one in the current server",
+			AssembleVersion(0, 8, 6, 0):  "- Add full timezone support\n- Deal with discord's broken permissions\n- Improve timezone help messages",
+			AssembleVersion(0, 8, 5, 0):  "- Add !userinfo\n- Fix #15 (Lock down !removeevent)\n- Fix guildmember query\n- Use nicknames in more places",
+			AssembleVersion(0, 8, 4, 0):  "- Update readme, remove disablebored\n- Add delete command",
+			AssembleVersion(0, 8, 3, 0):  "- Actually seed random number generator because Cloud is a FUCKING IDIOT\n- Allow newlines in commands\n- Bored module is now fully programmable\n- Display user ID in !aka\n- Hopefully stop sweetie from being an emo teenager\n- Add additional stupid proofing\n- Have bored commands override all restrictions",
+			AssembleVersion(0, 8, 2, 0):  "- Enable multi-server message logging\n- Extend !searchquote\n- Attach !lastping to current server\n- Actually make aliases work with commands",
+			AssembleVersion(0, 8, 1, 0):  "- Add dynamic collections\n- Add quotes\n- Prevent !aka command from spawning evil twins\n- Add !removealias\n- Use nicknames where possible\n- Fix off by one error\n- Sanitize !search output ",
+			AssembleVersion(0, 8, 0, 0):  "- Appease the dark gods of discord's API\n- Allow sweetiebot to track nicknames\n- update help\n- Include nickname in searches",
+		},
 	}
 
 	rand.Intn(10)

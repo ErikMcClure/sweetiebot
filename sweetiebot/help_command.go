@@ -1,6 +1,9 @@
 package sweetiebot
 
 import (
+	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -41,7 +44,7 @@ func (c *AboutCommand) Name() string {
 	return "About"
 }
 func (c *AboutCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
-	s := "```Sweetie Bot version " + sb.version
+	s := "```Sweetie Bot version " + sb.version.String()
 	if sb.Debug {
 		return s + " [debug]```", false
 	}
@@ -51,3 +54,92 @@ func (c *AboutCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "", "Displays information about Sweetie Bot. What, did you think it would do something else?")
 }
 func (c *AboutCommand) UsageShort() string { return "Displays information about Sweetie Bot." }
+
+type RulesCommand struct {
+}
+
+func (c *RulesCommand) Name() string {
+	return "Rules"
+}
+func (c *RulesCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(info.config.Rules) == 0 {
+		return "```I don't know what the rules are in this server... ¯\\_(ツ)_/¯```", false
+	}
+	if len(args) < 1 {
+		rules := make([]string, 0, len(info.config.Rules)+1)
+		rules = append(rules, "Official rules of "+info.Guild.Name+":")
+		keys := MapIntToSlice(info.config.Rules)
+		sort.Ints(keys)
+
+		for _, v := range keys {
+			rules = append(rules, fmt.Sprintf("%v. %s", v, info.config.Rules[v]))
+		}
+		return strings.Join(rules, "\n"), len(rules) > 4
+	}
+
+	arg, err := strconv.Atoi(args[0])
+	if err != nil {
+		return "```Rule index must be a number!```", false
+	}
+	rule, ok := info.config.Rules[arg]
+	if !ok {
+		return "```That's not a rule! Stop making things up!```", false
+	}
+	return fmt.Sprintf("%v. %s", arg, rule), false
+}
+func (c *RulesCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[index]", "Lists all the rules in this server, or displays the specific rule requested, if it exists. Rules can be set using \"!setconfig rules 1 this is a rule\"")
+}
+func (c *RulesCommand) UsageShort() string { return "Lists the rules of the server." }
+
+type ChangelogCommand struct {
+}
+
+func (c *ChangelogCommand) Name() string {
+	return "Changelog"
+}
+func (c *ChangelogCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	v := Version{0, 0, 0, 0}
+	if len(args) == 0 {
+		versions := make([]string, 0, len(sb.changelog)+1)
+		versions = append(versions, "All versions of Sweetie Bot with a changelog:")
+		keys := MapIntToSlice(sb.changelog)
+		sort.Ints(keys)
+		for i := len(keys) - 1; i >= 0; i-- {
+			k := keys[i]
+			version := Version{byte(k >> 24), byte((k >> 16) & 0xFF), byte((k >> 8) & 0xFF), byte(k & 0xFF)}
+			versions = append(versions, version.String())
+		}
+		return "```" + strings.Join(versions, "\n") + "```", len(versions) > 6
+	}
+	if strings.ToLower(args[0]) == "current" {
+		v = sb.version
+	} else {
+		s := strings.Split(args[0], ".")
+		if len(s) > 0 {
+			i, _ := strconv.Atoi(s[0])
+			v.major = byte(i)
+		}
+		if len(s) > 1 {
+			i, _ := strconv.Atoi(s[1])
+			v.minor = byte(i)
+		}
+		if len(s) > 2 {
+			i, _ := strconv.Atoi(s[2])
+			v.revision = byte(i)
+		}
+		if len(s) > 3 {
+			i, _ := strconv.Atoi(s[3])
+			v.build = byte(i)
+		}
+	}
+	log, ok := sb.changelog[v.Integer()]
+	if !ok {
+		return "```That's not a valid version of Sweetie Bot! Use this command with no arguments to list all valid versions, or use \"current\" to get the most recent changelog.```", false
+	}
+	return fmt.Sprintf("```%s\n--------\n%s```", v.String(), log), false
+}
+func (c *ChangelogCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[version]", "Displays the given changelog for Sweetie Bot. If no version is given, lists all versions with an associated changelog. Use \"current\" to get the changelog for the most recent version.")
+}
+func (c *ChangelogCommand) UsageShort() string { return "Retrieves the changelog for Sweetie Bot." }

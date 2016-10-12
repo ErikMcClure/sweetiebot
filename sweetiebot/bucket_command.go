@@ -47,8 +47,6 @@ func (c *GiveCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[arbitrary string]", "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.")
 }
 func (c *GiveCommand) UsageShort() string { return "Gives something to sweetie." }
-func (c *GiveCommand) Roles() []string    { return []string{} }
-func (c *GiveCommand) Channels() []string { return []string{"mylittlebot", "bot-debug"} }
 
 func BucketDropRandom(info *GuildInfo) string {
 	index := rand.Intn(len(info.config.Collections["bucket"]))
