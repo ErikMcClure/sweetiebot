@@ -87,7 +87,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			}
 		case 7:
 			dat := strings.SplitN(v.Data, "|", 2)
-			info.SendMessage(channel, getGroupPings(dat[0], info)+" "+dat[1])
+			info.SendMessage(channel, getGroupPings(strings.Split(dat[0], "+"), info)+" "+dat[1])
 		case 8:
 			e, err := UnsilenceMember(SBatoi(v.Data), info)
 			if err != nil {

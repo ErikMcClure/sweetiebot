@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -149,11 +150,20 @@ func (c *LeaveGroupCommand) Usage(info *GuildInfo) string {
 }
 func (c *LeaveGroupCommand) UsageShort() string { return "Removes you from a group." }
 
-func getGroupPings(group string, info *GuildInfo) string {
-	pings := make([]string, len(info.config.Groups[group]))
+func getGroupPings(groups []string, info *GuildInfo) string {
+	if len(groups) == 0 {
+		return ""
+	}
+	union := make(map[string]bool)
+	for _, group := range groups {
+		for k, v := range info.config.Groups[group] {
+			union[k] = v
+		}
+	}
+	pings := make([]string, len(union), len(union))
 
 	i := 0
-	for k := range info.config.Groups[group] {
+	for k := range union {
 		pings[i] = SBitoa(SBatoi(k)) // We convert to integers and then back to strings to prevent bloons from fucking with the bot
 		i++
 	}
@@ -177,15 +187,26 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Groups[arg]
 	if !ok {
-		return "```That group doesn't exist! Use !listgroup to list existing groups.```", false
-	}
+		groups := strings.Split(arg, "+")
+		for _, v := range groups {
+			_, ok = info.config.Groups[v]
+			if !ok {
+				return fmt.Sprintf("```The %s group doesn't exist! Use !listgroup to list existing groups.```", v), false
+			}
+			_, ok = info.config.Groups[v][msg.Author.ID]
+			if !ok {
+				return fmt.Sprintf("```You aren't a member of %s. You can only ping groups you are a member of.```", v), false
+			}
+		}
+		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(groups, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
 
-	_, ok = info.config.Groups[arg][msg.Author.ID]
-	if !ok {
-		return "```You can only ping groups you are a member of.```", false
+	} else {
+		_, ok = info.config.Groups[arg][msg.Author.ID]
+		if !ok {
+			return "```You can only ping groups you are a member of.```", false
+		}
+		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings([]string{arg}, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
 	}
-
-	sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(arg, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
 	return "", false
 }
 func (c *PingCommand) Usage(info *GuildInfo) string {
