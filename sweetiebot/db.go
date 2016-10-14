@@ -71,6 +71,16 @@ type BotDB struct {
 	sql_GetUserGuilds        *sql.Stmt
 	sql_FindEvent            *sql.Stmt
 	sql_SetDefaultServer     *sql.Stmt
+	sql_GetPolls             *sql.Stmt
+	sql_GetPoll              *sql.Stmt
+	sql_GetOptions           *sql.Stmt
+	sql_GetOption            *sql.Stmt
+	sql_GetResults           *sql.Stmt
+	sql_AddPoll              *sql.Stmt
+	sql_AddOption            *sql.Stmt
+	sql_AddVote              *sql.Stmt
+	sql_RemovePoll           *sql.Stmt
+	sql_CheckOption          *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -159,6 +169,16 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
 	db.sql_FindEvent, err = db.Prepare("SELECT ID FROM `schedule` WHERE `Type` = ? AND `Data` = ? AND `Guild` = ?")
 	db.sql_SetDefaultServer, err = db.Prepare("UPDATE users SET DefaultServer = ? WHERE ID = ?")
+	db.sql_GetPolls, err = db.Prepare("SELECT Name, Description FROM polls WHERE Guild = ? ORDER BY ID DESC")
+	db.sql_GetPoll, err = db.Prepare("SELECT ID, Description FROM polls WHERE Name = ? AND Guild = ?")
+	db.sql_GetOptions, err = db.Prepare("SELECT `Index`, `Option` FROM polloptions WHERE Poll = ? ORDER BY `Index` ASC")
+	db.sql_GetOption, err = db.Prepare("SELECT `Index` FROM polloptions WHERE poll = ? AND `Option` = ?")
+	db.sql_GetResults, err = db.Prepare("SELECT `Option`,COUNT(user) FROM `votes` WHERE `Poll` = ? GROUP BY `Option` ORDER BY `Option` ASC")
+	db.sql_AddPoll, err = db.Prepare("INSERT INTO polls(Name, Description, Guild) VALUES (?, ?, ?)")
+	db.sql_AddOption, err = db.Prepare("INSERT INTO polloptions(Poll, `Index`, `Option`) VALUES (?, ?, ?)")
+	db.sql_AddVote, err = db.Prepare("INSERT INTO votes (Poll, User, `Option`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `Option` = ?")
+	db.sql_RemovePoll, err = db.Prepare("DELETE FROM polls WHERE Name = ? AND Guild = ?")
+	db.sql_CheckOption, err = db.Prepare("SELECT `Option` FROM polloptions WHERE poll = ? AND `Index` = ?")
 	return err
 }
 
@@ -754,4 +774,123 @@ func (db *BotDB) SetDefaultServer(user uint64, server uint64) error {
 	_, err := db.sql_SetDefaultServer.Exec(server, user)
 	db.log.LogError("SetDefaultServer error: ", err)
 	return err
+}
+
+func (db *BotDB) GetPolls(server uint64) []struct {
+	name        string
+	description string
+} {
+	q, err := db.sql_GetPolls.Query(server)
+	db.log.LogError("GetPolls error: ", err)
+	defer q.Close()
+	r := make([]struct {
+		name        string
+		description string
+	}, 0, 2)
+	for q.Next() {
+		var s struct {
+			name        string
+			description string
+		}
+		if err := q.Scan(&s.name, &s.description); err == nil {
+			r = append(r, s)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetPoll(name string, server uint64) (uint64, string) {
+	var id uint64
+	var desc string
+	err := db.sql_GetPoll.QueryRow(name, server).Scan(&id, &desc)
+	if err == sql.ErrNoRows {
+		return 0, ""
+	} else if err != nil {
+		db.log.LogError("GetPoll error: ", err)
+		return 0, ""
+	}
+	return id, desc
+}
+
+type PollOptionStruct struct {
+	index  uint64
+	option string
+}
+
+func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
+	q, err := db.sql_GetOptions.Query(poll)
+	db.log.LogError("GetOptions error: ", err)
+	defer q.Close()
+	r := make([]PollOptionStruct, 0, 2)
+	for q.Next() {
+		var s PollOptionStruct
+		if err := q.Scan(&s.index, &s.option); err == nil {
+			r = append(r, s)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
+	var id uint64
+	err := db.sql_GetOption.QueryRow(poll, option).Scan(&id)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		db.log.LogError("GetOption error: ", err)
+		return nil
+	}
+	return &id
+}
+
+type PollResultStruct struct {
+	index uint64
+	count uint64
+}
+
+func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
+	q, err := db.sql_GetResults.Query(poll)
+	db.log.LogError("GetResults error: ", err)
+	defer q.Close()
+	r := make([]PollResultStruct, 0, 2)
+	for q.Next() {
+		var s PollResultStruct
+		if err := q.Scan(&s.index, &s.count); err == nil {
+			r = append(r, s)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) AddPoll(name string, description string, server uint64) error {
+	_, err := db.sql_AddPoll.Exec(name, description, server)
+	db.log.LogError("AddPoll error: ", err)
+	return err
+}
+
+func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
+	_, err := db.sql_AddOption.Exec(poll, index, option)
+	db.log.LogError("AddOption error: ", err)
+	return err
+}
+
+func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
+	_, err := db.sql_AddVote.Exec(poll, user, option, option)
+	db.log.LogError("AddVote error: ", err)
+	return err
+}
+
+func (db *BotDB) RemovePoll(name string, server uint64) error {
+	_, err := db.sql_RemovePoll.Exec(name, server)
+	db.log.LogError("RemovePoll error: ", err)
+	return err
+}
+
+func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
+	var name string
+	err := db.sql_CheckOption.QueryRow(poll, option).Scan(&name)
+	if err != nil {
+		return false
+	}
+	return true
 }
