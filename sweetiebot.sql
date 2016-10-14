@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS `polloptions` (
   `Index` bigint(20) unsigned NOT NULL,
   `Option` varchar(128) NOT NULL,
   PRIMARY KEY (`Poll`,`Index`),
-  UNIQUE KEY `OPTION_INDEX` (`Option`),
+  UNIQUE KEY `OPTION_INDEX` (`Option`,`Poll`),
   KEY `POLL_INDEX` (`Poll`),
   CONSTRAINT `FK_options_polls` FOREIGN KEY (`Poll`) REFERENCES `polls` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

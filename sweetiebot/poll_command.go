@@ -61,7 +61,7 @@ func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, info 
 	name := strings.ToLower(args[0])
 	err := sb.db.AddPoll(name, args[1], gID)
 	if err != nil {
-		return "```Error creating poll.```", false
+		return "```Error creating poll, make sure you haven't used this name already.```", false
 	}
 	poll, _ := sb.db.GetPoll(name, gID)
 	if poll == 0 {
@@ -213,3 +213,33 @@ func (c *ResultsCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[poll]", "Displays the results of the given poll, if it exists.")
 }
 func (c *ResultsCommand) UsageShort() string { return "Displays results of a poll." }
+
+type AddOptionCommand struct {
+}
+
+func (c *AddOptionCommand) Name() string {
+	return "AddOption"
+}
+func (c *AddOptionCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```You have to give me a poll name to add an option to!```", false
+	}
+	if len(args) < 2 {
+		return "```You have to give me an option to add!```", false
+	}
+	gID := SBatoi(info.Guild.ID)
+	id, _ := sb.db.GetPoll(args[0], gID)
+	if id == 0 {
+		return "```That poll doesn't exist!```", false
+	}
+	arg := strings.Join(args[1:], " ")
+	err := sb.db.AppendOption(id, arg)
+	if err != nil {
+		return "```Error appending option, make sure no other option has this value!```", false
+	}
+	return fmt.Sprintf("```Successfully added %s to %s.```", arg, args[0]), false
+}
+func (c *AddOptionCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[poll] [option]", "Appends an option to the poll.")
+}
+func (c *AddOptionCommand) UsageShort() string { return "Appends an option to a poll." }
