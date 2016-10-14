@@ -474,8 +474,12 @@ func MigrateSettings(guild *GuildInfo) {
 		guild.config.TimezoneLocation += strconv.Itoa(-guild.config.Timezone) // Etc has the sign reversed
 	}
 
-	if guild.config.Version != 6 {
-		guild.config.Version = 6 // set version to most recent config version
+	if guild.config.Version == 6 {
+		RestrictCommand("createpoll", guild)
+		RestrictCommand("deletepoll", guild)
+	}
+	if guild.config.Version != 7 {
+		guild.config.Version = 7 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
