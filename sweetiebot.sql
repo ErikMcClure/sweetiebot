@@ -438,6 +438,33 @@ CREATE TABLE IF NOT EXISTS `pings` (
 -- Data exporting was unselected.
 
 
+-- Dumping structure for table sweetiebot.polloptions
+CREATE TABLE IF NOT EXISTS `polloptions` (
+  `Poll` bigint(20) unsigned NOT NULL,
+  `Index` bigint(20) unsigned NOT NULL,
+  `Option` varchar(128) NOT NULL,
+  PRIMARY KEY (`Poll`,`Index`),
+  UNIQUE KEY `OPTION_INDEX` (`Option`),
+  KEY `POLL_INDEX` (`Poll`),
+  CONSTRAINT `FK_options_polls` FOREIGN KEY (`Poll`) REFERENCES `polls` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.polls
+CREATE TABLE IF NOT EXISTS `polls` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Guild` bigint(20) unsigned NOT NULL,
+  `Name` varchar(50) NOT NULL,
+  `Description` varchar(2048) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `Index 2` (`Name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for view sweetiebot.randomwords
 -- Creating temporary table to overcome VIEW dependency errors
 CREATE TABLE `randomwords` (
@@ -560,6 +587,21 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- Data exporting was unselected.
 
 
+-- Dumping structure for table sweetiebot.votes
+CREATE TABLE IF NOT EXISTS `votes` (
+  `Poll` bigint(20) unsigned NOT NULL,
+  `User` bigint(20) unsigned NOT NULL,
+  `Option` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`Poll`,`User`),
+  KEY `FK_votes_users` (`User`),
+  KEY `FK_votes_options` (`Poll`,`Option`),
+  CONSTRAINT `FK_votes_options` FOREIGN KEY (`Poll`, `Option`) REFERENCES `polloptions` (`Poll`, `Index`),
+  CONSTRAINT `FK_votes_users` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for trigger sweetiebot.chatlog_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
@@ -598,6 +640,26 @@ VALUES (OLD.ID, OLD.Nickname, @diff)
 ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
 END IF;
 
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+
+-- Dumping structure for trigger sweetiebot.polloptions_before_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW BEGIN
+DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`;
+END//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+
+-- Dumping structure for trigger sweetiebot.polls_before_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW BEGIN
+DELETE FROM polloptions WHERE Poll = OLD.ID;
 END//
 DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
