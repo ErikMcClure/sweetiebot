@@ -78,6 +78,7 @@ type BotDB struct {
 	sql_GetResults           *sql.Stmt
 	sql_AddPoll              *sql.Stmt
 	sql_AddOption            *sql.Stmt
+	sql_AppendOption         *sql.Stmt
 	sql_AddVote              *sql.Stmt
 	sql_RemovePoll           *sql.Stmt
 	sql_CheckOption          *sql.Stmt
@@ -176,6 +177,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetResults, err = db.Prepare("SELECT `Option`,COUNT(user) FROM `votes` WHERE `Poll` = ? GROUP BY `Option` ORDER BY `Option` ASC")
 	db.sql_AddPoll, err = db.Prepare("INSERT INTO polls(Name, Description, Guild) VALUES (?, ?, ?)")
 	db.sql_AddOption, err = db.Prepare("INSERT INTO polloptions(Poll, `Index`, `Option`) VALUES (?, ?, ?)")
+	db.sql_AppendOption, err = db.Prepare("INSERT INTO polloptions(Poll, `Index`, `Option`) SELECT Poll, MAX(`index`)+1, ? FROM polloptions WHERE poll = ?")
 	db.sql_AddVote, err = db.Prepare("INSERT INTO votes (Poll, User, `Option`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `Option` = ?")
 	db.sql_RemovePoll, err = db.Prepare("DELETE FROM polls WHERE Name = ? AND Guild = ?")
 	db.sql_CheckOption, err = db.Prepare("SELECT `Option` FROM polloptions WHERE poll = ? AND `Index` = ?")
@@ -871,6 +873,12 @@ func (db *BotDB) AddPoll(name string, description string, server uint64) error {
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 	_, err := db.sql_AddOption.Exec(poll, index, option)
 	db.log.LogError("AddOption error: ", err)
+	return err
+}
+
+func (db *BotDB) AppendOption(poll uint64, option string) error {
+	_, err := db.sql_AppendOption.Exec(option, poll)
+	db.log.LogError("AppendOption error: ", err)
 	return err
 }
 
