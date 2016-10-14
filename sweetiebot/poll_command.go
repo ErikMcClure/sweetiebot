@@ -117,7 +117,7 @@ func (c *VoteCommand) Name() string {
 }
 func (c *VoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 2 {
-		return "```You have to provide both a poll name and the option you want to vote for!```", false
+		return "```You have to provide both a poll name and the option you want to vote for! Use !poll without any arguments to list all active polls.```", false
 	}
 	name := strings.ToLower(args[0])
 	gID := SBatoi(info.Guild.ID)
@@ -201,7 +201,7 @@ func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, info *Gu
 			}
 		}
 		buf := ""
-		if v.index < 10 {
+		if v.index < 10 && len(options) > 9 {
 			buf = "_"
 		}
 		str = append(str, fmt.Sprintf("`%s%v. `%s %s (%v votes)", buf, v.index, graph, v.option, count))
