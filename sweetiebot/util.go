@@ -478,8 +478,12 @@ func MigrateSettings(guild *GuildInfo) {
 		RestrictCommand("createpoll", guild)
 		RestrictCommand("deletepoll", guild)
 	}
-	if guild.config.Version != 7 {
-		guild.config.Version = 7 // set version to most recent config version
+	if guild.config.Version == 7 {
+		RestrictCommand("addoption", guild)
+	}
+
+	if guild.config.Version != 8 {
+		guild.config.Version = 8 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
