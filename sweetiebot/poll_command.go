@@ -40,7 +40,7 @@ func (c *PollCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		str = append(str, fmt.Sprintf("%v. %s", v.index, v.option))
 	}
 
-	return strings.Join(str, "\n"), len(str) > 8
+	return strings.Join(str, "\n"), len(str) > 11
 }
 func (c *PollCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[poll]", "Displays currently active polls or possible options for a given poll.")
@@ -207,7 +207,7 @@ func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, info *Gu
 		str = append(str, fmt.Sprintf("`%s%v. `%s %s (%v votes)", buf, v.index, graph, v.option, count))
 	}
 
-	return strings.Join(str, "\n"), len(str) > 9
+	return strings.Join(str, "\n"), len(str) > 11
 }
 func (c *ResultsCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[poll]", "Displays the results of the given poll, if it exists.")
