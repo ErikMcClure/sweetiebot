@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -93,8 +94,8 @@ func (c *CollectionsCommand) Name() string {
 func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
 		s := make([]string, 0, len(info.config.Collections))
-		for k, _ := range info.config.Collections {
-			s = append(s, k)
+		for k, v := range info.config.Collections {
+			s = append(s, fmt.Sprintf("%s (%v items)", k, len(v)))
 		}
 
 		return "```No collection specified. All collections:\n" + ExtraSanitize(strings.Join(s, "\n")) + "```", false
@@ -122,8 +123,8 @@ func (c *PickCommand) Name() string {
 func (c *PickCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) < 1 {
 		s := make([]string, 0, len(info.config.Collections))
-		for k, _ := range info.config.Collections {
-			s = append(s, k)
+		for k, v := range info.config.Collections {
+			s = append(s, fmt.Sprintf("%s (%v items)", k, len(v)))
 		}
 
 		return "```No collection specified. All collections:\n" + ExtraSanitize(strings.Join(s, "\n")) + "```", false
@@ -242,3 +243,65 @@ func (c *SearchCollectionCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "[collection] [arbitrary string]", "Returns all members of the given collection that match the search query.")
 }
 func (c *SearchCollectionCommand) UsageShort() string { return "Searches a collection." }
+
+type ImportCommand struct {
+}
+
+func (c *ImportCommand) Name() string {
+	return "Import"
+}
+func (c *ImportCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) < 1 {
+		return "```No source server provided.```", false
+	}
+
+	other := []*GuildInfo{}
+	for _, v := range sb.guilds {
+		if strings.Contains(strings.ToLower(v.Guild.Name), strings.ToLower(args[0])) {
+			other = append(other, v)
+		}
+	}
+	if len(other) > 1 {
+		names := make([]string, len(other), len(other))
+		for i := 0; i < len(other); i++ {
+			names[i] = other[i].Guild.Name
+		}
+		return fmt.Sprintf("```Could be any of the following servers: \n%s```", ExtraSanitize(strings.Join(names, "\n"))), len(names) > 8
+	}
+	if len(other) < 1 {
+		return fmt.Sprintf("```Could not find any server matching %s!```", args[0]), false
+	}
+	if !other[0].config.Importable {
+		return "```That server has not made their collections importable by other servers. If this is a public server, you can ask a moderator on that server to run \"!setconfig importable true\" if they wish to make their collections public.```", false
+	}
+
+	if len(args) < 2 {
+		return "```No source collection provided.```", false
+	}
+	source := args[1]
+	target := source
+	if len(args) > 2 {
+		target = args[2]
+	}
+
+	sourceCollection, ok := other[0].config.Collections[source]
+	if !ok {
+		return fmt.Sprintf("```The source collection (%s) does not exist on the source server (%s)!```", source, other[0].Guild.Name), false
+	}
+
+	targetCollection, tok := info.config.Collections[target]
+	if !tok {
+		return fmt.Sprintf("```The target collection (%s) does not exist on this server! Please manually create this collection using !new if you actually intended this.```", target), false
+	}
+
+	for k, v := range sourceCollection {
+		targetCollection[k] = v
+	}
+
+	info.SaveConfig()
+	return fmt.Sprintf("```Successfully merged \"%s\" from %s into \"%s\" on this server. New size: %v```", source, other[0].Guild.Name, target, len(targetCollection)), false
+}
+func (c *ImportCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[source server] [source collection] [target collection]", "Adds all elements from the source collection on the source server to the target collection on this server. If no target is specified, attempts to copy all items into a collection of the same name as the source. Example: \"!import Manechat cool notcool\"")
+}
+func (c *ImportCommand) UsageShort() string { return "Imports a collection from another server." }
