@@ -256,9 +256,21 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	}
 
 	other := []*GuildInfo{}
+	str := args[0]
+	exact := false
+	if str[len(str)-1] == '@' {
+		str = str[:len(str)-1]
+		exact = true
+	}
 	for _, v := range sb.guilds {
-		if strings.Contains(strings.ToLower(v.Guild.Name), strings.ToLower(args[0])) {
-			other = append(other, v)
+		if exact {
+			if strings.Compare(strings.ToLower(v.Guild.Name), strings.ToLower(str)) == 0 {
+				other = append(other, v)
+			}
+		} else {
+			if strings.Contains(strings.ToLower(v.Guild.Name), strings.ToLower(str)) {
+				other = append(other, v)
+			}
 		}
 	}
 	if len(other) > 1 {
