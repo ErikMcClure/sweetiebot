@@ -65,6 +65,7 @@ type BotConfig struct {
 	MaxSpamRemoveLookback int                        `json:maxspamremovelookback`
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
+	Importable            bool                       `json:"importable"`
 	Timezone              int                        `json:"timezone"`
 	TimezoneLocation      string                     `json:"timezonelocation"`
 	AutoSilence           int                        `json:"autosilence"`
@@ -590,6 +591,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&VoteCommand{})
 	guild.AddCommand(&ResultsCommand{})
 	guild.AddCommand(&AddOptionCommand{})
+	guild.AddCommand(&ImportCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -1133,7 +1135,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 14, 3},
+		version:            Version{0, 8, 14, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1147,6 +1149,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 14, 4): "- Added !import\n- Added Importable option\n- Make !collections more useful",
 			AssembleVersion(0, 8, 14, 3): "- Allow pinging multiple groups via group1+group2",
 			AssembleVersion(0, 8, 14, 2): "- Fix !createpoll unique option key\n- Add !addoption",
 			AssembleVersion(0, 8, 14, 1): "- Clean up !poll",
