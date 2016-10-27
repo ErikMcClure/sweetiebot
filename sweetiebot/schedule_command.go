@@ -509,19 +509,20 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, info
 		return "```You must first ping the member and then provide the date!```", false
 	}
 	ping := StripPing(args[0])
-	arg := strings.Join(args[1:], " ") + " 16"
-	t, err := time.ParseInLocation("_2 Jan 06", arg, getTimezone(info, nil)) // Deliberately do not include the user timezone here. We want this to operate on the server timezone.
+	arg := strings.Join(args[1:], " ") + " " + strconv.Itoa(time.Now().Year())
+	t, err := time.ParseInLocation("_2 Jan 2006", arg, getTimezone(info, nil)) // Deliberately do not include the user timezone here. We want this to operate on the server timezone.
 	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 06", arg, getTimezone(info, nil))
+		t, err = time.ParseInLocation("Jan _2 2006", arg, getTimezone(info, nil))
 	}
 	t = t.UTC()
 	if err != nil {
 		return "```Error: Could not parse time! Make sure it's in the format \"2 Jan\"```", false
 	}
-	for t.Before(time.Now().UTC()) {
+	for t.Before(time.Now().AddDate(0, 0, -1).UTC()) {
 		t = t.AddDate(1, 0, 0)
 	}
-	if len(ping) == 0 {
+	_, err = strconv.Atoi(ping)
+	if len(ping) == 0 || err != nil {
 		return "```Error: Invalid ping for member! Make sure you actually ping them via @MemberName, don't just type the name in.```", false
 	}
 
