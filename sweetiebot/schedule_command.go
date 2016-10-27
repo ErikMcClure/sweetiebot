@@ -521,7 +521,7 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, info
 	for t.Before(time.Now().AddDate(0, 0, -1).UTC()) {
 		t = t.AddDate(1, 0, 0)
 	}
-	_, err = strconv.Atoi(ping)
+	_, err = strconv.ParseUint(ping, 10, 64)
 	if len(ping) == 0 || err != nil {
 		return "```Error: Invalid ping for member! Make sure you actually ping them via @MemberName, don't just type the name in.```", false
 	}
