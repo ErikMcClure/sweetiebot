@@ -112,6 +112,7 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	info.config.LogChannel = SBatoi(log)
 	info.config.AlertRole = SBatoi(mod)
 	info.config.ModChannel = SBatoi(modchannel)
+	info.config.SilentRole = SBatoi(silent)
 	info.config.FreeChannels = make(map[string]bool)
 	info.config.FreeChannels[SBitoa(SBatoi(free))] = true
 	info.config.Aliases["cute"] = "pick cute"
