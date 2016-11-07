@@ -116,11 +116,16 @@ func (c *VoteCommand) Name() string {
 	return "Vote"
 }
 func (c *VoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	gID := SBatoi(info.Guild.ID)
 	if len(args) < 2 {
-		return "```You have to provide both a poll name and the option you want to vote for! Use !poll without any arguments to list all active polls.```", false
+		polls := sb.db.GetPolls(gID)
+		lastpoll := ""
+		if len(polls) > 0 {
+			lastpoll = fmt.Sprintf(" The most recent poll is \"%s\".", polls[0].name)
+		}
+		return fmt.Sprintf("```You have to provide both a poll name and the option you want to vote for!%s Use !poll without any arguments to list all active polls.```", lastpoll), false
 	}
 	name := strings.ToLower(args[0])
-	gID := SBatoi(info.Guild.ID)
 	id, _ := sb.db.GetPoll(name, gID)
 	if id == 0 {
 		return "```That poll doesn't exist! Use !poll with no arguments to list all active polls.```", false
@@ -130,11 +135,11 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	if err != nil {
 		opt := sb.db.GetOption(id, strings.Join(args[1:], " "))
 		if opt == nil {
-			return "```That's not one of the poll options! You have to either type in the exact name of the option you want, or provide the numeric index. Use !poll to list the available options.```", false
+			return fmt.Sprintf("```That's not one of the poll options! You have to either type in the exact name of the option you want, or provide the numeric index. Use \"!poll %s\" to list the available options.```", name), false
 		}
 		option = *opt
 	} else if !sb.db.CheckOption(id, option) {
-		return "```That's not a valid option index! Use !poll to get all available options for this poll.```", false
+		return fmt.Sprintf("```That's not a valid option index! Use \"!poll %s\" to get all available options for this poll.```", name), false
 	}
 
 	err = sb.db.AddVote(SBatoi(msg.Author.ID), id, option)
@@ -158,12 +163,12 @@ func (c *ResultsCommand) Name() string {
 func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	gID := SBatoi(info.Guild.ID)
 	if len(args) < 1 {
-		return "```You have to give me a valid poll name!```", false
+		return "```You have to give me a valid poll name! Use \"!poll\" to list active polls.```", false
 	}
 	arg := strings.ToLower(strings.Join(args, " "))
 	id, desc := sb.db.GetPoll(arg, gID)
 	if id == 0 {
-		return "```That poll doesn't exist!```", false
+		return "```That poll doesn't exist! Use \"!poll\" to list active polls.```", false
 	}
 	results := sb.db.GetResults(id)
 	options := sb.db.GetOptions(id)
