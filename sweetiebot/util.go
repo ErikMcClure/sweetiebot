@@ -408,8 +408,8 @@ func getUserName(user uint64, info *GuildInfo) string {
 	return m.User.Username
 }
 func replacementionhelper(s string) string {
-	u, err := sb.dg.User(StripPing(s))
-	if err != nil {
+	u, _, _, _ := sb.db.GetUser(SBatoi(StripPing(s)))
+	if u == nil {
 		return s
 	}
 	return u.Username
