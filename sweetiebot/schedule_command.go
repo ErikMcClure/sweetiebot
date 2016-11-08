@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -150,39 +151,39 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 	if len(events) == 0 {
 		return "There are no upcoming events.", false
 	}
-	lines := []string{"Upcoming Events:"}
-	for _, v := range events {
-		s := "#" + SBitoa(v.ID)
+	lines := make([]string, len(events)+1, len(events)+1)
+	lines[0] = "Upcoming Events:"
+	for k, v := range events {
+		t := ""
 		if v.Date.Year() == time.Now().UTC().Year() {
-			s += ApplyTimezone(v.Date, info, msg.Author).Format(" **Jan 2 3:04pm**")
+			t = ApplyTimezone(v.Date, info, msg.Author).Format("Jan 2 3:04pm")
 		} else {
-			s += ApplyTimezone(v.Date, info, msg.Author).Format(" **Jan 2 2006 3:04pm**")
+			t = ApplyTimezone(v.Date, info, msg.Author).Format("Jan 2 2006 3:04pm")
 		}
 		data := v.Data
+		mt := "UNKNOWN"
 		switch v.Type {
 		case 1:
-			s += " [BIRTHDAY] "
+			mt = "BIRTHDAY"
 			data = "<@" + data + ">"
 		case 2:
-			s += " [MESSAGE] "
+			mt = "MESSAGE"
 		case 3:
-			s += " [EPISODE] "
+			mt = "EPISODE"
 			if len(info.config.SpoilChannels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.SpoilChannels) {
 				data = "(title removed)"
 			}
 		case 5:
-			s += " [EVENT]"
+			mt = "EVENT"
 		case 6:
-			s += " [REMINDER] "
+			mt = "REMINDER"
 			data = strings.SplitN(data, "|", 2)[1]
 		case 7:
 			datas := strings.SplitN(data, "|", 2)
-			s += " [GROUP:" + datas[0] + "] "
+			mt = "GROUP:" + datas[0]
 			data = datas[1]
-		default:
-			s += " [UNKNOWN] "
 		}
-		lines = append(lines, s+ReplaceAllMentions(data))
+		lines[k+1] = fmt.Sprintf("#%v **%s** [%s] %s", SBitoa(v.ID), t, mt, ReplaceAllMentions(data))
 	}
 
 	return strings.Join(lines, "\n"), len(lines) > 6
