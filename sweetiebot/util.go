@@ -414,8 +414,13 @@ func replacementionhelper(s string) string {
 	}
 	return u.Username
 }
+func replacerolementionhelper(s string) string {
+	return "<@\u200B&" + s[3:]
+}
+
 func ReplaceAllMentions(s string) string {
-	return regexp.MustCompile("<@!?[0-9]+>").ReplaceAllStringFunc(s, replacementionhelper)
+	s = userregex.ReplaceAllStringFunc(s, replacementionhelper)
+	return roleregex.ReplaceAllStringFunc(s, replacerolementionhelper)
 }
 func RestrictCommand(v string, guild *GuildInfo) {
 	_, ok := guild.config.Command_roles[v]
