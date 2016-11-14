@@ -1141,7 +1141,7 @@ func Initialize(Token string) {
 		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
-		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824", "164188105031680000": "167671166352228353"},
+		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
 		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               false,
 		guilds:             make(map[uint64]*GuildInfo),
