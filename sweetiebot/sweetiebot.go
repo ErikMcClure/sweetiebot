@@ -151,6 +151,7 @@ type SweetieBot struct {
 var sb *SweetieBot
 var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
+var roleregex = regexp.MustCompile("<@&[0-9]+>")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var locUTC = time.FixedZone("UTC", 0)
 
@@ -1133,20 +1134,21 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 15, 3},
+		version:            Version{0, 8, 15, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
-		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
+		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824", "164188105031680000": "167671166352228353"},
 		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               false,
 		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 15, 4): "- ReplaceMentions now breaks role pings (but does not resolve them)",
 			AssembleVersion(0, 8, 15, 3): "- Use database to resolve users to improve responsiveness",
 			AssembleVersion(0, 8, 15, 2): "- Improved !vote error messages",
 			AssembleVersion(0, 8, 15, 1): "- Quickconfig actually sets silentrole now",

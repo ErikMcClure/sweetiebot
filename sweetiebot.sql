@@ -459,7 +459,7 @@ CREATE TABLE IF NOT EXISTS `polls` (
   `Name` varchar(50) NOT NULL,
   `Description` varchar(2048) NOT NULL,
   PRIMARY KEY (`ID`),
-  UNIQUE KEY `Index 2` (`Name`)
+  UNIQUE KEY `Index 2` (`Name`,`Guild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
@@ -536,7 +536,8 @@ CREATE TABLE IF NOT EXISTS `schedule` (
   `Type` tinyint(3) unsigned NOT NULL,
   `Data` text NOT NULL,
   PRIMARY KEY (`ID`),
-  KEY `Index 2` (`Date`)
+  KEY `INDEX_GUILD_DATE_TYPE` (`Date`,`Guild`,`Type`),
+  KEY `INDEX_GUILD` (`Guild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
@@ -614,7 +615,7 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW BEGIN
 
@@ -628,7 +629,7 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
 -- Dumping structure for trigger sweetiebot.members_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `members_before_update` BEFORE UPDATE ON `members` FOR EACH ROW BEGIN
 
@@ -646,7 +647,7 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
 -- Dumping structure for trigger sweetiebot.polloptions_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW BEGIN
 DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`;
@@ -656,7 +657,7 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
 -- Dumping structure for trigger sweetiebot.polls_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW BEGIN
 DELETE FROM polloptions WHERE Poll = OLD.ID;
