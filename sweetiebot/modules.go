@@ -125,8 +125,9 @@ func (info *GuildInfo) GetActiveModules() string {
 
 func (info *GuildInfo) GetActiveCommands() string {
 	s := []string{"Active Commands:"}
-	for _, v := range info.commands {
-		str := v.Name()
+	commands := GetCommandsInOrder(info.commands)
+	for _, v := range commands {
+		str := info.commands[v].Name()
 		_, disabled := info.config.Command_disabled[strings.ToLower(str)]
 		_, restricted := sb.RestrictedCommands[strings.ToLower(str)]
 		if restricted && !sb.IsDBGuild(info) {
