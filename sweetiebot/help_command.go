@@ -18,8 +18,9 @@ func (c *HelpCommand) Name() string {
 func (c *HelpCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
 	if len(args) == 0 {
 		s := []string{"Sweetie Bot knows the following commands. For more information on a specific command, type !help [command].\n"}
-		for k, v := range info.commands {
-			s = append(s, k+": "+v.UsageShort())
+		commands := GetCommandsInOrder(info.commands)
+		for _, v := range commands {
+			s = append(s, v+": "+info.commands[v].UsageShort())
 		}
 
 		return "```" + strings.Join(s, "\n") + "```", true
