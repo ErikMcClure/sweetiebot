@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -321,6 +322,16 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	}
 	return sb.db.FindUsers(user, 20, 0)
 }
+
+func GetCommandsInOrder(m map[string]Command) []string {
+	s := make([]string, 0, len(m))
+	for k, _ := range m {
+		s = append(s, k)
+	}
+	sort.Strings(s)
+	return s
+}
+
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
 	for k, _ := range m {

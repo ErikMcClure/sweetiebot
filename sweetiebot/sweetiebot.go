@@ -1134,7 +1134,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 15, 4},
+		version:            Version{0, 8, 16, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1148,6 +1148,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 16, 0): "- Alphabetized the command list",
 			AssembleVersion(0, 8, 15, 4): "- ReplaceMentions now breaks role pings (but does not resolve them)",
 			AssembleVersion(0, 8, 15, 3): "- Use database to resolve users to improve responsiveness",
 			AssembleVersion(0, 8, 15, 2): "- Improved !vote error messages",
