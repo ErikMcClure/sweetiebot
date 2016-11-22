@@ -166,6 +166,9 @@ func (c *NewCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	}
 
 	collection := strings.ToLower(args[0])
+	if strings.ContainsAny(collection, "+") {
+		return "```Don't make collection names with + in them, dumbass!```", false
+	}
 	_, ok := info.config.Collections[collection]
 	if ok {
 		return "```That collection already exists!```", false
