@@ -23,24 +23,30 @@ func (c *AddCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```Can't add empty string!```", false
 	}
 
-	collection := args[0]
-	_, ok := info.config.Collections[collection]
-	if !ok {
-		return "```That collection does not exist!```", false
+	collections := strings.Split(args[0], "+")
+	for _, v := range collections {
+		_, ok := info.config.Collections[v]
+		if !ok {
+			return fmt.Sprintf("```The %s collection does not exist!```", v), false
+		}
 	}
 
+	add := ""
+	length := make([]string, len(collections), len(collections))
 	arg := strings.Join(args[1:], " ")
-	info.config.Collections[collection][arg] = true
-	fn, ok := c.funcmap[collection]
-	retval := "```Added " + arg + " to " + collection + ". Length of " + collection + ": " + strconv.Itoa(len(info.config.Collections[collection])) + "```"
-	if ok {
-		retval = fn(arg)
+	for k, v := range collections {
+		info.config.Collections[v][arg] = true
+		fn, ok := c.funcmap[v]
+		length[k] = fmt.Sprintf("Length of %s: %v", v, strconv.Itoa(len(info.config.Collections[v])))
+		if ok {
+			add += " " + fn(arg)
+		}
 	}
 	info.SaveConfig()
-	return ExtraSanitize(retval), false
+	return ExtraSanitize(fmt.Sprintf("```Added %s to %s%s. \n%s```", arg, strings.Join(collections, ", "), add, strings.Join(length, "\n"))), false
 }
 func (c *AddCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[collection] [arbitrary string]", "Adds [arbitrary string] to [collection] (no quotes are required), then calls a handler function for that specific collection.")
+	return info.FormatUsage(c, "[collection(s)] [arbitrary string]", "Adds [arbitrary string] to [collection] (which can be multiple collections by specifying \"collection+collection\"), then calls a handler function for that specific collection.")
 }
 func (c *AddCommand) UsageShort() string { return "Adds a line to a collection." }
 
