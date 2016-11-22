@@ -495,18 +495,18 @@ func AttachToGuild(g *discordgo.Guild) {
 			if !r {
 				delete(guild.config.Collections["emote"], arg)
 				guild.emotemodule.UpdateRegex(guild)
-				return "```Failed to ban " + arg + " because regex compilation failed.```"
+				return ". Failed to ban " + arg + " because regex compilation failed"
 			}
-			return "```Banned " + arg + " and recompiled the emote regex.```"
+			return "and recompiled the emote regex"
 		},
 		"spoiler": func(arg string) string {
 			r := spoilermodule.UpdateRegex(guild)
 			if !r {
 				delete(guild.config.Collections["spoiler"], arg)
 				spoilermodule.UpdateRegex(guild)
-				return "```Failed to ban " + arg + " because regex compilation failed.```"
+				return ". Failed to ban " + arg + " because regex compilation failed"
 			}
-			return "```Banned " + arg + " and recompiled the spoiler regex.```"
+			return "and recompiled the spoiler regex"
 		},
 	}
 	removefuncmap := map[string]func(string) string{
@@ -1134,7 +1134,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 16, 0},
+		version:            Version{0, 8, 16, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1148,6 +1148,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 16, 1): "- !add can now add to multiple collections at the same time.",
 			AssembleVersion(0, 8, 16, 0): "- Alphabetized the command list",
 			AssembleVersion(0, 8, 15, 4): "- ReplaceMentions now breaks role pings (but does not resolve them)",
 			AssembleVersion(0, 8, 15, 3): "- Use database to resolve users to improve responsiveness",
