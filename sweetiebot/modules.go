@@ -72,12 +72,12 @@ type ModuleOnGuildMemberUpdate interface {
 
 type ModuleOnGuildBanAdd interface {
 	Module
-	OnGuildBanAdd(*GuildInfo, *discordgo.GuildBan)
+	OnGuildBanAdd(*GuildInfo, *discordgo.GuildBanAdd)
 }
 
 type ModuleOnGuildBanRemove interface {
 	Module
-	OnGuildBanRemove(*GuildInfo, *discordgo.GuildBan)
+	OnGuildBanRemove(*GuildInfo, *discordgo.GuildBanRemove)
 }
 
 type ModuleOnCommand interface {
