@@ -986,7 +986,7 @@ func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
 	}
 	ApplyFuncRange(len(info.hooks.OnGuildBanAdd), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildBanAdd[i]) {
-			info.hooks.OnGuildBanAdd[i].OnGuildBanAdd(info, m.GuildBan)
+			info.hooks.OnGuildBanAdd[i].OnGuildBanAdd(info, m)
 		}
 	})
 }
@@ -997,7 +997,7 @@ func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 	}
 	ApplyFuncRange(len(info.hooks.OnGuildBanRemove), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildBanRemove[i]) {
-			info.hooks.OnGuildBanRemove[i].OnGuildBanRemove(info, m.GuildBan)
+			info.hooks.OnGuildBanRemove[i].OnGuildBanRemove(info, m)
 		}
 	})
 }
@@ -1134,9 +1134,9 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 16, 2},
+		version:            Version{0, 8, 16, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
-		Owners:             map[uint64]bool{95585199324143616: true, 98605232707080192: true},
+		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
 		MainGuildID:        98609319519453184,
@@ -1148,6 +1148,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 16, 3): "- Update discordgo structs to account for breaking API change.",
 			AssembleVersion(0, 8, 16, 2): "- Enable sweetiebot to tell dumbasses that they are dumbasses.",
 			AssembleVersion(0, 8, 16, 1): "- !add can now add to multiple collections at the same time.",
 			AssembleVersion(0, 8, 16, 0): "- Alphabetized the command list",
