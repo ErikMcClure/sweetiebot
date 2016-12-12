@@ -10,6 +10,7 @@ Three files are necessary for sweetiebot to run that are never uploaded to the g
 
 * `db.auth`: Database connection string
 * `token`: Bot token used for login. [Create an application](https://discordapp.com/developers/applications/me#top) and turn it into a Bot User to get one.
+* [OPTIONAL] `isdebug`: If this file exists and contains the word "true", sweetiebot will start in debug mode, and will only respond to commands on the hardcoded debug channels.
 
 These files must in the root directory of wherever `main.exe` is compiled to. For testing purposes, it is sufficient to navigate to `/sweetiebot/main` in your command line and compile it there by typing `go build`, which will create `/sweetiebot/main/main.exe`. An example `config.json` file is included in `/sweetiebot/main` for testing purposes.
 
