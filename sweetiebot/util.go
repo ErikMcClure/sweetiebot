@@ -497,9 +497,12 @@ func MigrateSettings(guild *GuildInfo) {
 	if guild.config.Version == 7 {
 		RestrictCommand("addoption", guild)
 	}
+	if guild.config.Version == 8 {
+		RestrictCommand("echoembed", guild)
+	}
 
-	if guild.config.Version != 8 {
-		guild.config.Version = 8 // set version to most recent config version
+	if guild.config.Version != 9 {
+		guild.config.Version = 9 // set version to most recent config version
 		guild.SaveConfig()
 	}
 }
