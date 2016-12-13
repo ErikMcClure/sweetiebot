@@ -135,6 +135,7 @@ type SweetieBot struct {
 	version            Version
 	changelog          map[int]string
 	SelfID             string
+	SelfAvatar         string
 	Owners             map[uint64]bool
 	RestrictedCommands map[string]bool
 	NonServerCommands  map[string]bool
@@ -334,6 +335,9 @@ func ExtraSanitize(s string) string {
 	return ReplaceAllMentions(s)
 }
 
+func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) {
+	sb.dg.ChannelMessageSendEmbed(channelID, embed)
+}
 func (info *GuildInfo) SendMessage(channelID string, message string) {
 	sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
 }
@@ -380,6 +384,7 @@ func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
 func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
+	sb.SelfAvatar = r.User.Avatar
 
 	// Only used to change sweetiebot's name or avatar
 	//ChangeBotName(s, "Sweetie", "avatar.jpg")
@@ -1134,7 +1139,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 16, 3},
+		version:            Version{0, 8, 17, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1148,6 +1153,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 17, 0): "- Sweetiebot can now send embeds\n- Made about message pretty",
 			AssembleVersion(0, 8, 16, 3): "- Update discordgo structs to account for breaking API change.",
 			AssembleVersion(0, 8, 16, 2): "- Enable sweetiebot to tell dumbasses that they are dumbasses.",
 			AssembleVersion(0, 8, 16, 1): "- !add can now add to multiple collections at the same time.",
