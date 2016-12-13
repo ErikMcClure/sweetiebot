@@ -45,11 +45,31 @@ func (c *AboutCommand) Name() string {
 	return "About"
 }
 func (c *AboutCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
-	s := "```Sweetie Bot version " + sb.version.String()
+	tag := " [release]"
 	if sb.Debug {
-		return s + " [debug]```", false
+		tag = " [debug]"
 	}
-	return s + " [release]```", false
+	owners := make([]string, 0, len(sb.Owners))
+	for k, _ := range sb.Owners {
+		owners = append(owners, SBitoa(k))
+	}
+	embed := &discordgo.MessageEmbed{
+		Type: "rich",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     "https://github.com/blackhole12/sweetiebot",
+			Name:    "Sweetie Bot v" + sb.version.String() + tag,
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+		},
+		Color: 0xa800ff,
+		Fields: []*discordgo.MessageEmbedField{
+			&discordgo.MessageEmbedField{Name: "Author", Value: "Blackhole#8270", Inline: true},
+			&discordgo.MessageEmbedField{Name: "Library", Value: "discordgo", Inline: true},
+			&discordgo.MessageEmbedField{Name: "Owner ID(s)", Value: strings.Join(owners, ", "), Inline: true},
+			&discordgo.MessageEmbedField{Name: "Presence", Value: Pluralize(int64(len(sb.guilds)), " server"), Inline: true},
+		},
+	}
+	info.SendEmbed(msg.ChannelID, embed)
+	return "", false
 }
 func (c *AboutCommand) Usage(info *GuildInfo) string {
 	return info.FormatUsage(c, "", "Displays information about Sweetie Bot. What, did you think it would do something else?")
