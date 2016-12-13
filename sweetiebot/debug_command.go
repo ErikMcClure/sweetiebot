@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"strconv"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -33,6 +35,65 @@ func (c *EchoCommand) Usage(info *GuildInfo) string {
 }
 func (c *EchoCommand) UsageShort() string {
 	return "Makes Sweetie Bot say something in the given channel."
+}
+
+type EchoEmbedCommand struct {
+}
+
+func (c *EchoEmbedCommand) Name() string {
+	return "EchoEmbed"
+}
+func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+	if len(args) == 0 {
+		return "```You have to tell me to say something, silly!```", false
+	}
+	arg := args[0]
+	channel := msg.ChannelID
+	i := 0
+	if channelregex.MatchString(arg) {
+		if len(args) < 2 {
+			return "```You have to tell me to say something, silly!```", false
+		}
+		channel = arg[2 : len(arg)-1]
+		i++
+	}
+	url := args[i]
+	i++
+	var color uint64
+	if colorregex.MatchString(args[i]) {
+		if len(args) < i+2 {
+			return "```You have to tell me to say something, silly!```", false
+		}
+		color, _ = strconv.ParseUint(args[i][2:], 16, 64)
+		i++
+	}
+	fields := make([]*discordgo.MessageEmbedField, 0, len(args)-i)
+	for i < len(args) {
+		s := strings.SplitN(args[i], ":", 2)
+		if len(s) < 2 {
+			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in paranthesis!```", false
+		}
+		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
+		i++
+	}
+	embed := &discordgo.MessageEmbed{
+		Type: "rich",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     url,
+			Name:    msg.Author.Username + "#" + msg.Author.Discriminator,
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.jpg", msg.Author.ID, msg.Author.Avatar),
+		},
+		Color:  int(color),
+		Fields: fields,
+	}
+	info.SendEmbed(channel, embed)
+	return "", false
+}
+func (c *EchoEmbedCommand) Usage(info *GuildInfo) string {
+	return info.FormatUsage(c, "[#channel] [URL] [0xC0L0R] [key:value] [key:value] ...", "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel. Both the channel ID and the color are optional, but the URL is mandatory.")
+}
+func (c *EchoEmbedCommand) UsageShort() string {
+	return "Makes Sweetie Bot echo a rich text embed in a given channel."
 }
 
 func SetCommandEnable(args []string, enable bool, success string, info *GuildInfo) string {

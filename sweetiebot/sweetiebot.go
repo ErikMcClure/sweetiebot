@@ -154,6 +154,7 @@ var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
 var roleregex = regexp.MustCompile("<@&[0-9]+>")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
+var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 var locUTC = time.FixedZone("UTC", 0)
 
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
@@ -596,6 +597,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.AddCommand(&ResultsCommand{})
 	guild.AddCommand(&AddOptionCommand{})
 	guild.AddCommand(&ImportCommand{})
+	guild.AddCommand(&EchoEmbedCommand{})
 
 	if disableall {
 		for k, _ := range guild.commands {
@@ -1139,7 +1141,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 17, 0},
+		version:            Version{0, 8, 17, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1153,6 +1155,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 17, 1): "- Added echoembed command",
 			AssembleVersion(0, 8, 17, 0): "- Sweetiebot can now send embeds\n- Made about message pretty",
 			AssembleVersion(0, 8, 16, 3): "- Update discordgo structs to account for breaking API change.",
 			AssembleVersion(0, 8, 16, 2): "- Enable sweetiebot to tell dumbasses that they are dumbasses.",
