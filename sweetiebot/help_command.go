@@ -93,7 +93,9 @@ func (c *RulesCommand) Process(args []string, msg *discordgo.Message, info *Guil
 		sort.Ints(keys)
 
 		for _, v := range keys {
-			rules = append(rules, fmt.Sprintf("%v. %s", v, info.config.Rules[v]))
+			if !info.config.HideNegativeRules || v >= 0 {
+				rules = append(rules, fmt.Sprintf("%v. %s", v, info.config.Rules[v]))
+			}
 		}
 		return strings.Join(rules, "\n"), len(rules) > 4
 	}
