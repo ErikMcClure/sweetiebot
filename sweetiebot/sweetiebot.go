@@ -66,6 +66,7 @@ type BotConfig struct {
 	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 	UseMemberNames        bool                       `json:"usemembernames"`
 	Importable            bool                       `json:"importable"`
+	HideNegativeRules     bool                       `json:"hidenegativerules"`
 	Timezone              int                        `json:"timezone"`
 	TimezoneLocation      string                     `json:"timezonelocation"`
 	AutoSilence           int                        `json:"autosilence"`
@@ -1141,7 +1142,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 17, 1},
+		version:            Version{0, 8, 17, 2},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1155,6 +1156,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 8, 17, 2): "- Added ability to hide negative rules because Tawmy is weird",
 			AssembleVersion(0, 8, 17, 1): "- Added echoembed command",
 			AssembleVersion(0, 8, 17, 0): "- Sweetiebot can now send embeds\n- Made about message pretty",
 			AssembleVersion(0, 8, 16, 3): "- Update discordgo structs to account for breaking API change.",
