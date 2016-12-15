@@ -139,7 +139,7 @@ func (f MemberFields) Len() int {
 }
 
 func (f MemberFields) Less(i, j int) bool {
-	return len(f[i].Value) < len(f[j].Value)
+	return strings.Compare(f[i].Name, f[j].Name) < 0
 }
 
 func (f MemberFields) Swap(i, j int) {
