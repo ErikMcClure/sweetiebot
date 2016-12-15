@@ -159,22 +159,6 @@ func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info
 		fields := make(MemberFields, 0, len(info.modules))
 
 		for k, v := range info.config.Basic.Collections {
-			/*i := 0
-			s := make([]string, 0, LINES)
-			for item, _ := range v {
-				if i >= LINES {
-					break
-				}
-				if len(item) > MAXLENGTH {
-					item = item[:MAXLENGTH-3] + "..."
-				}
-				s = append(s, item)
-				i++
-			}
-			str := strings.Join(s, "\n")
-			if len(str) == 0 {
-				str = "\u200b"
-			}*/
 			fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: fmt.Sprintf("%v items", len(v)), Inline: true})
 		}
 		sort.Sort(fields)
@@ -198,8 +182,10 @@ func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info
 	if !ok {
 		return "```That collection doesn't exist! Use this command with no arguments to see a list of all collections.```", false, nil
 	}
-
-	return "```\n" + ExtraSanitize(arg+" contains:\n"+strings.Join(MapToSlice(cmap), "\n")) + "```", false, nil
+	s := strings.Join(MapToSlice(cmap), "\n")
+	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
+	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
+	return fmt.Sprintf("```\n%s contains:\n%s```", arg, s), false, nil
 }
 func (c *CollectionsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
