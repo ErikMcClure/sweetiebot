@@ -541,7 +541,6 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Markov.MaxPMlines = guild.config.MaxPMlines
 		guild.config.Markov.Maxquotelines = guild.config.Maxquotelines
 		guild.config.Markov.UseMemberNames = guild.config.UseMemberNames
-		guild.config.Users.Timezone = guild.config.Timezone
 		guild.config.Users.TimezoneLocation = guild.config.TimezoneLocation
 		guild.config.Users.WelcomeChannel = guild.config.WelcomeChannel
 		guild.config.Users.WelcomeMessage = guild.config.WelcomeMessage
