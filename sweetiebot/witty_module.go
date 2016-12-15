@@ -31,8 +31,19 @@ func (w *WittyModule) Register(info *GuildInfo) {
 	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 }
 
+func (w *WittyModule) Commands() []Command {
+	return []Command{
+		&AddWitCommand{w},
+		&RemoveWitCommand{w},
+	}
+}
+
+func (w *WittyModule) Description() string {
+	return "In response to certain patterns (determined by a regex) will post a response picked randomly from a list of them associated with that trigger. Rate limits itself to make sure it isn't too annoying."
+}
+
 func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
-	l := len(info.config.Witty)
+	l := len(info.config.Wit.Witty)
 	w.triggerregex = make([]*regexp.Regexp, 0, l)
 	w.remarks = make([][]string, 0, l)
 	if l < 1 {
@@ -41,11 +52,11 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 	}
 
 	var err error
-	w.wittyregex, err = regexp.Compile("(" + strings.Join(MapStringToSlice(info.config.Witty), "|") + ")")
+	w.wittyregex, err = regexp.Compile("(" + strings.Join(MapStringToSlice(info.config.Wit.Witty), "|") + ")")
 
 	if err == nil {
 		var r *regexp.Regexp
-		for k, v := range info.config.Witty {
+		for k, v := range info.config.Wit.Witty {
 			r, err = regexp.Compile(k)
 			if err != nil {
 				break
@@ -63,7 +74,7 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 }
 
 func (w *WittyModule) SendWittyComment(channel string, comment string, info *GuildInfo) {
-	if RateLimit(&w.lastcomment, info.config.Maxwit) {
+	if RateLimit(&w.lastcomment, info.config.Wit.Maxwit) {
 		info.SendMessage(channel, comment)
 	}
 }
@@ -75,7 +86,7 @@ func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	  }
 	  info.lastshutup = time.Now().UTC().Unix()
 	}*/
-	if CheckRateLimit(&w.lastcomment, info.config.Maxwit) && CheckShutup(m.ChannelID) {
+	if CheckRateLimit(&w.lastcomment, info.config.Wit.Maxwit) && CheckShutup(m.ChannelID) {
 		if w.wittyregex != nil && w.wittyregex.MatchString(str) {
 			for i := 0; i < len(w.triggerregex); i++ {
 				if w.triggerregex[i].MatchString(str) {
@@ -102,34 +113,40 @@ func (c *AddWitCommand) Name() string {
 }
 func WitRemove(wit string, info *GuildInfo) bool {
 	wit = strings.ToLower(wit)
-	_, ok := info.config.Witty[wit]
+	_, ok := info.config.Wit.Witty[wit]
 	if ok {
-		delete(info.config.Witty, wit)
+		delete(info.config.Wit.Witty, wit)
 	}
 	return ok
 }
 
-func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 2 {
-		return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false
+		return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false, nil
 	}
 
 	trigger := strings.ToLower(args[0])
 	remark := args[1]
 
-	CheckMapNilString(&info.config.Witty)
-	info.config.Witty[trigger] = remark
+	CheckMapNilString(&info.config.Wit.Witty)
+	info.config.Wit.Witty[trigger] = remark
 	info.SaveConfig()
 	r := c.wit.UpdateRegex(info)
 	if !r {
 		WitRemove(trigger, info)
 		c.wit.UpdateRegex(info)
-		return "```Failed to add " + trigger + " because regex compilation failed.```", false
+		return "```Failed to add " + trigger + " because regex compilation failed.```", false, nil
 	}
-	return "```Adding " + trigger + " and recompiled the wittyremarks regex.```", false
+	return "```Adding " + trigger + " and recompiled the wittyremarks regex.```", false, nil
 }
-func (c *AddWitCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[trigger] [response]", "Adds a [response] that is triggered by [trigger]. The trigger may be any valid regex string, but it must be in quotes if it has spaces.")
+func (c *AddWitCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Adds a `response` that is triggered by `trigger`.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "trigger", Desc: "Any valid regex string, but it must be in quotes if it has spaces.", Optional: false},
+			CommandUsageParam{Name: "response", Desc: "All possible responses, split up by `|`. Does not require quotes.", Optional: false},
+		},
+	}
 }
 func (c *AddWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
 
@@ -141,20 +158,25 @@ func (c *RemoveWitCommand) Name() string {
 	return "RemoveWit"
 }
 
-func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```You must provide both a trigger to remove!```", false
+		return "```You must provide both a trigger to remove!```", false, nil
 	}
 
 	arg := strings.Join(args, " ")
 	if !WitRemove(arg, info) {
-		return "```Could not find " + arg + "!```", false
+		return "```Could not find " + arg + "!```", false, nil
 	}
 	info.SaveConfig()
 	c.wit.UpdateRegex(info)
-	return "```Removed " + arg + " and recompiled the wittyremarks regex.```", false
+	return "```Removed " + arg + " and recompiled the wittyremarks regex.```", false, nil
 }
-func (c *RemoveWitCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[trigger]", "Removes [trigger] from wittyremarks, provided it exists.")
+func (c *RemoveWitCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Removes `trigger` from wittyremarks, provided it exists.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "trigger", Desc: "Any valid regex string.", Optional: false},
+		},
+	}
 }
 func (c *RemoveWitCommand) UsageShort() string { return "Removes a remark from wittyremarks." }

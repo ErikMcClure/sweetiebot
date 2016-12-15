@@ -100,48 +100,51 @@ type ModuleOnTick interface {
 type Module interface {
 	Name() string
 	Register(*GuildInfo)
+	Commands() []Command
+	Description() string
+}
+
+type CommandUsageParam struct {
+	Name     string
+	Desc     string
+	Optional bool
+	Variadic bool
+}
+type CommandUsage struct {
+	Desc   string
+	Params []CommandUsageParam
 }
 
 // Commands are any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
 	Name() string
-	Process([]string, *discordgo.Message, *GuildInfo) (string, bool)
-	Usage(*GuildInfo) string
+	Process([]string, *discordgo.Message, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
+	Usage(*GuildInfo) *CommandUsage
 	UsageShort() string
 }
 
-func (info *GuildInfo) GetActiveModules() string {
-	s := []string{"Active Modules:"}
-	for _, v := range info.modules {
-		str := v.Name()
-		_, ok := info.config.Module_disabled[strings.ToLower(str)]
-		if ok {
-			str += " [disabled]"
-		}
-		s = append(s, str)
+func (info *GuildInfo) IsModuleDisabled(name string) string {
+	_, ok := info.config.Modules.ModuleDisabled[strings.ToLower(name)]
+	if ok {
+		return " [disabled]"
 	}
-	return strings.Join(s, "\n  ")
+	return ""
 }
 
-func (info *GuildInfo) GetActiveCommands() string {
-	s := []string{"Active Commands:"}
-	commands := GetCommandsInOrder(info.commands)
-	for _, v := range commands {
-		str := info.commands[v].Name()
-		_, disabled := info.config.Command_disabled[strings.ToLower(str)]
-		_, restricted := sb.RestrictedCommands[strings.ToLower(str)]
-		if restricted && !sb.IsDBGuild(info) {
-			str += " [not available]"
-		} else if disabled {
-			str += " [disabled]"
-		}
-		s = append(s, str)
+func (info *GuildInfo) IsCommandDisabled(name string) string {
+	str := ""
+	_, disabled := info.config.Modules.CommandDisabled[strings.ToLower(name)]
+	_, restricted := sb.RestrictedCommands[strings.ToLower(name)]
+	if restricted && !sb.IsDBGuild(info) {
+		str += " [not available]"
+	} else if disabled {
+		str += " [disabled]"
 	}
-	return strings.Join(s, "\n  ")
+	return str
 }
 
 func (info *GuildInfo) GetRoles(c Command) string {
-	m, ok := info.config.Command_roles[strings.ToLower(c.Name())]
+	m, ok := info.config.Modules.CommandRoles[strings.ToLower(c.Name())]
 	if !ok {
 		return ""
 	}
@@ -159,7 +162,7 @@ func (info *GuildInfo) GetRoles(c Command) string {
 }
 
 func (info *GuildInfo) GetChannels(c Command) string {
-	m, ok := info.config.Command_channels[strings.ToLower(c.Name())]
+	m, ok := info.config.Modules.CommandChannels[strings.ToLower(c.Name())]
 	if !ok {
 		return ""
 	}
@@ -176,14 +179,43 @@ func (info *GuildInfo) GetChannels(c Command) string {
 	return strings.Join(s, ", ")
 }
 
-func (info *GuildInfo) FormatUsage(c Command, a string, b string) string {
+func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.MessageEmbed {
 	r := info.GetRoles(c)
 	ch := info.GetChannels(c)
-	if len(r) > 0 {
-		r = fmt.Sprintf("Roles: %s\n", r)
+	fields := make([]*discordgo.MessageEmbedField, 0, len(usage.Params))
+	use := "> !" + strings.ToLower(c.Name())
+	for _, v := range usage.Params {
+		opt := ""
+		if v.Optional {
+			opt = " [OPTIONAL]"
+			use += fmt.Sprintf(" [%s]", v.Name)
+		} else {
+			use += fmt.Sprintf(" {%s}", v.Name)
+		}
+		if v.Variadic {
+			opt = " (...) " + opt
+			use += "..."
+		}
+		fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name + opt, Value: v.Desc, Inline: false})
 	}
+
 	if len(ch) > 0 {
-		ch = fmt.Sprintf("Channels: %s\n", ch)
+		ch = fmt.Sprintf("Available on: %s", ch)
 	}
-	return fmt.Sprintf("%s\n%s%s\n%s", a, r, ch, b)
+	embed := &discordgo.MessageEmbed{
+		Type: "rich",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     "https://github.com/blackhole12/sweetiebot#configuration",
+			Name:    c.Name() + " Command",
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+		},
+		Color:       0xaaaaaa,
+		Description: fmt.Sprintf("```%s```\n%s\n\n%s", use, usage.Desc, ch),
+		Fields:      fields,
+	}
+
+	if len(r) > 0 {
+		embed.Footer = &discordgo.MessageEmbedFooter{Text: "Only usable by: " + r}
+	}
+	return embed
 }

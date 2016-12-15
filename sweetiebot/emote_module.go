@@ -25,6 +25,12 @@ func (w *EmoteModule) Register(info *GuildInfo) {
 	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
 }
 
+func (w *EmoteModule) Commands() []Command { return []Command{} }
+
+func (w *EmoteModule) Description() string {
+	return "Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them in any channels this module is active in."
+}
+
 func (w *EmoteModule) HasBigEmote(info *GuildInfo, m *discordgo.Message) bool {
 	if w.emoteban.MatchString(m.Content) {
 		sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
@@ -45,7 +51,7 @@ func (w *EmoteModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
 }
 
 func (w *EmoteModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
-	if info.UserHasRole(m.Author.ID, SBitoa(info.config.AlertRole)) {
+	if info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole)) {
 		return false
 	}
 	return w.HasBigEmote(info, m)
@@ -53,6 +59,6 @@ func (w *EmoteModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 
 func (w *EmoteModule) UpdateRegex(info *GuildInfo) bool {
 	var err error
-	w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(MapToSlice(info.config.Collections["emote"]), "|") + ")[-) \"]")
+	w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(MapToSlice(info.config.Basic.Collections["emote"]), "|") + ")[-) \"]")
 	return err == nil
 }
