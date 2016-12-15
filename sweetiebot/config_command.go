@@ -28,7 +28,7 @@ func (w *ConfigModule) Commands() []Command {
 	}
 }
 
-func (w *ConfigModule) Description() string { return "Manages this server's configuration file." }
+func (w *ConfigModule) Description() string { return "Manages Sweetie Bot's configuration file." }
 
 type SetConfigCommand struct {
 }
