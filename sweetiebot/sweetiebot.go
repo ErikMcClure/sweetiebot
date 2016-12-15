@@ -424,7 +424,7 @@ func (info *GuildInfo) SanitizeOutput(message string) string {
 }
 
 func ExtraSanitize(s string) string {
-	s = strings.Replace(s, "`", "", -1)
+	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
 	s = strings.Replace(s, "http://", "http\u200B://", -1)
 	s = strings.Replace(s, "https://", "https\u200B://", -1)
@@ -1210,7 +1210,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 0, 2},
+		version:            Version{0, 9, 0, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1224,6 +1224,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 0, 3):  "- Don't sanitize links already in code blocks",
 			AssembleVersion(0, 9, 0, 2):  "- Alphabetize collections because Tawmy is OCD",
 			AssembleVersion(0, 9, 0, 1):  "- Update documentation\n- Simplify !collections output",
 			AssembleVersion(0, 9, 0, 0):  "- Completely restructured Sweetie Bot into a module-based architecture\n- Disabling/Enabling a module now disables/enables all its commands\n- Help now includes information about modules\n- Collections command is now pretty",
