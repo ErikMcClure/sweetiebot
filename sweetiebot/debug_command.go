@@ -293,14 +293,19 @@ func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info 
 	}
 	sort.Sort(GuildSlice(guilds))
 	s := make([]string, 0, len(guilds))
+	private := 0
 	for _, v := range guilds {
 		if !isOwner {
-			s = append(s, ExtraSanitize(v.Guild.Name))
+			if v.config.Importable {
+				s = append(s, PartialSanitize(v.Guild.Name))
+			} else {
+				private++
+			}
 		} else {
-			s = append(s, ExtraSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v))))
+			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v))))
 		}
 	}
-	return "```Sweetie has joined these servers:\n" + strings.Join(s, "\n") + "```", len(s) > 8, nil
+	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
 }
 func (c *ListGuildsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Lists the servers that sweetiebot has joined."}
