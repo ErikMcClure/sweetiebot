@@ -249,7 +249,7 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, info *Gui
 func (c *UpdateCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Tells sweetiebot to shut down, calls an update script, rebuilds the code, and then restarts."}
 }
-func (c *UpdateCommand) UsageShort() string { return "Updates sweetiebot." }
+func (c *UpdateCommand) UsageShort() string { return "[RESTRICTED] Updates sweetiebot." }
 func (c *UpdateCommand) Roles() []string    { return []string{"Princesses"} }
 func (c *UpdateCommand) Channels() []string { return []string{} }
 
@@ -333,7 +333,7 @@ func (c *AnnounceCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AnnounceCommand) UsageShort() string { return "Restricted announcement command." }
+func (c *AnnounceCommand) UsageShort() string { return "[RESTRICTED] Announcement command." }
 
 type RemoveAliasCommand struct {
 }
@@ -364,4 +364,4 @@ func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveAliasCommand) UsageShort() string { return "Removes an alias." }
+func (c *RemoveAliasCommand) UsageShort() string { return "[RESTRICTED] Removes an alias." }

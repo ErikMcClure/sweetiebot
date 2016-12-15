@@ -159,7 +159,7 @@ func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info
 		fields := make(MemberFields, 0, len(info.modules))
 
 		for k, v := range info.config.Basic.Collections {
-			i := 0
+			/*i := 0
 			s := make([]string, 0, LINES)
 			for item, _ := range v {
 				if i >= LINES {
@@ -174,8 +174,8 @@ func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info
 			str := strings.Join(s, "\n")
 			if len(str) == 0 {
 				str = "\u200b"
-			}
-			fields = append(fields, &discordgo.MessageEmbedField{Name: fmt.Sprintf("%s (%v items)", k, len(v)), Value: str, Inline: true})
+			}*/
+			fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: fmt.Sprintf("%v items", len(v)), Inline: true})
 		}
 		sort.Sort(fields)
 		embed := &discordgo.MessageEmbed{
