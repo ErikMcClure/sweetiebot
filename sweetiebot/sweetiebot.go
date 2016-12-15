@@ -37,8 +37,92 @@ type ModuleHooks struct {
 }
 
 type BotConfig struct {
-	Version               int                        `json:"version"`
-	LastVersion           int                        `json:"lastversion"`
+	Version     int `json:"version"`
+	LastVersion int `json:"lastversion"`
+	Basic       struct {
+		IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
+		Importable            bool                       `json:"importable"`
+		AlertRole             uint64                     `json:"alertrole"`
+		ModChannel            uint64                     `json:"modchannel"`
+		Commandperduration    int                        `json:"commandperduration"`
+		Commandmaxduration    int64                      `json:"commandmaxduration"`
+		FreeChannels          map[string]bool            `json:"freechannels"`
+		Aliases               map[string]string          `json:"aliases"`
+		Collections           map[string]map[string]bool `json:"collections"`
+		Groups                map[string]map[string]bool `json:"groups"`
+	} `json:"basic"`
+	Modules struct {
+		CommandRoles    map[string]map[string]bool `json:"commandroles"`
+		CommandChannels map[string]map[string]bool `json:"commandchannels"`
+		CommandLimits   map[string]int64           `json:"Commandlimits"`
+		CommandDisabled map[string]bool            `json:"commanddisabled"`
+		ModuleDisabled  map[string]bool            `json:"moduledisabled"`
+		ModuleChannels  map[string]map[string]bool `json:"modulechannels"`
+	} `json:"modules"`
+	Spam struct {
+		MaxImageSpam          int           `json:"maximagespam"`
+		MaxAttachSpam         int           `json:"maxattachspam"`
+		MaxPingSpam           int           `json:"maxpingspam"`
+		MaxMessageSpam        map[int64]int `json:"maxmessagespam"`
+		MaxSpamRemoveLookback int           `json:"MaxSpamRemoveLookback"`
+		SilentRole            uint64        `json:"silentrole"`
+		MaxRaidTime           int64         `json:"maxraidtime"`
+		RaidSize              int           `json:"raidsize"`
+		SilenceMessage        string        `json:"silencemessage"`
+		AutoSilence           int           `json:"autosilence"`
+	} `json:"spam"`
+	Bucket struct {
+		MaxBucket       int `json:"maxbucket"`
+		MaxBucketLength int `json:"maxbucketlength"`
+		MaxFightHP      int `json:"maxfighthp"`
+		MaxFightDamage  int `json:"maxfightdamage"`
+	} `json:"bucket"`
+	Markov struct {
+		MaxPMlines         int  `json:"maxpmlines"`
+		Maxquotelines      int  `json:"maxquotelines"`
+		Defaultmarkovlines int  `json:"defaultmarkovlines"`
+		UseMemberNames     bool `json:"usemembernames"`
+	} `json:"markov"`
+	Users struct {
+		Timezone         int    `json:"timezone"`
+		TimezoneLocation string `json:"timezonelocation"`
+		WelcomeChannel   uint64 `json:"welcomechannel"`
+		WelcomeMessage   string `json:"welcomemessage"`
+	} `json:"users"`
+	Bored struct {
+		Maxbored      int64           `json:"maxbored"`
+		BoredCommands map[string]bool `json:"boredcommands"`
+	}
+	Help struct {
+		Rules             map[int]string `json:"rules"`
+		HideNegativeRules bool           `json:"hidenegativerules"`
+	} `json:"help"`
+	Log struct {
+		Maxerror   int64  `json:"maxerror"`
+		LogChannel uint64 `json:"logchannel"`
+	} `json:"log"`
+	Wit struct {
+		Witty  map[string]string `json:"witty"`
+		Maxwit int64             `json:"maxwit"`
+	} `json:"Wit"`
+	Schedule struct {
+		BirthdayRole uint64 `json:"birthdayrole"`
+	} `json:"schedule"`
+	Search struct {
+		Maxsearchresults int `json:"maxsearchresults"`
+	} `json:"search"`
+	Spoiler struct {
+		SpoilChannels []uint64 `json:"spoilchannels"`
+	} `json:"spoiler"`
+	Status struct {
+		StatusDelayTime int `json:"statusdelaytime"`
+	} `json:"status"`
+	Quote struct {
+		Quotes map[uint64][]string `json:"quotes"`
+	} `json:"quote"`
+
+	// LEGACY
+
 	Maxerror              int64                      `json:"maxerror"`
 	Maxwit                int64                      `json:"maxwit"`
 	Maxbored              int64                      `json:"maxbored"`
@@ -188,131 +272,142 @@ func DeleteFromMapReflect(f reflect.Value, k string) string {
 }
 
 func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (string, bool) {
-	name = strings.ToLower(name)
+	names := strings.SplitN(strings.ToLower(name), ".", 3)
 	t := reflect.ValueOf(&info.config).Elem()
-	n := t.NumField()
-	for i := 0; i < n; i++ {
-		if strings.ToLower(t.Type().Field(i).Name) == name {
-			f := t.Field(i)
-			switch t.Field(i).Interface().(type) {
-			case string:
-				f.SetString(value)
-			case int, int8, int16, int32, int64:
-				k, _ := strconv.ParseInt(value, 10, 64)
-				f.SetInt(k)
-			case uint, uint8, uint16, uint32:
-				k, _ := strconv.ParseUint(value, 10, 64)
-				f.SetUint(k)
-			case uint64:
-				f.SetUint(PingAtoi(value))
-			case []uint64:
-				f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1+len(extra)))
-				if len(value) > 0 {
-					f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
-					for _, k := range extra {
-						f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
+	for i := 0; i < t.NumField(); i++ {
+		if strings.ToLower(t.Type().Field(i).Name) == names[0] {
+			if len(names) < 2 {
+				return "Can't set a configuration category! Use \"Category.Option\" to set a specific option.", false
+			}
+			switch t.Field(i).Kind() {
+			case reflect.Struct:
+				for j := 0; j < t.Field(i).NumField(); j++ {
+					if strings.ToLower(t.Field(i).Type().Field(j).Name) == names[1] {
+						f := t.Field(i).Field(j)
+						switch f.Interface().(type) {
+						case string:
+							f.SetString(value)
+						case int, int8, int16, int32, int64:
+							k, _ := strconv.ParseInt(value, 10, 64)
+							f.SetInt(k)
+						case uint, uint8, uint16, uint32:
+							k, _ := strconv.ParseUint(value, 10, 64)
+							f.SetUint(k)
+						case uint64:
+							f.SetUint(PingAtoi(value))
+						case []uint64:
+							f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1+len(extra)))
+							if len(value) > 0 {
+								f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
+								for _, k := range extra {
+									f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
+								}
+							}
+						case bool:
+							f.SetBool(value == "true")
+						case map[string]string:
+							value = strings.ToLower(value)
+							if len(extra) == 0 {
+								return "No extra parameter given for " + name, false
+							}
+							if f.IsNil() {
+								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							}
+							if len(extra[0]) == 0 {
+								return DeleteFromMapReflect(f, value), false
+							}
+
+							f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
+							return value + ": " + extra[0], true
+						case map[string]int64:
+							value = strings.ToLower(value)
+							if len(extra) == 0 {
+								return "No extra parameter given for " + name, false
+							}
+							if f.IsNil() {
+								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							}
+							if len(extra[0]) == 0 {
+								return DeleteFromMapReflect(f, value), false
+							}
+
+							k, _ := strconv.ParseInt(extra[0], 10, 64)
+							f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
+							return value + ": " + strconv.FormatInt(k, 10), true
+						case map[int64]int:
+							ivalue, err := strconv.ParseInt(value, 10, 64)
+							if err != nil {
+								return value + " is not an integer.", false
+							}
+							if len(extra) == 0 {
+								return "No extra parameter given for " + name, false
+							}
+							if f.IsNil() {
+								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							}
+							if len(extra[0]) == 0 {
+								f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
+								return "Deleted " + value, false
+							}
+
+							k, _ := strconv.Atoi(extra[0])
+							f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(k))
+							return value + ": " + strconv.Itoa(k), true
+						case map[int]string:
+							ivalue, err := strconv.Atoi(value)
+							if err != nil {
+								return value + " is not an integer.", false
+							}
+							if len(extra) == 0 {
+								return "No extra parameter given for " + name, false
+							}
+							if f.IsNil() {
+								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							}
+							if len(extra[0]) == 0 {
+								f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
+								return "Deleted " + value, false
+							}
+
+							e := strings.Join(extra, " ")
+							f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(e))
+							return value + ": " + e, true
+						case map[string]bool:
+							f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
+							stripped := []string{StripPing(value)}
+							for _, k := range extra {
+								f.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
+								stripped = append(stripped, StripPing(k))
+							}
+							return "[" + strings.Join(stripped, ", ") + "]", true
+						case map[string]map[string]bool:
+							value = strings.ToLower(value)
+							if f.IsNil() {
+								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
+							}
+							if len(extra) == 0 {
+								return DeleteFromMapReflect(f, value), false
+							}
+
+							m := reflect.MakeMap(reflect.TypeOf(f.Interface()).Elem())
+							stripped := []string{}
+							for _, k := range extra {
+								m.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
+								stripped = append(stripped, StripPing(k))
+							}
+							f.SetMapIndex(reflect.ValueOf(value), m)
+							return value + ": [" + strings.Join(stripped, ", ") + "]", true
+						default:
+							info.log.Log(name + " is an unknown type " + f.Type().Name())
+							return "That config option has an unknown type!", false
+						}
+						return fmt.Sprint(f.Interface()), true
 					}
 				}
-			case bool:
-				f.SetBool(value == "true")
-			case map[string]string:
-				value = strings.ToLower(value)
-				if len(extra) == 0 {
-					return "No extra parameter given for " + name, false
-				}
-				if f.IsNil() {
-					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				}
-				if len(extra[0]) == 0 {
-					return DeleteFromMapReflect(f, value), false
-				}
-
-				f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
-				return value + ": " + extra[0], true
-			case map[string]int64:
-				value = strings.ToLower(value)
-				if len(extra) == 0 {
-					return "No extra parameter given for " + name, false
-				}
-				if f.IsNil() {
-					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				}
-				if len(extra[0]) == 0 {
-					return DeleteFromMapReflect(f, value), false
-				}
-
-				k, _ := strconv.ParseInt(extra[0], 10, 64)
-				f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
-				return value + ": " + strconv.FormatInt(k, 10), true
-			case map[int64]int:
-				ivalue, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					return value + " is not an integer.", false
-				}
-				if len(extra) == 0 {
-					return "No extra parameter given for " + name, false
-				}
-				if f.IsNil() {
-					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				}
-				if len(extra[0]) == 0 {
-					f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
-					return "Deleted " + value, false
-				}
-
-				k, _ := strconv.Atoi(extra[0])
-				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(k))
-				return value + ": " + strconv.Itoa(k), true
-			case map[int]string:
-				ivalue, err := strconv.Atoi(value)
-				if err != nil {
-					return value + " is not an integer.", false
-				}
-				if len(extra) == 0 {
-					return "No extra parameter given for " + name, false
-				}
-				if f.IsNil() {
-					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				}
-				if len(extra[0]) == 0 {
-					f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
-					return "Deleted " + value, false
-				}
-
-				e := strings.Join(extra, " ")
-				f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(e))
-				return value + ": " + e, true
-			case map[string]bool:
-				f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
-				stripped := []string{StripPing(value)}
-				for _, k := range extra {
-					f.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
-					stripped = append(stripped, StripPing(k))
-				}
-				return "[" + strings.Join(stripped, ", ") + "]", true
-			case map[string]map[string]bool:
-				value = strings.ToLower(value)
-				if f.IsNil() {
-					f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-				}
-				if len(extra) == 0 {
-					return DeleteFromMapReflect(f, value), false
-				}
-
-				m := reflect.MakeMap(reflect.TypeOf(f.Interface()).Elem())
-				stripped := []string{}
-				for _, k := range extra {
-					m.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
-					stripped = append(stripped, StripPing(k))
-				}
-				f.SetMapIndex(reflect.ValueOf(value), m)
-				return value + ": [" + strings.Join(stripped, ", ") + "]", true
 			default:
-				info.log.Log(name + " is an unknown type " + t.Field(i).Type().Name())
-				return "That config option has an unknown type!", false
+				return "Not a configuration category!", false
 			}
-			return fmt.Sprint(t.Field(i).Interface()), true
 		}
 	}
 	return "Could not find configuration parameter " + name + "!", false
@@ -345,12 +440,12 @@ func (info *GuildInfo) SendMessage(channelID string, message string) {
 }
 
 func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
-	_, disabled := info.config.Module_disabled[strings.ToLower(m.Name())]
+	_, disabled := info.config.Modules.ModuleDisabled[strings.ToLower(m.Name())]
 	if disabled {
 		return false
 	}
 
-	c := info.config.Module_channels[strings.ToLower(m.Name())]
+	c := info.config.Modules.ModuleChannels[strings.ToLower(m.Name())]
 	if len(channelID) > 0 && len(c) > 0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
 		_, reverse := c["!"]
 		_, ok := c[channelID]
@@ -362,10 +457,10 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 func (info *GuildInfo) SwapStatusLoop() {
 	if sb.IsMainGuild(info) {
 		for !sb.quit {
-			if len(info.config.Collections["status"]) > 0 {
-				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
+			if len(info.config.Basic.Collections["status"]) > 0 {
+				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Basic.Collections["status"]))
 			}
-			time.Sleep(time.Duration(info.config.StatusDelayTime) * time.Second)
+			time.Sleep(time.Duration(info.config.Status.StatusDelayTime) * time.Second)
 		}
 	}
 }
@@ -390,6 +485,29 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
 	// Only used to change sweetiebot's name or avatar
 	//ChangeBotName(s, "Sweetie", "avatar.jpg")
+}
+
+type MiscModule struct {
+	emotes *EmoteModule
+}
+
+func (w *MiscModule) Name() string {
+	return "Miscellaneous"
+}
+
+func (w *MiscModule) Register(info *GuildInfo) {}
+
+func (w *MiscModule) Commands() []Command {
+	return []Command{
+		&LastPingCommand{},
+		&LastSeenCommand{},
+		&SearchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
+		&RollCommand{},
+	}
+}
+
+func (w *MiscModule) Description() string {
+	return "A collection of miscellaneous commands that don't belong to a module."
 }
 
 func AttachToGuild(g *discordgo.Guild) {
@@ -421,53 +539,52 @@ func AttachToGuild(g *discordgo.Guild) {
 		config, _ = ioutil.ReadFile("default.json")
 		disableall = true
 	}
-	err = json.Unmarshal(config, &guild.config)
+	err = MigrateSettings(config, guild)
 	if err != nil {
 		fmt.Println("Error reading config file for "+g.Name+": ", err.Error())
 	}
 
-	MigrateSettings(guild)
-	guild.commandlimit.times = make([]int64, guild.config.Commandperduration*2, guild.config.Commandperduration*2)
+	guild.commandlimit.times = make([]int64, guild.config.Basic.Commandperduration*2, guild.config.Basic.Commandperduration*2)
 
-	if len(guild.config.Witty) == 0 {
-		guild.config.Witty = make(map[string]string)
+	if len(guild.config.Wit.Witty) == 0 {
+		guild.config.Wit.Witty = make(map[string]string)
 	}
-	if len(guild.config.Aliases) == 0 {
-		guild.config.Aliases = make(map[string]string)
+	if len(guild.config.Basic.Aliases) == 0 {
+		guild.config.Basic.Aliases = make(map[string]string)
 	}
-	if len(guild.config.FreeChannels) == 0 {
-		guild.config.FreeChannels = make(map[string]bool)
+	if len(guild.config.Basic.FreeChannels) == 0 {
+		guild.config.Basic.FreeChannels = make(map[string]bool)
 	}
-	if len(guild.config.Command_roles) == 0 {
-		guild.config.Command_roles = make(map[string]map[string]bool)
+	if len(guild.config.Modules.CommandRoles) == 0 {
+		guild.config.Modules.CommandRoles = make(map[string]map[string]bool)
 	}
-	if len(guild.config.Command_channels) == 0 {
-		guild.config.Command_channels = make(map[string]map[string]bool)
+	if len(guild.config.Modules.CommandChannels) == 0 {
+		guild.config.Modules.CommandChannels = make(map[string]map[string]bool)
 	}
-	if len(guild.config.Command_limits) == 0 {
-		guild.config.Command_limits = make(map[string]int64)
+	if len(guild.config.Modules.CommandLimits) == 0 {
+		guild.config.Modules.CommandLimits = make(map[string]int64)
 	}
-	if len(guild.config.Command_disabled) == 0 {
-		guild.config.Command_disabled = make(map[string]bool)
+	if len(guild.config.Modules.CommandDisabled) == 0 {
+		guild.config.Modules.CommandDisabled = make(map[string]bool)
 	}
-	if len(guild.config.Module_disabled) == 0 {
-		guild.config.Module_disabled = make(map[string]bool)
+	if len(guild.config.Modules.ModuleDisabled) == 0 {
+		guild.config.Modules.ModuleDisabled = make(map[string]bool)
 	}
-	if len(guild.config.Module_channels) == 0 {
-		guild.config.Module_channels = make(map[string]map[string]bool)
+	if len(guild.config.Modules.ModuleChannels) == 0 {
+		guild.config.Modules.ModuleChannels = make(map[string]map[string]bool)
 	}
-	if len(guild.config.Groups) == 0 {
-		guild.config.Groups = make(map[string]map[string]bool)
+	if len(guild.config.Basic.Groups) == 0 {
+		guild.config.Basic.Groups = make(map[string]map[string]bool)
 	}
-	if len(guild.config.Collections) == 0 {
-		guild.config.Collections = make(map[string]map[string]bool)
+	if len(guild.config.Basic.Collections) == 0 {
+		guild.config.Basic.Collections = make(map[string]map[string]bool)
 	}
 
 	collections := []string{"emote", "bored", "status", "spoiler", "bucket", "cute"}
 	for _, v := range collections {
-		_, ok := guild.config.Collections[v]
+		_, ok := guild.config.Basic.Collections[v]
 		if !ok {
-			guild.config.Collections[v] = make(map[string]bool)
+			guild.config.Basic.Collections[v] = make(map[string]bool)
 		}
 	}
 
@@ -481,26 +598,12 @@ func AttachToGuild(g *discordgo.Guild) {
 	episodegencommand := &EpisodeGenCommand{}
 	guild.emotemodule = &EmoteModule{}
 	spoilermodule := &SpoilerModule{}
-	wittymodule := &WittyModule{}
-	spammodule := &SpamModule{}
-	guild.modules = make([]Module, 0, 6)
-	guild.modules = append(guild.modules, spammodule)
-	guild.modules = append(guild.modules, &PingModule{})
-	guild.modules = append(guild.modules, guild.emotemodule)
-	guild.modules = append(guild.modules, wittymodule)
-	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
-	guild.modules = append(guild.modules, spoilermodule)
-	guild.modules = append(guild.modules, &ScheduleModule{})
-
-	for _, v := range guild.modules {
-		v.Register(guild)
-	}
 
 	addfuncmap := map[string]func(string) string{
 		"emote": func(arg string) string {
 			r := guild.emotemodule.UpdateRegex(guild)
 			if !r {
-				delete(guild.config.Collections["emote"], arg)
+				delete(guild.config.Basic.Collections["emote"], arg)
 				guild.emotemodule.UpdateRegex(guild)
 				return ". Failed to ban " + arg + " because regex compilation failed"
 			}
@@ -509,7 +612,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		"spoiler": func(arg string) string {
 			r := spoilermodule.UpdateRegex(guild)
 			if !r {
-				delete(guild.config.Collections["spoiler"], arg)
+				delete(guild.config.Basic.Collections["spoiler"], arg)
 				spoilermodule.UpdateRegex(guild)
 				return ". Failed to ban " + arg + " because regex compilation failed"
 			}
@@ -526,86 +629,48 @@ func AttachToGuild(g *discordgo.Guild) {
 			return "```Unbanned " + arg + " and recompiled the spoiler regex.```"
 		},
 	}
-	// We have to initialize commands and modules up here because they depend on the discord channel state
-	guild.AddCommand(&AddCommand{addfuncmap})
-	guild.AddCommand(&RemoveCommand{removefuncmap})
-	guild.AddCommand(&CollectionsCommand{})
-	guild.AddCommand(&EchoCommand{})
-	guild.AddCommand(&HelpCommand{})
-	guild.AddCommand(&NewUsersCommand{})
-	guild.AddCommand(&EnableCommand{})
-	guild.AddCommand(&DisableCommand{})
-	guild.AddCommand(&UpdateCommand{})
-	guild.AddCommand(&AKACommand{})
-	guild.AddCommand(&AboutCommand{})
-	guild.AddCommand(&LastPingCommand{})
-	guild.AddCommand(&SetConfigCommand{})
-	guild.AddCommand(&GetConfigCommand{})
-	guild.AddCommand(&LastSeenCommand{})
-	guild.AddCommand(&DumpTablesCommand{})
-	guild.AddCommand(episodegencommand)
-	guild.AddCommand(&EpisodeQuoteCommand{})
-	guild.AddCommand(&ShipCommand{})
-	guild.AddCommand(&AddWitCommand{wittymodule})
-	guild.AddCommand(&RemoveWitCommand{wittymodule})
-	guild.AddCommand(&SearchCommand{emotes: guild.emotemodule, statements: make(map[string][]*sql.Stmt)})
-	guild.AddCommand(&SetStatusCommand{})
-	guild.AddCommand(&AddGroupCommand{})
-	guild.AddCommand(&JoinGroupCommand{})
-	guild.AddCommand(&ListGroupCommand{})
-	guild.AddCommand(&LeaveGroupCommand{})
-	guild.AddCommand(&PingCommand{})
-	guild.AddCommand(&PurgeGroupCommand{})
-	guild.AddCommand(&BestPonyCommand{})
-	guild.AddCommand(&BanCommand{})
-	guild.AddCommand(&DropCommand{})
-	guild.AddCommand(&GiveCommand{})
-	guild.AddCommand(&ListCommand{})
-	guild.AddCommand(&FightCommand{"", 0})
-	guild.AddCommand(&PickCommand{})
-	guild.AddCommand(&RollCommand{})
-	guild.AddCommand(&ListGuildsCommand{})
-	guild.AddCommand(&AnnounceCommand{})
-	guild.AddCommand(&QuickConfigCommand{})
-	guild.AddCommand(&ScheduleCommand{})
-	guild.AddCommand(&NextCommand{})
-	guild.AddCommand(&AddEventCommand{})
-	guild.AddCommand(&RemoveEventCommand{})
-	guild.AddCommand(&AddBirthdayCommand{})
-	guild.AddCommand(&RemindMeCommand{})
-	guild.AddCommand(&AutoSilenceCommand{spammodule})
-	guild.AddCommand(&WipeWelcomeCommand{})
-	guild.AddCommand(&SilenceCommand{})
-	guild.AddCommand(&UnsilenceCommand{})
-	guild.AddCommand(&TimeCommand{})
-	guild.AddCommand(&SetTimeZoneCommand{})
-	guild.AddCommand(&NewCommand{})
-	guild.AddCommand(&SearchCollectionCommand{})
-	guild.AddCommand(&QuoteCommand{})
-	guild.AddCommand(&AddQuoteCommand{})
-	guild.AddCommand(&RemoveQuoteCommand{})
-	guild.AddCommand(&SearchQuoteCommand{})
-	guild.AddCommand(&RemoveAliasCommand{})
-	guild.AddCommand(&DeleteCommand{})
-	guild.AddCommand(&UserInfoCommand{})
-	guild.AddCommand(&DefaultServerCommand{})
-	guild.AddCommand(&RulesCommand{})
-	guild.AddCommand(&ChangelogCommand{})
-	guild.AddCommand(&PollCommand{})
-	guild.AddCommand(&CreatePollCommand{})
-	guild.AddCommand(&DeletePollCommand{})
-	guild.AddCommand(&VoteCommand{})
-	guild.AddCommand(&ResultsCommand{})
-	guild.AddCommand(&AddOptionCommand{})
-	guild.AddCommand(&ImportCommand{})
-	guild.AddCommand(&EchoEmbedCommand{})
 
+	guild.modules = make([]Module, 0, 6)
+	guild.modules = append(guild.modules, &DebugModule{})
+	guild.modules = append(guild.modules, &UsersModule{})
+	guild.modules = append(guild.modules, &CollectionsModule{AddFuncMap: addfuncmap, RemoveFuncMap: removefuncmap})
+	guild.modules = append(guild.modules, &ScheduleModule{})
+	guild.modules = append(guild.modules, &GroupsModule{})
+	guild.modules = append(guild.modules, &PollModule{})
+	guild.modules = append(guild.modules, &HelpModule{})
+	guild.modules = append(guild.modules, &MarkovModule{})
+	guild.modules = append(guild.modules, &QuoteModule{})
+	guild.modules = append(guild.modules, &BucketModule{})
+	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule})
+	guild.modules = append(guild.modules, &ConfigModule{})
+	guild.modules = append(guild.modules, &SpamModule{})
+	guild.modules = append(guild.modules, &WittyModule{})
+	guild.modules = append(guild.modules, &StatusModule{})
+	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
+	guild.modules = append(guild.modules, guild.emotemodule)
+	guild.modules = append(guild.modules, &PingModule{})
+	guild.modules = append(guild.modules, spoilermodule)
+
+	for _, v := range guild.modules {
+		v.Register(guild)
+		cmds := v.Commands()
+		for _, command := range cmds {
+			guild.AddCommand(command)
+		}
+	}
+
+	for _, v := range guild.modules {
+		_, ok := guild.commands[strings.ToLower(v.Name())]
+		if ok {
+			fmt.Println("WARNING: Ambiguous module/command name ", v.Name())
+		}
+	}
 	if disableall {
 		for k, _ := range guild.commands {
-			guild.config.Command_disabled[k] = true
+			guild.config.Modules.CommandDisabled[k] = true
 		}
 		for _, v := range guild.modules {
-			guild.config.Module_disabled[strings.ToLower(v.Name())] = true
+			guild.config.Modules.ModuleDisabled[strings.ToLower(v.Name())] = true
 		}
 		guild.SaveConfig()
 	}
@@ -666,7 +731,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		private := info == nil
 		isfree := private
 		if info != nil {
-			_, isfree = info.config.FreeChannels[m.ChannelID]
+			_, isfree = info.config.Basic.FreeChannels[m.ChannelID]
 		}
 		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
 		isSelf := m.Author.ID == sb.SelfID
@@ -700,7 +765,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				return
 			}
 		}
-		alias, ok := info.config.Aliases[arg]
+		alias, ok := info.config.Basic.Aliases[arg]
 		if ok {
 			nargs := ParseArguments(alias)
 			args = append(nargs, args[1:]...)
@@ -713,8 +778,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			}
 			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 			cmdname := strings.ToLower(c.Name())
-			cch := info.config.Command_channels[cmdname]
-			_, disabled := info.config.Command_disabled[cmdname]
+			cch := info.config.Modules.CommandChannels[cmdname]
+			_, disabled := info.config.Modules.CommandDisabled[cmdname]
 			_, restricted := sb.RestrictedCommands[cmdname]
 			if disabled && !isOwner && !isSelf {
 				return
@@ -730,18 +795,18 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				}
 			}
 			if err != nil || (!isdebug && !isfree && !isSelf) { // debug channels aren't limited
-				if info.commandlimit.check(info.config.Commandperduration, info.config.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Commandmaxduration)*time.Second)+"!")
+				if info.commandlimit.check(info.config.Basic.Commandperduration, info.config.Basic.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Basic.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Basic.Commandmaxduration)*time.Second)+"!")
 					return
 				}
 				info.commandlimit.append(t)
 			}
-			if !isOwner && !isSelf && !info.UserHasAnyRole(m.Author.ID, info.config.Command_roles[cmdname]) {
+			if !isOwner && !isSelf && !info.UserHasAnyRole(m.Author.ID, info.config.Modules.CommandRoles[cmdname]) {
 				info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
 				return
 			}
 
-			cmdlimit := info.config.Command_limits[cmdname]
+			cmdlimit := info.config.Modules.CommandLimits[cmdname]
 			if !isfree && cmdlimit > 0 && !isSelf {
 				lastcmd := info.command_last[m.ChannelID][cmdname]
 				if !RateLimit(&lastcmd, cmdlimit) {
@@ -754,8 +819,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				info.command_last[m.ChannelID][cmdname] = t
 			}
 
-			result, usepm := c.Process(args[1:], m, info)
-			if len(result) > 0 {
+			result, usepm, resultembed := c.Process(args[1:], m, info)
+			if len(result) > 0 || resultembed != nil {
 				targetchannel := m.ChannelID
 				if usepm && !private {
 					channel, err := s.UserChannelCreate(m.Author.ID)
@@ -770,27 +835,31 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					}
 				}
 
-				for len(result) > 1999 { // discord has a 2000 character limit
-					if result[0:3] == "```" {
-						index := strings.LastIndex(result[:1996], "\n")
-						if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
-							index = 1996
+				if resultembed != nil {
+					info.SendEmbed(targetchannel, resultembed)
+				} else {
+					for len(result) > 1999 { // discord has a 2000 character limit
+						if result[0:3] == "```" {
+							index := strings.LastIndex(result[:1995], "\n")
+							if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
+								index = 1995
+							}
+							info.SendMessage(targetchannel, result[:index]+"```")
+							result = "```\n" + result[index:]
+						} else {
+							index := strings.LastIndex(result[:1999], "\n")
+							if index < 10 {
+								index = 1999
+							}
+							info.SendMessage(targetchannel, result[:index])
+							result = result[index:]
 						}
-						info.SendMessage(targetchannel, result[:index]+"```")
-						result = "```" + result[index:]
-					} else {
-						index := strings.LastIndex(result[:1999], "\n")
-						if index < 10 {
-							index = 1999
-						}
-						info.SendMessage(targetchannel, result[:index])
-						result = result[index:]
 					}
+					info.SendMessage(targetchannel, result)
 				}
-				info.SendMessage(targetchannel, result)
 			}
 		} else {
-			if !info.config.IgnoreInvalidCommands {
+			if !info.config.Basic.IgnoreInvalidCommands {
 				info.log.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
 			}
 		}
@@ -835,7 +904,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 
-	if info != nil && cid != info.config.LogChannel && isdbguild { // Log this message if it was sent to the main guild only.
+	if info != nil && cid != info.config.Log.LogChannel && isdbguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
@@ -878,7 +947,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 		private = ch.IsPrivate
 	}
 	cid := SBatoi(m.ChannelID)
-	if cid != info.config.LogChannel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
+	if cid != info.config.Log.LogChannel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID {
@@ -1142,7 +1211,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 8, 17, 2},
+		version:            Version{0, 9, 0, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1156,6 +1225,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 0, 0):  "- Completely restructured Sweetie Bot into a module-based architecture\n- Disabling/Enabling a module now disables/enables all its commands\n- Help now includes information about modules\n- Collections command is now pretty",
 			AssembleVersion(0, 8, 17, 2): "- Added ability to hide negative rules because Tawmy is weird",
 			AssembleVersion(0, 8, 17, 1): "- Added echoembed command",
 			AssembleVersion(0, 8, 17, 0): "- Sweetiebot can now send embeds\n- Made about message pretty",

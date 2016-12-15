@@ -278,16 +278,21 @@ func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 
 
 	return r
 }
-func (c *RollCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *RollCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```Nothing to roll or calculate!```", false
+		return "```Nothing to roll or calculate!```", false, nil
 	}
 	index := 0
 	r := c.Eval(c.OpSplit(strings.Join(args, "")), &index, info)
 	s := strconv.FormatFloat(r, 'f', -1, 64)
-	return "```" + s + "```", false
+	return "```\n" + s + "```", false, nil
 }
-func (c *RollCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[expression]", "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of n random numbers from 1 to **X**, inclusive. For example, !roll d10 will return 1-10, whereas !roll 2d10 + 2 will return a number between 4 and 22.")
+func (c *RollCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of `n` random numbers from 1 to **X**, inclusive. For example, `!roll d10` will return 1-10, whereas `!roll 2d10 + 2` will return a number between 4 and 22.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "expression", Desc: "The mathematical expression to parse.", Optional: false},
+		},
+	}
 }
 func (c *RollCommand) UsageShort() string { return "Evaluates a dice expression." }

@@ -27,8 +27,19 @@ func (w *SpamModule) Register(info *GuildInfo) {
 	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
 }
 
+func (w *SpamModule) Commands() []Command {
+	return []Command{
+		&AutoSilenceCommand{w},
+		&WipeWelcomeCommand{},
+	}
+}
+
+func (w *SpamModule) Description() string {
+	return "Tracks all channels it is active on for spammers. If someone posts more than `n` messages in `m` seconds, they will be silenced, their messages deleted, and the moderators will be notified. Detects groups of people joining at the same time and alerts the moderators of a potential raid."
+}
+
 func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
-	srole := SBitoa(info.config.SilentRole)
+	srole := SBitoa(info.config.Spam.SilentRole)
 	for _, v := range m.Roles {
 		if v == srole {
 			return true
@@ -44,7 +55,7 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 		if IsSilenced(m, info) {
 			return 1
 		}
-		m.Roles = append(m.Roles, SBitoa(info.config.SilentRole))
+		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
 	} else {
 		info.log.Log("Could not silence <@"+userID+"> because discordgo can't find them. (Error: ", err.Error(), ")")
 		return -1
@@ -66,30 +77,30 @@ func BanMember(u *discordgo.User, info *GuildInfo) {
 
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
 	info.log.Log("Killing spammer ", u.Username, ". Last message sent: \n", msg.ContentWithMentionsReplaced())
-	if SBatoi(msg.ChannelID) == info.config.WelcomeChannel {
+	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
-		info.SendMessage(SBitoa(info.config.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
 		return
 	}
 	SilenceMember(u.ID, info)
 
-	if info.config.MaxSpamRemoveLookback > 0 {
+	if info.config.Spam.MaxSpamRemoveLookback > 0 {
 		if sb.IsDBGuild(info) {
-			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.MaxSpamRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
+			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxSpamRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
 			for _, v := range messages {
 				sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 			}
 		}
-	} else if info.config.MaxSpamRemoveLookback == 0 {
+	} else if info.config.Spam.MaxSpamRemoveLookback == 0 {
 		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
 
-	info.SendMessage(SBitoa(info.config.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+	info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
 }
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
-		if info.UserHasRole(m.Author.ID, SBitoa(info.config.SilentRole)) && SBatoi(m.ChannelID) != info.config.WelcomeChannel {
+		if info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.SilentRole)) && SBatoi(m.ChannelID) != info.config.Users.WelcomeChannel {
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
@@ -101,17 +112,17 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 		limit := w.tracker[id]
 		limit.append(time.Now().UTC().Unix())
 		//if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
-		for k, v := range info.config.MaxMessageSpam {
+		for k, v := range info.config.Spam.MaxMessageSpam {
 			if limit.checkafter(v, k) {
 				KillSpammer(m.Author, info, m, "spamming too many messages")
 				return true
 			}
 		}
-		if len(m.Mentions) > info.config.MaxPingSpam {
+		if len(m.Mentions) > info.config.Spam.MaxPingSpam {
 			KillSpammer(m.Author, info, m, "pinging too many people")
 			return true
 		}
-		if len(m.Embeds) > info.config.MaxImageSpam || len(m.Attachments) > info.config.MaxAttachSpam {
+		if len(m.Embeds) > info.config.Spam.MaxImageSpam || len(m.Attachments) > info.config.Spam.MaxAttachSpam {
 			KillSpammer(m.Author, info, m, "embedding too many images")
 			return true
 		}
@@ -128,34 +139,34 @@ func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	return w.CheckSpam(info, m)
 }
 func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
-	raidsize := sb.db.CountNewUsers(info.config.MaxRaidTime, SBatoi(info.Guild.ID))
-	if info.config.RaidSize > 0 && raidsize >= info.config.RaidSize && RateLimit(&w.lastraid, info.config.MaxRaidTime*2) {
+	raidsize := sb.db.CountNewUsers(info.config.Spam.MaxRaidTime, SBatoi(info.Guild.ID))
+	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.MaxRaidTime*2) {
 		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
 			s = append(s, v.User.Username+"  (joined: "+ApplyTimezone(v.FirstSeen, info, nil).Format(time.ANSIC)+")")
-			if info.config.AutoSilence >= 1 {
+			if info.config.Spam.AutoSilence >= 1 {
 				SilenceMember(v.User.ID, info)
 			}
 		}
-		ch := SBitoa(info.config.ModChannel)
+		ch := SBitoa(info.config.Basic.ModChannel)
 		if sb.Debug {
 			ch, _ = sb.DebugChannels[info.Guild.ID]
 		}
-		info.SendMessage(ch, "<@&"+SBitoa(info.config.AlertRole)+"> Possible Raid Detected!\n```"+strings.Join(s, "\n")+"```")
+		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected!\n```"+strings.Join(s, "\n")+"```")
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
-	if info.config.AutoSilence >= 2 || (info.config.AutoSilence >= 1 && w.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix()) {
+	if info.config.Spam.AutoSilence >= 2 || (info.config.Spam.AutoSilence >= 1 && w.lastraid+info.config.Spam.MaxRaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User.ID, info)
-		info.SendMessage(SBitoa(info.config.ModChannel), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
-		if len(info.config.WelcomeMessage) > 0 {
-			info.SendMessage(SBitoa(info.config.WelcomeChannel), "<@"+m.User.ID+"> "+info.config.WelcomeMessage)
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
+		if len(info.config.Users.WelcomeMessage) > 0 {
+			info.SendMessage(SBitoa(info.config.Users.WelcomeChannel), "<@"+m.User.ID+"> "+info.config.Users.WelcomeMessage)
 		}
 	}
-	if info.config.AutoSilence == -1 {
-		info.SendMessage(SBitoa(info.config.ModChannel), "<@"+m.User.ID+"> joined the server.")
+	if info.config.Spam.AutoSilence == -1 {
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server.")
 	}
 	w.checkRaid(info, m)
 }
@@ -170,44 +181,49 @@ type AutoSilenceCommand struct {
 func (c *AutoSilenceCommand) Name() string {
 	return "AutoSilence"
 }
-func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```You must provide an auto silence level (either all, raid, or off).```", false
+		return "```You must provide an auto silence level (either all, raid, or off).```", false, nil
 	}
 	switch strings.ToLower(args[0]) {
 	case "all":
-		info.config.AutoSilence = 2
+		info.config.Spam.AutoSilence = 2
 	case "raid":
-		info.config.AutoSilence = 1
+		info.config.Spam.AutoSilence = 1
 	case "off":
-		info.config.AutoSilence = 0
+		info.config.Spam.AutoSilence = 0
 	case "alert":
-		info.config.AutoSilence = -1
+		info.config.Spam.AutoSilence = -1
 	//case "debug":
 	//	subtract, _ := strconv.ParseInt(args[1], 10, 64)
 	//	c.s.lastraid = time.Now().UTC().Unix() - subtract
 	default:
-		return "```Only all, raid, and off are valid auto silence levels.```", false
+		return "```Only all, raid, and off are valid auto silence levels.```", false, nil
 	}
 
 	info.SaveConfig()
 
-	if info.config.AutoSilence <= 0 {
+	if info.config.Spam.AutoSilence <= 0 {
 		// unsilence everyone
-	} else if c.s.lastraid+info.config.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
-		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
+	} else if c.s.lastraid+info.config.Spam.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
 		for _, v := range r {
 			s = append(s, v.Username)
 			SilenceMember(v.ID, info)
 		}
-		return strings.Join(s, "\n") + "```", false
+		return strings.Join(s, "\n") + "```", false, nil
 	}
-	return "```Set the auto silence level to " + strings.ToLower(args[0]) + "```", false
+	return "```Set the auto silence level to " + strings.ToLower(args[0]) + "```", false, nil
 }
-func (c *AutoSilenceCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[all/raid/alert/off]", "Toggles the auto silence level for anti-spam. All will autosilence all new members. Raid will only silence raiders. Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Off disables auto-silence and unsilences everyone.")
+func (c *AutoSilenceCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Toggles the auto silence level for anti-spam.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "all/raid/alert/off", Desc: "All will autosilence all new members. Raid will only silence raiders. Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Off disables auto-silence and unsilences everyone.", Optional: false},
+		},
+	}
 }
 func (c *AutoSilenceCommand) UsageShort() string { return "Toggle auto silence." }
 
@@ -217,12 +233,12 @@ type WipeWelcomeCommand struct {
 func (c *WipeWelcomeCommand) Name() string {
 	return "WipeWelcome"
 }
-func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
-	ch := SBitoa(info.config.WelcomeChannel)
+func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	ch := SBitoa(info.config.Users.WelcomeChannel)
 	list, err := sb.dg.ChannelMessages(ch, 99, "", "")
 	if err != nil {
 		info.log.LogError("Error retrieving messages: ", err)
-		return "```Error retrieving messages.```", false
+		return "```Error retrieving messages.```", false, nil
 	}
 	for len(list) > 0 {
 		IDs := make([]string, len(list), len(list))
@@ -232,9 +248,9 @@ func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, info
 		sb.dg.ChannelMessagesBulkDelete(ch, IDs)
 		list, err = sb.dg.ChannelMessages(ch, 99, "", "")
 	}
-	return "Deleted all messages in <#" + ch + ">.", false
+	return "Deleted all messages in <#" + ch + ">.", false, nil
 }
-func (c *WipeWelcomeCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "", "Cleans out welcome channel.")
+func (c *WipeWelcomeCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{Desc: "Cleans out welcome channel."}
 }
 func (c *WipeWelcomeCommand) UsageShort() string { return "Cleans out welcome channel." }

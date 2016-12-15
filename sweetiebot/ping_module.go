@@ -10,7 +10,7 @@ type PingModule struct {
 }
 
 func (w *PingModule) Name() string {
-	return "PingModule"
+	return "Pings"
 }
 
 func (w *PingModule) Register(info *GuildInfo) {
@@ -18,6 +18,12 @@ func (w *PingModule) Register(info *GuildInfo) {
 		info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 		info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
 	}
+}
+
+func (w *PingModule) Commands() []Command { return []Command{} }
+
+func (w *PingModule) Description() string {
+	return "Tracks any messages that ping a user, including @\u200beveryone. This information can be used by the !lastping command to get the last message that pinged a user and any surrounding context."
 }
 
 func (w *PingModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {

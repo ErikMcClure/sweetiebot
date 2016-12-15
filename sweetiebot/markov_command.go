@@ -10,6 +10,26 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+type MarkovModule struct {
+}
+
+func (w *MarkovModule) Name() string {
+	return "Markov"
+}
+
+func (w *MarkovModule) Register(info *GuildInfo) {}
+
+func (w *MarkovModule) Commands() []Command {
+	return []Command{
+		&EpisodeGenCommand{},
+		&EpisodeQuoteCommand{},
+		&ShipCommand{},
+		&BestPonyCommand{},
+	}
+}
+
+func (w *MarkovModule) Description() string { return "Generates content using markov chains." }
+
 type EpisodeGenCommand struct {
 	lock AtomicFlag
 }
@@ -17,12 +37,12 @@ type EpisodeGenCommand struct {
 func (c *EpisodeGenCommand) Name() string {
 	return "episodegen"
 }
-func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if c.lock.test_and_set() {
-		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false
+		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
 	defer c.lock.clear()
-	maxlines := info.config.Defaultmarkovlines
+	maxlines := info.config.Markov.Defaultmarkovlines
 	double := true
 	if len(args) > 0 {
 		maxlines, _ = strconv.Atoi(args[0])
@@ -55,10 +75,16 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, info 
 		}
 	}
 
-	return strings.Join(lines, "\n"), len(lines) > 5 || !CheckShutup(msg.ChannelID)
+	return strings.Join(lines, "\n"), len(lines) > 5 || !CheckShutup(msg.ChannelID), nil
 }
-func (c *EpisodeGenCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[lines] [single]", "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of [lines]. Will be sent via PM if the line count exceeds 5. Uses double-lookback by default, but can revert to single-lookback if [single] is specified.")
+func (c *EpisodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of `lines`. Will be sent via PM if the line count exceeds 5.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "lines", Desc: "Number of dialogue lines to generate", Optional: false},
+			CommandUsageParam{Name: "single", Desc: "The markov chain uses double-lookback by default, if this is specified, will revert to single-lookback, which produces much more chaotic results.", Optional: false},
+		},
+	}
 }
 func (c *EpisodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
 
@@ -70,9 +96,9 @@ var quoteargregex = regexp.MustCompile("s[0-9]+e[0-9]+")
 func (c *EpisodeQuoteCommand) Name() string {
 	return "EpisodeQuote"
 }
-func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
-		return "", false
+		return "", false, nil
 	}
 	S := 0
 	E := 0
@@ -94,7 +120,7 @@ func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, inf
 				if err != nil {
 					if n < 3 {
 						info.log.Log("quote scan error: ", err.Error())
-						return "```Error: Could not parse your request. Be sure it is in the format S0E00:000-000. Example: S4E22:7-14```", false
+						return "```Error: Could not parse your request. Be sure it is in the format S0E00:000-000. Example: S4E22:7-14```", false, nil
 					}
 					if n < 4 {
 						diff = L
@@ -104,14 +130,14 @@ func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, inf
 				L--
 
 				diff -= L
-				if diff >= info.config.Maxquotelines {
-					diff = info.config.Maxquotelines - 1
+				if diff >= info.config.Markov.Maxquotelines {
+					diff = info.config.Markov.Maxquotelines - 1
 				}
 				lines = sb.db.GetTranscript(S, E, L, L+diff)
 			} else { // Otherwise this is a character quote request
 				lines = []Transcript{sb.db.GetCharacterQuote(arg)}
 				if lines[0].Season == 0 {
-					return "```Error: Could not find character " + arg + " in the transcripts. Make sure you specify the entire name and spelled it correctly!```", false
+					return "```Error: Could not find character " + arg + " in the transcripts. Make sure you specify the entire name and spelled it correctly!```", false, nil
 				}
 			}
 		}
@@ -129,10 +155,15 @@ func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, inf
 		}
 		process = append(process, l)
 	}
-	return strings.Join(process, "\n"), len(process) > info.config.MaxPMlines
+	return strings.Join(process, "\n"), len(process) > info.config.Markov.MaxPMlines, nil
 }
-func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[S0E00:000-000|action|speech|\"Character Name\"]", "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of "+strconv.Itoa(info.config.Maxquotelines)+" lines, but a line count above 5 will be sent in a private message. Example: !quote S4E22:7-14\n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.")
+func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of " + strconv.Itoa(info.config.Markov.Maxquotelines) + " lines, but a line count above 5 will be sent in a private message. \n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "S0E00:000-000|action|speech|\"Character Name\"", Desc: "Example: `!quote S4E22:7-14`", Optional: true},
+		},
+	}
 }
 func (c *EpisodeQuoteCommand) UsageShort() string {
 	return "Quotes random or specific lines from the show."
@@ -144,13 +175,13 @@ type ShipCommand struct {
 func (c *ShipCommand) Name() string {
 	return "ship"
 }
-func (c *ShipCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *ShipCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
-		return "", false
+		return "", false, nil
 	}
 	var a string
 	var b string
-	if info.config.UseMemberNames {
+	if info.config.Markov.UseMemberNames {
 		a = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
 		b = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
 	} else {
@@ -189,10 +220,16 @@ func (c *ShipCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		s = "%s and %s get REALLY drunk, and then-- wait, this channel is SFW."
 	}
 
-	return fmt.Sprintf("```"+s+"```", a, b), false
+	return fmt.Sprintf("```\n"+s+"```", a, b), false, nil
 }
-func (c *ShipCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[first] [second]", "Generates a random pairing of ponies from the show. If a first or second argument is supplied, uses those ponies instead.")
+func (c *ShipCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Generates a random pairing of ponies. If a first or second argument is supplied, uses those names instead.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "first", Desc: "The first name in the ship.", Optional: true},
+			CommandUsageParam{Name: "second", Desc: "The second name in the ship.", Optional: true},
+		},
+	}
 }
 func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
 
@@ -202,9 +239,9 @@ type BestPonyCommand struct {
 func (c *BestPonyCommand) Name() string {
 	return "BestPony"
 }
-func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
-		return "", false
+		return "", false, nil
 	}
 	a := strings.ToLower(sb.db.GetRandomWord())
 	b := strings.ToLower(sb.db.GetRandomWord())
@@ -218,9 +255,9 @@ func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, info *G
 		s = "%s %s is the best pony."
 	}
 
-	return fmt.Sprintf("```"+s+"```", strings.ToUpper(a[:1])+a[1:], strings.ToUpper(b[:1])+b[1:]), false
+	return fmt.Sprintf("```\n"+s+"```", strings.ToUpper(a[:1])+a[1:], strings.ToUpper(b[:1])+b[1:]), false, nil
 }
-func (c *BestPonyCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "", "Generates a random pony name.")
+func (c *BestPonyCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{Desc: "Generates a random pony name."}
 }
 func (c *BestPonyCommand) UsageShort() string { return "Generates a random pony name." }

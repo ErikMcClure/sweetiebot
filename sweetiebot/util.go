@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -179,7 +180,7 @@ func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
 			return loc
 		}
 	}
-	loc, err := time.LoadLocation(info.config.TimezoneLocation)
+	loc, err := time.LoadLocation(info.config.Users.TimezoneLocation)
 	if err == nil {
 		return loc
 	}
@@ -434,15 +435,20 @@ func ReplaceAllMentions(s string) string {
 	return roleregex.ReplaceAllStringFunc(s, replacerolementionhelper)
 }
 func RestrictCommand(v string, guild *GuildInfo) {
-	_, ok := guild.config.Command_roles[v]
-	if !ok && guild.config.AlertRole != 0 {
-		guild.config.Command_roles[v] = make(map[string]bool)
-		guild.config.Command_roles[v][SBitoa(guild.config.AlertRole)] = true
+	_, ok := guild.config.Modules.CommandRoles[v]
+	if !ok && guild.config.Basic.AlertRole != 0 {
+		guild.config.Modules.CommandRoles[v] = make(map[string]bool)
+		guild.config.Modules.CommandRoles[v][SBitoa(guild.config.Basic.AlertRole)] = true
 	}
 }
 
 // migrate settings from earlier config version
-func MigrateSettings(guild *GuildInfo) {
+func MigrateSettings(config []byte, guild *GuildInfo) error {
+	err := json.Unmarshal(config, &guild.config)
+	if err != nil {
+		return err
+	}
+
 	if guild.config.Version == 0 {
 		newcommands := []string{"addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
 		if len(guild.config.Command_roles) == 0 {
@@ -460,7 +466,7 @@ func MigrateSettings(guild *GuildInfo) {
 		guild.config.MaxMessageSpam[12] = 15
 	}
 
-	if guild.config.Version == 1 {
+	if guild.config.Version <= 1 {
 		if len(guild.config.Aliases) == 0 {
 			guild.config.Aliases = make(map[string]string)
 		}
@@ -470,19 +476,19 @@ func MigrateSettings(guild *GuildInfo) {
 		RestrictCommand("removequote", guild)
 	}
 
-	if guild.config.Version == 2 {
+	if guild.config.Version <= 2 {
 		RestrictCommand("removealias", guild)
 	}
 
-	if guild.config.Version == 3 {
+	if guild.config.Version <= 3 {
 		guild.config.BoredCommands = make(map[string]bool)
 	}
 
-	if guild.config.Version == 4 {
+	if guild.config.Version <= 4 {
 		RestrictCommand("delete", guild)
 	}
 
-	if guild.config.Version == 5 {
+	if guild.config.Version <= 5 {
 		guild.config.TimezoneLocation = "Etc/GMT"
 		if guild.config.Timezone < 0 {
 			guild.config.TimezoneLocation += "+"
@@ -490,21 +496,83 @@ func MigrateSettings(guild *GuildInfo) {
 		guild.config.TimezoneLocation += strconv.Itoa(-guild.config.Timezone) // Etc has the sign reversed
 	}
 
-	if guild.config.Version == 6 {
+	if guild.config.Version <= 6 {
 		RestrictCommand("createpoll", guild)
 		RestrictCommand("deletepoll", guild)
 	}
-	if guild.config.Version == 7 {
+	if guild.config.Version <= 7 {
 		RestrictCommand("addoption", guild)
 	}
-	if guild.config.Version == 8 {
+	if guild.config.Version <= 8 {
 		RestrictCommand("echoembed", guild)
 	}
+	if guild.config.Version <= 9 { // Gigantic migration of doom
+		guild.config.Basic.AlertRole = guild.config.AlertRole
+		guild.config.Basic.Aliases = guild.config.Aliases
+		guild.config.Basic.Collections = guild.config.Collections
+		guild.config.Basic.Commandmaxduration = guild.config.Commandmaxduration
+		guild.config.Basic.Commandperduration = guild.config.Commandperduration
+		guild.config.Basic.FreeChannels = guild.config.FreeChannels
+		guild.config.Basic.Groups = guild.config.Groups
+		guild.config.Basic.IgnoreInvalidCommands = guild.config.IgnoreInvalidCommands
+		guild.config.Basic.Importable = guild.config.Importable
+		guild.config.Basic.ModChannel = guild.config.ModChannel
+		guild.config.Modules.CommandChannels = guild.config.Command_channels
+		guild.config.Modules.CommandDisabled = guild.config.Command_disabled
+		guild.config.Modules.CommandLimits = guild.config.Command_limits
+		guild.config.Modules.CommandRoles = guild.config.Command_roles
+		guild.config.Modules.ModuleChannels = guild.config.Module_channels
+		guild.config.Modules.ModuleDisabled = guild.config.Module_disabled
+		guild.config.Spam.AutoSilence = guild.config.AutoSilence
+		guild.config.Spam.MaxAttachSpam = guild.config.MaxAttachSpam
+		guild.config.Spam.MaxImageSpam = guild.config.MaxImageSpam
+		guild.config.Spam.MaxMessageSpam = guild.config.MaxMessageSpam
+		guild.config.Spam.MaxPingSpam = guild.config.MaxPingSpam
+		guild.config.Spam.MaxRaidTime = guild.config.MaxRaidTime
+		guild.config.Spam.MaxSpamRemoveLookback = guild.config.MaxSpamRemoveLookback
+		guild.config.Spam.RaidSize = guild.config.RaidSize
+		guild.config.Spam.SilenceMessage = guild.config.SilenceMessage
+		guild.config.Spam.SilentRole = guild.config.SilentRole
+		guild.config.Bucket.MaxBucket = guild.config.MaxBucket
+		guild.config.Bucket.MaxBucketLength = guild.config.MaxBucketLength
+		guild.config.Bucket.MaxFightDamage = guild.config.MaxFightDamage
+		guild.config.Bucket.MaxFightHP = guild.config.MaxFightHP
+		guild.config.Markov.Defaultmarkovlines = guild.config.Defaultmarkovlines
+		guild.config.Markov.MaxPMlines = guild.config.MaxPMlines
+		guild.config.Markov.Maxquotelines = guild.config.Maxquotelines
+		guild.config.Markov.UseMemberNames = guild.config.UseMemberNames
+		guild.config.Users.Timezone = guild.config.Timezone
+		guild.config.Users.TimezoneLocation = guild.config.TimezoneLocation
+		guild.config.Users.WelcomeChannel = guild.config.WelcomeChannel
+		guild.config.Users.WelcomeMessage = guild.config.WelcomeMessage
+		guild.config.Bored.BoredCommands = guild.config.BoredCommands
+		guild.config.Bored.Maxbored = guild.config.Maxbored
+		guild.config.Help.HideNegativeRules = guild.config.HideNegativeRules
+		guild.config.Help.Rules = guild.config.Rules
+		guild.config.Log.LogChannel = guild.config.LogChannel
+		guild.config.Log.Maxerror = guild.config.Maxerror
+		guild.config.Wit.Maxwit = guild.config.Maxwit
+		guild.config.Wit.Witty = guild.config.Witty
+		guild.config.Schedule.BirthdayRole = guild.config.BirthdayRole
+		guild.config.Search.Maxsearchresults = guild.config.Maxsearchresults
+		guild.config.Spoiler.SpoilChannels = guild.config.SpoilChannels
+		guild.config.Status.StatusDelayTime = guild.config.StatusDelayTime
+		guild.config.Quote.Quotes = guild.config.Quotes
 
-	if guild.config.Version != 9 {
-		guild.config.Version = 9 // set version to most recent config version
+		// Erase large collections so we don't double the size of our poor config file
+		guild.config.Collections = nil
+		guild.config.Quotes = nil
+		guild.config.Rules = nil
+		guild.config.Groups = nil
+		guild.config.Aliases = nil
+		guild.config.Witty = nil
+	}
+
+	if guild.config.Version != 10 {
+		guild.config.Version = 10 // set version to most recent config version
 		guild.SaveConfig()
 	}
+	return nil
 }
 
 func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time, error) {

@@ -13,7 +13,7 @@ type LastPingCommand struct {
 func (c *LastPingCommand) Name() string {
 	return "LastPing"
 }
-func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	index := 1
 	maxrows := 2
 	if len(args) > 0 {
@@ -31,9 +31,9 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *G
 	if maxrows > 3 {
 		maxrows = 3
 	}
-	id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index-1, info.config.ModChannel, SBatoi(info.Guild.ID))
+	id, channel := sb.db.GetPing(SBatoi(msg.Author.ID), index-1, info.config.Basic.ModChannel, SBatoi(info.Guild.ID))
 	if id == 0 {
-		return "```No recent pings in the chat log.```", false
+		return "```No recent pings in the chat log.```", false, nil
 	}
 
 	after := sb.db.GetPingContext(id, channel, maxrows+1)
@@ -47,10 +47,16 @@ func (c *LastPingCommand) Process(args []string, msg *discordgo.Message, info *G
 	for i := 1; i < len(after); i++ {
 		s += after[i].Author + ": " + after[i].Message + "\n"
 	}
-	return s, true
+	return s, true, nil
 }
-func (c *LastPingCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[ping index] [max context rows]", "Returns the nth most recent ping (where n is the ping index) in the chat, plus up to [max context rows] messages before and after it. Max context rows is 2 by default and 3 at maximum.")
+func (c *LastPingCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Returns the `n`th most recent ping (where `n` is the ping index) in the chat, plus up to `max context rows` messages before and after it.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "ping index", Desc: "Latest ping index, counting from the most recent at index 1, to the second most recent at index 2, etc.", Optional: true},
+			CommandUsageParam{Name: "max context rows", Desc: "Number of rows before and after the ping to display. Defaults to 2, goes to a maximum of 3.", Optional: true},
+		},
+	}
 }
 func (c *LastPingCommand) UsageShort() string {
 	return "[PM Only] Returns the last message that pinged you."
