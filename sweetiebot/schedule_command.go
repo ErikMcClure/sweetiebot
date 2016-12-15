@@ -13,7 +13,7 @@ type ScheduleModule struct {
 }
 
 func (w *ScheduleModule) Name() string {
-	return "Scheduling"
+	return "Scheduler"
 }
 
 func (w *ScheduleModule) Register(info *GuildInfo) {

@@ -209,10 +209,10 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *Guil
 }
 func (c *FightCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Fights a random pony, or [name] if it is provided.",
+		Desc: "Fights a random user, generated character or [name] if it is provided.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "name", Desc: "An arbitrary name for sweetie to fight.", Optional: true},
 		},
 	}
 }
-func (c *FightCommand) UsageShort() string { return "Fights a random pony." }
+func (c *FightCommand) UsageShort() string { return "Fights a random user or keyword." }
