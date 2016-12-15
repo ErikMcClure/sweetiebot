@@ -21,11 +21,17 @@ func (w *BoredModule) Register(info *GuildInfo) {
 	info.hooks.OnIdle = append(info.hooks.OnIdle, w)
 }
 
+func (w *BoredModule) Commands() []Command { return []Command{} }
+
+func (w *BoredModule) Description() string {
+	return "After the chat is inactive for a given amount of time, chooses a random action from the `boredcommands` configuration option to run, such posting a link from the bored collection or throwing an item from her bucket."
+}
+
 func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
 
-	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.BoredCommands) > 0 {
-		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.BoredCommands),
+	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.Bored.BoredCommands) > 0 {
+		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.BoredCommands),
 			Author: &discordgo.User{
 				ID:       sb.SelfID,
 				Username: "Sweetie",
@@ -39,5 +45,5 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 }
 
 func (w *BoredModule) IdlePeriod(info *GuildInfo) int64 {
-	return info.config.Maxbored
+	return info.config.Bored.Maxbored
 }

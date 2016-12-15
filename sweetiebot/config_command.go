@@ -2,11 +2,33 @@ package sweetiebot
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 
+	"strconv"
+
 	"github.com/bwmarrin/discordgo"
 )
+
+type ConfigModule struct {
+}
+
+func (w *ConfigModule) Name() string {
+	return "Configuration"
+}
+
+func (w *ConfigModule) Register(info *GuildInfo) {}
+
+func (w *ConfigModule) Commands() []Command {
+	return []Command{
+		&SetConfigCommand{},
+		&GetConfigCommand{},
+		&QuickConfigCommand{},
+	}
+}
+
+func (w *ConfigModule) Description() string { return "Manages this server's configuration file." }
 
 type SetConfigCommand struct {
 }
@@ -14,22 +36,30 @@ type SetConfigCommand struct {
 func (c *SetConfigCommand) Name() string {
 	return "SetConfig"
 }
-func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```No configuration parameter to look for!```", false
+		return "```No configuration parameter to look for!```", false, nil
 	}
 	if len(args) < 2 {
-		return "```No value to set!```", false
+		return "```No value to set!```", false, nil
 	}
 	n, ok := info.SetConfig(args[0], args[1], args[2:]...)
 	info.SaveConfig()
 	if ok {
-		return "```Successfully set " + args[0] + " to " + n + ".```", false
+		return "```Successfully set " + args[0] + " to " + n + ".```", false, nil
 	}
-	return "```" + n + "```", false
+	return "```" + n + "```", false, nil
 }
-func (c *SetConfigCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[parameter] [value]\n!SetConfig [list parameter] [value] [value 2] [etc...]\n!SetConfig [map parameter] [key] [value]", "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]. Will only save the new configuration if it succeeds, and returns the new value upon success. If the parameter is a list, it will accept multiple new values. To set a value with a space in it, surround it with quotes, \"like so\". If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key. If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to. For more information, see: https://github.com/blackhole12/sweetiebot#configuration")
+func (c *SetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Sets a configuration value of the format `Collection.Parameter`, possibly involving a key or multiple values, depending on the type of configuration parameter. Will only save the new configuration if it succeeds, and returns the new value upon success.  To set a value with a space in it, surround it with quotes, \"like so\".",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "[parameter] [value]", Desc: "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]", Optional: true},
+			CommandUsageParam{Name: "[list parameter] [value]", Desc: "If the parameter is a list, it will accept multiple new values.", Optional: true, Variadic: true},
+			CommandUsageParam{Name: "[map parameter] [key] [value]", Desc: "If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key.", Optional: true},
+			CommandUsageParam{Name: "[maplist parameter] [key] [value]", Desc: " If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to.", Optional: true, Variadic: true},
+		},
+	}
 }
 func (c *SetConfigCommand) UsageShort() string {
 	return "Sets a config value and saves the new configuration."
@@ -41,52 +71,156 @@ type GetConfigCommand struct {
 func (c *GetConfigCommand) Name() string {
 	return "GetConfig"
 }
-func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo) []string {
+	s := []string{}
+	switch f.Interface().(type) {
+	case []string:
+		return f.Interface().([]string)
+	case []uint64:
+		t, _ := f.Interface().([]uint64)
+		for _, v := range t {
+			s = append(s, SBitoa(v))
+		}
+	case map[string]string:
+		t, _ := f.Interface().(map[string]string)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
+		}
+	case map[int64]int:
+		t, _ := f.Interface().(map[int64]int)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
+		}
+	case map[int]string:
+		t, _ := f.Interface().(map[int]string)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
+		}
+	case map[string]int64:
+		t, _ := f.Interface().(map[string]int64)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
+		}
+	case map[string]bool:
+		t, _ := f.Interface().(map[string]bool)
+		for k := range t {
+			s = append(s, k)
+		}
+	case map[uint64][]string:
+		t, _ := f.Interface().(map[uint64][]string)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+		}
+	case map[string]map[string]bool:
+		t, _ := f.Interface().(map[string]map[string]bool)
+		for k, v := range t {
+			s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+		}
+	default:
+		data, err := json.Marshal(f.Interface())
+		if err != nil {
+			info.log.Log("JSON error: ", err.Error())
+			s = append(s, "[JSON Error]")
+		} else {
+			s = append(s, ExtraSanitize(string(data)))
+		}
+	}
+	return s
+}
+
+func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	t := reflect.ValueOf(&info.config).Elem()
 	n := t.NumField()
 	if len(args) < 1 {
-		s := make([]string, 0, n)
+		fields := make([]*discordgo.MessageEmbedField, 0, n)
 		for i := 0; i < n; i++ {
-			str := strings.ToLower(t.Type().Field(i).Name)
-			switch t.Field(i).Interface().(type) {
-			case []uint64:
-				str += " [list]"
-			case map[string]string:
-				str += " [map]"
-			case map[string]int64:
-				str += " [map]"
-			case map[string]bool:
-				str += " [list]"
-			case map[string]map[string]bool:
-				str += " [maplist]"
+			switch t.Field(i).Kind() {
+			case reflect.Struct:
+				f := t.Field(i)
+				s := make([]string, 0, f.NumField())
+				for i := 0; i < f.NumField(); i++ {
+					str := f.Type().Field(i).Name
+					switch f.Field(i).Interface().(type) {
+					case []uint64, map[string]bool:
+						str += " [list]"
+					case map[string]string, map[int64]int, map[int]string, map[string]int64:
+						str += " [map]"
+					case map[uint64][]string, map[string]map[string]bool:
+						str += " [maplist]"
+					}
+					s = append(s, str)
+				}
+				fields = append(fields, &discordgo.MessageEmbedField{Name: t.Type().Field(i).Name, Value: strings.Join(s, "\n"), Inline: true})
 			}
-			s = append(s, str)
 		}
-		return "```Choose a config option to display:\n" + strings.Join(s, "\n") + "```", false
+		embed := &discordgo.MessageEmbed{
+			Type: "rich",
+			Author: &discordgo.MessageEmbedAuthor{
+				URL:     "https://github.com/blackhole12/sweetiebot#configuration",
+				Name:    "Sweetie Bot Config Options",
+				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+			},
+			Color:  0x3e92e5,
+			Fields: fields,
+		}
+		info.SendEmbed(msg.ChannelID, embed)
+		return "", false, nil
 	}
-	arg := args[0]
+	arg := strings.SplitN(strings.ToLower(args[0]), ".", 3)
 	for i := 0; i < n; i++ {
-		if strings.ToLower(t.Type().Field(i).Name) == arg {
-			data, err := json.Marshal(t.Field(i).Interface())
-			s := string(data)
-			s = strings.Replace(s, "`", "", -1)
-			s = strings.Replace(s, "[](/", "[\u200B](/", -1)
-			s = strings.Replace(s, "http://", "http\u200B://", -1)
-			s = strings.Replace(s, "https://", "https\u200B://", -1)
-			if err == nil {
-				return "```" + s + "```", false
+		if strings.ToLower(t.Type().Field(i).Name) == arg[0] {
+			switch t.Field(i).Kind() {
+			case reflect.Struct:
+				f := t.Field(i)
+				if len(arg) > 1 {
+					for j := 0; j < f.NumField(); j++ {
+						if strings.ToLower(f.Type().Field(j).Name) == arg[1] {
+							if len(arg) > 2 {
+								str := f.Type().Field(j).Name
+								var val reflect.Value
+								switch f.Field(j).Interface().(type) {
+								case map[string]string, map[string]int64, map[string]map[string]bool:
+									val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
+								case map[int64]int:
+									ival, _ := strconv.ParseInt(arg[2], 10, 64)
+									val = f.Field(j).MapIndex(reflect.ValueOf(ival))
+								case map[int]string:
+									ival, _ := strconv.Atoi(arg[2])
+									val = f.Field(j).MapIndex(reflect.ValueOf(ival))
+								case map[uint64][]string:
+									val = f.Field(j).MapIndex(reflect.ValueOf(SBatoi(arg[2])))
+								default:
+									return fmt.Sprintf("```Error: %s is not a map.```", str), false, nil
+								}
+								if val == reflect.Zero(val.Type()) {
+									return fmt.Sprintf("```Error: Can't find %v in %s.```", val.Interface(), str), false, nil
+								}
+								return "```\n" + strings.Join(c.GetOption(val, info), "\n") + "```", false, nil
+							}
+							return "```\n" + strings.Join(c.GetOption(f.Field(j), info), "\n") + "```", false, nil
+						}
+					}
+				} else {
+					for j := 0; j < f.NumField(); j++ {
+					}
+				}
 			}
-			info.log.Log("JSON error: ", err.Error())
-			return "```Failed to marshal JSON :C```", false
 		}
 	}
 
-	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options```", false
+	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which collection of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules.1\"```", false, nil
 }
-func (c *GetConfigCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "", "Returns the current configuration as a JSON string.")
+func (c *GetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Displays a list of available configuration options or their values.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use ```Help.Rules``` to specify a config option in a category, or ```Help.Rules.1``` to specify a particular key of a map.", Optional: true},
+		},
+	}
 }
-func (c *GetConfigCommand) UsageShort() string { return "Returns the current configuration." }
+func (c *GetConfigCommand) UsageShort() string {
+	return "Returns the current configuration, or a specific option."
+}
 
 type QuickConfigCommand struct {
 }
@@ -94,12 +228,12 @@ type QuickConfigCommand struct {
 func (c *QuickConfigCommand) Name() string {
 	return "QuickConfig"
 }
-func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool) {
+func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if msg.Author.ID != info.Guild.OwnerID {
-		return "```Only the owner of this server can use this command!```", false
+		return "```Only the owner of this server can use this command!```", false, nil
 	}
 	if len(args) < 6 {
-		return "```You must provide all 6 parameters to this function. Use !help quickconfig and carefully review each one to make sure it is accurate.```", false
+		return "```You must provide all 6 parameters to this function. Use !help quickconfig and carefully review each one to make sure it is accurate.```", false, nil
 	}
 
 	log := StripPing(args[0])
@@ -109,32 +243,32 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	silent := StripPing(args[4])
 	boredchannel := StripPing(args[5])
 
-	info.config.LogChannel = SBatoi(log)
-	info.config.AlertRole = SBatoi(mod)
-	info.config.ModChannel = SBatoi(modchannel)
-	info.config.SilentRole = SBatoi(silent)
-	info.config.FreeChannels = make(map[string]bool)
-	info.config.FreeChannels[SBitoa(SBatoi(free))] = true
-	info.config.Aliases["cute"] = "pick cute"
-	info.config.Aliases["calc"] = "roll"
-	info.config.Aliases["calculate"] = "roll"
+	info.config.Log.LogChannel = SBatoi(log)
+	info.config.Basic.AlertRole = SBatoi(mod)
+	info.config.Basic.ModChannel = SBatoi(modchannel)
+	info.config.Spam.SilentRole = SBatoi(silent)
+	info.config.Basic.FreeChannels = make(map[string]bool)
+	info.config.Basic.FreeChannels[SBitoa(SBatoi(free))] = true
+	info.config.Basic.Aliases["cute"] = "pick cute"
+	info.config.Basic.Aliases["calc"] = "roll"
+	info.config.Basic.Aliases["calculate"] = "roll"
 
-	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption"}
-	modint := SBitoa(info.config.AlertRole)
+	sensitive := []string{"add", "addgroup", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "purgegroup", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed"}
+	modint := SBitoa(info.config.Basic.AlertRole)
 
 	for _, v := range sensitive {
-		info.config.Command_roles[v] = make(map[string]bool)
-		info.config.Command_roles[v][modint] = true
+		info.config.Modules.CommandRoles[v] = make(map[string]bool)
+		info.config.Modules.CommandRoles[v][modint] = true
 	}
 
-	info.config.Command_disabled = make(map[string]bool)
-	info.config.Module_disabled = make(map[string]bool)
+	info.config.Modules.CommandDisabled = make(map[string]bool)
+	info.config.Modules.ModuleDisabled = make(map[string]bool)
 
 	boredint := SBatoi(boredchannel)
 	if boredint > 0 {
-		info.config.Module_channels["bored"] = map[string]bool{SBitoa(boredint): true}
+		info.config.Modules.ModuleChannels["bored"] = map[string]bool{SBitoa(boredint): true}
 	} else {
-		info.config.Module_disabled["bored"] = true
+		info.config.Modules.ModuleDisabled["bored"] = true
 	}
 
 	info.SaveConfig()
@@ -155,9 +289,19 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	if perms&0x00002000 == 0 {
 		warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
 	}
-	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + warning, false
+	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + warning, false, nil
 }
-func (c *QuickConfigCommand) Usage(info *GuildInfo) string {
-	return info.FormatUsage(c, "[Log Channel] [Moderator Role] [Mod Channel] [Free Channel] [Silent Role] [Bored Channel]", "Quickly performs basic configuration on the server and restricts all sensitive commands to [Moderator Role], then enables all commands and all modules. If [bored channel] is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels. You must ping each role and channel, you cannot simply input the name of a role or channel.")
+func (c *QuickConfigCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Quickly performs basic configuration on the server and restricts all sensitive commands to `Moderator Role`, then enables all commands and all modules. If `bored channel` is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels. You must ping each role and channel via `@Role` or `#channel`, you cannot simply input the name of a role or channel.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "Log Channel", Desc: "The channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: false},
+			CommandUsageParam{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
+			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
+			CommandUsageParam{Name: "Free Channel", Desc: "A list of channel IDs that are excluded from rate limiting. If you have a `#bot` channel for spamming the bot, add it here.", Optional: false},
+			CommandUsageParam{Name: "Silent Role", Desc: "A role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.", Optional: false},
+			CommandUsageParam{Name: "Bored Channel", Desc: "Either the channel that sweetiebot will post bored messages on, or 0, which will disable the bored module. *This is not a real config option*, to manually set this option, use `!setconfig module_channels bored #channelname`", Optional: false},
+		},
+	}
 }
 func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }
