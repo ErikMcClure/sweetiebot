@@ -66,13 +66,13 @@ func (c *AddCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 	for k, v := range collections {
 		info.config.Basic.Collections[v][arg] = true
 		fn, ok := c.funcmap[v]
-		length[k] = fmt.Sprintf("Length of %s: %v", v, strconv.Itoa(len(info.config.Basic.Collections[v])))
+		length[k] = fmt.Sprintf("Length of %s: %v", PartialSanitize(v), strconv.Itoa(len(info.config.Basic.Collections[v])))
 		if ok {
 			add += " " + fn(arg)
 		}
 	}
 	info.SaveConfig()
-	return ExtraSanitize(fmt.Sprintf("```Added %s to %s%s. \n%s```", arg, strings.Join(collections, ", "), add, strings.Join(length, "\n"))), false, nil
+	return fmt.Sprintf("```Added %s to %s%s. \n%s```", PartialSanitize(arg), PartialSanitize(strings.Join(collections, ", ")), add, strings.Join(length, "\n")), false, nil
 }
 func (c *AddCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -113,13 +113,13 @@ func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	}
 	delete(info.config.Basic.Collections[collection], arg)
 	fn, ok := c.funcmap[collection]
-	retval := "```Removed " + arg + " from " + collection + ". Length of " + collection + ": " + strconv.Itoa(len(info.config.Basic.Collections[collection])) + "```"
+	retval := "```Removed " + PartialSanitize(arg) + " from " + PartialSanitize(collection) + ". Length of " + PartialSanitize(collection) + ": " + strconv.Itoa(len(info.config.Basic.Collections[collection])) + "```"
 	if ok {
 		retval = fn(arg)
 	}
 
 	info.SaveConfig()
-	return ExtraSanitize(retval), false, nil
+	return retval, false, nil
 }
 func (c *RemoveCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -152,29 +152,30 @@ type CollectionsCommand struct {
 func (c *CollectionsCommand) Name() string {
 	return "Collections"
 }
+func ShowAllCollections(message string, info *GuildInfo) *discordgo.MessageEmbed {
+	fields := make(MemberFields, 0, len(info.modules))
+
+	for k, v := range info.config.Basic.Collections {
+		fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: fmt.Sprintf("%v items", len(v)), Inline: true})
+	}
+	sort.Sort(fields)
+	return &discordgo.MessageEmbed{
+		Type: "rich",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     "https://github.com/blackhole12/sweetiebot",
+			Name:    "Sweetie Bot Collections",
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+		},
+		Description: message,
+		Color:       0x3e92e5,
+		Fields:      fields,
+	}
+}
 func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	const LINES int = 3
 	const MAXLENGTH int = 24
 	if len(args) < 1 {
-		fields := make(MemberFields, 0, len(info.modules))
-
-		for k, v := range info.config.Basic.Collections {
-			fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: fmt.Sprintf("%v items", len(v)), Inline: true})
-		}
-		sort.Sort(fields)
-		embed := &discordgo.MessageEmbed{
-			Type: "rich",
-			Author: &discordgo.MessageEmbedAuthor{
-				URL:     "https://github.com/blackhole12/sweetiebot",
-				Name:    "Sweetie Bot Collections",
-				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
-			},
-			Description: "No collection specified.",
-			Color:       0x3e92e5,
-			Fields:      fields,
-		}
-		info.SendEmbed(msg.ChannelID, embed)
-		return "", false, nil
+		return "", false, ShowAllCollections("No collection specified.", info)
 	}
 
 	arg := args[0]
@@ -205,12 +206,7 @@ func (c *PickCommand) Name() string {
 }
 func (c *PickCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		s := make([]string, 0, len(info.config.Basic.Collections))
-		for k, v := range info.config.Basic.Collections {
-			s = append(s, fmt.Sprintf("%s (%v items)", k, len(v)))
-		}
-
-		return "```No collection specified. All collections:\n" + ExtraSanitize(strings.Join(s, "\n")) + "```", false, nil
+		return "", false, ShowAllCollections("No collection specified.", info)
 	}
 
 	arg := strings.ToLower(args[0])
@@ -336,7 +332,7 @@ func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message,
 	}
 
 	if len(results) > 0 {
-		return "```The following collection entries match your query:\n" + ExtraSanitize(strings.Join(results, "\n")) + "```", len(results) > 6, nil
+		return "```The following collection entries match your query:\n" + PartialSanitize(strings.Join(results, "\n")) + "```", len(results) > 6, nil
 	}
 	return "```No results found in the " + collection + " collection.```", false, nil
 }
@@ -385,7 +381,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, info *Gui
 		for i := 0; i < len(other); i++ {
 			names[i] = other[i].Guild.Name
 		}
-		return fmt.Sprintf("```Could be any of the following servers: \n%s```", ExtraSanitize(strings.Join(names, "\n"))), len(names) > 8, nil
+		return fmt.Sprintf("```Could be any of the following servers: \n%s```", PartialSanitize(strings.Join(names, "\n"))), len(names) > 8, nil
 	}
 	if len(other) < 1 {
 		return fmt.Sprintf("```Could not find any server matching %s!```", args[0]), false, nil
