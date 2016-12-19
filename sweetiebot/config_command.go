@@ -212,8 +212,8 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *
 								default:
 									return fmt.Sprintf("```Error: %s is not a map.```", str), false, nil
 								}
-								if val == reflect.Zero(val.Type()) {
-									return fmt.Sprintf("```Error: Can't find %v in %s.```", val.Interface(), str), false, nil
+								if !val.IsValid() || val == reflect.Zero(val.Type()) {
+									return fmt.Sprintf("```Error: Can't find %v in %s.```", arg[2], str), false, nil
 								}
 								return c.GetOption(val, info, t.Field(i))
 							}
