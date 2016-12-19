@@ -140,7 +140,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	}
 
 	cid := SBatoi(msg.ChannelID)
-	for _, v := range info.config.Spoiler.SpoilChannels {
+	for _, v := range info.config.Spoiler.Channels {
 		if cid != v {
 			query += "C.Channel != ? AND "
 			params = append(params, v)
@@ -199,8 +199,8 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 
 	if rangeend >= 0 {
 		if rangebegin > 0 { // rangebegin starts at 1, not 0
-			if rangeend-rangebegin > info.config.Search.Maxsearchresults {
-				rangeend = rangebegin + info.config.Search.Maxsearchresults
+			if rangeend-rangebegin > info.config.Search.MaxResults {
+				rangeend = rangebegin + info.config.Search.MaxResults
 			}
 			if rangeend-rangebegin < 0 {
 				rangeend = rangebegin
@@ -208,8 +208,8 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *Gui
 			params = append(params, rangeend-rangebegin+1)
 			params = append(params, rangebegin-1) // adjust this so the beginning starts at 1 instead of 0
 		} else {
-			if rangeend > info.config.Search.Maxsearchresults {
-				rangeend = info.config.Search.Maxsearchresults
+			if rangeend > info.config.Search.MaxResults {
+				rangeend = info.config.Search.MaxResults
 			}
 			params = append(params, rangeend)
 		}
