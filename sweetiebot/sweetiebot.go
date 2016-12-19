@@ -44,44 +44,45 @@ type BotConfig struct {
 		Importable            bool                       `json:"importable"`
 		AlertRole             uint64                     `json:"alertrole"`
 		ModChannel            uint64                     `json:"modchannel"`
-		Commandperduration    int                        `json:"commandperduration"`
-		Commandmaxduration    int64                      `json:"commandmaxduration"`
 		FreeChannels          map[string]bool            `json:"freechannels"`
+		BotChannel            uint64                     `json:"botchannel"`
 		Aliases               map[string]string          `json:"aliases"`
 		Collections           map[string]map[string]bool `json:"collections"`
 		Groups                map[string]map[string]bool `json:"groups"`
 	} `json:"basic"`
 	Modules struct {
-		CommandRoles    map[string]map[string]bool `json:"commandroles"`
-		CommandChannels map[string]map[string]bool `json:"commandchannels"`
-		CommandLimits   map[string]int64           `json:"Commandlimits"`
-		CommandDisabled map[string]bool            `json:"commanddisabled"`
-		ModuleDisabled  map[string]bool            `json:"moduledisabled"`
-		ModuleChannels  map[string]map[string]bool `json:"modulechannels"`
+		Channels           map[string]map[string]bool `json:"modulechannels"`
+		Disabled           map[string]bool            `json:"moduledisabled"`
+		CommandRoles       map[string]map[string]bool `json:"commandroles"`
+		CommandChannels    map[string]map[string]bool `json:"commandchannels"`
+		CommandLimits      map[string]int64           `json:"Commandlimits"`
+		CommandDisabled    map[string]bool            `json:"commanddisabled"`
+		CommandPerDuration int                        `json:"commandperduration"`
+		CommandMaxDuration int64                      `json:"commandmaxduration"`
 	} `json:"modules"`
 	Spam struct {
-		MaxImageSpam          int           `json:"maximagespam"`
-		MaxAttachSpam         int           `json:"maxattachspam"`
-		MaxPingSpam           int           `json:"maxpingspam"`
-		MaxMessageSpam        map[int64]int `json:"maxmessagespam"`
-		MaxSpamRemoveLookback int           `json:"MaxSpamRemoveLookback"`
-		SilentRole            uint64        `json:"silentrole"`
-		MaxRaidTime           int64         `json:"maxraidtime"`
-		RaidSize              int           `json:"raidsize"`
-		SilenceMessage        string        `json:"silencemessage"`
-		AutoSilence           int           `json:"autosilence"`
+		MaxImages         int           `json:"maximagespam"`
+		MaxAttach         int           `json:"maxattachspam"`
+		MaxPings          int           `json:"maxpingspam"`
+		MaxMessages       map[int64]int `json:"maxmessagespam"`
+		MaxRemoveLookback int           `json:"MaxSpamRemoveLookback"`
+		SilentRole        uint64        `json:"silentrole"`
+		RaidTime          int64         `json:"maxraidtime"`
+		RaidSize          int           `json:"raidsize"`
+		SilenceMessage    string        `json:"silencemessage"`
+		AutoSilence       int           `json:"autosilence"`
 	} `json:"spam"`
 	Bucket struct {
-		MaxBucket       int `json:"maxbucket"`
-		MaxBucketLength int `json:"maxbucketlength"`
-		MaxFightHP      int `json:"maxfighthp"`
-		MaxFightDamage  int `json:"maxfightdamage"`
+		MaxItems       int `json:"maxbucket"`
+		MaxItemLength  int `json:"maxbucketlength"`
+		MaxFightHP     int `json:"maxfighthp"`
+		MaxFightDamage int `json:"maxfightdamage"`
 	} `json:"bucket"`
 	Markov struct {
-		MaxPMlines         int  `json:"maxpmlines"`
-		Maxquotelines      int  `json:"maxquotelines"`
-		Defaultmarkovlines int  `json:"defaultmarkovlines"`
-		UseMemberNames     bool `json:"usemembernames"`
+		MaxPMlines     int  `json:"maxpmlines"`
+		MaxLines       int  `json:"maxquotelines"`
+		DefaultLines   int  `json:"defaultmarkovlines"`
+		UseMemberNames bool `json:"usemembernames"`
 	} `json:"markov"`
 	Users struct {
 		TimezoneLocation string `json:"timezonelocation"`
@@ -89,90 +90,90 @@ type BotConfig struct {
 		WelcomeMessage   string `json:"welcomemessage"`
 	} `json:"users"`
 	Bored struct {
-		Maxbored      int64           `json:"maxbored"`
-		BoredCommands map[string]bool `json:"boredcommands"`
+		Cooldown int64           `json:"maxbored"`
+		Commands map[string]bool `json:"boredcommands"`
 	}
 	Help struct {
 		Rules             map[int]string `json:"rules"`
 		HideNegativeRules bool           `json:"hidenegativerules"`
 	} `json:"help"`
 	Log struct {
-		Maxerror   int64  `json:"maxerror"`
-		LogChannel uint64 `json:"logchannel"`
+		Cooldown int64  `json:"maxerror"`
+		Channel  uint64 `json:"logchannel"`
 	} `json:"log"`
-	Wit struct {
-		Witty  map[string]string `json:"witty"`
-		Maxwit int64             `json:"maxwit"`
+	Witty struct {
+		Responses map[string]string `json:"witty"`
+		Cooldown  int64             `json:"maxwit"`
 	} `json:"Wit"`
 	Schedule struct {
 		BirthdayRole uint64 `json:"birthdayrole"`
 	} `json:"schedule"`
 	Search struct {
-		Maxsearchresults int `json:"maxsearchresults"`
+		MaxResults int `json:"maxsearchresults"`
 	} `json:"search"`
 	Spoiler struct {
-		SpoilChannels []uint64 `json:"spoilchannels"`
+		Channels []uint64 `json:"spoilchannels"`
 	} `json:"spoiler"`
 	Status struct {
-		StatusDelayTime int `json:"statusdelaytime"`
+		Cooldown int `json:"statusdelaytime"`
 	} `json:"status"`
 	Quote struct {
 		Quotes map[uint64][]string `json:"quotes"`
 	} `json:"quote"`
+}
 
-	// LEGACY
-
-	Maxerror              int64                      `json:"maxerror"`
-	Maxwit                int64                      `json:"maxwit"`
-	Maxbored              int64                      `json:"maxbored"`
-	BoredCommands         map[string]bool            `json:"boredcommands"`
-	MaxPMlines            int                        `json:"maxpmlines"`
-	Maxquotelines         int                        `json:"maxquotelines"`
-	Maxsearchresults      int                        `json:"maxsearchresults"`
-	Defaultmarkovlines    int                        `json:"defaultmarkovlines"`
-	Commandperduration    int                        `json:"commandperduration"`
-	Commandmaxduration    int64                      `json:"commandmaxduration"`
-	StatusDelayTime       int                        `json:"statusdelaytime"`
-	MaxRaidTime           int64                      `json:"maxraidtime"`
-	RaidSize              int                        `json:"raidsize"`
-	Witty                 map[string]string          `json:"witty"`
-	Aliases               map[string]string          `json:"aliases"`
-	MaxBucket             int                        `json:"maxbucket"`
-	MaxBucketLength       int                        `json:"maxbucketlength"`
-	MaxFightHP            int                        `json:"maxfighthp"`
-	MaxFightDamage        int                        `json:"maxfightdamage"`
-	MaxImageSpam          int                        `json:"maximagespam"`
-	MaxAttachSpam         int                        `json:"maxattachspam"`
-	MaxPingSpam           int                        `json:"maxpingspam"`
-	MaxMessageSpam        map[int64]int              `json:"maxmessagespam"`
-	MaxSpamRemoveLookback int                        `json:maxspamremovelookback`
-	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
-	UseMemberNames        bool                       `json:"usemembernames"`
-	Importable            bool                       `json:"importable"`
-	HideNegativeRules     bool                       `json:"hidenegativerules"`
-	Timezone              int                        `json:"timezone"`
-	TimezoneLocation      string                     `json:"timezonelocation"`
-	AutoSilence           int                        `json:"autosilence"`
-	AlertRole             uint64                     `json:"alertrole"`
-	SilentRole            uint64                     `json:"silentrole"`
-	LogChannel            uint64                     `json:"logchannel"`
-	ModChannel            uint64                     `json:"modchannel"`
-	WelcomeChannel        uint64                     `json:"welcomechannel"`
-	WelcomeMessage        string                     `json:"welcomemessage"`
-	SilenceMessage        string                     `json:"silencemessage"`
-	BirthdayRole          uint64                     `json:"birthdayrole"`
-	SpoilChannels         []uint64                   `json:"spoilchannels"`
-	FreeChannels          map[string]bool            `json:"freechannels"`
-	Command_roles         map[string]map[string]bool `json:"command_roles"`
-	Command_channels      map[string]map[string]bool `json:"command_channels"`
-	Command_limits        map[string]int64           `json:command_limits`
-	Command_disabled      map[string]bool            `json:command_disabled`
-	Module_disabled       map[string]bool            `json:module_disabled`
-	Module_channels       map[string]map[string]bool `json:module_channels`
-	Collections           map[string]map[string]bool `json:"collections"`
-	Groups                map[string]map[string]bool `json:"groups"`
-	Quotes                map[uint64][]string        `json:"quotes"`
-	Rules                 map[int]string             `json:"rules"`
+var ConfigHelp map[string]string = map[string]string{
+	"basic.ignoreinvalidcommands": "If true, Sweetie Bot won't display an error if a nonsensical command is used. This helps her co-exist with other bots that also use the `!` prefix.",
+	"basic.importable":            "If true, the collections on this server will be importable into another server where sweetie is.",
+	"basic.alertrole":             "This is intended to point at a moderator role shared by all admins and moderators of the server for notification purposes.",
+	"basic.modchannel":            "This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.",
+	"basic.freechannels":          "This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.",
+	"basic.botchannel":            "This allows you to designate a particular channel for sweetie bot to point users to if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
+	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
+	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
+	"basic.groups":                "A map of groups. Manipulate it via the `!addgroup` and `!purgegroup` commands.",
+	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
+	"modules.commandchannels":     "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
+	"modules.commandlimits":       "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
+	"modules.commanddisabled":     "A list of disabled commands.",
+	"modules.commandperduration":  "Maximum number of commands that can be run within `commandmaxduration` seconds. Default: 3",
+	"modules.commandmaxduration":  "Default: 20. This means that by default, at most 3 commands can be run every 20 seconds.",
+	"modules.disabled":            "A list of disabled modules.",
+	"modules.channels":            "A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
+	"spam.maximages":              "Maximum number of images allowed per message.",
+	"spam.maxattach":              "Maximum number of attachments allowed per message.",
+	"spam.maxpings":               "Maximum number of pings allowed per message.",
+	"spam.maxmessages":            "Maximum number of messages allowed in a given time period. To add a check for X messages in Y seconds, do `!setconfig spam.maxmessages Y X`. The seconds, or duration, is the key for the map.",
+	"spam.maxremovelookback":      "Number of seconds back the bot should delete messages of a silenced user. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.",
+	"spam.silentrole":             "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.",
+	"spam.raidtime":               "In order to trigger a raid alarm, at least `spam.raidsize` people must join the chat within this many seconds of each other.",
+	"spam.raidsize":               "Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.",
+	"spam.silencemessage":         "This message will be sent to users that have been silenced by the `!silence` command.",
+	"spam.autosilence":            "Gets the current autosilence state. Use the `!autosilence` command to set this.",
+	"bucket.maxitems":             "Determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.",
+	"bucket.maxitemlength":        "Determines the maximum length of a string that can be added to her bucket.",
+	"bucket.maxfighthp":           "Maximum HP of the randomly generated enemy for the `!fight` command.",
+	"bucket.maxfightdamage":       "Maximum amount of damage a randomly generated weapon can deal for the `!fight` command.",
+	"markov.maxpmlines":           "This is the maximum number of lines a response can be before sweetiebot automatically sends it as a PM to avoid cluttering the chat. Default: 5",
+	"markov.maxlines":             "Maximum number of lines the `!episodequote` command can be given.",
+	"markov.defaultlines":         "Number of lines for the markov chain to spawn when not given a line count.",
+	"markov.usemembernames":       "Use member names instead of random pony names.",
+	"users.timezonelocation":      "Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.",
+	"users.welcomechannel":        "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for silenced members. If autosilence is enabled, new users will be sent to this channel.",
+	"users.welcomemessage":        "If autosilence is enabled, this message will be sent to a new user upon joining.",
+	"bored.cooldown":              "The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.",
+	"bored.commands":              "This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.\n\nExample: `!setconfig bored.commands !drop \"!pick bored\"`",
+	"help.rules":                  "Contains a list of numbered rules. The numbers do not need to be contiguous, and can be negative.",
+	"help.hidenegativerules":      "If true, `!rules -1` will display a rule at index -1, but `!rules` will not. This is useful for joke rules or additional rules that newcomers don't need to know about.",
+	"log.channel":                 "This is the channel where sweetiebot logs her output.",
+	"log.cooldown":                "The cooldown time for sweetiebot to display an error message, in seconds, intended to prevent the bot from spamming itself. Default: 4",
+	"witty.responses":             "Stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`",
+	"witty.cooldown":              "The cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.",
+	"schedule.birthdayrole":       " This is the role given to members on their birthday.",
+	"search.maxresults":           "Maximum number of search results that can be requested at once.",
+	"spoiler.channels":            "A list of channels that are exempt from the spoiler rules.",
+	"status.cooldown":             "Number of seconds sweetiebot waits before changing her status to a string picked randomly from the `status` collection.",
+	"quote.quotes":                "This is a map of quotes, which should be managed via `!addquote` and `!removequote`.",
 }
 
 type GuildInfo struct {
@@ -443,12 +444,12 @@ func (info *GuildInfo) SendMessage(channelID string, message string) {
 }
 
 func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
-	_, disabled := info.config.Modules.ModuleDisabled[strings.ToLower(m.Name())]
+	_, disabled := info.config.Modules.Disabled[strings.ToLower(m.Name())]
 	if disabled {
 		return false
 	}
 
-	c := info.config.Modules.ModuleChannels[strings.ToLower(m.Name())]
+	c := info.config.Modules.Channels[strings.ToLower(m.Name())]
 	if len(channelID) > 0 && len(c) > 0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
 		_, reverse := c["!"]
 		_, ok := c[channelID]
@@ -463,7 +464,7 @@ func (info *GuildInfo) SwapStatusLoop() {
 			if len(info.config.Basic.Collections["status"]) > 0 {
 				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Basic.Collections["status"]))
 			}
-			time.Sleep(time.Duration(info.config.Status.StatusDelayTime) * time.Second)
+			time.Sleep(time.Duration(info.config.Status.Cooldown) * time.Second)
 		}
 	}
 }
@@ -547,10 +548,10 @@ func AttachToGuild(g *discordgo.Guild) {
 		fmt.Println("Error reading config file for "+g.Name+": ", err.Error())
 	}
 
-	guild.commandlimit.times = make([]int64, guild.config.Basic.Commandperduration*2, guild.config.Basic.Commandperduration*2)
+	guild.commandlimit.times = make([]int64, guild.config.Modules.CommandPerDuration*2, guild.config.Modules.CommandPerDuration*2)
 
-	if len(guild.config.Wit.Witty) == 0 {
-		guild.config.Wit.Witty = make(map[string]string)
+	if len(guild.config.Witty.Responses) == 0 {
+		guild.config.Witty.Responses = make(map[string]string)
 	}
 	if len(guild.config.Basic.Aliases) == 0 {
 		guild.config.Basic.Aliases = make(map[string]string)
@@ -570,11 +571,11 @@ func AttachToGuild(g *discordgo.Guild) {
 	if len(guild.config.Modules.CommandDisabled) == 0 {
 		guild.config.Modules.CommandDisabled = make(map[string]bool)
 	}
-	if len(guild.config.Modules.ModuleDisabled) == 0 {
-		guild.config.Modules.ModuleDisabled = make(map[string]bool)
+	if len(guild.config.Modules.Disabled) == 0 {
+		guild.config.Modules.Disabled = make(map[string]bool)
 	}
-	if len(guild.config.Modules.ModuleChannels) == 0 {
-		guild.config.Modules.ModuleChannels = make(map[string]map[string]bool)
+	if len(guild.config.Modules.Channels) == 0 {
+		guild.config.Modules.Channels = make(map[string]map[string]bool)
 	}
 	if len(guild.config.Basic.Groups) == 0 {
 		guild.config.Basic.Groups = make(map[string]map[string]bool)
@@ -673,7 +674,7 @@ func AttachToGuild(g *discordgo.Guild) {
 			guild.config.Modules.CommandDisabled[k] = true
 		}
 		for _, v := range guild.modules {
-			guild.config.Modules.ModuleDisabled[strings.ToLower(v.Name())] = true
+			guild.config.Modules.Disabled[strings.ToLower(v.Name())] = true
 		}
 		guild.SaveConfig()
 	}
@@ -728,6 +729,16 @@ func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) {
 		}
 	})
 }
+func GetAddMsg(info *GuildInfo) string {
+	if info.config.Basic.BotChannel != 0 {
+		addch, adderr := sb.dg.State.Channel(SBitoa(info.config.Basic.BotChannel))
+		if adderr == nil {
+			return fmt.Sprintf(" Try going to #%s instead.", addch.Name)
+		}
+	}
+	return ""
+}
+
 func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool, err error) {
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
@@ -797,9 +808,9 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					return
 				}
 			}
-			if err != nil || (!isdebug && !isfree && !isSelf) { // debug channels aren't limited
-				if info.commandlimit.check(info.config.Basic.Commandperduration, info.config.Basic.Commandmaxduration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.log.Error(m.ChannelID, "You can't input more than "+strconv.Itoa(info.config.Basic.Commandperduration)+" commands every "+TimeDiff(time.Duration(info.config.Basic.Commandmaxduration)*time.Second)+"!")
+			if err == nil && !isdebug && !isfree && !isSelf { // debug channels aren't limited
+				if info.commandlimit.check(info.config.Modules.CommandPerDuration, info.config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+					info.log.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), GetAddMsg(info)))
 					return
 				}
 				info.commandlimit.append(t)
@@ -813,7 +824,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			if !isfree && cmdlimit > 0 && !isSelf {
 				lastcmd := info.command_last[m.ChannelID][cmdname]
 				if !RateLimit(&lastcmd, cmdlimit) {
-					info.log.Error(m.ChannelID, "You can only run that command once every "+TimeDiff(time.Duration(cmdlimit)*time.Second)+"!")
+					info.log.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), GetAddMsg(info)))
 					return
 				}
 				if len(info.command_last[m.ChannelID]) == 0 {
@@ -907,7 +918,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 
-	if info != nil && cid != info.config.Log.LogChannel && isdbguild { // Log this message if it was sent to the main guild only.
+	if info != nil && cid != info.config.Log.Channel && isdbguild { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
@@ -950,7 +961,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 		private = ch.IsPrivate
 	}
 	cid := SBatoi(m.ChannelID)
-	if cid != info.config.Log.LogChannel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
+	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID {
@@ -1214,7 +1225,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 0, 4},
+		version:            Version{0, 9, 1, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1228,6 +1239,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 1, 0):  "- Renamed config options\n- Made things more clear for new users\n- Fixed legacy importable problem\n- Fixed command saturation\n- Added botchannel notification\n- Changed getconfig behavior for maps",
 			AssembleVersion(0, 9, 0, 4):  "- To protect privacy, !listguilds no longer lists servers that do not have Basic.Importable set to true.\n- Remove some more unnecessary sanitization",
 			AssembleVersion(0, 9, 0, 3):  "- Don't sanitize links already in code blocks",
 			AssembleVersion(0, 9, 0, 2):  "- Alphabetize collections because Tawmy is OCD",
