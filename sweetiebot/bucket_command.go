@@ -40,12 +40,12 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	if len(args) < 1 {
 		return "[](/sadbot) `You didn't give me anything!`", false, nil
 	}
-	if info.config.Bucket.MaxBucket == 0 {
-		return "```I don't have a bucket right now (maxbucket is 0).```", false, nil
+	if info.config.Bucket.MaxItems == 0 {
+		return "```I don't have a bucket right now (bucket.max is 0).```", false, nil
 	}
 
 	arg := ExtraSanitize(strings.Join(args, " "))
-	if len(arg) > info.config.Bucket.MaxBucketLength {
+	if len(arg) > info.config.Bucket.MaxItemLength {
 		return "```That's too big! Give me something smaller!```", false, nil
 	}
 
@@ -54,7 +54,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```I already have " + arg + "!```", false, nil
 	}
 
-	if len(info.config.Basic.Collections["bucket"]) >= info.config.Bucket.MaxBucket {
+	if len(info.config.Basic.Collections["bucket"]) >= info.config.Bucket.MaxItems {
 		dropped := BucketDropRandom(info)
 		info.config.Basic.Collections["bucket"][arg] = true
 		info.SaveConfig()
@@ -69,7 +69,7 @@ func (c *GiveCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long. Quotes are not required, but cannot be empty.", info.config.Bucket.MaxBucketLength), Optional: false},
+			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long. Quotes are not required, but cannot be empty.", info.config.Bucket.MaxItemLength), Optional: false},
 		},
 	}
 }
@@ -116,7 +116,7 @@ func (c *DropCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Drops the specified object from sweetie. If no object is given, makes sweetie throw something at random.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long.", info.config.Bucket.MaxBucketLength), Optional: true},
+			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long.", info.config.Bucket.MaxItemLength), Optional: true},
 		},
 	}
 }
@@ -144,7 +144,7 @@ func (c *ListCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Lists everything in Sweetie's bucket.",
 	}
 }
-func (c *ListCommand) UsageShort() string { return "Lists everything sweetie has." }
+func (c *ListCommand) UsageShort() string { return "Lists everything in Sweetie's bucket." }
 
 type FightCommand struct {
 	monster string
