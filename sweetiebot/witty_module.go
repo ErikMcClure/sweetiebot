@@ -43,7 +43,7 @@ func (w *WittyModule) Description() string {
 }
 
 func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
-	l := len(info.config.Wit.Witty)
+	l := len(info.config.Witty.Responses)
 	w.triggerregex = make([]*regexp.Regexp, 0, l)
 	w.remarks = make([][]string, 0, l)
 	if l < 1 {
@@ -52,11 +52,11 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 	}
 
 	var err error
-	w.wittyregex, err = regexp.Compile("(" + strings.Join(MapStringToSlice(info.config.Wit.Witty), "|") + ")")
+	w.wittyregex, err = regexp.Compile("(" + strings.Join(MapStringToSlice(info.config.Witty.Responses), "|") + ")")
 
 	if err == nil {
 		var r *regexp.Regexp
-		for k, v := range info.config.Wit.Witty {
+		for k, v := range info.config.Witty.Responses {
 			r, err = regexp.Compile(k)
 			if err != nil {
 				break
@@ -74,7 +74,7 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 }
 
 func (w *WittyModule) SendWittyComment(channel string, comment string, info *GuildInfo) {
-	if RateLimit(&w.lastcomment, info.config.Wit.Maxwit) {
+	if RateLimit(&w.lastcomment, info.config.Witty.Cooldown) {
 		info.SendMessage(channel, comment)
 	}
 }
@@ -86,7 +86,7 @@ func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	  }
 	  info.lastshutup = time.Now().UTC().Unix()
 	}*/
-	if CheckRateLimit(&w.lastcomment, info.config.Wit.Maxwit) && CheckShutup(m.ChannelID) {
+	if CheckRateLimit(&w.lastcomment, info.config.Witty.Cooldown) && CheckShutup(m.ChannelID) {
 		if w.wittyregex != nil && w.wittyregex.MatchString(str) {
 			for i := 0; i < len(w.triggerregex); i++ {
 				if w.triggerregex[i].MatchString(str) {
@@ -113,9 +113,9 @@ func (c *AddWitCommand) Name() string {
 }
 func WitRemove(wit string, info *GuildInfo) bool {
 	wit = strings.ToLower(wit)
-	_, ok := info.config.Wit.Witty[wit]
+	_, ok := info.config.Witty.Responses[wit]
 	if ok {
-		delete(info.config.Wit.Witty, wit)
+		delete(info.config.Witty.Responses, wit)
 	}
 	return ok
 }
@@ -128,8 +128,8 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	trigger := strings.ToLower(args[0])
 	remark := args[1]
 
-	CheckMapNilString(&info.config.Wit.Witty)
-	info.config.Wit.Witty[trigger] = remark
+	CheckMapNilString(&info.config.Witty.Responses)
+	info.config.Witty.Responses[trigger] = remark
 	info.SaveConfig()
 	r := c.wit.UpdateRegex(info)
 	if !r {

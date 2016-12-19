@@ -30,8 +30,8 @@ func (w *BoredModule) Description() string {
 func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
 
-	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.Bored.BoredCommands) > 0 {
-		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.BoredCommands),
+	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.Bored.Commands) > 0 {
+		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.Commands),
 			Author: &discordgo.User{
 				ID:       sb.SelfID,
 				Username: "Sweetie",
@@ -45,5 +45,5 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 }
 
 func (w *BoredModule) IdlePeriod(info *GuildInfo) int64 {
-	return info.config.Bored.Maxbored
+	return info.config.Bored.Cooldown
 }

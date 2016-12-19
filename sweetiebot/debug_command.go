@@ -156,10 +156,10 @@ func SetCommandEnable(args []string, enable bool, success string, info *GuildInf
 			}
 
 			if enable {
-				delete(info.config.Modules.ModuleDisabled, name)
+				delete(info.config.Modules.Disabled, name)
 			} else {
-				CheckMapNilBool(&info.config.Modules.ModuleDisabled)
-				info.config.Modules.ModuleDisabled[name] = true
+				CheckMapNilBool(&info.config.Modules.Disabled)
+				info.config.Modules.Disabled[name] = true
 			}
 			info.SaveConfig()
 			return "", false, DumpCommandsModules(channelID, info, "", "**Success!** "+args[0]+success)
@@ -240,7 +240,7 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, info *Gui
 	  }*/
 
 	for _, v := range sb.guilds {
-		v.SendMessage(SBitoa(v.config.Log.LogChannel), "```Shutting down for update...```")
+		v.SendMessage(SBitoa(v.config.Log.Channel), "```Shutting down for update...```")
 	}
 
 	sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
@@ -296,7 +296,7 @@ func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info 
 	private := 0
 	for _, v := range guilds {
 		if !isOwner {
-			if v.config.Importable {
+			if v.config.Basic.Importable {
 				s = append(s, PartialSanitize(v.Guild.Name))
 			} else {
 				private++
@@ -326,7 +326,7 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, info *G
 
 	arg := strings.Join(args, " ")
 	for _, v := range sb.guilds {
-		v.SendMessage(SBitoa(v.config.Log.LogChannel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
+		v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
 	}
 	return "", false, nil
 }

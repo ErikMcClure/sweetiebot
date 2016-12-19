@@ -71,11 +71,12 @@ type GetConfigCommand struct {
 func (c *GetConfigCommand) Name() string {
 	return "GetConfig"
 }
-func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo) []string {
+func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect.Value) (string, bool, *discordgo.MessageEmbed) {
 	s := []string{}
+	fields := make([]*discordgo.MessageEmbedField, 0, 0)
 	switch f.Interface().(type) {
 	case []string:
-		return f.Interface().([]string)
+		s = f.Interface().([]string)
 	case []uint64:
 		t, _ := f.Interface().([]uint64)
 		for _, v := range t {
@@ -99,6 +100,7 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo) []string 
 	case map[string]int64:
 		t, _ := f.Interface().(map[string]int64)
 		for k, v := range t {
+			//fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: strconv.Itoa(int(v)), Inline: true})
 			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
 		}
 	case map[string]bool:
@@ -125,7 +127,21 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo) []string 
 			s = append(s, ExtraSanitize(string(data)))
 		}
 	}
-	return s
+	if len(fields) > 0 {
+		desc, _ := ConfigHelp[strings.ToLower(t.Type().Name()+"."+f.Type().Name())]
+		return "", false, &discordgo.MessageEmbed{
+			Type: "rich",
+			Author: &discordgo.MessageEmbedAuthor{
+				URL:     "https://github.com/blackhole12/sweetiebot#configuration",
+				Name:    f.Type().Name(),
+				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+			},
+			Description: desc,
+			Color:       0x3e92e5,
+			Fields:      fields,
+		}
+	}
+	return "```\n" + strings.Join(s, "\n") + "```", false, nil
 }
 
 func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
@@ -167,6 +183,10 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *
 		return "", false, nil
 	}
 	arg := strings.SplitN(strings.ToLower(args[0]), ".", 3)
+	if len(args) > 1 {
+		arg = append(arg, args[1])
+	}
+
 	for i := 0; i < n; i++ {
 		if strings.ToLower(t.Type().Field(i).Name) == arg[0] {
 			switch t.Field(i).Kind() {
@@ -195,26 +215,44 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *
 								if val == reflect.Zero(val.Type()) {
 									return fmt.Sprintf("```Error: Can't find %v in %s.```", val.Interface(), str), false, nil
 								}
-								return "```\n" + strings.Join(c.GetOption(val, info), "\n") + "```", false, nil
+								return c.GetOption(val, info, t.Field(i))
 							}
-							return "```\n" + strings.Join(c.GetOption(f.Field(j), info), "\n") + "```", false, nil
+							return c.GetOption(f.Field(j), info, t.Field(i))
 						}
 					}
 				} else {
+					fields := make([]*discordgo.MessageEmbedField, 0, f.NumField())
 					for j := 0; j < f.NumField(); j++ {
+						desc, ok := ConfigHelp[strings.ToLower(t.Type().Field(i).Name+"."+f.Type().Field(j).Name)]
+						if !ok {
+							desc = "\u200b"
+						}
+						fields = append(fields, &discordgo.MessageEmbedField{Name: f.Type().Field(j).Name, Value: desc, Inline: false})
 					}
+					embed := &discordgo.MessageEmbed{
+						Type: "rich",
+						Author: &discordgo.MessageEmbedAuthor{
+							URL:     "https://github.com/blackhole12/sweetiebot#configuration",
+							Name:    t.Type().Field(i).Name + " Config Category",
+							IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+						},
+						Color:  0x3e92e5,
+						Fields: fields,
+					}
+					return "", false, embed
 				}
 			}
 		}
 	}
 
-	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which collection of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules.1\"```", false, nil
+	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which collection of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\"```", false, nil
 }
 func (c *GetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays a list of available configuration options or their values.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use ```Help.Rules``` to specify a config option in a category, or ```Help.Rules.1``` to specify a particular key of a map.", Optional: true},
+			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category.", Optional: true},
+			CommandUsageParam{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `!getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
 		},
 	}
 }
@@ -243,7 +281,7 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	silent := StripPing(args[4])
 	boredchannel := StripPing(args[5])
 
-	info.config.Log.LogChannel = SBatoi(log)
+	info.config.Log.Channel = SBatoi(log)
 	info.config.Basic.AlertRole = SBatoi(mod)
 	info.config.Basic.ModChannel = SBatoi(modchannel)
 	info.config.Spam.SilentRole = SBatoi(silent)
@@ -262,13 +300,13 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info
 	}
 
 	info.config.Modules.CommandDisabled = make(map[string]bool)
-	info.config.Modules.ModuleDisabled = make(map[string]bool)
+	info.config.Modules.Disabled = make(map[string]bool)
 
 	boredint := SBatoi(boredchannel)
 	if boredint > 0 {
-		info.config.Modules.ModuleChannels["bored"] = map[string]bool{SBitoa(boredint): true}
+		info.config.Modules.Channels["bored"] = map[string]bool{SBitoa(boredint): true}
 	} else {
-		info.config.Modules.ModuleDisabled["bored"] = true
+		info.config.Modules.Disabled["bored"] = true
 	}
 
 	info.SaveConfig()

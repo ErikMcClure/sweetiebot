@@ -84,15 +84,15 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 	SilenceMember(u.ID, info)
 
-	if info.config.Spam.MaxSpamRemoveLookback > 0 {
+	if info.config.Spam.MaxRemoveLookback > 0 {
 		if sb.IsDBGuild(info) {
-			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxSpamRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
+			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
 			for _, v := range messages {
 				sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 			}
 		}
-	} else if info.config.Spam.MaxSpamRemoveLookback == 0 {
+	} else if info.config.Spam.MaxRemoveLookback == 0 {
 		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
 
@@ -112,17 +112,17 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 		limit := w.tracker[id]
 		limit.append(time.Now().UTC().Unix())
 		//if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
-		for k, v := range info.config.Spam.MaxMessageSpam {
+		for k, v := range info.config.Spam.MaxMessages {
 			if limit.checkafter(v, k) {
 				KillSpammer(m.Author, info, m, "spamming too many messages")
 				return true
 			}
 		}
-		if len(m.Mentions) > info.config.Spam.MaxPingSpam {
+		if len(m.Mentions) > info.config.Spam.MaxPings {
 			KillSpammer(m.Author, info, m, "pinging too many people")
 			return true
 		}
-		if len(m.Embeds) > info.config.Spam.MaxImageSpam || len(m.Attachments) > info.config.Spam.MaxAttachSpam {
+		if len(m.Embeds) > info.config.Spam.MaxImages || len(m.Attachments) > info.config.Spam.MaxAttach {
 			KillSpammer(m.Author, info, m, "embedding too many images")
 			return true
 		}
@@ -139,8 +139,8 @@ func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	return w.CheckSpam(info, m)
 }
 func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
-	raidsize := sb.db.CountNewUsers(info.config.Spam.MaxRaidTime, SBatoi(info.Guild.ID))
-	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.MaxRaidTime*2) {
+	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.Guild.ID))
+	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.RaidTime*2) {
 		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 
@@ -158,7 +158,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
-	if info.config.Spam.AutoSilence >= 2 || (info.config.Spam.AutoSilence >= 1 && w.lastraid+info.config.Spam.MaxRaidTime*2 > time.Now().UTC().Unix()) {
+	if info.config.Spam.AutoSilence >= 2 || (info.config.Spam.AutoSilence >= 1 && w.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User.ID, info)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
 		if len(info.config.Users.WelcomeMessage) > 0 {
@@ -205,8 +205,8 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info
 
 	if info.config.Spam.AutoSilence <= 0 {
 		// unsilence everyone
-	} else if c.s.lastraid+info.config.Spam.MaxRaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
-		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.MaxRaidTime, 0).UTC(), SBatoi(info.Guild.ID))
+	} else if c.s.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
 		for _, v := range r {

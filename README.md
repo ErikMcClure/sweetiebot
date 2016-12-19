@@ -1,10 +1,12 @@
 # Sweetie Bot
 Sweetie Bot is an administration bot for the /r/mylittlepony Discord chat. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and it's users, and provides a command to find the last message that pinged a given user.
 
+### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358).
+
 **If you use Sweetie Bot, consider [contributing to it's Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
 
 ## Compiling
-Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
+**You only need to follow these steps if you are hosting the bot yourself.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
 
 Three files are necessary for sweetiebot to run that are never uploaded to the git repo:
 
@@ -48,46 +50,45 @@ Additional configuration is optional, depending on what features of the bot are 
 * **Importable:** If true, the collections on this server will be importable into another server where sweetie is.
 * **AlertRole:** This is intended to point at a moderator role shared by all admins and moderators of the server for notification purposes.
 * **ModChannel:** This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.
-* **Commandperduration:** Maximum number of commands that can be run within `commandmaxduration` seconds. Default: 3
-* **Commandmaxduration:** Default: 30. This means that by default, at most 3 commands can be run every 30 seconds.
 * **FreeChannels [list]:** This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.
-* **Aliases [map]:** Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.
+* **BotChannel:** Allows you to designate a particular channel for Sweetie Bot to point users to if they try to send too many commands at once. This channel is usually also included in `Basic.FreeChannels`.
+* **Aliases [map]:** Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts. Example: `!setconfig aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
 * **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
 * **Groups [maplist]:** A map of groups. Manipulate it via the `!addgroup` and `!purgegroup` commands.
 
-
 ### Modules
+* **Channels [maplist]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
+* **Disabled [list]:** A list of disabled modules.
 * **CommandRoles [maplist]:** A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.
-* **CommandChannels [maplist]:** A map of which channels commands are allowed to run on. No entry means a command can be run anywhere.
+* **CommandChannels [maplist]:** A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
 * **CommandLimits [map]:** A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.
 * **CommandDisabled [list]:** A list of disabled commands.
-* **ModuleDisabled [list]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels.
-* **ModuleChannels [maplist]:** A list of disabled modules.
-
+* **Commandperduration:** Maximum number of commands that can be run within `commandmaxduration` seconds. Default: 3
+* **Commandmaxduration:** Default: 30. This means that by default, at most 3 commands can be run every 30 seconds.
 
 ### Spam
-* **MaxImageSpam:** Maximum number of images allowed per message.
-* **MaxAttachSpam:** Maximum number of attachments allowed per message.
-* **MaxPingSpam:** Maximum number of pings allowed per message.
-* **MaxMessageSpam [map]:** Maximum number of images allowed per message.
-* **MaxSpamRemoveLookback:** Number of seconds back the bot should delete messages of a silenced user. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.
+* **MaxImages:** Maximum number of images allowed per message.
+* **MaxAttach:** Maximum number of attachments allowed per message.
+* **MaxPings:** Maximum number of pings allowed per message.
+* **MaxMessages [map]:** Maximum number of messages allowed in a given time period. To add a check for X messages in Y seconds, do `!setconfig spam.maxmessages Y X`. The seconds, or duration, is the key for the map.
+* **MaxRemoveLookback:** Number of seconds back the bot should delete messages of a silenced user. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.
 * **SilentRole:** This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.
-* **MaxRaidTime:** Specifies the time period sweetiebot should search for a potential raid
-* **RaidSize:** Specifies how many people must have joined the server within the `maxraidtime` period to qualify as a raid.
+* **RaidTime:** In order to trigger a raid alarm, at least `spam.raidsize` people must join the chat within this many seconds of each other.
+* **RaidSize:** Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.
 * **SilenceMessage:** This message will be sent to users that have been silenced by the `!silence` command.
 * **AutoSilence:** Gets the current autosilence state. Use the `!autosilence` command to set this.
 
 ### Bucket
-* **MaxBucket:** Determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.
-* **MaxBucketLength:** Determines the maximum length of a string that can be added to her bucket.
+* **MaxItems:** Determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.
+* **MaxItemLength:** Determines the maximum length of a string that can be added to her bucket.
 * **MaxFightHP:** Maximum HP of the randomly generated enemy for the `!fight` command.
 * **MaxFightDamage:** Maximum amount of damage a randomly generated weapon can deal for the `!fight` command.
 
 ### Markov
 * **MaxPMLines:** This is the maximum number of lines a response can be before sweetiebot automatically sends it as a PM to avoid cluttering the chat. Default: 5
-* **Maxquotelines:** Maximum number of lines the `!episodequote` command can be given.
-* **DefaultMarkovLines:** Number of lines for the markov chain to spawn when not given a line count.
-* **UserMemberNames:** Use member names instead of random pony names
+* **Maxlines:** Maximum number of lines the `!episodequote` command can be given.
+* **DefaultLines:** Number of lines for the markov chain to spawn when not given a line count.
+* **UseMemberNames:** Use member names instead of random pony names
 
 ### Users
 * **TimezoneLocation:** Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.
@@ -95,32 +96,32 @@ Additional configuration is optional, depending on what features of the bot are 
 * **WelcomeMessage:** If autosilence is enabled, this message will be sent to a new user upon joining.
 
 ### Bored
-* **Maxbored:** The bored cooldown timer. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
-* **BoredCommands [list]:** This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.
+* **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
+* **Commands [list]:** This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.
 
 ### Help
 * **Rules [map]:** Contains a list of numbered rules. The numbers do not need to be contiguous, and can be negative.
 * **HideNegativeRules:** If true, `!rules -1` will display a rule at index -1, but `!rules` will not. This is useful for joke rules or additional rules that newcomers don't need to know about.
 
 ### Log
-* **Logchannel:** This is the channel where sweetiebot logs her output.
-* **Maxerror:** The cooldown time for sweetiebot to display an error message, intended to prevent the bot from spamming itself. Default: 4
+* **Channel:** This is the channel where sweetiebot logs her output.
+* **Cooldown:** The cooldown time for sweetiebot to display an error message, in seconds, intended to prevent the bot from spamming itself. Default: 4
 
-### Wit
-* **Witty [map]:** Stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`
-* **Maxwit:** The cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.
+### Witty
+* **Reponses [map]:** Stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`
+* **Cooldown:** The cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.
 
 ### Schedule
 * **BirthdayRole:** This is the role given to members on their birthday.
 
 ### Search
-* **Maxsearchresults:** Maximum number of search results that can be requested
+* **MaxResults:** Maximum number of search results that can be requested at once.
 
 ### Spoiler
-* **SpoilChannels [list]:** This is a list of channels that are exempt from the spoiler rules.
+* **Channels [list]:** A list of channels that are exempt from the spoiler rules.
 
 ### Status
-* **StatusDelayTime:** Number of seconds sweetiebot waits before changing her status to a string picked randomly from the `status` collection
+* **Cooldown:** Number of seconds sweetiebot waits before changing her status to a string picked randomly from the `status` collection
 
 ### Quote
 * **Quotes [maplist]:** This is a map of quotes, which should be managed via `!addquote` and `!removequote`

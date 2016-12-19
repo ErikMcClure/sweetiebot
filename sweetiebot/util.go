@@ -434,12 +434,75 @@ func ReplaceAllMentions(s string) string {
 	s = userregex.ReplaceAllStringFunc(s, replacementionhelper)
 	return roleregex.ReplaceAllStringFunc(s, replacerolementionhelper)
 }
-func RestrictCommand(v string, guild *GuildInfo) {
-	_, ok := guild.config.Modules.CommandRoles[v]
-	if !ok && guild.config.Basic.AlertRole != 0 {
-		guild.config.Modules.CommandRoles[v] = make(map[string]bool)
-		guild.config.Modules.CommandRoles[v][SBitoa(guild.config.Basic.AlertRole)] = true
+func RestrictCommand(v string, roles map[string]map[string]bool, alertrole uint64) {
+	_, ok := roles[v]
+	if !ok && alertrole != 0 {
+		roles[v] = make(map[string]bool)
+		roles[v][SBitoa(alertrole)] = true
 	}
+}
+
+type legacyBotConfig struct {
+	Version               int                        `json:"version"`
+	LastVersion           int                        `json:"lastversion"`
+	Maxerror              int64                      `json:"maxerror"`
+	Maxwit                int64                      `json:"maxwit"`
+	Maxbored              int64                      `json:"maxbored"`
+	BoredCommands         map[string]bool            `json:"boredcommands"`
+	MaxPMlines            int                        `json:"maxpmlines"`
+	Maxquotelines         int                        `json:"maxquotelines"`
+	Maxsearchresults      int                        `json:"maxsearchresults"`
+	Defaultmarkovlines    int                        `json:"defaultmarkovlines"`
+	Commandperduration    int                        `json:"commandperduration"`
+	Commandmaxduration    int64                      `json:"commandmaxduration"`
+	StatusDelayTime       int                        `json:"statusdelaytime"`
+	MaxRaidTime           int64                      `json:"maxraidtime"`
+	RaidSize              int                        `json:"raidsize"`
+	Witty                 map[string]string          `json:"witty"`
+	Aliases               map[string]string          `json:"aliases"`
+	MaxBucket             int                        `json:"maxbucket"`
+	MaxBucketLength       int                        `json:"maxbucketlength"`
+	MaxFightHP            int                        `json:"maxfighthp"`
+	MaxFightDamage        int                        `json:"maxfightdamage"`
+	MaxImageSpam          int                        `json:"maximagespam"`
+	MaxAttachSpam         int                        `json:"maxattachspam"`
+	MaxPingSpam           int                        `json:"maxpingspam"`
+	MaxMessageSpam        map[int64]int              `json:"maxmessagespam"`
+	MaxSpamRemoveLookback int                        `json:maxspamremovelookback`
+	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
+	UseMemberNames        bool                       `json:"usemembernames"`
+	Importable            bool                       `json:"importable"`
+	HideNegativeRules     bool                       `json:"hidenegativerules"`
+	Timezone              int                        `json:"timezone"`
+	TimezoneLocation      string                     `json:"timezonelocation"`
+	AutoSilence           int                        `json:"autosilence"`
+	AlertRole             uint64                     `json:"alertrole"`
+	SilentRole            uint64                     `json:"silentrole"`
+	LogChannel            uint64                     `json:"logchannel"`
+	ModChannel            uint64                     `json:"modchannel"`
+	WelcomeChannel        uint64                     `json:"welcomechannel"`
+	WelcomeMessage        string                     `json:"welcomemessage"`
+	SilenceMessage        string                     `json:"silencemessage"`
+	BirthdayRole          uint64                     `json:"birthdayrole"`
+	SpoilChannels         []uint64                   `json:"spoilchannels"`
+	FreeChannels          map[string]bool            `json:"freechannels"`
+	Command_roles         map[string]map[string]bool `json:"command_roles"`
+	Command_channels      map[string]map[string]bool `json:"command_channels"`
+	Command_limits        map[string]int64           `json:command_limits`
+	Command_disabled      map[string]bool            `json:command_disabled`
+	Module_disabled       map[string]bool            `json:module_disabled`
+	Module_channels       map[string]map[string]bool `json:module_channels`
+	Collections           map[string]map[string]bool `json:"collections"`
+	Groups                map[string]map[string]bool `json:"groups"`
+	Quotes                map[uint64][]string        `json:"quotes"`
+	Rules                 map[int]string             `json:"rules"`
+}
+
+type legacyBotConfigV10 struct {
+	Basic struct {
+		Commandperduration int   `json:"commandperduration"`
+		Commandmaxduration int64 `json:"commandmaxduration"`
+	} `json:"basic"`
 }
 
 // migrate settings from earlier config version
@@ -449,126 +512,136 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		return err
 	}
 
-	if guild.config.Version == 0 {
-		newcommands := []string{"addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
-		if len(guild.config.Command_roles) == 0 {
-			guild.config.Command_roles = make(map[string]map[string]bool)
+	if guild.config.Version < 10 {
+		legacy := legacyBotConfig{}
+		err := json.Unmarshal(config, &legacy)
+		if err != nil {
+			return err
 		}
-		for _, v := range newcommands {
-			RestrictCommand(v, guild)
+
+		if legacy.Version == 0 {
+			newcommands := []string{"addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome"}
+			if len(legacy.Command_roles) == 0 {
+				legacy.Command_roles = make(map[string]map[string]bool)
+			}
+			for _, v := range newcommands {
+				RestrictCommand(v, legacy.Command_roles, legacy.AlertRole)
+			}
+			legacy.MaxImageSpam = 3
+			legacy.MaxAttachSpam = 1
+			legacy.MaxPingSpam = 24
+			legacy.MaxMessageSpam = make(map[int64]int)
+			legacy.MaxMessageSpam[1] = 4
+			legacy.MaxMessageSpam[9] = 10
+			legacy.MaxMessageSpam[12] = 15
 		}
-		guild.config.MaxImageSpam = 3
-		guild.config.MaxAttachSpam = 1
-		guild.config.MaxPingSpam = 24
-		guild.config.MaxMessageSpam = make(map[int64]int)
-		guild.config.MaxMessageSpam[1] = 4
-		guild.config.MaxMessageSpam[9] = 10
-		guild.config.MaxMessageSpam[12] = 15
-	}
 
-	if guild.config.Version <= 1 {
-		if len(guild.config.Aliases) == 0 {
-			guild.config.Aliases = make(map[string]string)
+		if legacy.Version <= 1 {
+			if len(legacy.Aliases) == 0 {
+				legacy.Aliases = make(map[string]string)
+			}
+			legacy.Aliases["cute"] = "pick cute"
+			RestrictCommand("new", legacy.Command_roles, legacy.AlertRole)
+			RestrictCommand("addquote", legacy.Command_roles, legacy.AlertRole)
+			RestrictCommand("removequote", legacy.Command_roles, legacy.AlertRole)
 		}
-		guild.config.Aliases["cute"] = "pick cute"
-		RestrictCommand("new", guild)
-		RestrictCommand("addquote", guild)
-		RestrictCommand("removequote", guild)
-	}
 
-	if guild.config.Version <= 2 {
-		RestrictCommand("removealias", guild)
-	}
-
-	if guild.config.Version <= 3 {
-		guild.config.BoredCommands = make(map[string]bool)
-	}
-
-	if guild.config.Version <= 4 {
-		RestrictCommand("delete", guild)
-	}
-
-	if guild.config.Version <= 5 {
-		guild.config.TimezoneLocation = "Etc/GMT"
-		if guild.config.Timezone < 0 {
-			guild.config.TimezoneLocation += "+"
+		if legacy.Version <= 2 {
+			RestrictCommand("removealias", legacy.Command_roles, legacy.AlertRole)
 		}
-		guild.config.TimezoneLocation += strconv.Itoa(-guild.config.Timezone) // Etc has the sign reversed
+
+		if legacy.Version <= 3 {
+			legacy.BoredCommands = make(map[string]bool)
+		}
+
+		if legacy.Version <= 4 {
+			RestrictCommand("delete", legacy.Command_roles, legacy.AlertRole)
+		}
+
+		if legacy.Version <= 5 {
+			legacy.TimezoneLocation = "Etc/GMT"
+			if legacy.Timezone < 0 {
+				legacy.TimezoneLocation += "+"
+			}
+			legacy.TimezoneLocation += strconv.Itoa(-legacy.Timezone) // Etc has the sign reversed
+		}
+
+		if legacy.Version <= 6 {
+			RestrictCommand("createpoll", legacy.Command_roles, legacy.AlertRole)
+			RestrictCommand("deletepoll", legacy.Command_roles, legacy.AlertRole)
+		}
+		if legacy.Version <= 7 {
+			RestrictCommand("addoption", legacy.Command_roles, legacy.AlertRole)
+		}
+		if legacy.Version <= 8 {
+			RestrictCommand("echoembed", legacy.Command_roles, legacy.AlertRole)
+		}
+
+		guild.config.Basic.AlertRole = legacy.AlertRole
+		guild.config.Basic.Aliases = legacy.Aliases
+		guild.config.Basic.Collections = legacy.Collections
+		guild.config.Basic.FreeChannels = legacy.FreeChannels
+		guild.config.Basic.Groups = legacy.Groups
+		guild.config.Basic.IgnoreInvalidCommands = legacy.IgnoreInvalidCommands
+		guild.config.Basic.Importable = legacy.Importable
+		guild.config.Basic.ModChannel = legacy.ModChannel
+		guild.config.Modules.CommandChannels = legacy.Command_channels
+		guild.config.Modules.CommandDisabled = legacy.Command_disabled
+		guild.config.Modules.CommandLimits = legacy.Command_limits
+		guild.config.Modules.CommandRoles = legacy.Command_roles
+		guild.config.Modules.CommandMaxDuration = legacy.Commandmaxduration
+		guild.config.Modules.CommandPerDuration = legacy.Commandperduration
+		guild.config.Modules.Channels = legacy.Module_channels
+		guild.config.Modules.Disabled = legacy.Module_disabled
+		guild.config.Spam.AutoSilence = legacy.AutoSilence
+		guild.config.Spam.MaxAttach = legacy.MaxAttachSpam
+		guild.config.Spam.MaxImages = legacy.MaxImageSpam
+		guild.config.Spam.MaxMessages = legacy.MaxMessageSpam
+		guild.config.Spam.MaxPings = legacy.MaxPingSpam
+		guild.config.Spam.RaidTime = legacy.MaxRaidTime
+		guild.config.Spam.MaxRemoveLookback = legacy.MaxSpamRemoveLookback
+		guild.config.Spam.RaidSize = legacy.RaidSize
+		guild.config.Spam.SilenceMessage = legacy.SilenceMessage
+		guild.config.Spam.SilentRole = legacy.SilentRole
+		guild.config.Bucket.MaxItems = legacy.MaxBucket
+		guild.config.Bucket.MaxItemLength = legacy.MaxBucketLength
+		guild.config.Bucket.MaxFightDamage = legacy.MaxFightDamage
+		guild.config.Bucket.MaxFightHP = legacy.MaxFightHP
+		guild.config.Markov.DefaultLines = legacy.Defaultmarkovlines
+		guild.config.Markov.MaxPMlines = legacy.MaxPMlines
+		guild.config.Markov.MaxLines = legacy.Maxquotelines
+		guild.config.Markov.UseMemberNames = legacy.UseMemberNames
+		guild.config.Users.TimezoneLocation = legacy.TimezoneLocation
+		guild.config.Users.WelcomeChannel = legacy.WelcomeChannel
+		guild.config.Users.WelcomeMessage = legacy.WelcomeMessage
+		guild.config.Bored.Commands = legacy.BoredCommands
+		guild.config.Bored.Cooldown = legacy.Maxbored
+		guild.config.Help.HideNegativeRules = legacy.HideNegativeRules
+		guild.config.Help.Rules = legacy.Rules
+		guild.config.Log.Channel = legacy.LogChannel
+		guild.config.Log.Cooldown = legacy.Maxerror
+		guild.config.Witty.Cooldown = legacy.Maxwit
+		guild.config.Witty.Responses = legacy.Witty
+		guild.config.Schedule.BirthdayRole = legacy.BirthdayRole
+		guild.config.Search.MaxResults = legacy.Maxsearchresults
+		guild.config.Spoiler.Channels = legacy.SpoilChannels
+		guild.config.Status.Cooldown = legacy.StatusDelayTime
+		guild.config.Quote.Quotes = legacy.Quotes
 	}
 
-	if guild.config.Version <= 6 {
-		RestrictCommand("createpoll", guild)
-		RestrictCommand("deletepoll", guild)
-	}
-	if guild.config.Version <= 7 {
-		RestrictCommand("addoption", guild)
-	}
-	if guild.config.Version <= 8 {
-		RestrictCommand("echoembed", guild)
-	}
-	if guild.config.Version <= 9 { // Gigantic migration of doom
-		guild.config.Basic.AlertRole = guild.config.AlertRole
-		guild.config.Basic.Aliases = guild.config.Aliases
-		guild.config.Basic.Collections = guild.config.Collections
-		guild.config.Basic.Commandmaxduration = guild.config.Commandmaxduration
-		guild.config.Basic.Commandperduration = guild.config.Commandperduration
-		guild.config.Basic.FreeChannels = guild.config.FreeChannels
-		guild.config.Basic.Groups = guild.config.Groups
-		guild.config.Basic.IgnoreInvalidCommands = guild.config.IgnoreInvalidCommands
-		guild.config.Basic.Importable = guild.config.Importable
-		guild.config.Basic.ModChannel = guild.config.ModChannel
-		guild.config.Modules.CommandChannels = guild.config.Command_channels
-		guild.config.Modules.CommandDisabled = guild.config.Command_disabled
-		guild.config.Modules.CommandLimits = guild.config.Command_limits
-		guild.config.Modules.CommandRoles = guild.config.Command_roles
-		guild.config.Modules.ModuleChannels = guild.config.Module_channels
-		guild.config.Modules.ModuleDisabled = guild.config.Module_disabled
-		guild.config.Spam.AutoSilence = guild.config.AutoSilence
-		guild.config.Spam.MaxAttachSpam = guild.config.MaxAttachSpam
-		guild.config.Spam.MaxImageSpam = guild.config.MaxImageSpam
-		guild.config.Spam.MaxMessageSpam = guild.config.MaxMessageSpam
-		guild.config.Spam.MaxPingSpam = guild.config.MaxPingSpam
-		guild.config.Spam.MaxRaidTime = guild.config.MaxRaidTime
-		guild.config.Spam.MaxSpamRemoveLookback = guild.config.MaxSpamRemoveLookback
-		guild.config.Spam.RaidSize = guild.config.RaidSize
-		guild.config.Spam.SilenceMessage = guild.config.SilenceMessage
-		guild.config.Spam.SilentRole = guild.config.SilentRole
-		guild.config.Bucket.MaxBucket = guild.config.MaxBucket
-		guild.config.Bucket.MaxBucketLength = guild.config.MaxBucketLength
-		guild.config.Bucket.MaxFightDamage = guild.config.MaxFightDamage
-		guild.config.Bucket.MaxFightHP = guild.config.MaxFightHP
-		guild.config.Markov.Defaultmarkovlines = guild.config.Defaultmarkovlines
-		guild.config.Markov.MaxPMlines = guild.config.MaxPMlines
-		guild.config.Markov.Maxquotelines = guild.config.Maxquotelines
-		guild.config.Markov.UseMemberNames = guild.config.UseMemberNames
-		guild.config.Users.TimezoneLocation = guild.config.TimezoneLocation
-		guild.config.Users.WelcomeChannel = guild.config.WelcomeChannel
-		guild.config.Users.WelcomeMessage = guild.config.WelcomeMessage
-		guild.config.Bored.BoredCommands = guild.config.BoredCommands
-		guild.config.Bored.Maxbored = guild.config.Maxbored
-		guild.config.Help.HideNegativeRules = guild.config.HideNegativeRules
-		guild.config.Help.Rules = guild.config.Rules
-		guild.config.Log.LogChannel = guild.config.LogChannel
-		guild.config.Log.Maxerror = guild.config.Maxerror
-		guild.config.Wit.Maxwit = guild.config.Maxwit
-		guild.config.Wit.Witty = guild.config.Witty
-		guild.config.Schedule.BirthdayRole = guild.config.BirthdayRole
-		guild.config.Search.Maxsearchresults = guild.config.Maxsearchresults
-		guild.config.Spoiler.SpoilChannels = guild.config.SpoilChannels
-		guild.config.Status.StatusDelayTime = guild.config.StatusDelayTime
-		guild.config.Quote.Quotes = guild.config.Quotes
-
-		// Erase large collections so we don't double the size of our poor config file
-		guild.config.Collections = nil
-		guild.config.Quotes = nil
-		guild.config.Rules = nil
-		guild.config.Groups = nil
-		guild.config.Aliases = nil
-		guild.config.Witty = nil
+	if guild.config.Version == 10 {
+		legacy := legacyBotConfigV10{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			guild.config.Modules.CommandMaxDuration = legacy.Basic.Commandmaxduration
+			guild.config.Modules.CommandPerDuration = legacy.Basic.Commandperduration
+		} else {
+			fmt.Println(err.Error())
+		}
 	}
 
-	if guild.config.Version != 10 {
-		guild.config.Version = 10 // set version to most recent config version
+	if guild.config.Version != 11 {
+		guild.config.Version = 11 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil

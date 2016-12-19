@@ -33,14 +33,14 @@ func (w *SpoilerModule) Description() string {
 
 func (w *SpoilerModule) HasSpoiler(info *GuildInfo, m *discordgo.Message) bool {
 	cid := SBatoi(m.ChannelID)
-	for _, v := range info.config.Spoiler.SpoilChannels {
+	for _, v := range info.config.Spoiler.Channels {
 		if cid == v {
 			return false // this is a spoiler channel so we don't monitor it
 		}
 	}
 	if w.spoilerban != nil && w.spoilerban.MatchString(strings.ToLower(m.Content)) {
 		sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
-		if RateLimit(&w.lastmsg, info.config.Log.Maxerror) {
+		if RateLimit(&w.lastmsg, info.config.Log.Cooldown) {
 			info.SendMessage(m.ChannelID, "[](/nospoilers) ```NO SPOILERS! Posting spoilers is a bannable offense. All discussion about new and future content MUST be in #mylittlespoilers.```")
 		}
 		return true

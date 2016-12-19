@@ -38,13 +38,13 @@ func (w *ScheduleModule) Description() string {
 func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	events := sb.db.GetSchedule(SBatoi(info.Guild.ID))
 	channel := SBitoa(info.config.Basic.ModChannel)
-	if len(info.config.Modules.ModuleChannels[strings.ToLower(w.Name())]) > 0 {
-		for k := range info.config.Modules.ModuleChannels[strings.ToLower(w.Name())] {
+	if len(info.config.Modules.Channels[strings.ToLower(w.Name())]) > 0 {
+		for k := range info.config.Modules.Channels[strings.ToLower(w.Name())] {
 			channel = k
 			break
 		}
-	} else if len(info.config.Modules.ModuleChannels["bored"]) > 0 {
-		for k := range info.config.Modules.ModuleChannels["bored"] {
+	} else if len(info.config.Modules.Channels["bored"]) > 0 {
+		for k := range info.config.Modules.Channels["bored"] {
 			channel = k
 			break
 		}
@@ -56,7 +56,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	}
 
 	if len(channel) == 0 {
-		//info.log.Error(SBitoa(info.config.LogChannel), "No channel available to process events on. No events processed. If you want to suppress this message, you should either disable the schedule module, or use '!setconfig module_channels schedule #channel'.")
+		//info.log.Error(SBitoa(info.config.Channel), "No channel available to process events on. No events processed. If you want to suppress this message, you should either disable the schedule module, or use '!setconfig module_channels schedule #channel'.")
 		return
 	}
 
@@ -185,7 +185,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *G
 			mt = "MESSAGE"
 		case 3:
 			mt = "EPISODE"
-			if len(info.config.Spoiler.SpoilChannels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.Spoiler.SpoilChannels) {
+			if len(info.config.Spoiler.Channels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.Spoiler.Channels) {
 				data = "(title removed)"
 			}
 		case 5:
@@ -278,7 +278,7 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	case 2:
 		return "```Sweetie is scheduled to send a message in " + diff + "```", false, nil
 	case 3:
-		if len(info.config.Spoiler.SpoilChannels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.Spoiler.SpoilChannels) {
+		if len(info.config.Spoiler.Channels) > 0 && !FindIntSlice(SBatoi(msg.ChannelID), info.config.Spoiler.Channels) {
 			return "```The next episode airs in " + diff + "```", false, nil
 		}
 		return "```" + event.Data + " airs in " + diff + "```", false, nil

@@ -124,7 +124,7 @@ type Command interface {
 }
 
 func (info *GuildInfo) IsModuleDisabled(name string) string {
-	_, ok := info.config.Modules.ModuleDisabled[strings.ToLower(name)]
+	_, ok := info.config.Modules.Disabled[strings.ToLower(name)]
 	if ok {
 		return " [disabled]"
 	}
