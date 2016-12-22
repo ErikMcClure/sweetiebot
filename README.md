@@ -155,9 +155,6 @@ Tracks all channels for spammers. If someone posts more than *n* messages in *m*
 ### Emotes
 Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them.
 
-### Pings
-Tracks any messages that ping a user, including @everyone. This information can be used by the !lastping command to get the last message that pinged a user and any surrounding context.
-
 ### Bored
 After the chat is inactive for a given amount of time, chooses a random action from the `boredcommands` configuration option to run, such posting a link from the bored collection or throwing an item from her bucket.
 
