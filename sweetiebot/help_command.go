@@ -48,6 +48,8 @@ func DumpCommandsModules(channelID string, info *GuildInfo, footer string, descr
 				s = append(s, c.Name()+info.IsCommandDisabled(c.Name()))
 			}
 			fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name() + info.IsModuleDisabled(v.Name()), Value: strings.Join(s, "\n"), Inline: true})
+		} else {
+			fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name() + info.IsModuleDisabled(v.Name()), Value: "*[no commands]*", Inline: true})
 		}
 	}
 	return &discordgo.MessageEmbed{

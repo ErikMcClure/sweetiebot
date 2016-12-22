@@ -503,7 +503,6 @@ func (w *MiscModule) Register(info *GuildInfo) {}
 
 func (w *MiscModule) Commands() []Command {
 	return []Command{
-		&LastPingCommand{},
 		&LastSeenCommand{},
 		&SearchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
 		&RollCommand{},
@@ -652,7 +651,6 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.modules = append(guild.modules, &StatusModule{})
 	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
 	guild.modules = append(guild.modules, guild.emotemodule)
-	guild.modules = append(guild.modules, &PingModule{})
 	guild.modules = append(guild.modules, spoilermodule)
 
 	for _, v := range guild.modules {
@@ -922,7 +920,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
-			SBAddPings(info, m.Message) // If we're discarding a message we still need to add any pings to the ping table
 			return
 		}
 	}
@@ -1225,7 +1222,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 1, 1},
+		version:            Version{0, 9, 2, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1239,6 +1236,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 2, 0):  "- Remove !lastping\n- Help now lists modules with no commands",
 			AssembleVersion(0, 9, 1, 1):  "- Fix crash in !getconfig",
 			AssembleVersion(0, 9, 1, 0):  "- Renamed config options\n- Made things more clear for new users\n- Fixed legacy importable problem\n- Fixed command saturation\n- Added botchannel notification\n- Changed getconfig behavior for maps",
 			AssembleVersion(0, 9, 0, 4):  "- To protect privacy, !listguilds no longer lists servers that do not have Basic.Importable set to true.\n- Remove some more unnecessary sanitization",

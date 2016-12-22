@@ -1,8 +1,8 @@
 -- --------------------------------------------------------
 -- Host:                         127.0.0.1
--- Server version:               10.1.14-MariaDB - mariadb.org binary distribution
+-- Server version:               10.1.19-MariaDB - mariadb.org binary distribution
 -- Server OS:                    Win64
--- HeidiSQL Version:             9.1.0.4867
+-- HeidiSQL Version:             9.3.0.4984
 -- --------------------------------------------------------
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
@@ -425,19 +425,6 @@ CREATE TABLE IF NOT EXISTS `members` (
 -- Data exporting was unselected.
 
 
--- Dumping structure for table sweetiebot.pings
-CREATE TABLE IF NOT EXISTS `pings` (
-  `Message` bigint(20) unsigned NOT NULL,
-  `User` bigint(20) unsigned NOT NULL,
-  PRIMARY KEY (`Message`,`User`),
-  KEY `PINGS_USERS` (`User`),
-  CONSTRAINT `PINGS_CHATLOG` FOREIGN KEY (`Message`) REFERENCES `chatlog` (`ID`),
-  CONSTRAINT `PINGS_USERS` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.polloptions
 CREATE TABLE IF NOT EXISTS `polloptions` (
   `Poll` bigint(20) unsigned NOT NULL,
@@ -607,7 +594,6 @@ CREATE TABLE IF NOT EXISTS `votes` (
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
 CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW BEGIN
-DELETE FROM pings WHERE Message = OLD.ID;
 DELETE FROM editlog WHERE ID = OLD.ID;
 END//
 DELIMITER ;
