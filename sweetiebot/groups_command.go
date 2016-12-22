@@ -56,7 +56,7 @@ func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message, info *G
 	info.config.Basic.Groups[arg] = group
 	info.SaveConfig()
 
-	return "```Successfully created the " + arg + " group! Join it using !joingroup " + arg + " and ping it using !ping " + arg + "```", false, nil
+	return "```Successfully created the " + arg + " group! Join it using !joingroup " + arg + " and ping it using !ping " + arg + ".```", false, nil
 }
 func (c *AddGroupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -88,7 +88,7 @@ func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message, info *
 	info.config.Basic.Groups[arg][msg.Author.ID] = true
 	info.SaveConfig()
 
-	return "```Successfully joined the " + arg + " group! Ping it using !ping " + arg + " or leave it using !leavegroup " + arg + "```", false, nil
+	return "```Successfully joined the " + arg + " group! Ping it using !ping " + arg + " or leave it using !leavegroup " + arg + ". WARNING: Pinging a group will ping EVERYONE IN THE GROUP.```", false, nil
 }
 func (c *JoinGroupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
