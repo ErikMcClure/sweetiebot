@@ -16,10 +16,6 @@ type BotDB struct {
 	log                      Logger
 	sql_AddMessage           *sql.Stmt
 	sql_GetMessage           *sql.Stmt
-	sql_AddPing              *sql.Stmt
-	sql_GetPing              *sql.Stmt
-	sql_GetPingContext       *sql.Stmt
-	sql_GetPingContextBefore *sql.Stmt
 	sql_AddUser              *sql.Stmt
 	sql_AddMember            *sql.Stmt
 	sql_GetUser              *sql.Stmt
@@ -115,10 +111,6 @@ func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
-	db.sql_AddPing, err = db.Prepare("INSERT INTO pings (Message, User) VALUES (?, ?) ON DUPLICATE KEY UPDATE Message = Message")
-	db.sql_GetPing, err = db.Prepare("SELECT C.ID, C.Channel FROM pings P RIGHT OUTER JOIN chatlog C ON P.Message = C.ID WHERE C.Guild = ? AND (P.User = ? OR (C.Everyone = 1 AND C.Channel != ?)) ORDER BY Timestamp DESC LIMIT 1 OFFSET ?")
-	db.sql_GetPingContext, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID >= ? AND C.Channel = ? ORDER BY C.ID ASC LIMIT ?")
-	db.sql_GetPingContextBefore, err = db.Prepare("SELECT U.Username, C.Message, C.Timestamp FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.ID < ? AND C.Channel = ? ORDER BY C.ID DESC LIMIT ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen, Timezone, Location, DefaultServer FROM users WHERE ID = ?")
@@ -148,7 +140,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sql_GetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sql_GetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
-	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nPings: ', (SELECT COUNT(*) FROM pings), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
+	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
 	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sql_Audit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
 	db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
@@ -220,54 +212,11 @@ func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
 	db.log.LogError("GetMessage error: ", err)
 	return author, message, timestamp, channel
 }
-func (db *BotDB) AddPing(message uint64, user uint64) {
-	_, err := db.sql_AddPing.Exec(message, user)
-	db.log.LogError("AddPing error: ", err)
-}
-
-func (db *BotDB) GetPing(user uint64, offset int, modchannel uint64, guild uint64) (uint64, uint64) {
-	var id uint64
-	var channel uint64
-	err := db.sql_GetPing.QueryRow(guild, user, modchannel, offset).Scan(&id, &channel)
-	if err == sql.ErrNoRows {
-		return 0, 0
-	}
-	db.log.LogError("GetPing error: ", err)
-	return id, channel
-}
 
 type PingContext struct {
 	Author    string
 	Message   string
 	Timestamp time.Time
-}
-
-func (db *BotDB) GetPingContext(message uint64, channel uint64, maxresults int) []PingContext {
-	q, err := db.sql_GetPingContext.Query(message, channel, maxresults)
-	db.log.LogError("GetPingContext error: ", err)
-	defer q.Close()
-	r := make([]PingContext, 0, maxresults)
-	for q.Next() {
-		p := PingContext{}
-		if err := q.Scan(&p.Author, &p.Message, &p.Timestamp); err == nil {
-			r = append(r, p)
-		}
-	}
-	return r
-}
-
-func (db *BotDB) GetPingContextBefore(message uint64, channel uint64, maxresults int) []PingContext {
-	q, err := db.sql_GetPingContextBefore.Query(message, channel, maxresults)
-	db.log.LogError("GetPingContextBefore error: ", err)
-	defer q.Close()
-	r := make([]PingContext, 0, maxresults)
-	for q.Next() {
-		p := PingContext{}
-		if err := q.Scan(&p.Author, &p.Message, &p.Timestamp); err == nil {
-			r = append(r, p)
-		}
-	}
-	return r
 }
 
 func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool, isonline bool) {
