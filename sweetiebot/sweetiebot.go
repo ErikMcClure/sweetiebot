@@ -129,7 +129,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.modchannel":            "This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.",
 	"basic.freechannels":          "This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.",
 	"basic.botchannel":            "This allows you to designate a particular channel for sweetie bot to point users to if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
-	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
+	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
 	"basic.groups":                "A map of groups. Manipulate it via the `!addgroup` and `!purgegroup` commands.",
 	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
@@ -1222,7 +1222,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 2, 1},
+		version:            Version{0, 9, 2, 2},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1236,6 +1236,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 2, 2):  "- Update help text.",
 			AssembleVersion(0, 9, 2, 1):  "- Add !joingroup warning to deal with breathtaking stupidity of zootopia users.",
 			AssembleVersion(0, 9, 2, 0):  "- Remove !lastping\n- Help now lists modules with no commands",
 			AssembleVersion(0, 9, 1, 1):  "- Fix crash in !getconfig",
