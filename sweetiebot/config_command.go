@@ -338,7 +338,7 @@ func (c *QuickConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
 			CommandUsageParam{Name: "Free Channel", Desc: "A list of channel IDs that are excluded from rate limiting. If you have a `#bot` channel for spamming the bot, add it here.", Optional: false},
 			CommandUsageParam{Name: "Silent Role", Desc: "A role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.", Optional: false},
-			CommandUsageParam{Name: "Bored Channel", Desc: "Either the channel that sweetiebot will post bored messages on, or 0, which will disable the bored module. *This is not a real config option*, to manually set this option, use `!setconfig module_channels bored #channelname`", Optional: false},
+			CommandUsageParam{Name: "Bored Channel", Desc: "Either the channel that sweetiebot will post bored messages on, or 0, which will disable the bored module. *This is not a real config option*, to manually set this option, use `!setconfig Modules.Channels bored #channelname`", Optional: false},
 		},
 	}
 }
