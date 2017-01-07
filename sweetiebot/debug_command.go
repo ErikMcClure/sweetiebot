@@ -90,15 +90,20 @@ func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, info *
 		channel = arg[2 : len(arg)-1]
 		i++
 	}
+	if i >= len(args) {
+		return "```A URL is mandatory or discord won't send the embed message for some stupid reason.```", false, nil
+	}
 	url := args[i]
 	i++
-	var color uint64
-	if colorregex.MatchString(args[i]) {
-		if len(args) < i+2 {
-			return "```You have to tell me to say something, silly!```", false, nil
+	var color uint64 = 0xFFFFFFFF
+	if i < len(args) {
+		if colorregex.MatchString(args[i]) {
+			if len(args) < i+2 {
+				return "```You have to tell me to say something, silly!```", false, nil
+			}
+			color, _ = strconv.ParseUint(args[i][2:], 16, 64)
+			i++
 		}
-		color, _ = strconv.ParseUint(args[i][2:], 16, 64)
-		i++
 	}
 	fields := make([]*discordgo.MessageEmbedField, 0, len(args)-i)
 	for i < len(args) {
