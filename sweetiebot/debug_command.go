@@ -43,7 +43,7 @@ type EchoCommand struct {
 func (c *EchoCommand) Name() string {
 	return "Echo"
 }
-func (c *EchoCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *EchoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "```You have to tell me to say something, silly!```", false, nil
 	}
@@ -52,10 +52,10 @@ func (c *EchoCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		if len(args) < 2 {
 			return "```You have to tell me to say something, silly!```", false, nil
 		}
-		info.SendMessage(arg[2:len(arg)-1], strings.Join(args[1:], " "))
+		info.SendMessage(arg[2:len(arg)-1], msg.Content[indices[1]:])
 		return "", false, nil
 	}
-	return strings.Join(args, " "), false, nil
+	return msg.Content[indices[0]:], false, nil
 }
 func (c *EchoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -76,7 +76,7 @@ type EchoEmbedCommand struct {
 func (c *EchoEmbedCommand) Name() string {
 	return "EchoEmbed"
 }
-func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "```You have to tell me to say something, silly!```", false, nil
 	}
@@ -192,7 +192,7 @@ type DisableCommand struct {
 func (c *DisableCommand) Name() string {
 	return "Disable"
 }
-func (c *DisableCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *DisableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return SetCommandEnable(args, false, " was disabled.", info, msg.ChannelID)
 }
 func (c *DisableCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -211,7 +211,7 @@ type EnableCommand struct {
 func (c *EnableCommand) Name() string {
 	return "Enable"
 }
-func (c *EnableCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *EnableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return SetCommandEnable(args, true, " was enabled.", info, msg.ChannelID)
 }
 func (c *EnableCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -232,7 +232,7 @@ type UpdateCommand struct {
 func (c *UpdateCommand) Name() string {
 	return "Update"
 }
-func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
@@ -264,7 +264,7 @@ type DumpTablesCommand struct {
 func (c *DumpTablesCommand) Name() string {
 	return "DumpTables"
 }
-func (c *DumpTablesCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *DumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return "```\n" + sb.db.GetTableCounts() + "```", false, nil
 }
 func (c *DumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -290,7 +290,7 @@ type ListGuildsCommand struct {
 func (c *ListGuildsCommand) Name() string {
 	return "ListGuilds"
 }
-func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	guilds := []*GuildInfo{}
 	for _, v := range sb.guilds {
@@ -323,13 +323,13 @@ type AnnounceCommand struct {
 func (c *AnnounceCommand) Name() string {
 	return "Announce"
 }
-func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
 	}
 
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	for _, v := range sb.guilds {
 		v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
 	}
@@ -351,7 +351,7 @@ type RemoveAliasCommand struct {
 func (c *RemoveAliasCommand) Name() string {
 	return "RemoveAlias"
 }
-func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
@@ -362,7 +362,7 @@ func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, info
 	if len(args) < 2 {
 		return "```You must provide an alias to remove.```", false, nil
 	}
-	sb.db.RemoveAlias(PingAtoi(args[0]), strings.Join(args[1:], " "))
+	sb.db.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
 	return "```Attempted to remove the alias. Use !aka to check if it worked.```", false, nil
 }
 func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {

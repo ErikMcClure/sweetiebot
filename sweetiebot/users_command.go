@@ -42,7 +42,7 @@ type NewUsersCommand struct {
 func (c *NewUsersCommand) Name() string {
 	return "newusers"
 }
-func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	maxresults := 5
 	if len(args) > 0 {
 		maxresults, _ = strconv.Atoi(args[0])
@@ -79,11 +79,11 @@ type AKACommand struct {
 func (c *AKACommand) Name() string {
 	return "aka"
 }
-func (c *AKACommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to search for.```", false, nil
 	}
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
@@ -113,7 +113,7 @@ func (c *AKACommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
 
-func ProcessDurationAndReason(args []string, ty uint8, uID string, gID uint64) (string, string) {
+func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, uID string, gID uint64) (string, string) {
 	reason := ""
 	if len(args) > 0 {
 		if strings.ToLower(args[0]) == "for:" {
@@ -157,10 +157,10 @@ func ProcessDurationAndReason(args []string, ty uint8, uID string, gID uint64) (
 			}
 
 			if len(args) > 3 {
-				reason = strings.Join(args[3:], " ")
+				reason = msg.Content[indices[3]:]
 			}
 		} else {
-			reason = strings.Join(args, " ")
+			reason = msg.Content[indices[0]:]
 		}
 	}
 	return reason, ""
@@ -174,7 +174,7 @@ func (c *BanCommand) Name() string {
 	return "ban"
 }
 
-func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	// make sure we passed a valid argument to the command
 	if len(args) < 1 {
 		return "```You didn't tell me who to zap with the friendship gun, silly.```", false, nil
@@ -195,7 +195,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 		return "```Error: User does not exist!```", false, nil
 	}
 	uID := SBitoa(IDs[0])
-	reason, e := ProcessDurationAndReason(args[1:], 0, uID, gID)
+	reason, e := ProcessDurationAndReason(args[1:], msg, indices[1:], 0, uID, gID)
 	if len(e) > 0 {
 		return e, false, nil
 	}
@@ -226,12 +226,12 @@ func (c *TimeCommand) Name() string {
 	return "time"
 }
 
-func (c *TimeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *TimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```This server's local time is: " + ApplyTimezone(time.Now().UTC(), info, nil).Format("Jan 2, 3:04pm```"), false, nil
 	}
 
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
@@ -263,7 +263,7 @@ func (c *SetTimeZoneCommand) Name() string {
 	return "settimezone"
 }
 
-func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to specify what your timezone is!```", false, nil
 	}
@@ -316,11 +316,11 @@ type UserInfoCommand struct {
 func (c *UserInfoCommand) Name() string {
 	return "UserInfo"
 }
-func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to search for.```", false, nil
 	}
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
@@ -392,22 +392,26 @@ type DefaultServerCommand struct {
 func (c *DefaultServerCommand) Name() string {
 	return "DefaultServer"
 }
-func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	gIDs := sb.db.GetUserGuilds(SBatoi(msg.Author.ID))
-	guilds := findServers(strings.Join(args, " "), gIDs)
-	if len(guilds) > 1 {
-		names := make([]string, len(guilds), len(guilds))
-		for k, v := range guilds {
-			names[k] = v.Guild.Name
-		}
+	find := ""
+	if len(args) > 0 {
+		find = msg.Content[indices[0]:]
+	}
+	guilds := findServers(find, gIDs)
+	names := make([]string, len(guilds), len(guilds))
+	for k, v := range guilds {
+		names[k] = v.Guild.Name
+	}
 
-		if len(args) < 1 {
-			server := getDefaultServer(SBatoi(msg.Author.ID))
-			if server != nil {
-				return fmt.Sprintf("```Your default server is %s. You are on the following servers:\n%s```", server.Guild.Name, strings.Join(names, "\n")), false, nil
-			}
-			return fmt.Sprintf("```You have no default server. You are on the following servers:\n%s```", strings.Join(names, "\n")), false, nil
+	if len(args) < 1 {
+		server := getDefaultServer(SBatoi(msg.Author.ID))
+		if server != nil {
+			return fmt.Sprintf("```Your default server is %s. You are on the following servers:\n%s```", server.Guild.Name, strings.Join(names, "\n")), false, nil
 		}
+		return fmt.Sprintf("```You have no default server. You are on the following servers:\n%s```", strings.Join(names, "\n")), false, nil
+	}
+	if len(guilds) > 1 {
 		return "```Could be any of the following servers:\n" + strings.Join(names, "\n") + "```", false, nil
 	}
 	if len(guilds) < 1 {
@@ -433,7 +437,7 @@ type SilenceCommand struct {
 func (c *SilenceCommand) Name() string {
 	return "Silence"
 }
-func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to silence.```", false, nil
 	}
@@ -455,7 +459,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, info *Gu
 
 	gID := SBatoi(info.Guild.ID)
 	uID := SBitoa(IDs[0])
-	reason, e := ProcessDurationAndReason(args[index:], 8, uID, gID)
+	reason, e := ProcessDurationAndReason(args[index:], msg, indices[index:], 8, uID, gID)
 	if len(e) > 0 {
 		return e, false, nil
 	}
@@ -505,11 +509,11 @@ type UnsilenceCommand struct {
 func (c *UnsilenceCommand) Name() string {
 	return "Unsilence"
 }
-func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to unsilence.```", false, nil
 	}
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil

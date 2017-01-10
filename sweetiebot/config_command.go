@@ -36,7 +36,7 @@ type SetConfigCommand struct {
 func (c *SetConfigCommand) Name() string {
 	return "SetConfig"
 }
-func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No configuration parameter to look for!```", false, nil
 	}
@@ -144,7 +144,7 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect
 	return "```\n" + strings.Join(s, "\n") + "```", false, nil
 }
 
-func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	t := reflect.ValueOf(&info.config).Elem()
 	n := t.NumField()
 	if len(args) < 1 {
@@ -266,7 +266,7 @@ type QuickConfigCommand struct {
 func (c *QuickConfigCommand) Name() string {
 	return "QuickConfig"
 }
-func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if msg.Author.ID != info.Guild.OwnerID {
 		return "```Only the owner of this server can use this command!```", false, nil
 	}

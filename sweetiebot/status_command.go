@@ -1,8 +1,6 @@
 package sweetiebot
 
 import (
-	"strings"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -29,12 +27,12 @@ type SetStatusCommand struct {
 func (c *SetStatusCommand) Name() string {
 	return "SetStatus"
 }
-func (c *SetStatusCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SetStatusCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		sb.dg.UpdateStatus(0, "")
 		return "```Removed status```", false, nil
 	}
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	sb.dg.UpdateStatus(0, arg)
 	return "```Set status to " + arg + "```", false, nil
 }

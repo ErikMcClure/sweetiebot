@@ -125,7 +125,7 @@ type ScheduleCommand struct {
 func (c *ScheduleCommand) Name() string {
 	return "Schedule"
 }
-func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	maxresults := 5
 	var ty uint8
 	ty = 255
@@ -258,7 +258,7 @@ type NextCommand struct {
 func (c *NextCommand) Name() string {
 	return "Next"
 }
-func (c *NextCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *NextCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must specify an event type.```", false, nil
 	}
@@ -344,7 +344,7 @@ func parseRepeatInterval(s string) uint8 {
 func (c *AddEventCommand) Name() string {
 	return "AddEvent"
 }
-func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 2 {
 		return "```At least a type and a date must be specified!```", false, nil
 	}
@@ -393,14 +393,14 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, info *G
 		}
 
 		if len(args) > 3 {
-			data += strings.Join(args[3:], " ")
+			data += msg.Content[indices[3]:]
 		}
 		if !sb.db.AddScheduleRepeat(SBatoi(info.Guild.ID), t, repeatinterval, repeat, ty, data) {
 			return "```Error: servers can't have more than 5000 events!```", false, nil
 		}
 	} else {
 		if len(args) > 2 {
-			data += strings.Join(args[2:], " ")
+			data += msg.Content[indices[2]:]
 		}
 
 		if !sb.db.AddSchedule(SBatoi(info.Guild.ID), t, ty, data) {
@@ -439,7 +439,7 @@ type RemoveEventCommand struct {
 func (c *RemoveEventCommand) Name() string {
 	return "RemoveEvent"
 }
-func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must specify an event ID.```", false, nil
 	}
@@ -475,7 +475,7 @@ type RemindMeCommand struct {
 func (c *RemindMeCommand) Name() string {
 	return "RemindMe"
 }
-func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 3 {
 		return "```You must start your message with 'in' or 'on', followed by a time or duration, followed by a message.```", false, nil
 	}
@@ -509,7 +509,10 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		default:
 			return "```Unknown duration type! Acceptable types are seconds, minutes, hours, days, weeks, months, and years.```", false, nil
 		}
-		arg = strings.Join(args[3:], " ")
+		if len(indices) < 4 {
+			return "```You have to tell me what to say!```", false, nil
+		}
+		arg = msg.Content[indices[3]:]
 	case "on":
 		var err error
 		t, err = parseCommonTime(strings.ToLower(args[1]), info, msg.Author)
@@ -520,7 +523,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, info *G
 		if t.Before(time.Now().UTC()) {
 			return "```That was " + TimeDiff(time.Now().UTC().Sub(t)) + " ago, dumbass! You have to give me a time that's in the FUTURE!```", false, nil
 		}
-		arg = strings.Join(args[2:], " ")
+		arg = msg.Content[indices[2]:]
 	}
 
 	if len(arg) == 0 {
@@ -551,7 +554,7 @@ type AddBirthdayCommand struct {
 func (c *AddBirthdayCommand) Name() string {
 	return "AddBirthday"
 }
-func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 2 {
 		return "```You must first ping the member and then provide the date!```", false, nil
 	}

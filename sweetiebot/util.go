@@ -99,31 +99,39 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 	}
 	return s
 }
-func ParseArguments(s string) []string {
+func ParseArguments(s string) ([]string, []int) {
 	r := []string{}
+	indices := []int{}
 	l := len(s)
 	for i := 0; i < l; i++ {
 		c := s[i]
 		if !IsSpace(c) {
+			indices = append(indices, i+1) // This is i+1 because we send in m.Content[1:]
 			var start int
-
-			if c == '"' {
+			var end int
+			if c == '"' && (i < 1 || s[i-1] != '\\') {
 				i++
 				start = i
-				for i < (l-1) && (s[i] != '"' || !IsSpace(s[i+1])) {
+				for i < l && (s[i] != '"' || s[i-1] == '\\') {
 					i++
+				}
+				if s[i-1] == '\\' {
+					end = i - 1
+				} else {
+					end = i
 				}
 			} else {
 				start = i
 				i++
-				for i < l && !IsSpace(s[i]) {
+				for i < l && !IsSpace(s[i]) && (s[i] != '"' || s[i-1] == '\\') {
 					i++
 				}
+				end = i
 			}
-			r = append(r, s[start:i])
+			r = append(r, s[start:end])
 		}
 	}
-	return r
+	return r, indices
 }
 
 // This constructs an XOR operator for booleans
