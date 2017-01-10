@@ -36,7 +36,7 @@ type GiveCommand struct {
 func (c *GiveCommand) Name() string {
 	return "Give"
 }
-func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *GiveCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "[](/sadbot) `You didn't give me anything!`", false, nil
 	}
@@ -44,7 +44,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, info *Guild
 		return "```I don't have a bucket right now (bucket.max is 0).```", false, nil
 	}
 
-	arg := ExtraSanitize(strings.Join(args, " "))
+	arg := ExtraSanitize(msg.Content[indices[0]:])
 	if len(arg) > info.config.Bucket.MaxItemLength {
 		return "```That's too big! Give me something smaller!```", false, nil
 	}
@@ -96,14 +96,14 @@ func (c *DropCommand) Name() string {
 	return "Drop"
 }
 
-func (c *DropCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *DropCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(info.config.Basic.Collections["bucket"]) == 0 {
 		return "[Realizes her bucket is empty]", false, nil
 	}
 	if len(args) < 1 {
 		return "Throws " + BucketDropRandom(info), false, nil
 	}
-	arg := strings.Join(args, " ")
+	arg := msg.Content[indices[0]:]
 	_, ok := info.config.Basic.Collections["bucket"][arg]
 	if !ok {
 		return "```I don't have " + arg + "!```", false, nil
@@ -128,7 +128,7 @@ type ListCommand struct {
 func (c *ListCommand) Name() string {
 	return "List"
 }
-func (c *ListCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ListCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	things := MapToSlice(info.config.Basic.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I'm not carrying anything.```", false, nil
@@ -154,7 +154,7 @@ type FightCommand struct {
 func (c *FightCommand) Name() string {
 	return "Fight"
 }
-func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	things := MapToSlice(info.config.Basic.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I have nothing to fight with!```", false, nil
@@ -167,7 +167,7 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, info *Guil
 	}
 	if len(c.monster) == 0 {
 		if len(args) > 0 {
-			c.monster = strings.Join(args, " ")
+			c.monster = msg.Content[indices[0]:]
 		} else {
 			if info.config.Markov.UseMemberNames {
 				c.monster = sb.db.GetRandomMember(SBatoi(info.Guild.ID))

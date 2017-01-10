@@ -34,7 +34,7 @@ type QuoteCommand struct {
 func (c *QuoteCommand) Name() string {
 	return "Quote"
 }
-func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		l := 0
 		for _, v := range info.config.Quote.Quotes {
@@ -99,7 +99,7 @@ type AddQuoteCommand struct {
 func (c *AddQuoteCommand) Name() string {
 	return "AddQuote"
 }
-func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Must specify username.```", false, nil
 	}
@@ -119,7 +119,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, info *G
 	if len(info.config.Quote.Quotes) == 0 {
 		info.config.Quote.Quotes = make(map[uint64][]string)
 	}
-	info.config.Quote.Quotes[IDs[0]] = append(info.config.Quote.Quotes[IDs[0]], strings.Join(args[1:], " "))
+	info.config.Quote.Quotes[IDs[0]] = append(info.config.Quote.Quotes[IDs[0]], msg.Content[indices[1]:])
 	info.SaveConfig()
 	return "```Quote added to " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
 }
@@ -140,7 +140,7 @@ type RemoveQuoteCommand struct {
 func (c *RemoveQuoteCommand) Name() string {
 	return "RemoveQuote"
 }
-func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Must specify username.```", false, nil
 	}
@@ -187,7 +187,7 @@ type SearchQuoteCommand struct {
 func (c *SearchQuoteCommand) Name() string {
 	return "SearchQuote"
 }
-func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		s := make([]uint64, 0, len(info.config.Quote.Quotes))
 		for k, v := range info.config.Quote.Quotes {

@@ -26,7 +26,7 @@ func MsgHighlightMatch(msg string, match string) string {
 	msg = strings.Replace(msg, "**"+match, match, -1)      // helps prevent ** from exploding everywhere because discord is bad at isolation.
 	return strings.Replace(msg, match, "**"+match+"**", -1)
 }
-func (c *SearchCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if c.lock.test_and_set() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
