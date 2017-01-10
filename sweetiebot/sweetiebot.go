@@ -186,6 +186,7 @@ type GuildInfo struct {
 	hooks        ModuleHooks
 	modules      []Module
 	commands     map[string]Command
+	InitSB       bool
 }
 
 type Version struct {
@@ -486,6 +487,11 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
 	sb.SelfAvatar = r.User.Avatar
+	if r.Guilds != nil {
+		for _, G := range r.Guilds {
+			AttachToGuild(G)
+		}
+	}
 
 	// Only used to change sweetiebot's name or avatar
 	//ChangeBotName(s, "Sweetie", "avatar.jpg")
@@ -515,6 +521,13 @@ func (w *MiscModule) Description() string {
 
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[SBatoi(g.ID)]
+	for _, testguild := range SweetieBot.guilds {
+		if g.ID == testguild.Guild.ID {
+			if testguild.InitSB == true {
+				return
+			}
+		}
+	}
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
