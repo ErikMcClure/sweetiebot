@@ -533,6 +533,7 @@ func IsInitiated(g *discordgo.Guild) bool {
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[SBatoi(g.ID)]
 	if IsInitiated(g) == true {
+		fmt.Println("Guild " + g.Name + " called, already loaded.")
 		return
 	}
 	if sb.Debug {
