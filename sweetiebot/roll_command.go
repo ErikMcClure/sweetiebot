@@ -278,7 +278,7 @@ func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 
 
 	return r
 }
-func (c *RollCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Nothing to roll or calculate!```", false, nil
 	}

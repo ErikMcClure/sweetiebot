@@ -118,7 +118,7 @@ type CommandUsage struct {
 // Commands are any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
 	Name() string
-	Process([]string, *discordgo.Message, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
+	Process([]string, *discordgo.Message, []int, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
 	Usage(*GuildInfo) *CommandUsage
 	UsageShort() string
 }

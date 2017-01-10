@@ -120,7 +120,7 @@ func WitRemove(wit string, info *GuildInfo) bool {
 	return ok
 }
 
-func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 2 {
 		return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false, nil
 	}
@@ -144,7 +144,7 @@ func (c *AddWitCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Adds a `response` that is triggered by `trigger`.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "trigger", Desc: "Any valid regex string, but it must be in quotes if it has spaces.", Optional: false},
-			CommandUsageParam{Name: "response", Desc: "All possible responses, split up by `|`. Does not require quotes.", Optional: false},
+			CommandUsageParam{Name: "response", Desc: "All possible responses, split up by `|`. Also requires quotes if it has spaces.", Optional: false},
 		},
 	}
 }
@@ -158,7 +158,7 @@ func (c *RemoveWitCommand) Name() string {
 	return "RemoveWit"
 }
 
-func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide both a trigger to remove!```", false, nil
 	}
