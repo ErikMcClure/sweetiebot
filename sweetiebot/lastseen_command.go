@@ -12,8 +12,11 @@ type LastSeenCommand struct {
 func (c *LastSeenCommand) Name() string {
 	return "LastSeen"
 }
-func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	arg := strings.Join(args, " ")
+func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(indices) < 1 {
+		return "```You have to give me someone to look for!```", false, nil
+	}
+	arg := msg.Content[indices[0]:]
 	IDs := FindUsername(arg, info)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil

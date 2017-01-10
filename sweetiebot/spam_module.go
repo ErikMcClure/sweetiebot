@@ -181,7 +181,7 @@ type AutoSilenceCommand struct {
 func (c *AutoSilenceCommand) Name() string {
 	return "AutoSilence"
 }
-func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide an auto silence level (either all, raid, or off).```", false, nil
 	}
@@ -233,7 +233,7 @@ type WipeWelcomeCommand struct {
 func (c *WipeWelcomeCommand) Name() string {
 	return "WipeWelcome"
 }
-func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	ch := SBitoa(info.config.Users.WelcomeChannel)
 	list, err := sb.dg.ChannelMessages(ch, 99, "", "")
 	if err != nil {

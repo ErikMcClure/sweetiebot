@@ -68,7 +68,7 @@ func DumpCommandsModules(channelID string, info *GuildInfo, footer string, descr
 	}
 }
 
-func (c *HelpCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *HelpCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "", true, DumpCommandsModules(msg.ChannelID, info, "For more information on a specific command, type !help [command].", "")
 	}
@@ -126,7 +126,7 @@ type AboutCommand struct {
 func (c *AboutCommand) Name() string {
 	return "About"
 }
-func (c *AboutCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	tag := " [release]"
 	if sb.Debug {
 		tag = " [debug]"
@@ -165,7 +165,7 @@ type RulesCommand struct {
 func (c *RulesCommand) Name() string {
 	return "Rules"
 }
-func (c *RulesCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RulesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(info.config.Help.Rules) == 0 {
 		return "```I don't know what the rules are in this server... ¯\\_(ツ)_/¯```", false, nil
 	}
@@ -209,7 +209,7 @@ type ChangelogCommand struct {
 func (c *ChangelogCommand) Name() string {
 	return "Changelog"
 }
-func (c *ChangelogCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ChangelogCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	v := Version{0, 0, 0, 0}
 	if len(args) == 0 {
 		versions := make([]string, 0, len(sb.changelog)+1)

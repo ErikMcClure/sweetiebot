@@ -759,7 +759,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			}
 		}
 
-		args := ParseArguments(m.Content[1:])
+		args, indices := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
 		if info == nil {
 			info = getDefaultServer(SBatoi(m.Author.ID))
@@ -779,14 +779,18 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		alias, ok := info.config.Basic.Aliases[arg]
 		if ok {
-			nargs := ParseArguments(alias)
-			args = append(nargs, args[1:]...)
+			if len(indices) > 1 {
+				m.Content = "!" + alias + " " + m.Content[indices[1]:]
+			} else {
+				m.Content = "!" + alias
+			}
+			args, indices = ParseArguments(m.Content[1:])
 			arg = strings.ToLower(args[0])
 		}
 		c, ok := info.commands[arg]
 		if ok {
 			if isdbguild {
-				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, strings.Join(args, " "), SBatoi(info.Guild.ID))
+				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.Guild.ID))
 			}
 			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 			cmdname := strings.ToLower(c.Name())
@@ -831,7 +835,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				info.command_last[m.ChannelID][cmdname] = t
 			}
 
-			result, usepm, resultembed := c.Process(args[1:], m, info)
+			result, usepm, resultembed := c.Process(args[1:], m, indices[1:], info)
 			if len(result) > 0 || resultembed != nil {
 				targetchannel := m.ChannelID
 				if usepm && !private {
@@ -1222,7 +1226,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 2, 3},
+		version:            Version{0, 9, 3, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1236,6 +1240,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 3, 0):  "- Make argument parsing more consistent\n- All commands that accepted a trailing argument without quotes no longer strip quotes out. The quotes will now be included in the query, so don't put them in if you don't want them!\n- You can now escape '\"' inside an argument via '\\\"', which will work even if discord does not show the \\ character.",
 			AssembleVersion(0, 9, 2, 3):  "- Fix echoembed crash when putting in invalid parameters.",
 			AssembleVersion(0, 9, 2, 2):  "- Update help text.",
 			AssembleVersion(0, 9, 2, 1):  "- Add !joingroup warning to deal with breathtaking stupidity of zootopia users.",

@@ -37,7 +37,7 @@ type EpisodeGenCommand struct {
 func (c *EpisodeGenCommand) Name() string {
 	return "episodegen"
 }
-func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if c.lock.test_and_set() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
@@ -96,7 +96,7 @@ var quoteargregex = regexp.MustCompile("s[0-9]+e[0-9]+")
 func (c *EpisodeQuoteCommand) Name() string {
 	return "EpisodeQuote"
 }
-func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}
@@ -175,7 +175,7 @@ type ShipCommand struct {
 func (c *ShipCommand) Name() string {
 	return "ship"
 }
-func (c *ShipCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}
@@ -239,7 +239,7 @@ type BestPonyCommand struct {
 func (c *BestPonyCommand) Name() string {
 	return "BestPony"
 }
-func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}

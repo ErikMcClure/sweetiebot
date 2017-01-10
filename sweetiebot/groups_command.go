@@ -38,7 +38,7 @@ func (c *AddGroupCommand) Name() string {
 	return "AddGroup"
 }
 
-func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to name the group!```", false, nil
 	}
@@ -75,7 +75,7 @@ func (c *JoinGroupCommand) Name() string {
 	return "JoinGroup"
 }
 
-func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *JoinGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false, nil
 	}
@@ -107,7 +107,7 @@ func (c *ListGroupCommand) Name() string {
 	return "ListGroup"
 }
 
-func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		if len(info.config.Basic.Groups) <= 0 {
 			return "```No groups to list!```", false, nil
@@ -159,7 +159,7 @@ func (c *LeaveGroupCommand) Name() string {
 	return "LeaveGroup"
 }
 
-func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *LeaveGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false, nil
 	}
@@ -222,7 +222,7 @@ func (c *PingCommand) Name() string {
 	return "Ping"
 }
 
-func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *PingCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false, nil
 	}
@@ -230,6 +230,11 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 	args = append(nargs, args[1:]...)
 	arg := strings.TrimSpace(strings.ToLower(args[0]))
 	_, ok := info.config.Basic.Groups[arg]
+	m := ""
+	if len(indices) > 1 {
+		m = msg.Content[indices[1]:]
+	}
+
 	if !ok {
 		groups := strings.Split(arg, "+")
 		for _, v := range groups {
@@ -242,14 +247,14 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, info *Guild
 				return fmt.Sprintf("```You aren't a member of %s. You can only ping groups you are a member of.```", v), false, nil
 			}
 		}
-		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(groups, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
+		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(groups, info)+" "+info.SanitizeOutput(m))
 
 	} else {
 		_, ok = info.config.Basic.Groups[arg][msg.Author.ID]
 		if !ok {
 			return "```You can only ping groups you are a member of.```", false, nil
 		}
-		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings([]string{arg}, info)+" "+info.SanitizeOutput(strings.Join(args[1:], " ")))
+		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings([]string{arg}, info)+" "+info.SanitizeOutput(m))
 	}
 	return "", false, nil
 }
@@ -271,7 +276,7 @@ func (c *PurgeGroupCommand) Name() string {
 	return "PurgeGroup"
 }
 
-func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *PurgeGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a group name!```", false, nil
 	}
