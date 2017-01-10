@@ -436,11 +436,35 @@ func ExtraSanitize(s string) string {
 	return ReplaceAllMentions(s)
 }
 
+func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
+	ch, err := sb.dg.State.Channel(channelID)
+	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
+		return ch, ch.IsPrivate
+	}
+	fmt.Println("Error retrieving channel "+channelID+": ", err.Error())
+	return nil, true
+}
+
 func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) bool {
+	ch, private := ChannelIsPrivate(channelID)
+	if !private && ch.GuildID != info.Guild.ID {
+		if SBatoi(channelID) != info.config.Log.Channel {
+			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
+		}
+		return false
+	}
 	sb.dg.ChannelMessageSendEmbed(channelID, embed)
 	return true
 }
+
 func (info *GuildInfo) SendMessage(channelID string, message string) bool {
+	ch, private := ChannelIsPrivate(channelID)
+	if !private && ch.GuildID != info.Guild.ID {
+		if SBatoi(channelID) != info.config.Log.Channel {
+			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
+		}
+		return false
+	}
 	sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
 	return true
 }
@@ -745,7 +769,7 @@ func GetAddMsg(info *GuildInfo) string {
 	return ""
 }
 
-func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool, err error) {
+func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool) {
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
 		private := info == nil
@@ -818,7 +842,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					return
 				}
 			}
-			if err == nil && !isdebug && !isfree && !isSelf { // debug channels aren't limited
+			if !isdebug && !isfree && !isSelf { // debug channels aren't limited
 				if info.commandlimit.check(info.config.Modules.CommandPerDuration, info.config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
 					info.log.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), GetAddMsg(info)))
 					return
@@ -851,6 +875,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					info.log.LogError("Error opening private channel: ", err)
 					if err == nil {
 						targetchannel = channel.ID
+						private = true
 						if rand.Float32() < 0.01 {
 							info.SendMessage(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
 						} else {
@@ -904,14 +929,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	t := time.Now().UTC().Unix()
 	sb.LastMessages[m.ChannelID] = t
 
-	ch, err := sb.dg.State.Channel(m.ChannelID)
-	private := true
-	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-		private = ch.IsPrivate
-	} else {
-		fmt.Println("Error retrieving channel "+m.ChannelID+": ", err.Error())
-	}
-
+	ch, private := ChannelIsPrivate(m.ChannelID)
 	var info *GuildInfo = nil
 	isdbguild := true
 	isdebug := false
@@ -943,7 +961,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug, err)
+	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug)
 }
 
 func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
@@ -1243,7 +1261,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 3, 3},
+		version:            Version{0, 9, 3, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1257,6 +1275,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 3, 4):  "- Prevent cross-server message sending exploit, without destroying all private messages this time.",
 			AssembleVersion(0, 9, 3, 3):  "- Emergency revert change.",
 			AssembleVersion(0, 9, 3, 2):  "- Prevent cross-server message sending exploit.",
 			AssembleVersion(0, 9, 3, 1):  "- Allow sweetiebot to be executed as a user bot.",

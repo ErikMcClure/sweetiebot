@@ -40,7 +40,7 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 			},
 		}
 
-		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID), nil)
+		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID))
 	}
 }
 
