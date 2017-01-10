@@ -186,7 +186,6 @@ type GuildInfo struct {
 	hooks        ModuleHooks
 	modules      []Module
 	commands     map[string]Command
-	InitSB       bool
 }
 
 type Version struct {
@@ -487,7 +486,8 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
 	sb.SelfAvatar = r.User.Avatar
-	if r.Guilds != nil {
+	isuser, _ := ioutil.ReadFile("isuser")
+	if r.Guilds != nil && isuser != nil {
 		for _, G := range r.Guilds {
 			AttachToGuild(G)
 		}
@@ -519,23 +519,8 @@ func (w *MiscModule) Description() string {
 	return "A collection of miscellaneous commands that don't belong to a module."
 }
 
-func IsInitiated(g *discordgo.Guild) bool {
-	for _, testguild := range sb.guilds {
-		if g.ID == testguild.Guild.ID {
-			if testguild.InitSB == true {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[SBatoi(g.ID)]
-	if IsInitiated(g) == true {
-		fmt.Println("Guild " + g.Name + " called, already loaded.")
-		return
-	}
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
@@ -1247,7 +1232,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 3, 0},
+		version:            Version{0, 9, 3, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1261,6 +1246,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 3, 1):  "- Allow sweetiebot to be executed as a user bot.",
 			AssembleVersion(0, 9, 3, 0):  "- Make argument parsing more consistent\n- All commands that accepted a trailing argument without quotes no longer strip quotes out. The quotes will now be included in the query, so don't put them in if you don't want them!\n- You can now escape '\"' inside an argument via '\\\"', which will work even if discord does not show the \\ character.",
 			AssembleVersion(0, 9, 2, 3):  "- Fix echoembed crash when putting in invalid parameters.",
 			AssembleVersion(0, 9, 2, 2):  "- Update help text.",
