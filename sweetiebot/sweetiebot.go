@@ -436,11 +436,25 @@ func ExtraSanitize(s string) string {
 	return ReplaceAllMentions(s)
 }
 
-func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) {
+func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) bool {
+	if !info.HasChannel(channelID) {
+		if SBatoi(channelID) != info.config.Log.Channel {
+			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
+		}
+		return false
+	}
 	sb.dg.ChannelMessageSendEmbed(channelID, embed)
+	return true
 }
-func (info *GuildInfo) SendMessage(channelID string, message string) {
+func (info *GuildInfo) SendMessage(channelID string, message string) bool {
+	if !info.HasChannel(channelID) {
+		if SBatoi(channelID) != info.config.Log.Channel {
+			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
+		}
+		return false
+	}
 	sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
+	return true
 }
 
 func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
@@ -1188,6 +1202,15 @@ func ApplyFuncRange(length int, fn func(i int)) {
 	}
 }
 
+func (info *GuildInfo) HasChannel(id string) bool {
+	for _, v := range info.Guild.Channels {
+		if v.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
 func (info *GuildInfo) IdleCheckLoop() {
 	for !sb.quit {
 		channels := info.Guild.Channels
@@ -1232,7 +1255,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 3, 1},
+		version:            Version{0, 9, 3, 2},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1246,6 +1269,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 3, 2):  "- Prevent cross-server message sending exploit.",
 			AssembleVersion(0, 9, 3, 1):  "- Allow sweetiebot to be executed as a user bot.",
 			AssembleVersion(0, 9, 3, 0):  "- Make argument parsing more consistent\n- All commands that accepted a trailing argument without quotes no longer strip quotes out. The quotes will now be included in the query, so don't put them in if you don't want them!\n- You can now escape '\"' inside an argument via '\\\"', which will work even if discord does not show the \\ character.",
 			AssembleVersion(0, 9, 2, 3):  "- Fix echoembed crash when putting in invalid parameters.",
