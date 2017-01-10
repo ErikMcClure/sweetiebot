@@ -44,7 +44,7 @@ type AddCommand struct {
 func (c *AddCommand) Name() string {
 	return "Add"
 }
-func (c *AddCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *AddCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No collection given```", false, nil
 	}
@@ -62,7 +62,7 @@ func (c *AddCommand) Process(args []string, msg *discordgo.Message, info *GuildI
 
 	add := ""
 	length := make([]string, len(collections), len(collections))
-	arg := strings.Join(args[1:], " ")
+	arg := msg.Content[indices[1]:]
 	for k, v := range collections {
 		info.config.Basic.Collections[v][arg] = true
 		fn, ok := c.funcmap[v]
@@ -92,7 +92,7 @@ type RemoveCommand struct {
 func (c *RemoveCommand) Name() string {
 	return "Remove"
 }
-func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No collection given```", false, nil
 	}
@@ -106,7 +106,7 @@ func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, info *Gui
 		return "```That collection does not exist!```", false, nil
 	}
 
-	arg := strings.Join(args[1:], " ")
+	arg := msg.Content[indices[1]:]
 	_, ok = cmap[arg]
 	if !ok {
 		return "```Could not find " + arg + "!```", false, nil
@@ -171,7 +171,7 @@ func ShowAllCollections(message string, info *GuildInfo) *discordgo.MessageEmbed
 		Fields:      fields,
 	}
 }
-func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	const LINES int = 3
 	const MAXLENGTH int = 24
 	if len(args) < 1 {
@@ -204,7 +204,7 @@ type PickCommand struct {
 func (c *PickCommand) Name() string {
 	return "Pick"
 }
-func (c *PickCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *PickCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "", false, ShowAllCollections("No collection specified.", info)
 	}
@@ -238,7 +238,7 @@ type NewCommand struct {
 func (c *NewCommand) Name() string {
 	return "New"
 }
-func (c *NewCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *NewCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a new collection name.```", false, nil
 	}
@@ -272,7 +272,7 @@ type DeleteCommand struct {
 func (c *DeleteCommand) Name() string {
 	return "Delete"
 }
-func (c *DeleteCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *DeleteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a collection name.```", false, nil
 	}
@@ -307,7 +307,7 @@ type SearchCollectionCommand struct {
 func (c *SearchCollectionCommand) Name() string {
 	return "SearchCollection"
 }
-func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a new collection name.```", false, nil
 	}
@@ -324,7 +324,7 @@ func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message,
 		return "```That collection doesn't exist! Use !collections without any arguments to list them.```", false, nil
 	}
 	results := []string{}
-	arg := strings.Join(args[1:], " ")
+	arg := msg.Content[indices[1]:]
 	for k, _ := range cmap {
 		if strings.Contains(k, arg) {
 			results = append(results, k)
@@ -353,7 +353,7 @@ type ImportCommand struct {
 func (c *ImportCommand) Name() string {
 	return "Import"
 }
-func (c *ImportCommand) Process(args []string, msg *discordgo.Message, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No source server provided.```", false, nil
 	}
