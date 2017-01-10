@@ -186,6 +186,7 @@ type GuildInfo struct {
 	hooks        ModuleHooks
 	modules      []Module
 	commands     map[string]Command
+	InitSB       bool
 }
 
 type Version struct {
@@ -486,6 +487,11 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
 	sb.SelfAvatar = r.User.Avatar
+	if r.Guilds != nil {
+		for _, G := range r.Guilds {
+			AttachToGuild(G)
+		}
+	}
 
 	// Only used to change sweetiebot's name or avatar
 	//ChangeBotName(s, "Sweetie", "avatar.jpg")
@@ -513,8 +519,23 @@ func (w *MiscModule) Description() string {
 	return "A collection of miscellaneous commands that don't belong to a module."
 }
 
+func IsInitiated(g *discordgo.Guild) bool {
+	for _, testguild := range sb.guilds {
+		if g.ID == testguild.Guild.ID {
+			if testguild.InitSB == true {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.guilds[SBatoi(g.ID)]
+	if IsInitiated(g) == true {
+		fmt.Println("Guild " + g.Name + " called, already loaded.")
+		return
+	}
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
@@ -1306,7 +1327,13 @@ func Initialize(Token string) {
 	}
 
 	sb.db = db
-	sb.dg, err = discordgo.New("Bot " + Token)
+	isuser, _ := ioutil.ReadFile("isuser")
+	if isuser == nil {
+		sb.dg, err = discordgo.New("Bot " + Token)
+	} else {
+		sb.dg, err = discordgo.New(Token)
+		fmt.Println("Started SweetieBot on a user account.")
+	}
 	if err != nil {
 		fmt.Println("Error creating discord session", err.Error())
 		return
