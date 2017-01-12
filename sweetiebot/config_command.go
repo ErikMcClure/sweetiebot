@@ -245,13 +245,13 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		}
 	}
 
-	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which collection of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\"```", false, nil
+	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which category of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\". Using !getconfig with just a category will list help for that category, e.g. \"!getconfig Basic\".```", false, nil
 }
 func (c *GetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays a list of available configuration options or their values.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category.", Optional: true},
+			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category. If this is just a category, like `Basic`, lists help information for all config options in that category.", Optional: true},
 			CommandUsageParam{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `!getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
 		},
 	}
