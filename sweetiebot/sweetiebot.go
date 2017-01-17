@@ -1275,7 +1275,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 3, 6):  "- Add alertlog option to autosilence.\n- Ensure you actually belong to the server you set as your default.",
+			AssembleVersion(0, 9, 3, 6):  "- Add log option to autosilence.\n- Ensure you actually belong to the server you set as your default.",
 			AssembleVersion(0, 9, 3, 5):  "- Improve help messages.",
 			AssembleVersion(0, 9, 3, 4):  "- Prevent cross-server message sending exploit, without destroying all private messages this time.",
 			AssembleVersion(0, 9, 3, 3):  "- Emergency revert change.",
