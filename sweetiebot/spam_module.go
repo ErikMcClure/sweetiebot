@@ -168,6 +168,9 @@ func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
 	if info.config.Spam.AutoSilence == -1 {
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server.")
 	}
+	if info.config.Spam.AutoSilence == -2 {
+		info.SendMessage(SBitoa(info.config.Log.Channel), "<@"+m.User.ID+"> joined the server.")
+	}
 	w.checkRaid(info, m)
 }
 func (w *SpamModule) OnGuildMemberUpdate(info *GuildInfo, m *discordgo.Member) {
@@ -183,7 +186,7 @@ func (c *AutoSilenceCommand) Name() string {
 }
 func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```You must provide an auto silence level (either alert, all, raid, or off).```", false, nil
+		return "```You must provide an auto silence level (either alert, alertlog, all, raid, or off).```", false, nil
 	}
 	switch strings.ToLower(args[0]) {
 	case "all":
@@ -194,11 +197,13 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		info.config.Spam.AutoSilence = 0
 	case "alert":
 		info.config.Spam.AutoSilence = -1
+	case "alertlog":
+		info.config.Spam.AutoSilence = -2
 	//case "debug":
 	//	subtract, _ := strconv.ParseInt(args[1], 10, 64)
 	//	c.s.lastraid = time.Now().UTC().Unix() - subtract
 	default:
-		return "```Only alert, all, raid, and off are valid auto silence levels.```", false, nil
+		return "```Only alert, alertlog, all, raid, and off are valid auto silence levels.```", false, nil
 	}
 
 	info.SaveConfig()
@@ -221,7 +226,7 @@ func (c *AutoSilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Toggles the auto silence level for anti-spam.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "all/raid/alert/off", Desc: "All will autosilence all new members. Raid will turn on autosilence if a raid is detected (not recommended). Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Off disables auto-silence and unsilences everyone.", Optional: false},
+			CommandUsageParam{Name: "all/raid/alert/off", Desc: "All will autosilence all new members. Raid will turn on autosilence if a raid is detected (not recommended). Alert does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. Alertlog sends the alerts to the log channel instead. Off disables auto-silence and unsilences everyone.", Optional: false},
 		},
 	}
 }
