@@ -126,7 +126,7 @@ func (c *RemoveCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Removes [arbitrary string] from [collection], then calls a handler function for that specific collection.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "collection(s)", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: false},
-			CommandUsageParam{Name: "arbitrary string", Desc: "Arbitrary string to add to collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
+			CommandUsageParam{Name: "arbitrary string", Desc: "Arbitrary string to remove from collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
 }
