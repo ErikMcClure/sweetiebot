@@ -418,8 +418,15 @@ func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, in
 		return "```No server matches that string!```", false, nil
 	}
 
-	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), SBatoi(guilds[0].Guild.ID))
-	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false, nil
+	target := SBatoi(guilds[0].Guild.ID)
+	for _, v := range gIDs {
+		if v == target {
+			sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
+			return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false, nil
+		}
+	}
+
+	return fmt.Sprintf("```You aren't in the %s server!```", guilds[0].Guild.Name), false, nil
 }
 func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
