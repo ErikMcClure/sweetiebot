@@ -149,7 +149,7 @@ Maps of lists simply map their keys to entire lists of values instead of just on
 ### Anti-Spam
 Tracks all channels for spammers. If someone posts more than *n* messages in *m* seconds, they will be silenced, their messages deleted, and the moderators will be notified. Detects groups of people joining at the same time and alerts the moderators of a potential raid.
 #### Commands
-* **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Alertlog` sends alerts to the log channel instead. `Off` disables auto-silence and unsilences everyone.
+* **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and unsilences everyone.
 * **WipeWelcome:** Cleans out welcome channel.
 
 ### Emotes
