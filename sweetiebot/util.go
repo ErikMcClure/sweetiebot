@@ -156,15 +156,16 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 		return true
 	}
 	m, err := sb.dg.GuildMember(info.Guild.ID, user)
+	_, reverse := roles["!"]
 	if err == nil {
 		for _, v := range m.Roles {
 			_, ok := roles[v]
 			if ok {
-				return true
+				return !reverse
 			}
 		}
 	}
-	return false
+	return reverse
 }
 
 func ReadUserPingArg(args []string) (uint64, string) {

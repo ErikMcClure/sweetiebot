@@ -415,18 +415,16 @@ func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, in
 		return "```Could be any of the following servers:\n" + strings.Join(names, "\n") + "```", false, nil
 	}
 	if len(guilds) < 1 {
-		return "```No server matches that string!```", false, nil
+		return "```No server matches that string (or you haven't joined that server).```", false, nil
 	}
 
 	target := SBatoi(guilds[0].Guild.ID)
-	for _, v := range gIDs {
-		if v == target {
-			sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
-			return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false, nil
-		}
+	_, err := sb.dg.GuildMember(guilds[0].Guild.ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
+	if err != nil {
+		return fmt.Sprintf("```You aren't a member of %s (or discord blew up, in which case, try again).```", guilds[0].Guild.Name), false, nil
 	}
-
-	return fmt.Sprintf("```You aren't in the %s server!```", guilds[0].Guild.Name), false, nil
+	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
+	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false, nil
 }
 func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

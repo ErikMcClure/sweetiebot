@@ -111,12 +111,22 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect
 	case map[uint64][]string:
 		t, _ := f.Interface().(map[uint64][]string)
 		for k, v := range t {
-			s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+			if len(v) == 1 {
+				s = append(s, fmt.Sprintf("\"%v\": %s", k, v[0]))
+			} else {
+				s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+			}
 		}
 	case map[string]map[string]bool:
 		t, _ := f.Interface().(map[string]map[string]bool)
 		for k, v := range t {
-			s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+			if len(v) == 1 {
+				for q := range v {
+					s = append(s, fmt.Sprintf("\"%v\": %s", k, q))
+				}
+			} else {
+				s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
+			}
 		}
 	default:
 		data, err := json.Marshal(f.Interface())

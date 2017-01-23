@@ -149,6 +149,7 @@ func (info *GuildInfo) GetRoles(c Command) string {
 		return ""
 	}
 
+	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k, _ := range m {
 		for _, v := range info.Guild.Roles {
@@ -158,7 +159,11 @@ func (info *GuildInfo) GetRoles(c Command) string {
 		}
 	}
 
-	return strings.Join(s, ", ")
+	if reverse {
+		return "Any role except " + strings.Join(s, ", ")
+	} else {
+		return strings.Join(s, ", ")
+	}
 }
 
 func (info *GuildInfo) GetChannels(c Command) string {
