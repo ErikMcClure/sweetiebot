@@ -59,6 +59,15 @@ func (s *SaturationLimit) checkafter(num int, period int64) bool {
 	return b
 }
 
+func (s *SaturationLimit) resize(size int) {
+	for s.lock.test_and_set() {
+	}
+	n := make([]int64, size, size)
+	copy(n, s.times)
+	s.times = n
+	s.lock.clear()
+}
+
 func CheckRateLimit(prevtime *int64, interval int64) bool {
 	return time.Now().UTC().Unix()-*prevtime > interval
 }
