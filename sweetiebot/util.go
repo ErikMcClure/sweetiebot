@@ -140,7 +140,7 @@ func boolXOR(a bool, b bool) bool {
 }
 
 func (info *GuildInfo) UserHasRole(user string, role string) bool {
-	m, err := sb.dg.GuildMember(info.Guild.ID, user)
+	m, err := info.GetMember(user)
 	if err == nil {
 		for _, v := range m.Roles {
 			if v == role {
@@ -155,7 +155,7 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 	if len(roles) == 0 {
 		return true
 	}
-	m, err := sb.dg.GuildMember(info.Guild.ID, user)
+	m, err := info.GetMember(user)
 	_, reverse := roles["!"]
 	if err == nil {
 		for _, v := range m.Roles {
@@ -166,6 +166,16 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 		}
 	}
 	return reverse
+}
+
+// Attempts to get a member from the guild by checking the state first before making the REST API call.
+func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
+	for _, v := range info.Guild.Members {
+		if v.User.ID == id {
+			return v, nil
+		}
+	}
+	return sb.dg.GuildMember(info.Guild.ID, id)
 }
 
 func ReadUserPingArg(args []string) (uint64, string) {
