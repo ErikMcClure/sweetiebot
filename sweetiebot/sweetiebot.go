@@ -1261,7 +1261,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 3, 7},
+		version:            Version{0, 9, 3, 8},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1275,6 +1275,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 3, 8):  "- Removed arbitrary limit on spam message detection, replaced with sanity limit of 600.\n- Sweetiebot now automatically detects invalid spam.maxmessage settings and removes them instead of breaking your server.\n- Replaced a GuildMember call with an initial state check to eliminate lag and some race conditions.",
 			AssembleVersion(0, 9, 3, 7):  "- If a collection only has one item, just display the item.\n- If you put \"!\" into CommandRoles[<command>], it will now allow any role EXCEPT the roles specified to use <command>. This behaves the same as the channel blacklist function.",
 			AssembleVersion(0, 9, 3, 6):  "- Add log option to autosilence.\n- Ensure you actually belong to the server you set as your default.",
 			AssembleVersion(0, 9, 3, 5):  "- Improve help messages.",

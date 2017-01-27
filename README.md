@@ -30,7 +30,7 @@ A limited version of sweetiebot can be added to any server. Simply follow [this 
 
 ## Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update and !announce, which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
 
 * **logchannel** should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
 * **alertrole** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.

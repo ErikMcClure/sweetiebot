@@ -337,7 +337,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	} else {
 		localtime = time.Now().In(tz).Format(time.RFC1123)
 	}
-	m, err := sb.dg.GuildMember(info.Guild.ID, SBitoa(IDs[0]))
+	m, err := info.GetMember(SBitoa(IDs[0]))
 	if err != nil {
 		m = &discordgo.Member{Roles: []string{}}
 		u, err := sb.dg.User(SBitoa(IDs[0]))
@@ -494,7 +494,7 @@ func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
 func UnsilenceMember(user uint64, info *GuildInfo) (int8, error) {
 	srole := SBitoa(info.config.Spam.SilentRole)
 	userID := SBitoa(user)
-	m, err := sb.dg.GuildMember(info.Guild.ID, userID)
+	m, err := info.GetMember(userID)
 	if err != nil {
 		return -1, err
 	}

@@ -70,7 +70,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Unbanned <@"+v.Data+">")
 			}
 		case 1:
-			m, err := sb.dg.GuildMember(info.Guild.ID, v.Data)
+			m, err := info.GetMember(v.Data)
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else if info.config.Schedule.BirthdayRole == 0 {
@@ -87,7 +87,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 3:
 			info.SendMessage(channel, v.Data+" is starting now!")
 		case 4:
-			m, err := sb.dg.GuildMember(info.Guild.ID, v.Data)
+			m, err := info.GetMember(v.Data)
 			if err != nil {
 				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
 			} else {
