@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -50,7 +52,7 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 
 func SilenceMember(userID string, info *GuildInfo) int8 {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
-	m, err := sb.dg.GuildMember(info.Guild.ID, userID)
+	m, err := info.GetMember(userID)
 	if err == nil {
 		if IsSilenced(m, info) {
 			return 1
@@ -76,28 +78,54 @@ func BanMember(u *discordgo.User, info *GuildInfo) {
 }
 
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
-	info.log.Log("Killing spammer ", u.Username, ". Last message sent: \n", msg.ContentWithMentionsReplaced())
+	msgembeds := ""
+	if len(msg.Embeds) > 0 {
+		msgembeds = "\nEmbedded URLs: "
+		for _, v := range msg.Embeds {
+			msgembeds += "\n<" + v.URL + ">"
+		}
+	}
+
+	chname := msg.ChannelID
+	ch, err := sb.dg.Channel(msg.ChannelID)
+	if err == nil {
+		chname = ch.Name
+	}
+	info.log.Log(fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, msg.ContentWithMentionsReplaced(), msgembeds))
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
 		return
 	}
-	SilenceMember(u.ID, info)
+	silenced := SilenceMember(u.ID, info) == 1
 
-	if info.config.Spam.MaxRemoveLookback > 0 {
-		if sb.IsDBGuild(info) {
-			messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
+	if info.config.Spam.MaxRemoveLookback > 0 && sb.IsDBGuild(info) && !silenced {
+		messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
-			for _, v := range messages {
-				sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
-			}
+		for _, v := range messages {
+			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 		}
-	} else if info.config.Spam.MaxRemoveLookback == 0 {
+	} else if info.config.Spam.MaxRemoveLookback >= 0 {
 		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
 
-	info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+	if !silenced { // Only send the alert if they weren't silenced already
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+	}
 }
+func GetMaxSpamCheck(info *GuildInfo) int {
+	max := 2
+	for _, v := range info.config.Spam.MaxMessages {
+		if v > max {
+			max = v
+		}
+	}
+	if max > 300 {
+		max = 300
+	}
+	return max
+}
+
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
 		if info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.SilentRole)) && SBatoi(m.ChannelID) != info.config.Users.WelcomeChannel {
@@ -106,14 +134,22 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
 		}
 		id := SBatoi(m.Author.ID)
 		_, ok := w.tracker[id]
+		max := GetMaxSpamCheck(info) * 2
 		if !ok {
-			w.tracker[id] = &SaturationLimit{make([]int64, 20, 20), 0, AtomicFlag{0}}
+			w.tracker[id] = &SaturationLimit{make([]int64, max, max), 0, AtomicFlag{0}}
 		}
 		limit := w.tracker[id]
+		if len(limit.times) < max { // reconstruct limits in case they were changed
+			w.tracker[id].resize(max)
+		}
 		limit.append(time.Now().UTC().Unix())
 		//if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
 		for k, v := range info.config.Spam.MaxMessages {
-			if limit.checkafter(v, k) {
+			if k == 0 || v == 0 || v >= max {
+				delete(info.config.Spam.MaxMessages, k)
+				info.SaveConfig()
+				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: I detected an invalid `spam.maxmessages` setting and was forced to remove it. Please recheck your `spam.maxmessages` config option.") // Alert admins
+			} else if limit.checkafter(v, k) {
 				KillSpammer(m.Author, info, m, "spamming too many messages")
 				return true
 			}
