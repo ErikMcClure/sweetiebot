@@ -26,11 +26,11 @@ If you get compiler errors, sweetiebot has two dependences you should get:
 
 ## Adding Sweetiebot To Your Server
 
-A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search and !lastping are unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
+A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search and !lastping are unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however.
 
 ## Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for restricted commands which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
 
 * **logchannel** should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
 * **alertrole** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
@@ -96,7 +96,7 @@ Additional configuration is optional, depending on what features of the bot are 
 * **WelcomeMessage:** If autosilence is enabled, this message will be sent to a new user upon joining.
 
 ### Bored
-* **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
+* **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it. Minimum cooldown is 60 seconds.
 * **Commands [list]:** This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.
 
 ### Help
@@ -132,7 +132,7 @@ Basic configuration parameters can be set with `!setconfig <parameter name> <val
 Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
 
     !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
-    !setconfig bored.boredchannels #channel1 #channel2
+    !setconfig bored.commands !drop "!pick cute"
 
 Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
 
@@ -140,10 +140,12 @@ Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig`
     !setconfig basic.aliases listbucket list
     !setconfig basic.aliases listbucket ""
 
-Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
+Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value, except to delete a key you need to omit the values completely:
 
     !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
-    !setconfig modules.command_channels roll #channel1 #channel2
+    !setconfig modules.commandchannels roll #channel1 #channel2
+    !setconfig modules.commandchannels roll
+
 
 ## Modules
 ### Anti-Spam
@@ -272,7 +274,7 @@ Sweetiebot is modular and can easily incorporate additional modules or commands.
       Usage(*GuildInfo) *CommandUsage
       UsageShort() string
     }
-    
+
 `Name()` returns the actual text that invokes the command, `Usage()` is a long, structured explanation of the command and it's parameters, and `UsageShort()` is a much shorter explanation of the command, both used by `!help`. `Process()` is called when Sweetiebot evaluates a command and matches it with this command's name (case-insensitive). The first `[]string` parameter is a list of the arguments to the command, which are seperated by spaces, unless they were surrounded by double-quotes `"`, just how command-line arguments work on all standard operating systems.
 
 Commands belong to Modules, and are automatically added when adding a module. Modules are more complicated and respond to certain events in the chat if they are enabled. At minimum, a module must implement the `Module` interface:
@@ -283,16 +285,17 @@ Commands belong to Modules, and are automatically added when adding a module. Mo
       Commands() []Command
       Description() string
     }
-    
+
 `Name()` returns the name of the module, only used for enabling or restricting the module configuration. `Register()` is called whenever a guild is loaded, and that guild's configuration information is passed into the function. `Description()` is called by `!help` and should briefly describe the module's purpose. `Commands()` should return an initialized list of all commands associated with the module. A module must add itself to any hooks that it requires. For example:
 
     func (w *WittyModule) Register(info *GuildInfo) {
       info.hooks.OnMessageDelete = append(info.hooks.OnMessageDelete, w)
       info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
     }
-    
+
 A module must satisfy the interface of the hook it is trying to add itself to, which simply means implementing a hook function with the appropriate parameters. You can access the bot database using `sb.db`, but this will only work for server-independent database information (like users or transcripts), or on servers that have permission to write to the database. Additional modules will always be disabled on existing servers until they are explicitely enabled. [Submit a pull request](https://github.com/blackhole12/sweetiebot/pull/new/master) if you'd like to contribute!
 
 ******
 
 ©2016 Erik McClure
+
