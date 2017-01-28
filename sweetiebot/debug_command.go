@@ -30,6 +30,7 @@ func (w *DebugModule) Commands() []Command {
 		&ListGuildsCommand{},
 		&AnnounceCommand{},
 		&RemoveAliasCommand{},
+		&GetAuditCommand{},
 	}
 }
 
@@ -375,3 +376,83 @@ func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 	}
 }
 func (c *RemoveAliasCommand) UsageShort() string { return "[RESTRICTED] Removes an alias." }
+
+type GetAuditCommand struct {
+}
+
+func (c *GetAuditCommand) Name() string {
+	return "GetAudit"
+}
+func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	var low uint64 = 0
+	var high uint64 = 10
+	var user *uint64 = nil
+	var search string = ""
+
+	for i := 0; i < len(args); i++ {
+		if len(args[i]) > 0 {
+			switch args[i][0] {
+			case '@':
+				fallthrough
+			case '<':
+				if args[i][0] == '@' || (len(args[i]) > 1 && args[i][1] == '@') {
+					var IDs []uint64
+					if args[i][0] == '@' {
+						IDs = FindUsername(args[i][1:], info)
+					} else {
+						IDs = []uint64{SBatoi(StripPing(args[i]))}
+					}
+					if len(IDs) == 0 { // no matches!
+						return "```Error: Could not find any usernames or aliases matching " + args[i] + "!```", false, nil
+					}
+					if len(IDs) > 1 {
+						return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+					}
+					user = &IDs[0]
+					break
+				}
+				fallthrough
+			case '!':
+				fallthrough
+			case '$':
+				if args[i][0] != '!' {
+					search = "%"
+				}
+				if args[i][0] == '$' {
+					search += msg.Content[indices[i]+1:] + "%"
+				} else {
+					search += msg.Content[indices[i]:] + "%"
+				}
+				i = len(args)
+			default:
+				s := strings.SplitN(args[i], "-", 2)
+				if len(s) == 1 {
+					high = SBatoi(s[0])
+				} else if len(s) > 1 {
+					low = SBatoi(s[0]) - 1
+					high = SBatoi(s[1])
+				}
+			}
+		}
+	}
+
+	r := sb.db.GetAuditRows(low, high, user, search, SBatoi(info.Guild.ID))
+	ret := []string{"```Matching Audit Log entries:```"}
+
+	for _, v := range r {
+		ret = append(ret, fmt.Sprintf("[%s] %s: %s", ApplyTimezone(v.Timestamp, info, msg.Author).Format("1/2 3:04:05PM"), v.Author, v.Message))
+	}
+
+	return strings.Join(ret, "\n"), len(ret) > 12, nil
+}
+func (c *GetAuditCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Allows admins to inspect the audit log.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "range", Desc: "If this is a single number, the number of results to return. If it's a range in the form 999-9999, returns the given range of audit log entries, up to a maximum of 50 in one call. Defaults to displaying 1-10.", Optional: true},
+			CommandUsageParam{Name: "user", Desc: "Must be in the form of @user, either as an actual ping or just part of the users name. If included, filters results to just that user. If there are spaces in the username, you must use quotes.", Optional: true},
+			CommandUsageParam{Name: "arbitrary string", Desc: "An arbitrary string starting with either `!` or `$`. `!` will search for an exact command, whereas `$` will simply search for the string anywhere in the audit log. This will eat up all remaining arguments, so put the user and the range BEFORE specifying the search string, and don't use quotes!", Optional: true},
+		},
+	}
+}
+func (c *GetAuditCommand) UsageShort() string { return "Inspects the audit log." }

@@ -41,7 +41,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "[](/sadbot) `You didn't give me anything!`", false, nil
 	}
 	if info.config.Bucket.MaxItems == 0 {
-		return "```I don't have a bucket right now (bucket.max is 0).```", false, nil
+		return "```I don't have a bucket right now (bucket.maxitems is 0).```", false, nil
 	}
 
 	arg := ExtraSanitize(msg.Content[indices[0]:])

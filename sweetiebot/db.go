@@ -12,72 +12,76 @@ import (
 )
 
 type BotDB struct {
-	db                       *sql.DB
-	log                      Logger
-	sql_AddMessage           *sql.Stmt
-	sql_GetMessage           *sql.Stmt
-	sql_AddUser              *sql.Stmt
-	sql_AddMember            *sql.Stmt
-	sql_GetUser              *sql.Stmt
-	sql_GetMember            *sql.Stmt
-	sql_FindGuildUsers       *sql.Stmt
-	sql_FindUsers            *sql.Stmt
-	sql_GetRecentMessages    *sql.Stmt
-	sql_GetNewestUsers       *sql.Stmt
-	sql_GetRecentUsers       *sql.Stmt
-	sql_GetAliases           *sql.Stmt
-	sql_AddTranscript        *sql.Stmt
-	sql_GetTranscript        *sql.Stmt
-	sql_RemoveTranscript     *sql.Stmt
-	sql_AddMarkov            *sql.Stmt
-	sql_GetMarkovLine        *sql.Stmt
-	sql_GetMarkovLine2       *sql.Stmt
-	sql_GetMarkovWord        *sql.Stmt
-	sql_GetRandomQuoteInt    *sql.Stmt
-	sql_GetRandomQuote       *sql.Stmt
-	sql_GetSpeechQuoteInt    *sql.Stmt
-	sql_GetSpeechQuote       *sql.Stmt
-	sql_GetCharacterQuoteInt *sql.Stmt
-	sql_GetCharacterQuote    *sql.Stmt
-	sql_GetRandomSpeakerInt  *sql.Stmt
-	sql_GetRandomSpeaker     *sql.Stmt
-	sql_GetRandomMemberInt   *sql.Stmt
-	sql_GetRandomMember      *sql.Stmt
-	sql_GetRandomWordInt     *sql.Stmt
-	sql_GetRandomWord        *sql.Stmt
-	sql_GetTableCounts       *sql.Stmt
-	sql_CountNewUsers        *sql.Stmt
-	sql_Audit                *sql.Stmt
-	sql_ResetMarkov          *sql.Stmt
-	sql_AddSchedule          *sql.Stmt
-	sql_AddScheduleRepeat    *sql.Stmt
-	sql_GetSchedule          *sql.Stmt
-	sql_RemoveSchedule       *sql.Stmt
-	sql_CountEvents          *sql.Stmt
-	sql_GetEvent             *sql.Stmt
-	sql_GetEvents            *sql.Stmt
-	sql_GetEventsByType      *sql.Stmt
-	sql_GetNextEvent         *sql.Stmt
-	sql_GetReminders         *sql.Stmt
-	sql_GetTimeZone          *sql.Stmt
-	sql_FindTimeZone         *sql.Stmt
-	sql_FindTimeZoneOffset   *sql.Stmt
-	sql_SetTimeZone          *sql.Stmt
-	sql_RemoveAlias          *sql.Stmt
-	sql_GetUserGuilds        *sql.Stmt
-	sql_FindEvent            *sql.Stmt
-	sql_SetDefaultServer     *sql.Stmt
-	sql_GetPolls             *sql.Stmt
-	sql_GetPoll              *sql.Stmt
-	sql_GetOptions           *sql.Stmt
-	sql_GetOption            *sql.Stmt
-	sql_GetResults           *sql.Stmt
-	sql_AddPoll              *sql.Stmt
-	sql_AddOption            *sql.Stmt
-	sql_AppendOption         *sql.Stmt
-	sql_AddVote              *sql.Stmt
-	sql_RemovePoll           *sql.Stmt
-	sql_CheckOption          *sql.Stmt
+	db                         *sql.DB
+	log                        Logger
+	sql_AddMessage             *sql.Stmt
+	sql_GetMessage             *sql.Stmt
+	sql_AddUser                *sql.Stmt
+	sql_AddMember              *sql.Stmt
+	sql_GetUser                *sql.Stmt
+	sql_GetMember              *sql.Stmt
+	sql_FindGuildUsers         *sql.Stmt
+	sql_FindUsers              *sql.Stmt
+	sql_GetRecentMessages      *sql.Stmt
+	sql_GetNewestUsers         *sql.Stmt
+	sql_GetRecentUsers         *sql.Stmt
+	sql_GetAliases             *sql.Stmt
+	sql_AddTranscript          *sql.Stmt
+	sql_GetTranscript          *sql.Stmt
+	sql_RemoveTranscript       *sql.Stmt
+	sql_AddMarkov              *sql.Stmt
+	sql_GetMarkovLine          *sql.Stmt
+	sql_GetMarkovLine2         *sql.Stmt
+	sql_GetMarkovWord          *sql.Stmt
+	sql_GetRandomQuoteInt      *sql.Stmt
+	sql_GetRandomQuote         *sql.Stmt
+	sql_GetSpeechQuoteInt      *sql.Stmt
+	sql_GetSpeechQuote         *sql.Stmt
+	sql_GetCharacterQuoteInt   *sql.Stmt
+	sql_GetCharacterQuote      *sql.Stmt
+	sql_GetRandomSpeakerInt    *sql.Stmt
+	sql_GetRandomSpeaker       *sql.Stmt
+	sql_GetRandomMemberInt     *sql.Stmt
+	sql_GetRandomMember        *sql.Stmt
+	sql_GetRandomWordInt       *sql.Stmt
+	sql_GetRandomWord          *sql.Stmt
+	sql_GetTableCounts         *sql.Stmt
+	sql_CountNewUsers          *sql.Stmt
+	sql_Audit                  *sql.Stmt
+	sql_GetAuditRows           *sql.Stmt
+	sql_GetAuditRowsUser       *sql.Stmt
+	sql_GetAuditRowsString     *sql.Stmt
+	sql_GetAuditRowsUserString *sql.Stmt
+	sql_ResetMarkov            *sql.Stmt
+	sql_AddSchedule            *sql.Stmt
+	sql_AddScheduleRepeat      *sql.Stmt
+	sql_GetSchedule            *sql.Stmt
+	sql_RemoveSchedule         *sql.Stmt
+	sql_CountEvents            *sql.Stmt
+	sql_GetEvent               *sql.Stmt
+	sql_GetEvents              *sql.Stmt
+	sql_GetEventsByType        *sql.Stmt
+	sql_GetNextEvent           *sql.Stmt
+	sql_GetReminders           *sql.Stmt
+	sql_GetTimeZone            *sql.Stmt
+	sql_FindTimeZone           *sql.Stmt
+	sql_FindTimeZoneOffset     *sql.Stmt
+	sql_SetTimeZone            *sql.Stmt
+	sql_RemoveAlias            *sql.Stmt
+	sql_GetUserGuilds          *sql.Stmt
+	sql_FindEvent              *sql.Stmt
+	sql_SetDefaultServer       *sql.Stmt
+	sql_GetPolls               *sql.Stmt
+	sql_GetPoll                *sql.Stmt
+	sql_GetOptions             *sql.Stmt
+	sql_GetOption              *sql.Stmt
+	sql_GetResults             *sql.Stmt
+	sql_AddPoll                *sql.Stmt
+	sql_AddOption              *sql.Stmt
+	sql_AppendOption           *sql.Stmt
+	sql_AddVote                *sql.Stmt
+	sql_RemovePoll             *sql.Stmt
+	sql_CheckOption            *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -143,6 +147,10 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
 	db.sql_CountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sql_Audit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
+	db.sql_GetAuditRows, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
+	db.sql_GetAuditRowsUser, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.User = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
+	db.sql_GetAuditRowsString, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.Message LIKE ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
+	db.sql_GetAuditRowsUserString, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.User = ? AND D.Message LIKE ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
 	db.sql_ResetMarkov, err = db.Prepare("CALL ResetMarkov()")
 	db.sql_AddSchedule, err = db.Prepare("INSERT INTO schedule (Guild, Date, Type, Data) VALUES (?, ?, ?, ?)")
 	db.sql_AddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
@@ -369,6 +377,37 @@ func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uin
 	if err != nil {
 		fmt.Println("Logger failed to log to database! ", err.Error())
 	}
+}
+
+func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search string, guild uint64) []PingContext {
+	var q *sql.Rows
+	var err error
+	maxresults := end - start
+	if maxresults > 50 {
+		maxresults = 50
+	}
+
+	if user != nil && len(search) > 0 {
+		q, err = db.sql_GetAuditRowsUserString.Query(AUDIT_TYPE_COMMAND, guild, *user, search, maxresults, start)
+	} else if user != nil && len(search) == 0 {
+		q, err = db.sql_GetAuditRowsUser.Query(AUDIT_TYPE_COMMAND, guild, *user, maxresults, start)
+	} else if user == nil && len(search) > 0 {
+		q, err = db.sql_GetAuditRowsString.Query(AUDIT_TYPE_COMMAND, guild, search, maxresults, start)
+	} else {
+		q, err = db.sql_GetAuditRows.Query(AUDIT_TYPE_COMMAND, guild, maxresults, start)
+	}
+
+	db.log.LogError("GetAuditRows error: ", err)
+	defer q.Close()
+	r := make([]PingContext, 0, 5)
+	for q.Next() {
+		p := PingContext{}
+		var uid uint64
+		if err := q.Scan(&p.Author, &p.Message, &p.Timestamp, &uid); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
 }
 
 func (db *BotDB) GetTableCounts() string {

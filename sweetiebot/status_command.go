@@ -1,6 +1,8 @@
 package sweetiebot
 
 import (
+	"fmt"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -33,6 +35,7 @@ func (c *SetStatusCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```Removed status```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
+	fmt.Printf(arg)
 	sb.dg.UpdateStatus(0, arg)
 	return "```Set status to " + arg + "```", false, nil
 }
