@@ -1,5 +1,5 @@
 # Sweetie Bot
-Sweetie Bot is an administration bot for the /r/mylittlepony Discord chat. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and it's users, and provides a command to find the last message that pinged a given user.
+Sweetie Bot is an administration bot for the Manechat Discord server. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and it's users, and provides a command to find the last message that pinged a given user.
 
 ### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358).
 
@@ -26,7 +26,7 @@ If you get compiler errors, sweetiebot has two dependences you should get:
 
 ## Adding Sweetiebot To Your Server
 
-A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search and !lastping are unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
+A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search is unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
 
 ## Configuration
 
@@ -43,7 +43,30 @@ Use `!help quickconfig` for an example of how to use the command. `!quickconfig`
 
 **DO NOT GIVE SWEETIE BOT ADMINISTRATIVE PERMISSIONS OR THE ABILITY TO PING EVERYONE!** Sweetie bot does not and will never attempt to filter `@everyone` pings, because if you don't want her to be able to ping everyone, you shouldn't give her the ability to do so in the first place. Sweetie bot only requires the following permissions: `Manage Roles`, `Ban Members`, `Manage Messages`, plus all the default read/write permissions given to everyone.
 
-Additional configuration is optional, depending on what features of the bot are being used:
+Additional configuration is optional via `!setconfig` depending on what features of the bot are being used.
+
+### Using !setconfig
+Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a paramter, use `!getconfig <paramater name>`.
+
+Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
+
+    !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
+    !setconfig bored.commands !drop "!pick cute"
+
+Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
+
+    !setconfig <map parameter> <key> <value>
+    !setconfig basic.aliases listbucket list
+    !setconfig basic.aliases listbucket ""
+
+Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
+
+    !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
+    !setconfig modules.commandchannels roll #channel1 #channel2
+
+However, to delete a value from a maplist, you simply call `!setconfig modules.commandchannels <key>` with no values at all:
+
+    !setconfig modules.commandchannels roll
 
 ### Basic
 * **IgnoreInvalidCommands:** If true, Sweetie Bot won't display an error if a nonsensical command is used. This helps her co-exist with other bots that also use the `!` prefix.
@@ -96,7 +119,7 @@ Additional configuration is optional, depending on what features of the bot are 
 * **WelcomeMessage:** If autosilence is enabled, this message will be sent to a new user upon joining.
 
 ### Bored
-* **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.
+* **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it. Note that Sweetie Bot only checks each channel for inactivity every 30 seconds.
 * **Commands [list]:** This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.
 
 ### Help
@@ -126,37 +149,15 @@ Additional configuration is optional, depending on what features of the bot are 
 ### Quote
 * **Quotes [maplist]:** This is a map of quotes, which should be managed via `!addquote` and `!removequote`
 
-### Using !setconfig
-Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a paramter, use `!getconfig <paramater name>`.
-
-Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
-
-    !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
-    !setconfig bored.boredchannels #channel1 #channel2
-
-Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
-
-    !setconfig <map parameter> <key> <value>
-    !setconfig basic.aliases listbucket list
-    !setconfig basic.aliases listbucket ""
-
-Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
-
-    !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
-    !setconfig modules.command_channels roll #channel1 #channel2
-
 ## Modules
 ### Anti-Spam
 Tracks all channels for spammers. If someone posts more than *n* messages in *m* seconds, they will be silenced, their messages deleted, and the moderators will be notified. Detects groups of people joining at the same time and alerts the moderators of a potential raid.
 #### Commands
 * **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and unsilences everyone.
-* **WipeWelcome:** Cleans out welcome channel.
-
-### Emotes
-Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them.
+* **WipeWelcome:** Deletes all messages in the welcome channel, if there is one.
 
 ### Bored
-After the chat is inactive for a given amount of time, chooses a random action from the `boredcommands` configuration option to run, such posting a link from the bored collection or throwing an item from her bucket.
+After the chat is inactive for a given amount of time, chooses a random action from the `Bored.Commands` configuration option to run, such posting a link from the bored collection or throwing an item from her bucket.
 
 ### Bucket
 Manages Sweetie's bucket functionality.
@@ -198,6 +199,9 @@ Contains various debugging commands. Some of these commands can only be run by t
 * **Announce:** [RESTRICTED] Announcement command.
 * **RemoveAlias:** [RESTRICTED] Removes an alias.
 
+### Emotes
+Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them.
+
 ### Groups
 Contains commands for manipulating groups and pinging them.
 #### Commands
@@ -224,6 +228,31 @@ Generates content using markov chains.
 * **ship:** Generates a random ship.
 * **BestPony:** Generates a random pony name.
 
+### Miscellaneous
+A collection of miscellaneous commands that don't belong to a module.
+#### Commands
+* **LastSeen:** Returns when a user was last seen.
+* **Search:** [Self-Hosted Only] Performs a complex search on the chat history.
+* **Roll:** Evaluates a dice expression.
+
+### Polls
+Manages polls.
+#### Commands
+* **Poll:** Displays poll description and options.
+* **CreatePoll:** Creates a poll.
+* **DeletePoll:** Deletes a poll.
+* **Vote:** Votes in a poll.
+* **Results:** Displays results of a poll.
+* **AddOption:** Appends an option to a poll.
+
+### Quotes
+Manages the quoting system.
+#### Commands
+* **Quote:** Quotes a user.
+* **AddQuote:** Adds a quote.
+* **RemoveQuote:** Removes a quote.
+* **SearchQuote:** Finds a quote.
+
 ### Scheduler
 Manages the scheduling system, and periodically checks for events that need to be processed.
 #### Commands
@@ -238,9 +267,9 @@ Tells sweetiebot to remind you about something.
 Deletes any messages that match a regex created by the spoiler collection, unless a message is in `spoilchannels`.
 
 ### Status
-Manages Sweetie Bot's status
+Manages Sweetie Bot's status.
 #### Commands
-* **SetStatus:** Sets the status message.
+* **SetStatus:** [Self-Hosted Only] Sets the status message.
 
 ### Users
 Contains commands for getting and setting user information.
@@ -258,17 +287,15 @@ Contains commands for getting and setting user information.
 ### Witty
 In response to certain patterns (determined by a regex) will post a response picked randomly from a list of them associated with that trigger. Rate limits itself to make sure it isn't too annoying.
 #### Commands
-* **AddWit
-Adds a line to wittyremarks.
-* **RemoveWit
-Removes a remark from wittyremarks.
+* **AddWit:** Adds a line to wittyremarks.
+* **RemoveWit:** Removes a remark from wittyremarks.
 
 ## Contributing
 Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 
 
     type Command interface {
       Name() string
-      Process([]string, *discordgo.Message, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
+      Process([]string, *discordgo.Message, []int, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
       Usage(*GuildInfo) *CommandUsage
       UsageShort() string
     }

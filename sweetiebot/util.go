@@ -659,8 +659,12 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		}
 	}
 
-	if guild.config.Version != 11 {
-		guild.config.Version = 11 // set version to most recent config version
+	if guild.config.Version <= 11 {
+		RestrictCommand("getaudit", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+	}
+
+	if guild.config.Version != 12 {
+		guild.config.Version = 12 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
