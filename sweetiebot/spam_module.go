@@ -54,20 +54,25 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
 	m, err := info.GetMember(userID)
 	if err == nil {
+		for info.silencelock.test_and_set() {
+		}
 		if IsSilenced(m, info) {
 			return 1
 		}
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
+		info.silencelock.clear()
 	} else {
 		info.log.Log("Could not silence <@"+userID+"> because discordgo can't find them. (Error: ", err.Error(), ")")
 		return -1
 	}
-	err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
-	if err == nil {
-		return 0
-	}
-	info.log.Log("GuildMemberEdit returned error: ", err.Error())
-	return -2
+	go func(userID string, info *GuildInfo, m *discordgo.Member) {
+		err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
+		if err != nil {
+			info.log.Log("GuildMemberEdit returned error: ", err.Error())
+		}
+	}(userID, info, m)
+
+	return 0
 }
 
 func BanMember(u *discordgo.User, info *GuildInfo) {
@@ -103,10 +108,10 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 		messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
 		for _, v := range messages {
-			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
+			go sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 		}
 	} else if info.config.Spam.MaxRemoveLookback >= 0 {
-		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
+		go sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
