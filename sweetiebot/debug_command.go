@@ -246,7 +246,9 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices [
 	  }*/
 
 	for _, v := range sb.guilds {
-		v.SendMessage(SBitoa(v.config.Log.Channel), "```Shutting down for update...```")
+		if v.config.Log.Channel > 0 {
+			v.SendMessage(SBitoa(v.config.Log.Channel), "```Shutting down for update...```")
+		}
 	}
 
 	sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
@@ -332,7 +334,9 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, indices
 
 	arg := msg.Content[indices[0]:]
 	for _, v := range sb.guilds {
-		v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
+		if v.config.Log.Channel > 0 {
+			v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
+		}
 	}
 	return "", false, nil
 }
