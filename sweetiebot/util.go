@@ -736,7 +736,9 @@ func findServers(name string, guilds []uint64) []*GuildInfo {
 	name = strings.ToLower(name)
 	info := make([]*GuildInfo, 0, len(guilds))
 	for _, g := range guilds {
+		sb.guildsLock.RLock()
 		guild, ok := sb.guilds[g]
+		sb.guildsLock.RUnlock()
 		if ok {
 			n := strings.ToLower(guild.Guild.Name)
 			if len(n) > 0 {
@@ -759,7 +761,9 @@ func getDefaultServer(user uint64) *GuildInfo {
 	if server == nil {
 		return nil
 	}
+	sb.guildsLock.RLock()
 	info, ok := sb.guilds[*server]
+	sb.guildsLock.RUnlock()
 	if !ok {
 		return nil
 	}
