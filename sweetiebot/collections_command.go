@@ -365,6 +365,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 		str = str[:len(str)-1]
 		exact = true
 	}
+	sb.guildsLock.RLock()
 	for _, v := range sb.guilds {
 		if exact {
 			if strings.Compare(strings.ToLower(v.Guild.Name), strings.ToLower(str)) == 0 {
@@ -376,6 +377,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 			}
 		}
 	}
+	sb.guildsLock.RUnlock()
 	if len(other) > 1 {
 		names := make([]string, len(other), len(other))
 		for i := 0; i < len(other); i++ {

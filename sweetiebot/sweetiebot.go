@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -179,6 +180,7 @@ var ConfigHelp map[string]string = map[string]string{
 type GuildInfo struct {
 	Guild        *discordgo.Guild
 	log          *Log
+	commandLock  sync.RWMutex
 	command_last map[string]map[string]int64
 	commandlimit *SaturationLimit
 	config       BotConfig
@@ -229,8 +231,11 @@ type SweetieBot struct {
 	DebugChannels      map[string]string
 	quit               bool
 	guilds             map[uint64]*GuildInfo
+	guildsLock         sync.RWMutex
 	GuildChannels      map[string]*GuildInfo
+	GuildChannelsLock  sync.RWMutex
 	LastMessages       map[string]int64
+	LastMessagesLock   sync.RWMutex
 	MaxConfigSize      int
 }
 
@@ -546,7 +551,9 @@ func (w *MiscModule) Description() string {
 }
 
 func AttachToGuild(g *discordgo.Guild) {
+	sb.guildsLock.RLock()
 	guild, exists := sb.guilds[SBatoi(g.ID)]
+	sb.guildsLock.RUnlock()
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
@@ -627,7 +634,9 @@ func AttachToGuild(g *discordgo.Guild) {
 		sb.db.log = guild.log
 	}
 
+	sb.guildsLock.Lock()
 	sb.guilds[SBatoi(g.ID)] = guild
+	sb.guildsLock.Unlock()
 	guild.ProcessGuild(g)
 
 	episodegencommand := &EpisodeGenCommand{}
@@ -729,14 +738,18 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
 func GetChannelGuild(id string) *GuildInfo {
+	sb.GuildChannelsLock.RLock()
 	g, ok := sb.GuildChannels[id]
+	sb.GuildChannelsLock.RUnlock()
 	if !ok {
 		return nil
 	}
 	return g
 }
 func GetGuildFromID(id string) *GuildInfo {
+	sb.guildsLock.RLock()
 	g, ok := sb.guilds[SBatoi(id)]
+	sb.guildsLock.RUnlock()
 	if !ok {
 		return nil
 	}
@@ -804,7 +817,10 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
 				return
 			}
+
+			sb.guildsLock.RLock()
 			info = sb.guilds[gIDs[0]]
+			sb.guildsLock.RUnlock()
 			if info == nil {
 				s.ChannelMessageSend(m.ChannelID, "```I haven't been loaded on that server yet!```")
 				return
@@ -857,15 +873,19 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 
 			cmdlimit := info.config.Modules.CommandLimits[cmdname]
 			if !isfree && cmdlimit > 0 && !isSelf {
+				info.commandLock.RLock()
 				lastcmd := info.command_last[m.ChannelID][cmdname]
+				info.commandLock.RUnlock()
 				if !RateLimit(&lastcmd, cmdlimit) {
 					info.log.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), GetAddMsg(info)))
 					return
 				}
+				info.commandLock.Lock()
 				if len(info.command_last[m.ChannelID]) == 0 {
 					info.command_last[m.ChannelID] = make(map[string]int64)
 				}
 				info.command_last[m.ChannelID][cmdname] = t
+				info.commandLock.Unlock()
 			}
 
 			result, usepm, resultembed := c.Process(args[1:], m, indices[1:], info)
@@ -928,7 +948,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	t := time.Now().UTC().Unix()
+	sb.LastMessagesLock.Lock()
 	sb.LastMessages[m.ChannelID] = t
+	sb.LastMessagesLock.Unlock()
 
 	ch, private := ChannelIsPrivate(m.ChannelID)
 	var info *GuildInfo = nil
@@ -1122,13 +1144,19 @@ func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 }
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
 func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
+	sb.guildsLock.RLock()
 	guild, ok := sb.guilds[SBatoi(c.GuildID)]
+	sb.guildsLock.RUnlock()
 	if ok {
+		sb.GuildChannelsLock.Lock()
 		sb.GuildChannels[c.ID] = guild
+		sb.GuildChannelsLock.Unlock()
 	}
 }
 func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
+	sb.GuildChannelsLock.Lock()
 	delete(sb.GuildChannels, c.ID)
+	sb.GuildChannelsLock.Unlock()
 }
 func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
 	isonline := true
@@ -1184,7 +1212,9 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 	} else {
 		info.Guild = g
 		for _, v := range info.Guild.Channels {
+			sb.GuildChannelsLock.Lock()
 			sb.GuildChannels[v.ID] = info
+			sb.GuildChannelsLock.Unlock()
 		}
 		for _, v := range g.Members {
 			info.ProcessMember(v)
@@ -1220,6 +1250,7 @@ func (info *GuildInfo) HasChannel(id string) bool {
 
 func IdleCheckLoop() {
 	for !sb.quit {
+		sb.guildsLock.RLock()
 		for _, info := range sb.guilds {
 			channels := info.Guild.Channels
 			if sb.Debug { // override this in debug mode
@@ -1231,7 +1262,9 @@ func IdleCheckLoop() {
 				}
 			}
 			for _, ch := range channels {
+				sb.LastMessagesLock.RLock()
 				t, exists := sb.LastMessages[ch.ID]
+				sb.LastMessagesLock.RUnlock()
 				if exists {
 					diff := time.Now().UTC().Sub(time.Unix(t, 0))
 					ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
@@ -1247,8 +1280,9 @@ func IdleCheckLoop() {
 					info.hooks.OnTick[i].OnTick(info)
 				}
 			})
-			time.Sleep(30 * time.Second)
 		}
+		sb.guildsLock.RUnlock()
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -1264,7 +1298,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 4, 0},
+		version:            Version{0, 9, 4, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1278,6 +1312,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 4, 1):  "- Attempt to make sweetiebot more threadsafe.",
 			AssembleVersion(0, 9, 4, 0):  "- Reduced number of goroutines, made updating faster.",
 			AssembleVersion(0, 9, 3, 9):  "- Added !getaudit command for server admins.\n- Updated documentation for consistency.",
 			AssembleVersion(0, 9, 3, 8):  "- Removed arbitrary limit on spam message detection, replaced with sanity limit of 600.\n- Sweetiebot now automatically detects invalid spam.maxmessage settings and removes them instead of breaking your server.\n- Replaced a GuildMember call with an initial state check to eliminate lag and some race conditions.",
