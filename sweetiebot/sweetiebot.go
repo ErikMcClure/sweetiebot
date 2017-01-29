@@ -708,8 +708,9 @@ func AttachToGuild(g *discordgo.Guild) {
 		}
 		guild.SaveConfig()
 	}
-	go guild.IdleCheckLoop()
-	go guild.SwapStatusLoop()
+	if sb.IsMainGuild(guild) {
+		go guild.SwapStatusLoop()
+	}
 
 	debug := "."
 	if sb.Debug {
@@ -1217,35 +1218,37 @@ func (info *GuildInfo) HasChannel(id string) bool {
 	return false
 }
 
-func (info *GuildInfo) IdleCheckLoop() {
+func IdleCheckLoop() {
 	for !sb.quit {
-		channels := info.Guild.Channels
-		if sb.Debug { // override this in debug mode
-			c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
-			if err == nil {
-				channels = []*discordgo.Channel{c}
-			} else {
-				channels = []*discordgo.Channel{}
+		for _, info := range sb.guilds {
+			channels := info.Guild.Channels
+			if sb.Debug { // override this in debug mode
+				c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
+				if err == nil {
+					channels = []*discordgo.Channel{c}
+				} else {
+					channels = []*discordgo.Channel{}
+				}
 			}
-		}
-		for _, ch := range channels {
-			t, exists := sb.LastMessages[ch.ID]
-			if exists {
-				diff := time.Now().UTC().Sub(time.Unix(t, 0))
-				ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-					if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-						info.hooks.OnIdle[i].OnIdle(info, ch)
-					}
-				})
+			for _, ch := range channels {
+				t, exists := sb.LastMessages[ch.ID]
+				if exists {
+					diff := time.Now().UTC().Sub(time.Unix(t, 0))
+					ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+						if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+							info.hooks.OnIdle[i].OnIdle(info, ch)
+						}
+					})
+				}
 			}
-		}
 
-		ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
-			if info.ProcessModule("", info.hooks.OnTick[i]) {
-				info.hooks.OnTick[i].OnTick(info)
-			}
-		})
-		time.Sleep(30 * time.Second)
+			ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
+				if info.ProcessModule("", info.hooks.OnTick[i]) {
+					info.hooks.OnTick[i].OnTick(info)
+				}
+			})
+			time.Sleep(30 * time.Second)
+		}
 	}
 }
 
@@ -1261,7 +1264,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 3, 9},
+		version:            Version{0, 9, 4, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1275,6 +1278,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 4, 0):  "- Reduced number of goroutines, made updating faster.",
 			AssembleVersion(0, 9, 3, 9):  "- Added !getaudit command for server admins.\n- Updated documentation for consistency.",
 			AssembleVersion(0, 9, 3, 8):  "- Removed arbitrary limit on spam message detection, replaced with sanity limit of 600.\n- Sweetiebot now automatically detects invalid spam.maxmessage settings and removes them instead of breaking your server.\n- Replaced a GuildMember call with an initial state check to eliminate lag and some race conditions.",
 			AssembleVersion(0, 9, 3, 7):  "- If a collection only has one item, just display the item.\n- If you put \"!\" into CommandRoles[<command>], it will now allow any role EXCEPT the roles specified to use <command>. This behaves the same as the channel blacklist function.",
@@ -1387,6 +1391,8 @@ func Initialize(Token string) {
 	if sb.Debug { // The server does not necessarily tie a standard input to the program
 		go WaitForInput()
 	}
+
+	go IdleCheckLoop()
 
 	//BuildMarkov(1, 1)
 	//return
