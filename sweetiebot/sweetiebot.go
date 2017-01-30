@@ -188,7 +188,6 @@ type GuildInfo struct {
 	hooks        ModuleHooks
 	modules      []Module
 	commands     map[string]Command
-	silencelock  AtomicFlag
 }
 
 type Version struct {
@@ -505,7 +504,7 @@ func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
 	binary, _ := ioutil.ReadFile(avatarfile)
 	avatar := base64.StdEncoding.EncodeToString(binary)
 
-	_, err := s.UserUpdate("", "", name, "data:image/jpeg;base64,"+avatar, "")
+	_, err := s.UserUpdate("", "", name, "data:image/png;base64,"+avatar, "")
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
@@ -526,7 +525,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	}
 
 	// Only used to change sweetiebot's name or avatar
-	//ChangeBotName(s, "Sweetie", "avatar.jpg")
+	//ChangeBotName(s, "Sweetie", "avatar.png")
 }
 
 type MiscModule struct {
@@ -1195,6 +1194,8 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	if len(g.Members) == 0 || len(g.Channels) == 0 || len(g.Roles) == 0 { // If this is true we were given half a guild update
 		info.log.Log("Got half a guild update for " + g.Name)
 		info.Guild.Name = g.Name
@@ -1224,8 +1225,9 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) FindChannelID(name string) string {
-	channels := info.Guild.Channels
-	for _, v := range channels {
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
+	for _, v := range info.Guild.Channels {
 		if v.Name == name {
 			return v.ID
 		}
@@ -1241,6 +1243,8 @@ func ApplyFuncRange(length int, fn func(i int)) {
 }
 
 func (info *GuildInfo) HasChannel(id string) bool {
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	for _, v := range info.Guild.Channels {
 		if v.ID == id {
 			return true
@@ -1249,40 +1253,44 @@ func (info *GuildInfo) HasChannel(id string) bool {
 	return false
 }
 
+func IdleCheckInner() {
+	sb.guildsLock.RLock()
+	defer sb.guildsLock.RUnlock()
+	for _, info := range sb.guilds {
+		channels := info.Guild.Channels
+		if sb.Debug { // override this in debug mode
+			c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
+			if err == nil {
+				channels = []*discordgo.Channel{c}
+			} else {
+				channels = []*discordgo.Channel{}
+			}
+		}
+		for _, ch := range channels {
+			sb.LastMessagesLock.RLock()
+			t, exists := sb.LastMessages[ch.ID]
+			sb.LastMessagesLock.RUnlock()
+			if exists {
+				diff := time.Now().UTC().Sub(time.Unix(t, 0))
+				ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+					if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+						info.hooks.OnIdle[i].OnIdle(info, ch)
+					}
+				})
+			}
+		}
+
+		ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
+			if info.ProcessModule("", info.hooks.OnTick[i]) {
+				info.hooks.OnTick[i].OnTick(info)
+			}
+		})
+	}
+}
+
 func IdleCheckLoop() {
 	for !sb.quit {
-		sb.guildsLock.RLock()
-		for _, info := range sb.guilds {
-			channels := info.Guild.Channels
-			if sb.Debug { // override this in debug mode
-				c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
-				if err == nil {
-					channels = []*discordgo.Channel{c}
-				} else {
-					channels = []*discordgo.Channel{}
-				}
-			}
-			for _, ch := range channels {
-				sb.LastMessagesLock.RLock()
-				t, exists := sb.LastMessages[ch.ID]
-				sb.LastMessagesLock.RUnlock()
-				if exists {
-					diff := time.Now().UTC().Sub(time.Unix(t, 0))
-					ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-						if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-							info.hooks.OnIdle[i].OnIdle(info, ch)
-						}
-					})
-				}
-			}
-
-			ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
-				if info.ProcessModule("", info.hooks.OnTick[i]) {
-					info.hooks.OnTick[i].OnTick(info)
-				}
-			})
-		}
-		sb.guildsLock.RUnlock()
+		IdleCheckInner()
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -1299,7 +1307,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 4, 3},
+		version:            Version{0, 9, 4, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1313,6 +1321,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 4, 4):  "- Fix locks, update endpoint calls, improve antispam response.",
 			AssembleVersion(0, 9, 4, 3):  "- Emergency revert of last changes",
 			AssembleVersion(0, 9, 4, 2):  "- Spammer killing is now asynchronous and should have fewer duplicate alerts.",
 			AssembleVersion(0, 9, 4, 1):  "- Attempt to make sweetiebot more threadsafe.",

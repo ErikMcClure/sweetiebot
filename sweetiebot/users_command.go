@@ -328,7 +328,6 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if len(IDs) > 1 {
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
 	}
-
 	aliases := sb.db.GetAliases(IDs[0])
 	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
 	localtime := ""
@@ -469,8 +468,11 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return e, false, nil
 	}
 
-	if SilenceMember(SBitoa(IDs[0]), info) < 0 {
+	code := SilenceMember(SBitoa(IDs[0]), info)
+	if code < 0 {
 		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
+	} else if code == 1 {
+		return "```" + IDsToUsernames(IDs, info)[0] + " is already silenced!```", false, nil
 	}
 	if len(info.config.Spam.SilenceMessage) > 0 {
 		sb.dg.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)
@@ -491,21 +493,8 @@ func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
 
-func UnsilenceMember(user uint64, info *GuildInfo) (int8, error) {
-	srole := SBitoa(info.config.Spam.SilentRole)
-	userID := SBitoa(user)
-	m, err := info.GetMember(userID)
-	if err != nil {
-		return -1, err
-	}
-	for i := 0; i < len(m.Roles); i++ {
-		if m.Roles[i] == srole {
-			m.Roles = append(m.Roles[:i], m.Roles[i+1:]...)
-			sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles)
-			return 0, nil
-		}
-	}
-	return 1, nil
+func UnsilenceMember(user uint64, info *GuildInfo) error {
+	return sb.dg.GuildMemberRoleRemove(info.Guild.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }
 
 type UnsilenceCommand struct {
@@ -527,11 +516,9 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	e, err := UnsilenceMember(IDs[0], info)
-	if e == -1 {
-		return "```Could not get member: " + err.Error() + "```", false, nil
-	} else if e == 1 {
-		return "```" + IDsToUsernames(IDs, info)[0] + " wasn't silenced in the first place!```", false, nil
+	err := UnsilenceMember(IDs[0], info)
+	if err != nil {
+		return "```Error unsilencing member: " + err.Error() + "```", false, nil
 	}
 	return "```Unsilenced " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
 }

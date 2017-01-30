@@ -149,6 +149,8 @@ func (info *GuildInfo) GetRoles(c Command) string {
 		return ""
 	}
 
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k, _ := range m {
@@ -172,6 +174,8 @@ func (info *GuildInfo) GetChannels(c Command) string {
 		return ""
 	}
 
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	s := make([]string, 0, len(m))
 	for k, _ := range m {
 		for _, v := range info.Guild.Channels {
