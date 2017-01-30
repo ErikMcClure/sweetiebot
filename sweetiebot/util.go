@@ -170,9 +170,11 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 
 // Attempts to get a member from the guild by checking the state first before making the REST API call.
 func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
-	for _, v := range info.Guild.Members {
-		if v.User.ID == id {
-			return v, nil
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
+	for _, m := range info.Guild.Members {
+		if m.User.ID == id {
+			return m, nil
 		}
 	}
 	return sb.dg.GuildMember(info.Guild.ID, id)
@@ -716,6 +718,8 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 }
 
 func getAllPerms(info *GuildInfo, user string) (int64, error) {
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	for _, v := range info.Guild.Members {
 		if v.User.ID == user {
 			var perms int64 = 0

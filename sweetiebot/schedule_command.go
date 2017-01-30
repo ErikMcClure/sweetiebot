@@ -70,14 +70,11 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Unbanned <@"+v.Data+">")
 			}
 		case 1:
-			m, err := info.GetMember(v.Data)
-			if err != nil {
-				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
-			} else if info.config.Schedule.BirthdayRole == 0 {
+			if info.config.Schedule.BirthdayRole == 0 {
 				info.log.Log("No birthday role set!")
 			} else {
-				m.Roles = append(m.Roles, SBitoa(info.config.Schedule.BirthdayRole))
-				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
+				err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
+				info.log.LogError("Failed to set birthday role: ", err)
 			}
 			info.SendMessage(channel, "Happy Birthday <@"+v.Data+">!")
 		case 2:
@@ -87,12 +84,11 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 		case 3:
 			info.SendMessage(channel, v.Data+" is starting now!")
 		case 4:
-			m, err := info.GetMember(v.Data)
-			if err != nil {
-				info.log.LogError("Couldn't get <@"+v.Data+"> member data! ", err)
+			if info.config.Schedule.BirthdayRole == 0 {
+				info.log.Log("No birthday role set!")
 			} else {
-				RemoveSliceString(&m.Roles, SBitoa(info.config.Schedule.BirthdayRole))
-				sb.dg.GuildMemberEdit(info.Guild.ID, v.Data, m.Roles)
+				err := sb.dg.GuildMemberRoleRemove(info.Guild.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
+				info.log.LogError("Failed to remove birthday role: ", err)
 			}
 		case 6:
 			dat := strings.SplitN(v.Data, "|", 2)
@@ -105,11 +101,9 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			dat := strings.SplitN(v.Data, "|", 2)
 			info.SendMessage(channel, getGroupPings(strings.Split(dat[0], "+"), info)+" "+dat[1])
 		case 8:
-			e, err := UnsilenceMember(SBatoi(v.Data), info)
+			err := UnsilenceMember(SBatoi(v.Data), info)
 			if err != nil {
 				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Error unsilencing <@"+v.Data+">: "+err.Error())
-			} else if e == 1 {
-				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+v.Data+"> was already unsilenced!")
 			} else {
 				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Unsilenced <@"+v.Data+">")
 			}
