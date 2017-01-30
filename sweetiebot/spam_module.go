@@ -80,7 +80,6 @@ func BanMember(u *discordgo.User, info *GuildInfo) {
 }
 
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
-	time.Sleep(500 * time.Millisecond)
 	msgembeds := ""
 	if len(msg.Embeds) > 0 {
 		msgembeds = "\nEmbedded URLs: "
