@@ -41,6 +41,8 @@ func (w *SpamModule) Description() string {
 }
 
 func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	srole := SBitoa(info.config.Spam.SilentRole)
 	for _, v := range m.Roles {
 		if v == srole {
@@ -54,20 +56,17 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
 	m, err := info.GetMember(userID)
 	if err == nil {
-		for info.silencelock.test_and_set() {
-		}
 		if IsSilenced(m, info) {
 			return 1
 		}
+		sb.dg.State.Lock()
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
-		info.silencelock.clear()
-	} else {
-		info.log.Log("Could not silence <@"+userID+"> because discordgo can't find them. (Error: ", err.Error(), ")")
-		return -1
+		sb.dg.State.Unlock()
 	}
-	err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
+	err = sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole)) // Tell discord to make this spammer silent
 	if err != nil {
-		info.log.Log("GuildMemberEdit returned error: ", err.Error())
+		info.log.Log("GuildMemberRoleAdd returned error: ", err.Error())
+		return -1
 	}
 
 	return 0
@@ -81,6 +80,7 @@ func BanMember(u *discordgo.User, info *GuildInfo) {
 }
 
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
+	time.Sleep(500 * time.Millisecond)
 	msgembeds := ""
 	if len(msg.Embeds) > 0 {
 		msgembeds = "\nEmbedded URLs: "
@@ -94,9 +94,10 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if err == nil {
 		chname = ch.Name
 	}
-	info.log.Log(fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, msg.ContentWithMentionsReplaced(), msgembeds))
+	logmsg := fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, msg.ContentWithMentionsReplaced(), msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
+		info.log.Log(logmsg)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
 		return
 	}
@@ -113,7 +114,10 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
+		info.log.Log(logmsg)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+	} else {
+		info.log.Log("Killing spammer " + u.Username)
 	}
 }
 func GetMaxSpamCheck(info *GuildInfo) int {
