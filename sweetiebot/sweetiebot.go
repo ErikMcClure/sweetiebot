@@ -1299,7 +1299,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 4, 2},
+		version:            Version{0, 9, 4, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1313,6 +1313,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 4, 3):  "- Emergency revert of last changes",
 			AssembleVersion(0, 9, 4, 2):  "- Spammer killing is now asynchronous and should have fewer duplicate alerts.",
 			AssembleVersion(0, 9, 4, 1):  "- Attempt to make sweetiebot more threadsafe.",
 			AssembleVersion(0, 9, 4, 0):  "- Reduced number of goroutines, made updating faster.",

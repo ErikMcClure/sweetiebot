@@ -65,12 +65,10 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 		info.log.Log("Could not silence <@"+userID+"> because discordgo can't find them. (Error: ", err.Error(), ")")
 		return -1
 	}
-	go func(userID string, info *GuildInfo, m *discordgo.Member) {
-		err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
-		if err != nil {
-			info.log.Log("GuildMemberEdit returned error: ", err.Error())
-		}
-	}(userID, info, m)
+	err = sb.dg.GuildMemberEdit(info.Guild.ID, userID, m.Roles) // Tell discord to make this spammer silent
+	if err != nil {
+		info.log.Log("GuildMemberEdit returned error: ", err.Error())
+	}
 
 	return 0
 }
@@ -108,10 +106,10 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 		messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
 
 		for _, v := range messages {
-			go sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
+			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
 		}
 	} else if info.config.Spam.MaxRemoveLookback >= 0 {
-		go sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
+		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
