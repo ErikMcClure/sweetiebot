@@ -242,7 +242,8 @@ type SweetieBot struct {
 var sb *SweetieBot
 var channelregex = regexp.MustCompile("<#[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
-var roleregex = regexp.MustCompile("<@&[0-9]+>")
+var mentionregex = regexp.MustCompile("<@(!|&)?[0-9]+>")
+var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 var locUTC = time.FixedZone("UTC", 0)
@@ -435,10 +436,9 @@ func PartialSanitize(s string) string {
 }
 
 func ExtraSanitize(s string) string {
-	s = PartialSanitize(s)
 	s = strings.Replace(s, "http://", "http\u200B://", -1)
 	s = strings.Replace(s, "https://", "https\u200B://", -1)
-	return ReplaceAllMentions(s)
+	return PartialSanitize(ReplaceAllMentions(s))
 }
 
 func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
@@ -970,7 +970,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if info != nil && cid != info.config.Log.Channel && isdbguild { // Log this message if it was sent to the main guild only.
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
 			return
@@ -1012,7 +1012,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	}
 	cid := SBatoi(m.ChannelID)
 	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), m.ContentWithMentionsReplaced(), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID {
 		return
@@ -1170,7 +1170,8 @@ func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
 		isonline = (p != nil && p.Status != "Offline")
 	}
 	id := SBatoi(u.ID)
-	sb.db.AddUser(id, u.Email, u.Username, u.Avatar, u.Verified, isonline)
+	discriminator, _ := strconv.Atoi(u.Discriminator)
+	sb.db.AddUser(id, u.Email, u.Username, discriminator, u.Avatar, u.Verified, isonline)
 	return id
 }
 
@@ -1253,44 +1254,44 @@ func (info *GuildInfo) HasChannel(id string) bool {
 	return false
 }
 
-func IdleCheckInner() {
-	sb.guildsLock.RLock()
-	defer sb.guildsLock.RUnlock()
-	for _, info := range sb.guilds {
-		channels := info.Guild.Channels
-		if sb.Debug { // override this in debug mode
-			c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
-			if err == nil {
-				channels = []*discordgo.Channel{c}
-			} else {
-				channels = []*discordgo.Channel{}
-			}
-		}
-		for _, ch := range channels {
-			sb.LastMessagesLock.RLock()
-			t, exists := sb.LastMessages[ch.ID]
-			sb.LastMessagesLock.RUnlock()
-			if exists {
-				diff := time.Now().UTC().Sub(time.Unix(t, 0))
-				ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-					if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-						info.hooks.OnIdle[i].OnIdle(info, ch)
-					}
-				})
-			}
-		}
-
-		ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
-			if info.ProcessModule("", info.hooks.OnTick[i]) {
-				info.hooks.OnTick[i].OnTick(info)
-			}
-		})
-	}
-}
-
 func IdleCheckLoop() {
 	for !sb.quit {
-		IdleCheckInner()
+		sb.guildsLock.RLock()
+		infos := make([]*GuildInfo, 0, len(sb.guilds))
+		for _, v := range sb.guilds {
+			infos = append(infos, v)
+		}
+		sb.guildsLock.RUnlock()
+		for _, info := range infos {
+			channels := info.Guild.Channels
+			if sb.Debug { // override this in debug mode
+				c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
+				if err == nil {
+					channels = []*discordgo.Channel{c}
+				} else {
+					channels = []*discordgo.Channel{}
+				}
+			}
+			for _, ch := range channels {
+				sb.LastMessagesLock.RLock()
+				t, exists := sb.LastMessages[ch.ID]
+				sb.LastMessagesLock.RUnlock()
+				if exists {
+					diff := time.Now().UTC().Sub(time.Unix(t, 0))
+					ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
+						if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
+							info.hooks.OnIdle[i].OnIdle(info, ch)
+						}
+					})
+				}
+			}
+
+			ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
+				if info.ProcessModule("", info.hooks.OnTick[i]) {
+					info.hooks.OnTick[i].OnTick(info)
+				}
+			})
+		}
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -1307,7 +1308,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 4, 4},
+		version:            Version{0, 9, 4, 5},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1321,6 +1322,7 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 4, 5):  "- Escape nicknames correctly\n- Sweetiebot no longer tracks per-server nickname changes, only username changes.\n- You can now use the format username#1234 in user arguments.",
 			AssembleVersion(0, 9, 4, 4):  "- Fix locks, update endpoint calls, improve antispam response.",
 			AssembleVersion(0, 9, 4, 3):  "- Emergency revert of last changes",
 			AssembleVersion(0, 9, 4, 2):  "- Spammer killing is now asynchronous and should have fewer duplicate alerts.",
