@@ -333,16 +333,34 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}
-	if user[len(user)-1] == '@' {
+	discriminant := ""
+	username := ""
+	if discriminantregex.MatchString(user) {
+		pos := strings.LastIndex(user, "#")
+		if pos >= 0 {
+			discriminant = user[pos+1:]
+			user = user[:pos]
+			username = strings.ToLower(user)
+		}
+	} else if user[len(user)-1] == '@' {
 		user = user[:len(user)-1]
 	} else {
 		user = "%" + user + "%"
 	}
 	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
-	if len(r) != 0 {
-		return r
+	if len(r) == 0 {
+		r = sb.db.FindUsers(user, 20, 0)
 	}
-	return sb.db.FindUsers(user, 20, 0)
+	if len(discriminant) > 0 {
+		for _, v := range r {
+			m, err := info.GetMember(SBitoa(v))
+			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.User.Username) == username {
+				return []uint64{v}
+			}
+		}
+		return []uint64{}
+	}
+	return r
 }
 
 func GetCommandsInOrder(m map[string]Command) []string {
@@ -440,6 +458,13 @@ func getUserName(user uint64, info *GuildInfo) string {
 	}
 	return m.User.Username
 }
+func sanitizementionhelper(s string) string {
+	return "<\\@" + s[2:]
+}
+func SanitizeMentions(s string) string {
+	return mentionregex.ReplaceAllStringFunc(s, sanitizementionhelper)
+}
+
 func replacementionhelper(s string) string {
 	u, _, _, _ := sb.db.GetUser(SBatoi(StripPing(s)))
 	if u == nil {
@@ -447,14 +472,10 @@ func replacementionhelper(s string) string {
 	}
 	return u.Username
 }
-func replacerolementionhelper(s string) string {
-	return "<@\u200B&" + s[3:]
+func ReplaceAllMentions(s string) string {
+	return SanitizeMentions(userregex.ReplaceAllStringFunc(s, replacementionhelper))
 }
 
-func ReplaceAllMentions(s string) string {
-	s = userregex.ReplaceAllStringFunc(s, replacementionhelper)
-	return roleregex.ReplaceAllStringFunc(s, replacerolementionhelper)
-}
 func RestrictCommand(v string, roles map[string]map[string]bool, alertrole uint64) {
 	_, ok := roles[v]
 	if !ok && alertrole != 0 {
@@ -766,8 +787,8 @@ func getDefaultServer(user uint64) *GuildInfo {
 		return nil
 	}
 	sb.guildsLock.RLock()
+	defer sb.guildsLock.RUnlock()
 	info, ok := sb.guilds[*server]
-	sb.guildsLock.RUnlock()
 	if !ok {
 		return nil
 	}

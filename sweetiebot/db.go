@@ -115,10 +115,10 @@ func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sql_AddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
-	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?)")
+	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
-	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Avatar, LastSeen, Timezone, Location, DefaultServer FROM users WHERE ID = ?")
-	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
+	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Discriminator, Avatar, LastSeen, Timezone, Location, DefaultServer FROM users WHERE ID = ?")
+	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sql_FindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
@@ -227,8 +227,8 @@ type PingContext struct {
 	Timestamp time.Time
 }
 
-func (db *BotDB) AddUser(id uint64, email string, username string, avatar string, verified bool, isonline bool) {
-	_, err := db.sql_AddUser.Exec(id, email, username, avatar, verified, isonline)
+func (db *BotDB) AddUser(id uint64, email string, username string, discriminator int, avatar string, verified bool, isonline bool) {
+	_, err := db.sql_AddUser.Exec(id, email, username, discriminator, avatar, verified, isonline)
 	db.log.LogError("AddUser error: ", err)
 }
 
@@ -243,7 +243,11 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	var i sql.NullInt64
 	var loc sql.NullString
 	var guild sql.NullInt64
-	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &u.Avatar, &lastseen, &i, &loc, &guild)
+	var discriminator int = 0
+	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &discriminator, &u.Avatar, &lastseen, &i, &loc, &guild)
+	if discriminator > 0 {
+		u.Discriminator = strconv.Itoa(discriminator)
+	}
 	if err == sql.ErrNoRows {
 		return nil, lastseen, nil, nil
 	}
@@ -259,7 +263,11 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	m := &discordgo.Member{}
 	m.User = &discordgo.User{}
 	var lastseen time.Time
-	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &m.User.Avatar, &lastseen, &m.Nick, &m.JoinedAt)
+	var discriminator int = 0
+	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &m.JoinedAt)
+	if discriminator > 0 {
+		m.User.Discriminator = strconv.Itoa(discriminator)
+	}
 	if err == sql.ErrNoRows {
 		m.User, lastseen, _, _ = db.GetUser(id)
 		if m.User == nil {

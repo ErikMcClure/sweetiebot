@@ -79,9 +79,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			info.SendMessage(channel, "Happy Birthday <@"+v.Data+">!")
 		case 2:
 			info.SendMessage(channel, v.Data)
-		case 5:
-			fallthrough
-		case 3:
+		case 5, 3:
 			info.SendMessage(channel, v.Data+" is starting now!")
 		case 4:
 			if info.config.Schedule.BirthdayRole == 0 {
@@ -210,37 +208,21 @@ func (c *ScheduleCommand) UsageShort() string { return "Gets a list of upcoming 
 
 func getScheduleType(s string) uint8 {
 	switch strings.ToLower(s) {
-	case "bans":
-		fallthrough
-	case "ban":
+	case "bans", "ban":
 		return 0
-	case "birthdays":
-		fallthrough
-	case "birthday":
+	case "birthdays", "birthday":
 		return 1
-	case "messages":
-		fallthrough
-	case "message":
+	case "messages", "message":
 		return 2
-	case "episodes":
-		fallthrough
-	case "episode":
+	case "episodes", "episode":
 		return 3
-	case "events":
-		fallthrough
-	case "event":
+	case "events", "event":
 		return 5
-	case "reminders":
-		fallthrough
-	case "reminder":
+	case "reminders", "reminder":
 		return 6
-	case "groups":
-		fallthrough
-	case "group":
+	case "groups", "group":
 		return 7
-	case "silences":
-		fallthrough
-	case "silence":
+	case "silences", "silence":
 		return 8
 	}
 	return 255
@@ -299,37 +281,21 @@ type AddEventCommand struct {
 
 func parseRepeatInterval(s string) uint8 {
 	switch strings.ToLower(s) {
-	case "seconds":
-		fallthrough
-	case "second":
+	case "seconds", "second":
 		return 1
-	case "minutes":
-		fallthrough
-	case "minute":
+	case "minutes", "minute":
 		return 2
-	case "hours":
-		fallthrough
-	case "hour":
+	case "hours", "hour":
 		return 3
-	case "days":
-		fallthrough
-	case "day":
+	case "days", "day":
 		return 4
-	case "weeks":
-		fallthrough
-	case "week":
+	case "weeks", "week":
 		return 5
-	case "months":
-		fallthrough
-	case "month":
+	case "months", "month":
 		return 6
-	case "quarters":
-		fallthrough
-	case "quarter":
+	case "quarters", "quarter":
 		return 7
-	case "years":
-		fallthrough
-	case "year":
+	case "years", "year":
 		return 8
 	}
 	return 255
@@ -477,9 +443,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices
 	var t time.Time
 	arg := ""
 	switch strings.ToLower(args[0]) {
-	default:
-		fallthrough
-	case "in":
+	default: // You're supposed to use "in" here, but if we don't know what to do we just do this by default anyway.
 		t = time.Now().UTC()
 		d, err := strconv.Atoi(args[1])
 		if err != nil {

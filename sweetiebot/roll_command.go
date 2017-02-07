@@ -23,25 +23,7 @@ func (c *RollCommand) OpSplit(s string) []string {
 	last := 0
 	for i, v := range s {
 		switch v {
-		case '+':
-			fallthrough
-		case '-':
-			fallthrough
-		case '*':
-			fallthrough
-		case '/':
-			fallthrough
-		case '(':
-			fallthrough
-		case ')':
-			fallthrough
-		case ',':
-			fallthrough
-		case '^':
-			fallthrough
-		case '&':
-			fallthrough
-		case '|':
+		case '+', '-', '*', '/', '(', ')', ',', '^', '&', '|':
 			if last != i {
 				r = append(r, s[last:i], s[i:i+1])
 			} else {
