@@ -98,10 +98,13 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Error: User does not exist!```", false, nil
 	}
 	nick := u.User.Username
-	if len(u.Nick) > 0 {
-		nick = u.Nick
+	if len(u.User.Discriminator) > 0 {
+		nick += "#" + u.User.Discriminator
 	}
-	return "```All known aliases for " + nick + " [" + u.User.ID + "]\n  " + strings.Join(r, "\n  ") + "```", false, nil
+	if len(u.Nick) > 0 {
+		nick = u.Nick + " (" + nick + ")"
+	}
+	return fmt.Sprintf("```All known aliases for %s [%s]\n  %s```", nick, u.User.ID, PartialSanitize(strings.Join(r, "\n  "))), false, nil
 }
 func (c *AKACommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -141,9 +144,7 @@ func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []i
 				t = t.AddDate(0, duration, 0)
 			case 8:
 				t = t.AddDate(duration, 0, 0)
-			case 7:
-				fallthrough
-			case 255:
+			case 7, 255:
 				return "", "```Error: unrecognized interval.```"
 			}
 
@@ -373,7 +374,11 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 	}
 
-	return ExtraSanitize(fmt.Sprintf("**ID:** %v\n**Username:** %v#%v\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Joined:** %v\n**Roles:** %v\n**Bot:** %v\n**Last Seen:** %v\n**Aliases:** %v\n**Avatar:** ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, tz, localtime, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.In(authortz).Format(time.RFC1123), strings.Join(aliases, ", "))) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
+	s := fmt.Sprintf("**ID:** %v\n**Username:** %v#%v\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Joined:** %v\n**Roles:** %v\n**Bot:** %v\n**Last Seen:** %v\n**Aliases:** %v\n**Avatar:** ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, tz, localtime, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.In(authortz).Format(time.RFC1123), strings.Join(aliases, ", "))
+	s = PartialSanitize(s)
+	s = strings.Replace(s, "http://", "http\u200B://", -1)
+	s = strings.Replace(s, "https://", "https\u200B://", -1)
+	return SanitizeMentions(s) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
 }
 func (c *UserInfoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

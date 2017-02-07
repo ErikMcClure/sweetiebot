@@ -246,12 +246,12 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices [
 	  }*/
 
 	sb.guildsLock.RLock()
+	defer sb.guildsLock.RUnlock()
 	for _, v := range sb.guilds {
 		if v.config.Log.Channel > 0 {
 			v.SendMessage(SBitoa(v.config.Log.Channel), "```Shutting down for update...```")
 		}
 	}
-	sb.guildsLock.RUnlock()
 
 	sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
 	return "```Shutting down for update...```", false, nil
@@ -336,12 +336,13 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, indices
 
 	arg := msg.Content[indices[0]:]
 	sb.guildsLock.RLock()
+	defer sb.guildsLock.RUnlock()
 	for _, v := range sb.guilds {
 		if v.config.Log.Channel > 0 {
 			v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
 		}
 	}
-	sb.guildsLock.RUnlock()
+
 	return "", false, nil
 }
 func (c *AnnounceCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -400,9 +401,7 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 	for i := 0; i < len(args); i++ {
 		if len(args[i]) > 0 {
 			switch args[i][0] {
-			case '@':
-				fallthrough
-			case '<':
+			case '<', '@':
 				if args[i][0] == '@' || (len(args[i]) > 1 && args[i][1] == '@') {
 					var IDs []uint64
 					if args[i][0] == '@' {
@@ -420,9 +419,7 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 					break
 				}
 				fallthrough
-			case '!':
-				fallthrough
-			case '$':
+			case '$', '!':
 				if args[i][0] != '!' {
 					search = "%"
 				}
