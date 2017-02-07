@@ -93,7 +93,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if err == nil {
 		chname = ch.Name
 	}
-	logmsg := fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, msg.ContentWithMentionsReplaced(), msgembeds)
+	logmsg := fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
 		info.log.Log(logmsg)

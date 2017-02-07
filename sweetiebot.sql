@@ -73,12 +73,12 @@ DELIMITER ;
 
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_avatar` VARCHAR(512), IN `_verified` BIT, IN `_isonline` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_discriminator` INT, IN `_avatar` VARCHAR(512), IN `_verified` BIT, IN `_isonline` BIT)
     DETERMINISTIC
-INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
-VALUES (_id, _email, _username, _avatar, _verified, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+INSERT INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) 
+VALUES (_id, _email, _username, _discriminator, _avatar, _verified, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
+Username=_username, Discriminator=_discriminator, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
 DELIMITER ;
 
 
@@ -559,6 +559,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `ID` bigint(20) unsigned NOT NULL,
   `Email` varchar(512) NOT NULL DEFAULT '',
   `Username` varchar(128) NOT NULL DEFAULT '',
+  `Discriminator` int(10) unsigned NOT NULL DEFAULT '0',
   `Avatar` varchar(512) NOT NULL DEFAULT '',
   `Verified` bit(1) NOT NULL DEFAULT b'0',
   `LastSeen` datetime NOT NULL,
@@ -614,24 +615,6 @@ DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
 
 
--- Dumping structure for trigger sweetiebot.members_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
-DELIMITER //
-CREATE TRIGGER `members_before_update` BEFORE UPDATE ON `members` FOR EACH ROW BEGIN
-
-IF NEW.Nickname != OLD.Nickname AND OLD.Nickname != '' THEN
-SET NEW.LastNickChange = UTC_TIMESTAMP();
-SET @diff = UNIX_TIMESTAMP(NEW.LastNickChange) - UNIX_TIMESTAMP(OLD.LastNickChange);
-INSERT INTO aliases (User, Alias, Duration)
-VALUES (OLD.ID, OLD.Nickname, @diff)
-ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
-END IF;
-
-END//
-DELIMITER ;
-SET SQL_MODE=@OLDTMP_SQL_MODE;
-
-
 -- Dumping structure for trigger sweetiebot.polloptions_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
@@ -659,6 +642,10 @@ CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
 
 IF NEW.Username = '' THEN
 SET NEW.Username = OLD.Username;
+END IF;
+
+IF NEW.Discriminator = 0 THEN
+SET NEW.Discriminator = OLD.Discriminator;
 END IF;
 
 IF NEW.Avatar = '' THEN
