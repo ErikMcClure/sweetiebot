@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -246,7 +247,7 @@ type SweetieBot struct {
 	LastMessagesLock   sync.RWMutex
 	MaxConfigSize      int
 	StartTime          int64
-	MessageCount       uint64
+	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 }
 
 var sb *SweetieBot
@@ -953,7 +954,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 }
 
 func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	//atomic.AddUint64(&sb.MessageCount, 1)
+	atomic.AddUint32(&sb.MessageCount, 1)
 	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
 		return
 	}
