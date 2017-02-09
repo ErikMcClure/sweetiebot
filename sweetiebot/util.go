@@ -484,6 +484,16 @@ func RestrictCommand(v string, roles map[string]map[string]bool, alertrole uint6
 	}
 }
 
+// I'm going to find whoever is responsible for not including
+// this in Go's standard library and dump them in the middle of
+// Death Valley with an entire cactus shoved up their ass.
+func AbsInt(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 type legacyBotConfig struct {
 	Version               int                        `json:"version"`
 	LastVersion           int                        `json:"lastversion"`
@@ -545,6 +555,13 @@ type legacyBotConfigV10 struct {
 		Commandperduration int   `json:"commandperduration"`
 		Commandmaxduration int64 `json:"commandmaxduration"`
 	} `json:"basic"`
+}
+
+type legacyBotConfigV12 struct {
+	Spam struct {
+		MaxImages int `json:"maximagespam"`
+		MaxPings  int `json:"maxpingspam"`
+	} `json:"spam"`
 }
 
 // migrate settings from earlier config version
@@ -636,10 +653,10 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Modules.Channels = legacy.Module_channels
 		guild.config.Modules.Disabled = legacy.Module_disabled
 		guild.config.Spam.AutoSilence = legacy.AutoSilence
-		guild.config.Spam.MaxAttach = legacy.MaxAttachSpam
-		guild.config.Spam.MaxImages = legacy.MaxImageSpam
-		guild.config.Spam.MaxMessages = legacy.MaxMessageSpam
-		guild.config.Spam.MaxPings = legacy.MaxPingSpam
+		//guild.config.Spam.MaxAttach = legacy.MaxAttachSpam
+		//guild.config.Spam.MaxImages = legacy.MaxImageSpam
+		//guild.config.Spam.MaxMessages = legacy.MaxMessageSpam
+		//guild.config.Spam.MaxPings = legacy.MaxPingSpam
 		guild.config.Spam.RaidTime = legacy.MaxRaidTime
 		guild.config.Spam.MaxRemoveLookback = legacy.MaxSpamRemoveLookback
 		guild.config.Spam.RaidSize = legacy.RaidSize
@@ -686,8 +703,35 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		RestrictCommand("getaudit", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 	}
 
-	if guild.config.Version != 12 {
-		guild.config.Version = 12 // set version to most recent config version
+	if guild.config.Version <= 12 {
+		guild.config.Spam.BasePressure = 10.0
+		guild.config.Spam.MaxPressure = 60.0
+		guild.config.Spam.ImagePressure = ((guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / 6.0)
+		guild.config.Spam.PingPressure = ((guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / 24.0)
+		guild.config.Spam.LengthPressure = ((guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / (2000.0 * 4))
+		guild.config.Spam.RepeatPressure = guild.config.Spam.BasePressure
+		guild.config.Spam.PressureDecay = 2.5
+
+		legacy := legacyBotConfigV12{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			if legacy.Spam.MaxImages > 0 {
+				guild.config.Spam.ImagePressure = ((guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / float32(legacy.Spam.MaxImages+1))
+			} else {
+				guild.config.Spam.ImagePressure = 0
+			}
+			if legacy.Spam.MaxPings > 0 {
+				guild.config.Spam.PingPressure = ((guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / float32(legacy.Spam.MaxPings+1))
+			} else {
+				guild.config.Spam.PingPressure = 0
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+	}
+
+	if guild.config.Version != 13 {
+		guild.config.Version = 13 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil

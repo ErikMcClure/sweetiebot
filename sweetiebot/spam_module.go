@@ -6,12 +6,22 @@ import (
 
 	"fmt"
 
+	"math"
+
 	"github.com/bwmarrin/discordgo"
 )
 
+type UserPressure struct {
+	pressure     float32
+	lastmessage  int64
+	lastcache    string
+	lastinterval int64
+	botcount     int // Number of consecutive messages with suspicious intervals
+}
+
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
-	tracker  map[uint64]*SaturationLimit
+	tracker  map[uint64]*UserPressure
 	lastraid int64
 }
 
@@ -20,7 +30,7 @@ func (w *SpamModule) Name() string {
 }
 
 func (w *SpamModule) Register(info *GuildInfo) {
-	w.tracker = make(map[uint64]*SaturationLimit)
+	w.tracker = make(map[uint64]*UserPressure)
 	w.lastraid = 0
 	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
@@ -33,16 +43,15 @@ func (w *SpamModule) Commands() []Command {
 	return []Command{
 		&AutoSilenceCommand{w},
 		&WipeWelcomeCommand{},
+		&GetPressureCommand{w},
 	}
 }
 
 func (w *SpamModule) Description() string {
-	return "Tracks all channels it is active on for spammers. If someone posts more than `n` messages in `m` seconds, they will be silenced, their messages deleted, and the moderators will be notified. Detects groups of people joining at the same time and alerts the moderators of a potential raid."
+	return "Tracks all channels it is active on for spammers. Each message someone sends generates \"pressure\", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid."
 }
 
 func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
 	srole := SBitoa(info.config.Spam.SilentRole)
 	for _, v := range m.Roles {
 		if v == srole {
@@ -56,10 +65,11 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
 	m, err := info.GetMember(userID)
 	if err == nil {
+		sb.dg.State.Lock()
 		if IsSilenced(m, info) {
+			sb.dg.State.Unlock()
 			return 1
 		}
-		sb.dg.State.Lock()
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
 		sb.dg.State.Unlock()
 	}
@@ -74,6 +84,8 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 
 func BanMember(u *discordgo.User, info *GuildInfo) {
 	m, err := sb.dg.GuildMember(info.Guild.ID, u.ID)
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	if err != nil || IsSilenced(m, info) {
 		sb.dg.GuildBanCreate(info.Guild.ID, u.ID, 1)
 	}
@@ -96,8 +108,8 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	logmsg := fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
-		info.log.Log(logmsg)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
+		info.log.Log(logmsg)
 		return
 	}
 	silenced := SilenceMember(u.ID, info) == 1
@@ -113,72 +125,77 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
-		info.log.Log(logmsg)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+		info.log.Log(logmsg)
 	} else {
 		info.log.Log("Killing spammer " + u.Username)
 	}
 }
-func GetMaxSpamCheck(info *GuildInfo) int {
-	max := 2
-	for _, v := range info.config.Spam.MaxMessages {
-		if v > max {
-			max = v
-		}
+
+// Gets the pressure generated from an isolated message, ignoring the context.
+func GetPressure(info *GuildInfo, m *discordgo.Message, edited bool) float32 {
+	p := info.config.Spam.ImagePressure * float32(len(m.Attachments))
+	p += info.config.Spam.PingPressure * float32(len(m.Mentions))
+	p += info.config.Spam.ImagePressure * float32(len(m.Embeds))
+	p += info.config.Spam.LengthPressure * float32(len(m.Content))
+	if edited { // Editing a message contributes only the square root of any additional penalties (so you can edit a post with lots of pictures and not get instabanned)
+		p = float32(math.Sqrt(float64(p)))
 	}
-	if max > 300 {
-		max = 300
-	}
-	return max
+	return p + info.config.Spam.BasePressure
 }
 
-func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message) bool {
+func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited bool) bool {
 	if m.Author != nil {
 		if info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.SilentRole)) && SBatoi(m.ChannelID) != info.config.Users.WelcomeChannel {
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
 		id := SBatoi(m.Author.ID)
+		tm := time.Now().UTC()
 		_, ok := w.tracker[id]
-		max := GetMaxSpamCheck(info) * 2
 		if !ok {
-			w.tracker[id] = &SaturationLimit{make([]int64, max, max), 0, AtomicFlag{0}}
+			w.tracker[id] = &UserPressure{0, tm.Unix() * 1000, "", 0, 0}
 		}
-		limit := w.tracker[id]
-		if len(limit.times) < max { // reconstruct limits in case they were changed
-			w.tracker[id].resize(max)
+		track := w.tracker[id]
+		p := GetPressure(info, m, edited)
+		if len(m.Content) > 0 && strings.ToLower(m.Content) == track.lastcache {
+			p += info.config.Spam.RepeatPressure
 		}
-		limit.append(time.Now().UTC().Unix())
-		//if limit.checkafter(5, 1) || limit.checkafter(7, 4) || limit.checkafter(10, 9) {
-		for k, v := range info.config.Spam.MaxMessages {
-			if k == 0 || v == 0 || v >= max {
-				delete(info.config.Spam.MaxMessages, k)
-				info.SaveConfig()
-				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: I detected an invalid `spam.maxmessages` setting and was forced to remove it. Please recheck your `spam.maxmessages` config option.") // Alert admins
-			} else if limit.checkafter(v, k) {
-				KillSpammer(m.Author, info, m, "spamming too many messages")
-				return true
-			}
+		track.lastcache = strings.ToLower(m.Content)
+		last := track.lastmessage
+		track.lastmessage = tm.Unix()*1000 + int64(tm.Nanosecond()/1000000)
+		interval := track.lastmessage - last
+		if AbsInt(interval-track.lastinterval) < 9 { // If the difference is less than 9 milliseconds, this is suspicious
+			track.botcount++
+		} else {
+			track.botcount = 0
 		}
-		if len(m.Mentions) > info.config.Spam.MaxPings {
-			KillSpammer(m.Author, info, m, "pinging too many people")
-			return true
+		track.lastinterval = interval
+
+		//fmt.Println("Message Pressure: ", p)
+		track.pressure -= info.config.Spam.BasePressure * (float32(interval) / (info.config.Spam.PressureDecay * 1000.0))
+		if track.pressure < 0 {
+			track.pressure = 0
 		}
-		if len(m.Embeds) > info.config.Spam.MaxImages || len(m.Attachments) > info.config.Spam.MaxAttach {
-			KillSpammer(m.Author, info, m, "embedding too many images")
+		track.pressure += p
+		//fmt.Println("Current Pressure: ", track.pressure)
+		//if track.botcount > info.config.Spam.MaxBotFlags || track.pressure > info.config.Spam.MaxPressure {
+		if track.pressure > info.config.Spam.MaxPressure {
+			//info.SendMessage(m.ChannelID, "Pressure Limit Hit")
+			KillSpammer(m.Author, info, m, "spamming too many messages")
 			return true
 		}
 	}
 	return false
 }
 func (w *SpamModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
-	w.CheckSpam(info, m)
+	w.CheckSpam(info, m, false)
 }
 func (w *SpamModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
-	w.CheckSpam(info, m)
+	w.CheckSpam(info, m, true)
 }
 func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
-	return w.CheckSpam(info, m)
+	return w.CheckSpam(info, m, false)
 }
 func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.Guild.ID))
@@ -301,3 +318,44 @@ func (c *WipeWelcomeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Cleans out welcome channel."}
 }
 func (c *WipeWelcomeCommand) UsageShort() string { return "Cleans out welcome channel." }
+
+type GetPressureCommand struct {
+	s *SpamModule
+}
+
+func (c *GetPressureCommand) Name() string {
+	return "GetPressure"
+}
+func (c *GetPressureCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+	if !isOwner {
+		return "```Only the owner of the bot itself can call this!```", false, nil
+	}
+	if len(args) < 1 {
+		return "```You must provide a user to search for.```", false, nil
+	}
+	arg := msg.Content[indices[0]:]
+	IDs := FindUsername(arg, info)
+
+	if len(IDs) == 0 { // no matches!
+		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
+	}
+	if len(IDs) > 1 {
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+	}
+
+	u, ok := c.s.tracker[IDs[0]]
+	if !ok {
+		return "0", false, nil
+	}
+	return fmt.Sprint(u.pressure), false, nil
+}
+func (c *GetPressureCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Restricted command that gets the current spam pressure of a user.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "user", Desc: "User to retrieve pressure from.", Optional: false},
+		},
+	}
+}
+func (c *GetPressureCommand) UsageShort() string { return "[RESTRICTED] Gets user's spam pressure." }
