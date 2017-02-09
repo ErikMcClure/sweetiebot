@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -954,7 +953,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 }
 
 func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	atomic.AddUint64(&sb.MessageCount, 1)
+	//atomic.AddUint64(&sb.MessageCount, 1)
 	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
 		return
 	}
