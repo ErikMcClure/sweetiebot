@@ -1,10 +1,35 @@
 package sweetiebot
 
 import (
+	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+type MiscModule struct {
+	emotes *EmoteModule
+}
+
+func (w *MiscModule) Name() string {
+	return "Miscellaneous"
+}
+
+func (w *MiscModule) Register(info *GuildInfo) {}
+
+func (w *MiscModule) Commands() []Command {
+	return []Command{
+		&LastSeenCommand{},
+		&SearchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
+		&RollCommand{},
+		&SnowflakeTimeCommand{},
+	}
+}
+
+func (w *MiscModule) Description() string {
+	return "A collection of miscellaneous commands that don't belong to a module."
+}
 
 type LastSeenCommand struct {
 }
@@ -44,3 +69,28 @@ func (c *LastSeenCommand) Usage(info *GuildInfo) *CommandUsage {
 	}
 }
 func (c *LastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
+
+type SnowflakeTimeCommand struct {
+}
+
+func (c *SnowflakeTimeCommand) Name() string {
+	return "SnowflakeTime"
+}
+func (c *SnowflakeTimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 1 {
+		return "```You have to give me an ID!```", false, nil
+	}
+	ID := SBatoi(StripPing(args[0]))
+	t := snowflakeTime(ID)
+	tz := getTimezone(info, msg.Author)
+	return t.In(tz).Format(time.RFC1123), false, nil
+}
+func (c *SnowflakeTimeCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Given a discord snowflake ID, returns when that ID was created.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "ID", Desc: "Any unique ID used by discord (these are called snowflake IDs)", Optional: false},
+		},
+	}
+}
+func (c *SnowflakeTimeCommand) UsageShort() string { return "Returns when a snowflake ID was created." }
