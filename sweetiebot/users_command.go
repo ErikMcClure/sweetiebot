@@ -338,6 +338,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		localtime = time.Now().In(tz).Format(time.RFC1123)
 	}
 	m, err := info.GetMember(SBitoa(IDs[0]))
+
 	if err != nil {
 		m = &discordgo.Member{Roles: []string{}}
 		u, err := sb.dg.User(SBitoa(IDs[0]))
@@ -353,7 +354,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	joinedat, err := time.Parse(time.RFC3339Nano, m.JoinedAt)
 	joined := ""
 	if err == nil {
-		joined = joinedat.In(authortz).Format(time.RFC1123)
+		joined = TimeDiff(time.Now().UTC().Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
 	}
 	guildroles, err := sb.dg.GuildRoles(info.Guild.ID)
 	if err != nil {
@@ -373,12 +374,16 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 			roles = append(roles, "<@&"+v+">")
 		}
 	}
+	created := snowflakeTime(IDs[0]).In(authortz)
+	fullusername := m.User.Username + "#" + m.User.Discriminator
+	if m.User.Bot {
+		fullusername += " [BOT]"
+	}
+	s := fmt.Sprintf("        ID: %v\n  Username: %s\n  Nickname: %v\n   Aliases: %v\n     Roles: %v\n  Timezone: %v\nLocal Time: %v\n   Created: %s ago (%v)\n    Joined: %s\n Last Seen: %s ago (%v)\n    Avatar: ", m.User.ID, fullusername, m.Nick, strings.Join(aliases, ", "), strings.Join(roles, ", "), tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822))
+	return "```http\n" + PartialSanitize(s) + "```\n" + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
 
-	s := fmt.Sprintf("**ID:** %v\n**Username:** %v#%v\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Joined:** %v\n**Roles:** %v\n**Bot:** %v\n**Last Seen:** %v\n**Aliases:** %v\n**Avatar:** ", m.User.ID, m.User.Username, m.User.Discriminator, m.Nick, tz, localtime, joined, strings.Join(roles, ", "), m.User.Bot, lastseen.In(authortz).Format(time.RFC1123), strings.Join(aliases, ", "))
-	s = PartialSanitize(s)
-	s = strings.Replace(s, "http://", "http\u200B://", -1)
-	s = strings.Replace(s, "https://", "https\u200B://", -1)
-	return SanitizeMentions(s) + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
+	//s := fmt.Sprintf("**ID:** %v\n**Username:** %s\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Created:** %s ago (%v)\n **Joined:** %s\n**Roles:** %v\n**Last Seen:** %s ago (%v)\n**Aliases:** %v\n**Avatar:** %s", m.User.ID, fullusername, m.Nick, tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, strings.Join(roles, ", "), TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822), strings.Join(aliases, ", "), discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar))
+	//return SanitizeMentions(PartialSanitize(s)), false, nil
 }
 func (c *UserInfoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
