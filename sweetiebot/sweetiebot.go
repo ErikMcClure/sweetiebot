@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -258,6 +257,7 @@ var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 var locUTC = time.FixedZone("UTC", 0)
+var DISCORD_EPOCH uint64 = 1420070400000
 
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
 	return SBatoi(info.Guild.ID) == sbot.MainGuildID
@@ -540,28 +540,6 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 
 	// Only used to change sweetiebot's name or avatar
 	//ChangeBotName(s, "Sweetie", "avatar.png")
-}
-
-type MiscModule struct {
-	emotes *EmoteModule
-}
-
-func (w *MiscModule) Name() string {
-	return "Miscellaneous"
-}
-
-func (w *MiscModule) Register(info *GuildInfo) {}
-
-func (w *MiscModule) Commands() []Command {
-	return []Command{
-		&LastSeenCommand{},
-		&SearchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
-		&RollCommand{},
-	}
-}
-
-func (w *MiscModule) Description() string {
-	return "A collection of miscellaneous commands that don't belong to a module."
 }
 
 func AttachToGuild(g *discordgo.Guild) {
@@ -1323,7 +1301,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 1},
+		version:            Version{0, 9, 5, 2},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1339,6 +1317,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 2):  "- Show user account creation date in userinfo\n- Added !SnowflakeTime command",
 			AssembleVersion(0, 9, 5, 1):  "- Allow !setconfig to edit float values",
 			AssembleVersion(0, 9, 5, 0):  "- Completely overhauled Anti-Spam module. Sweetie now analyzes message content and tracks text pressure users exert on the chat. See !help anti-spam for details, or !getconfig spam for descriptions of the new configuration options. Your old MaxImages and MaxPings settings were migrated over to ImagePressure and PingPressure, respectively.",
 			AssembleVersion(0, 9, 4, 5):  "- Escape nicknames correctly\n- Sweetiebot no longer tracks per-server nickname changes, only username changes.\n- You can now use the format username#1234 in user arguments.",

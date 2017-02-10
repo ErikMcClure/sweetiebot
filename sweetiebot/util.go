@@ -40,6 +40,12 @@ func TimeDiff(d time.Duration) string {
 	if days == 0 {
 		return Pluralize(hours, " hour")
 	}
+	if days >= 365 && (days%365) == 0 {
+		return Pluralize(days/365, " year")
+	}
+	if days >= 365 {
+		return Pluralize(days/365, " year") + " and " + Pluralize(days%365, " day")
+	}
 	if hours > 1 {
 		return Pluralize(days, " day") + " and " + Pluralize(hours, " hour")
 	}
@@ -837,4 +843,8 @@ func getDefaultServer(user uint64) *GuildInfo {
 		return nil
 	}
 	return info
+}
+
+func snowflakeTime(id uint64) time.Time {
+	return time.Unix(int64(((id>>22)+DISCORD_EPOCH)/1000), 0)
 }
