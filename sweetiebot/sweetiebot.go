@@ -310,6 +310,9 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 						case uint, uint8, uint16, uint32:
 							k, _ := strconv.ParseUint(value, 10, 64)
 							f.SetUint(k)
+						case float32, float64:
+							k, _ := strconv.ParseFloat(value, 32)
+							f.SetFloat(k)
 						case uint64:
 							f.SetUint(PingAtoi(value))
 						case []uint64:
@@ -1320,7 +1323,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 0},
+		version:            Version{0, 9, 5, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1336,6 +1339,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 1):  "- Allow !setconfig to edit float values",
 			AssembleVersion(0, 9, 5, 0):  "- Completely overhauled Anti-Spam module. Sweetie now analyzes message content and tracks text pressure users exert on the chat. See !help anti-spam for details, or !getconfig spam for descriptions of the new configuration options. Your old MaxImages and MaxPings settings were migrated over to ImagePressure and PingPressure, respectively.",
 			AssembleVersion(0, 9, 4, 5):  "- Escape nicknames correctly\n- Sweetiebot no longer tracks per-server nickname changes, only username changes.\n- You can now use the format username#1234 in user arguments.",
 			AssembleVersion(0, 9, 4, 4):  "- Fix locks, update endpoint calls, improve antispam response.",
