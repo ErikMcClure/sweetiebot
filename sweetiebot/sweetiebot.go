@@ -818,17 +818,20 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				return
 			}
 		}
-		alias, ok := info.config.Basic.Aliases[arg]
-		if ok {
-			if len(indices) > 1 {
-				m.Content = "!" + alias + " " + m.Content[indices[1]:]
-			} else {
-				m.Content = "!" + alias
+		c, ok := info.commands[arg] // First, we check if this matches an existing command so you can't alias yourself into a hole
+		if !ok {
+			alias, ok := info.config.Basic.Aliases[arg]
+			if ok {
+				if len(indices) > 1 {
+					m.Content = "!" + alias + " " + m.Content[indices[1]:]
+				} else {
+					m.Content = "!" + alias
+				}
+				args, indices = ParseArguments(m.Content[1:])
+				arg = strings.ToLower(args[0])
 			}
-			args, indices = ParseArguments(m.Content[1:])
-			arg = strings.ToLower(args[0])
 		}
-		c, ok := info.commands[arg]
+		c, ok = info.commands[arg]
 		if ok {
 			if isdbguild {
 				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.Guild.ID))
@@ -1301,7 +1304,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 2},
+		version:            Version{0, 9, 5, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1317,6 +1320,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 3):  "- Prevent users from aliasing existing commands.",
 			AssembleVersion(0, 9, 5, 2):  "- Show user account creation date in userinfo\n- Added !SnowflakeTime command",
 			AssembleVersion(0, 9, 5, 1):  "- Allow !setconfig to edit float values",
 			AssembleVersion(0, 9, 5, 0):  "- Completely overhauled Anti-Spam module. Sweetie now analyzes message content and tracks text pressure users exert on the chat. See !help anti-spam for details, or !getconfig spam for descriptions of the new configuration options. Your old MaxImages and MaxPings settings were migrated over to ImagePressure and PingPressure, respectively.",
