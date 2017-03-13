@@ -150,6 +150,9 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
+		if info.config.Spam.IgnoreRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.IgnoreRole)) {
+			return false
+		}
 		id := SBatoi(m.Author.ID)
 		tm := time.Now().UTC()
 		_, ok := w.tracker[id]
