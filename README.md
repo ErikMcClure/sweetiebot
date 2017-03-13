@@ -99,6 +99,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **MaxPressure:** The maximum pressure allowed. If a user's pressure exceeds this amount, they will be silenced. Defaults to 60, which is intended to ban after a maximum of 6 short messages sent in rapid succession.
 * **MaxRemoveLookback:** Number of seconds back the bot should delete messages of a silenced user. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.
 * **SilentRole:** This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.
+* **IgnoreRole:** If set, the bot will exclude anyone with this role from spam detection. Use with caution.
 * **RaidTime:** In order to trigger a raid alarm, at least `Spam.RaidSize` people must join the chat within this many seconds of each other.
 * **RaidSize:** Specifies how many people must have joined the server within the `Spam.RaidTime` period to qualify as a raid.
 * **SilenceMessage:** This message will be sent to users that have been silenced by the !silence command.
