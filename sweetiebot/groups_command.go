@@ -235,27 +235,25 @@ func (c *PingCommand) Process(args []string, msg *discordgo.Message, indices []i
 		m = msg.Content[indices[1]:]
 	}
 
+	var groups []string
 	if !ok {
-		groups := strings.Split(arg, "+")
-		for _, v := range groups {
-			_, ok = info.config.Basic.Groups[v]
-			if !ok {
-				return fmt.Sprintf("```The %s group doesn't exist! Use !listgroup to list existing groups.```", v), false, nil
-			}
-			_, ok = info.config.Basic.Groups[v][msg.Author.ID]
-			if !ok {
-				return fmt.Sprintf("```You aren't a member of %s. You can only ping groups you are a member of.```", v), false, nil
-			}
-		}
-		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(groups, info)+" "+info.SanitizeOutput(m))
-
+		groups = strings.Split(arg, "+")
 	} else {
-		_, ok = info.config.Basic.Groups[arg][msg.Author.ID]
-		if !ok {
-			return "```You can only ping groups you are a member of.```", false, nil
-		}
-		sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings([]string{arg}, info)+" "+info.SanitizeOutput(m))
+		groups = []string{arg}
 	}
+
+	for _, v := range groups {
+		_, ok = info.config.Basic.Groups[v]
+		if !ok {
+			return fmt.Sprintf("```The %s group doesn't exist! Use !listgroup to list existing groups.```", v), false, nil
+		}
+		_, ok = info.config.Basic.Groups[v][msg.Author.ID]
+		if !ok {
+			return fmt.Sprintf("```You aren't a member of %s. You can only ping groups you are a member of.```", v), false, nil
+		}
+	}
+	sb.dg.ChannelMessageSend(msg.ChannelID, arg+": "+getGroupPings(groups, info)+" "+info.SanitizeOutput(m))
+
 	return "", false, nil
 }
 func (c *PingCommand) Usage(info *GuildInfo) *CommandUsage {
