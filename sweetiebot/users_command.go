@@ -504,6 +504,13 @@ func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
 
 func UnsilenceMember(user uint64, info *GuildInfo) error {
+	m, err := info.GetMember(SBitoa(user))
+	if err == nil {
+		sb.dg.State.Lock()
+		RemoveSliceString(&m.Roles, SBitoa(info.config.Spam.SilentRole))
+		sb.dg.State.Unlock()
+	}
+
 	return sb.dg.GuildMemberRoleRemove(info.Guild.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }
 
