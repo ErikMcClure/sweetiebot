@@ -62,9 +62,8 @@ type BotConfig struct {
 		CommandMaxDuration int64                      `json:"commandmaxduration"`
 	} `json:"modules"`
 	Spam struct {
-		ImagePressure float32 `json:"imagepressure"`
-		PingPressure  float32 `json:"pingpressure"`
-		//AttachPressure float32 `json:"attachpressure"`
+		ImagePressure  float32 `json:"imagepressure"`
+		PingPressure   float32 `json:"pingpressure"`
 		LengthPressure float32 `json:"lengthpressure"`
 		RepeatPressure float32 `json:"repeatpressure"`
 		BasePressure   float32 `json:"basepressure"`
@@ -73,6 +72,7 @@ type BotConfig struct {
 		//MaxBotFlags    int     `json:"maxbotflags"`
 		MaxRemoveLookback int    `json:"MaxSpamRemoveLookback"`
 		SilentRole        uint64 `json:"silentrole"`
+		IgnoreRole        uint64 `json:"ignorerole"`
 		RaidTime          int64  `json:"maxraidtime"`
 		RaidSize          int    `json:"raidsize"`
 		SilenceMessage    string `json:"silencemessage"`
@@ -154,6 +154,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"spam.maxpressure":            "The maximum pressure allowed. If a user's pressure exceeds this amount, they will be silenced. Defaults to 60, which is intended to ban after a maximum of 6 short messages sent in rapid succession.",
 	"spam.pressuredecay":          "The number of seconds it takes for a user to lose Spam.BasePressure from their pressure amount. Defaults to 2.5, so after sending 3 messages, it will take 7.5 seconds for their pressure to return to 0.",
 	"spam.maxremovelookback":      "Number of seconds back the bot should delete messages of a silenced user. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.",
+	"spam.ignorerole":             "If set, the bot will exclude anyone with this role from spam detection. Use with caution.",
 	"spam.silentrole":             "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.",
 	"spam.raidtime":               "In order to trigger a raid alarm, at least `spam.raidsize` people must join the chat within this many seconds of each other.",
 	"spam.raidsize":               "Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.",
@@ -1304,7 +1305,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 3},
+		version:            Version{0, 9, 5, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1320,6 +1321,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 4):  "- Added ignorerole for excluding certain users from spam detection.\n- Adjusted unsilence to force bot to assume user is unsilenced so it can be used to fix race conditions.",
 			AssembleVersion(0, 9, 5, 3):  "- Prevent users from aliasing existing commands.",
 			AssembleVersion(0, 9, 5, 2):  "- Show user account creation date in userinfo\n- Added !SnowflakeTime command",
 			AssembleVersion(0, 9, 5, 1):  "- Allow !setconfig to edit float values",
