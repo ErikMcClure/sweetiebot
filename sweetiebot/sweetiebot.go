@@ -855,7 +855,10 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					return
 				}
 			}
-			if !isdebug && !isfree && !isSelf { // debug channels aren't limited
+			if !isdebug && !isfree && !isSelf && info.config.Modules.CommandPerDuration > 0 { // debug channels aren't limited
+				if len(info.commandlimit.times) < info.config.Modules.CommandPerDuration*2 { // Check if we need to re-allocate the array because the configuration changed
+					info.commandlimit.times = make([]int64, info.config.Modules.CommandPerDuration*2, info.config.Modules.CommandPerDuration*2)
+				}
 				if info.commandlimit.check(info.config.Modules.CommandPerDuration, info.config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
 					info.log.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), GetAddMsg(info)))
 					return
@@ -1305,7 +1308,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 4},
+		version:            Version{0, 9, 5, 5},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1321,6 +1324,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 5):  "- Fix crash on invalid command limits.",
 			AssembleVersion(0, 9, 5, 4):  "- Added ignorerole for excluding certain users from spam detection.\n- Adjusted unsilence to force bot to assume user is unsilenced so it can be used to fix race conditions.",
 			AssembleVersion(0, 9, 5, 3):  "- Prevent users from aliasing existing commands.",
 			AssembleVersion(0, 9, 5, 2):  "- Show user account creation date in userinfo\n- Added !SnowflakeTime command",
