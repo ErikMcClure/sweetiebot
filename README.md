@@ -24,6 +24,8 @@ If you get compiler errors, sweetiebot has two dependences you should get:
 * `go get github.com/go-sql-driver/mysql`
 * `go get github.com/bwmarrin/discordgo`
 
+If you're having any additional issues getting sweetiebot working, check INSTALLATION.md for more information.
+
 ## Adding Sweetiebot To Your Server
 
 A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search is unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
