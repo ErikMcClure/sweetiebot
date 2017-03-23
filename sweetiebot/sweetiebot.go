@@ -532,7 +532,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
 	sb.SelfAvatar = r.User.Avatar
-	isuser, _ := ioutil.ReadFile("isuser")
+	isuser, _ := ioutil.ReadFile("isuser") // THIS FILE SHOULD NOT EXIST UNLESS YOU WANT TO BE IN USER MODE. If you don't know what user mode is, you don't want it.
 	if r.Guilds != nil && isuser != nil {
 		for _, G := range r.Guilds {
 			AttachToGuild(G)
@@ -1411,7 +1411,7 @@ func Initialize(Token string) {
 	}
 
 	sb.db = db
-	isuser, _ := ioutil.ReadFile("isuser")
+	isuser, _ := ioutil.ReadFile("isuser") // DO NOT CREATE THIS FILE UNLESS YOU KNOW *EXACTLY* WHAT YOU ARE DOING. This is for crazy people who want to run sweetiebot in user mode. If you don't know what user mode is, you don't want it. If you create this file anyway and the bot breaks, it's your own fault.
 	if isuser == nil {
 		sb.dg, err = discordgo.New("Bot " + Token)
 	} else {
