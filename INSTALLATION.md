@@ -10,7 +10,9 @@ How to properly set up Sweetiebot for use on your server
 
 **5.** Open your command prompt / terminal in the `/main` folder and type `go build`. You should see `main.exe` appear in the folder.
 
-**6.** Create a file with the literal name of `token`. No extensions. There, you will put "Bot", then a space, then the token you get from [this](https://discordapp.com/developers/applications/me#top) page. Make sure to make your application a Bot User! A valid, but fake, token file would have a single line that looks like `Bot HdfgsdFGsGFD.34DFGsd33fE3FAKE`. Make sure this file is saved in `/main`.
+**6a.** Create a file with the literal name of `token`. No extensions. There, you will put the bot token you get from [this](https://discordapp.com/developers/applications/me) page. Make sure to make your application a Bot User! A valid, but fake, token file would have a single line that looks like `Mjk0MjUwBAADF00DMjQ1NDUw.Cfake.tockenNiWM6l0TtHBlaBla0PZl4`. Make sure this file is saved in `/main`.
+
+**6b.** If the application stops doing anything after "Connection established" or exits with an authentication error: Check that you dont have a `iuser`-file in the `/main` folder (The `iuser`-file is only needed if you want to start the bot in user mode, which is rarely the case).
 
 **7.** Create a file called `db.auth` and put this inside: `root:<your password>@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`. Save the file in `/main`.
 
