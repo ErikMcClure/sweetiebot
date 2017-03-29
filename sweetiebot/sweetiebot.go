@@ -507,7 +507,11 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 func (info *GuildInfo) SwapStatusLoop() {
 	if sb.IsMainGuild(info) {
 		for !sb.quit {
-			time.Sleep(time.Duration(info.config.Status.Cooldown) * time.Second)
+			d := info.config.Status.Cooldown
+			if d < 1 {
+				d = 1
+			}
+			time.Sleep(time.Duration(d) * time.Second) // Prevent you from setting this to 0 because that's bad
 			if len(info.config.Basic.Collections["status"]) > 0 {
 				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Basic.Collections["status"]))
 			}
@@ -831,8 +835,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				args, indices = ParseArguments(m.Content[1:])
 				arg = strings.ToLower(args[0])
 			}
+			c, ok = info.commands[arg]
 		}
-		c, ok = info.commands[arg]
 		if ok {
 			if isdbguild {
 				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.Guild.ID))
@@ -1308,7 +1312,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 5},
+		version:            Version{0, 9, 5, 6},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1324,6 +1328,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 6):  "- Prevent idiots from setting status.cooldown to 0 and breaking everything.",
 			AssembleVersion(0, 9, 5, 5):  "- Fix crash on invalid command limits.",
 			AssembleVersion(0, 9, 5, 4):  "- Added ignorerole for excluding certain users from spam detection.\n- Adjusted unsilence to force bot to assume user is unsilenced so it can be used to fix race conditions.",
 			AssembleVersion(0, 9, 5, 3):  "- Prevent users from aliasing existing commands.",
