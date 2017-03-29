@@ -825,8 +825,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		c, ok := info.commands[arg] // First, we check if this matches an existing command so you can't alias yourself into a hole
 		if !ok {
-			alias, ok := info.config.Basic.Aliases[arg]
-			if ok {
+			alias, aliasok := info.config.Basic.Aliases[arg]
+			if aliasok {
 				if len(indices) > 1 {
 					m.Content = "!" + alias + " " + m.Content[indices[1]:]
 				} else {
@@ -834,8 +834,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				}
 				args, indices = ParseArguments(m.Content[1:])
 				arg = strings.ToLower(args[0])
+				c, ok = info.commands[arg]
 			}
-			c, ok = info.commands[arg]
 		}
 		if ok {
 			if isdbguild {
