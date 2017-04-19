@@ -175,7 +175,10 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		}
 		track.lastinterval = interval
 
-		//fmt.Println("Message Pressure: ", p)
+		override, ok := info.config.Spam.MaxChannelPressure[SBatoi(m.ChannelID)]
+		if ok && override > 0.0 {
+			p *= (info.config.Spam.MaxPressure / override)
+		}
 		track.pressure -= info.config.Spam.BasePressure * (float32(interval) / (info.config.Spam.PressureDecay * 1000.0))
 		if track.pressure < 0 {
 			track.pressure = 0
