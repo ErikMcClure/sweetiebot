@@ -167,10 +167,10 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	if len(c.monster) == 0 {
 		if len(args) > 0 {
-			c.monster = msg.Content[indices[0]:]
+			c.monster = ExtraSanitize(msg.Content[indices[0]:])
 		} else {
 			if info.config.Markov.UseMemberNames {
-				c.monster = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
+				c.monster = ExtraSanitize(sb.db.GetRandomMember(SBatoi(info.Guild.ID)))
 			} else {
 				c.monster = sb.db.GetRandomSpeaker()
 			}

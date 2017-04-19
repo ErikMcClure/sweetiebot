@@ -482,7 +482,12 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 	if code < 0 {
 		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
 	} else if code == 1 {
-		return "```" + IDsToUsernames(IDs, info)[0] + " is already silenced!```", false, nil
+		t := sb.db.GetUnsilenceDate(gID, IDs[0])
+		if t == nil {
+			return "```" + IDsToUsernames(IDs, info)[0] + " is already silenced!```", false, nil
+		} else {
+			return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
+		}
 	}
 	if len(info.config.Spam.SilenceMessage) > 0 {
 		sb.dg.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)

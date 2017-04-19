@@ -1312,7 +1312,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 6},
+		version:            Version{0, 9, 5, 7},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1328,6 +1328,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 5, 7):  "- You can now do '!pick collection1+collection2' to pick a random item from multiple collections.\n- !fight <monster> is now sanitized.\n- !silence now tells you when someone already silenced will be unsilenced, if ever.",
 			AssembleVersion(0, 9, 5, 6):  "- Prevent idiots from setting status.cooldown to 0 and breaking everything.",
 			AssembleVersion(0, 9, 5, 5):  "- Fix crash on invalid command limits.",
 			AssembleVersion(0, 9, 5, 4):  "- Added ignorerole for excluding certain users from spam detection.\n- Adjusted unsilence to force bot to assume user is unsilenced so it can be used to fix race conditions.",

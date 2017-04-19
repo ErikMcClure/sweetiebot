@@ -63,6 +63,7 @@ type BotDB struct {
 	sql_GetEventsByType        *sql.Stmt
 	sql_GetNextEvent           *sql.Stmt
 	sql_GetReminders           *sql.Stmt
+	sql_GetUnsilenceDate       *sql.Stmt
 	sql_GetTimeZone            *sql.Stmt
 	sql_FindTimeZone           *sql.Stmt
 	sql_FindTimeZoneOffset     *sql.Stmt
@@ -162,6 +163,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
 	db.sql_GetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
+	db.sql_GetUnsilenceDate, err = db.Prepare("SELECT Date FROM schedule WHERE Guild = ? AND Type = 8 AND Data = ?")
 	db.sql_GetTimeZone, err = db.Prepare("SELECT Timezone, Location FROM users WHERE ID = ?")
 	db.sql_FindTimeZone, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ?")
 	db.sql_FindTimeZoneOffset, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ? AND (Offset = ? OR DST = ?)")
@@ -677,6 +679,16 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 		}
 	}
 	return r
+}
+
+func (db *BotDB) GetUnsilenceDate(guild uint64, id uint64) *time.Time {
+	var timestamp time.Time
+	err := db.sql_GetUnsilenceDate.QueryRow(guild, id).Scan(&timestamp)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	db.log.LogError("GetUnsilenceDate error: ", err)
+	return &timestamp
 }
 
 func evalTimeZone(i sql.NullInt64, loc sql.NullString) *time.Location {
