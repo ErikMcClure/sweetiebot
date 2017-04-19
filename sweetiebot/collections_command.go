@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strconv"
 	"strings"
@@ -209,18 +210,33 @@ func (c *PickCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "", false, ShowAllCollections("No collection specified.", info)
 	}
 
-	arg := strings.ToLower(args[0])
-	if arg == "spoiler" || arg == "emote" {
-		return "```You cannot pick an item from that collection.```", false, nil
+	s := strings.Split(strings.ToLower(args[0]), "+")
+	lastindex := 0
+	indexes := make([]int, 0, len(s))
+	for _, arg := range s {
+		if arg == "spoiler" || arg == "emote" {
+			return "```You cannot pick an item from the spoiler or emote collection.```", false, nil
+		}
+		cmap, ok := info.config.Basic.Collections[arg]
+		if !ok {
+			return fmt.Sprintf("```\"%s\" doesn't exist! Use this command with no arguments to see a list of all collections.```", arg), false, nil
+		}
+		lastindex += len(cmap)
+		indexes = append(indexes, lastindex)
 	}
-	cmap, ok := info.config.Basic.Collections[arg]
-	if !ok {
-		return "```That collection doesn't exist! Use this command with no arguments to see a list of all collections.```", false, nil
+	if lastindex > 0 {
+		index := rand.Intn(lastindex)
+		for k, v := range indexes {
+			if index < v && k < len(s) {
+				return ReplaceAllMentions(MapGetRandomItem(info.config.Basic.Collections[s[k]])), false, nil
+			}
+		}
+		return "An impossible event occured.", false, nil
 	}
-	if len(cmap) > 0 {
-		return ReplaceAllMentions(MapGetRandomItem(cmap)), false, nil
+	if len(s) == 1 {
+		return "```That collection is empty.```", false, nil
 	}
-	return "```That collection is empty.```", false, nil
+	return "```Those collections are all empty.```", false, nil
 }
 func (c *PickCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
