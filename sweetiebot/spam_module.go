@@ -114,12 +114,32 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 	silenced := SilenceMember(u.ID, info) == 1
 
-	if info.config.Spam.MaxRemoveLookback > 0 && sb.IsDBGuild(info) && !silenced {
-		messages := sb.db.GetRecentMessages(SBatoi(u.ID), uint64(info.config.Spam.MaxRemoveLookback), SBatoi(info.Guild.ID)) // Retrieve all messages in the past X seconds and delete them.
+	if info.config.Spam.MaxRemoveLookback > 0 && !silenced {
+		IDs := []string{msg.ID}
+		lastid := msg.ID
+		endtime := time.Now().UTC().Add(time.Duration(-info.config.Spam.MaxRemoveLookback) * time.Second)
 
-		for _, v := range messages {
-			sb.dg.ChannelMessageDelete(SBitoa(v.channel), SBitoa(v.message))
+	EndLoop: // Even though this label is defined above the for loop, breaking to this label will actually skip the for loop entirely. Don't ask.
+		for {
+			messages, err := sb.dg.ChannelMessages(msg.ChannelID, 99, lastid, "")
+			info.log.LogError("Error encountered while attempting to retrieve messages: ", err)
+			if len(messages) == 0 || err != nil {
+				break
+			}
+			lastid = messages[len(messages)-1].ID
+			for _, v := range messages {
+				tm, terr := v.Timestamp.Parse()
+				info.log.LogError("Error encountered while attempting to parse timestamp: ", terr)
+				if terr != nil || tm.Before(endtime) {
+					break EndLoop // break out of both loops
+				}
+				if v.Author.ID == u.ID {
+					IDs = append(IDs, v.ID)
+				}
+			}
 		}
+
+		sb.dg.ChannelMessagesBulkDelete(msg.ChannelID, IDs)
 	} else if info.config.Spam.MaxRemoveLookback >= 0 {
 		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	} // otherwise we don't delete anything
