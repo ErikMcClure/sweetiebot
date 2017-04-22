@@ -108,6 +108,10 @@ func (c *ListGroupCommand) Name() string {
 }
 
 func (c *ListGroupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
+
 	if len(args) < 1 {
 		if len(info.config.Basic.Groups) <= 0 {
 			return "```No groups to list!```", false, nil

@@ -239,7 +239,7 @@ type SweetieBot struct {
 	MainGuildID        uint64
 	DBGuilds           map[uint64]bool
 	DebugChannels      map[string]string
-	quit               bool
+	quit               AtomicBool
 	guilds             map[uint64]*GuildInfo
 	guildsLock         sync.RWMutex
 	GuildChannels      map[string]*GuildInfo
@@ -526,7 +526,7 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 
 func (info *GuildInfo) SwapStatusLoop() {
 	if sb.IsMainGuild(info) {
-		for !sb.quit {
+		for !sb.quit.get() {
 			d := info.config.Status.Cooldown
 			if d < 1 {
 				d = 1
@@ -726,7 +726,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		}
 	}
 	if disableall {
-		for k, _ := range guild.commands {
+		for k := range guild.commands {
 			guild.config.Modules.CommandDisabled[k] = true
 		}
 		for _, v := range guild.modules {
@@ -824,6 +824,10 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 
 		args, indices := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
+		if info == nil && !sb.db.status.get() {
+			s.ChannelMessageSend(m.ChannelID, "```A temporary database error means I can't process any private message commands right now.```")
+			return
+		}
 		if info == nil {
 			info = getDefaultServer(SBatoi(m.Author.ID))
 		}
@@ -858,7 +862,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			}
 		}
 		if ok {
-			if isdbguild {
+			if isdbguild && sb.db.status.get() {
 				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.Guild.ID))
 			}
 			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
@@ -993,7 +997,7 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 
-	if info != nil && cid != info.config.Log.Channel && isdbguild { // Log this message if it was sent to the main guild only.
+	if info != nil && cid != info.config.Log.Channel && isdbguild && sb.db.CheckStatus() { // Log this message if it was sent to the main guild only.
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 
 		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
@@ -1035,7 +1039,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 		private = ch.IsPrivate
 	}
 	cid := SBatoi(m.ChannelID)
-	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) { // Always ignore messages from the log channel
+	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.db.CheckStatus() { // Always ignore messages from the log channel
 		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID {
@@ -1195,7 +1199,9 @@ func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
 	}
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
-	sb.db.AddUser(id, u.Email, u.Username, discriminator, u.Avatar, u.Verified, isonline)
+	if sb.db.CheckStatus() {
+		sb.db.AddUser(id, u.Email, u.Username, discriminator, u.Avatar, u.Verified, isonline)
+	}
 	return id
 }
 
@@ -1211,7 +1217,9 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 			return
 		}
 	}
-	sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t, u.Nick)
+	if sb.db.CheckStatus() {
+		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t, u.Nick)
+	}
 }
 
 func ProcessGuildCreate(g *discordgo.Guild) {
@@ -1279,7 +1287,7 @@ func (info *GuildInfo) HasChannel(id string) bool {
 }
 
 func IdleCheckLoop() {
-	for !sb.quit {
+	for !sb.quit.get() {
 		sb.guildsLock.RLock()
 		infos := make([]*GuildInfo, 0, len(sb.guilds))
 		for _, v := range sb.guilds {
@@ -1323,7 +1331,7 @@ func IdleCheckLoop() {
 func WaitForInput() {
 	var input string
 	fmt.Scanln(&input)
-	sb.quit = true
+	sb.quit.set(true)
 }
 
 func Initialize(Token string) {
@@ -1332,7 +1340,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 5, 9},
+		version:            Version{0, 9, 6, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1341,13 +1349,14 @@ func Initialize(Token string) {
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
 		GuildChannels:      make(map[string]*GuildInfo),
-		quit:               false,
+		quit:               AtomicBool{0},
 		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 0):  "- Sweetiebot is now self-repairing and can function without a database, although her functionality is EXTREMELY limited in this state.",
 			AssembleVersion(0, 9, 5, 9):  "- MaxRemoveLookback no longer relies on the database and can now be used in any server. However, it only deletes messages from the channel that was spammed in.",
 			AssembleVersion(0, 9, 5, 8):  "- You can now specify per-channel pressure overrides via '!setconfig spam.maxchannelpressure <channel> <pressure>'.",
 			AssembleVersion(0, 9, 5, 7):  "- You can now do '!pick collection1+collection2' to pick a random item from multiple collections.\n- !fight <monster> is now sanitized.\n- !silence now tells you when someone already silenced will be unsilenced, if ever.",
@@ -1433,12 +1442,18 @@ func Initialize(Token string) {
 	}
 
 	db, err := DB_Load(&Log{0, nil}, "mysql", strings.TrimSpace(string(dbauth)))
-	if err != nil {
-		fmt.Println("Error loading database", err.Error())
-		return
+	sb.db = db
+	if !db.status.get() {
+		fmt.Println("Database connection failure - running in No Database mode: ", err.Error())
+	} else {
+		err = sb.db.LoadStatements()
+		if err == nil {
+			fmt.Println("Finished loading database statements")
+		} else {
+			fmt.Println("Loading database statements failed: ", err)
+		}
 	}
 
-	sb.db = db
 	isuser, _ := ioutil.ReadFile("isuser") // DO NOT CREATE THIS FILE UNLESS YOU KNOW *EXACTLY* WHAT YOU ARE DOING. This is for crazy people who want to run sweetiebot in user mode. If you don't know what user mode is, you don't want it. If you create this file anyway and the bot breaks, it's your own fault.
 	if isuser == nil {
 		sb.dg, err = discordgo.New("Bot " + Token)
@@ -1470,9 +1485,6 @@ func Initialize(Token string) {
 	sb.dg.AddHandler(SBChannelCreate)
 	sb.dg.AddHandler(SBChannelDelete)
 
-	sb.db.LoadStatements()
-	fmt.Println("Finished loading database statements")
-
 	if sb.Debug { // The server does not necessarily tie a standard input to the program
 		go WaitForInput()
 	}
@@ -1484,7 +1496,7 @@ func Initialize(Token string) {
 	err = sb.dg.Open()
 	if err == nil {
 		fmt.Println("Connection established")
-		for !sb.quit {
+		for !sb.quit.get() {
 			time.Sleep(400 * time.Millisecond)
 		}
 	} else {

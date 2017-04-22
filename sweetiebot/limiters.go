@@ -86,3 +86,19 @@ func RateLimit(prevtime *int64, interval int64) bool {
 func CheckShutup(channel string) bool {
 	return true
 }
+
+type AtomicBool struct {
+	flag uint32
+}
+
+func (b *AtomicBool) get() bool {
+	return atomic.LoadUint32(&b.flag) != 0
+}
+
+func (b *AtomicBool) set(value bool) {
+	var v uint32 = 0
+	if value {
+		v = 1
+	}
+	atomic.StoreUint32(&b.flag, v)
+}

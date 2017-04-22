@@ -16,7 +16,7 @@ type Log struct {
 func (l *Log) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
 	fmt.Println(s)
-	if sb.db != nil && l.info != nil && sb.IsMainGuild(l.info) {
+	if sb.db != nil && l.info != nil && sb.IsMainGuild(l.info) && sb.db.status.get() {
 		sb.db.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(l.info.Guild.ID))
 	}
 	if l.info != nil && l.info.config.Log.Channel > 0 {

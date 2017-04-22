@@ -37,6 +37,9 @@ func (c *PollCommand) Name() string {
 	return "Poll"
 }
 func (c *PollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	gID := SBatoi(info.Guild.ID)
 	if len(args) < 1 {
 		polls := sb.db.GetPolls(gID)
@@ -81,6 +84,9 @@ func (c *CreatePollCommand) Name() string {
 	return "CreatePoll"
 }
 func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 3 {
 		return "```You must provide a name, a description, and one or more options to create the poll. Example: !createpoll pollname \"Description With Space\" \"Option 1\" \"Option 2\"```", false, nil
 	}
@@ -123,6 +129,9 @@ func (c *DeletePollCommand) Name() string {
 	return "DeletePoll"
 }
 func (c *DeletePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to give me a poll name to delete!```", false, nil
 	}
@@ -155,6 +164,9 @@ func (c *VoteCommand) Name() string {
 	return "Vote"
 }
 func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	gID := SBatoi(info.Guild.ID)
 	if len(args) < 2 {
 		polls := sb.db.GetPolls(gID)
@@ -206,6 +218,9 @@ func (c *ResultsCommand) Name() string {
 	return "Results"
 }
 func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	gID := SBatoi(info.Guild.ID)
 	if len(args) < 1 {
 		return "```You have to give me a valid poll name! Use \"!poll\" to list active polls.```", false, nil
@@ -276,6 +291,9 @@ func (c *AddOptionCommand) Name() string {
 	return "AddOption"
 }
 func (c *AddOptionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to give me a poll name to add an option to!```", false, nil
 	}
