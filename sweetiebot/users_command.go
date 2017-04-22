@@ -43,6 +43,9 @@ func (c *NewUsersCommand) Name() string {
 	return "newusers"
 }
 func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	maxresults := 5
 	if len(args) > 0 {
 		maxresults, _ = strconv.Atoi(args[0])
@@ -80,6 +83,9 @@ func (c *AKACommand) Name() string {
 	return "aka"
 }
 func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You must provide a user to search for.```", false, nil
 	}
@@ -176,6 +182,9 @@ func (c *BanCommand) Name() string {
 }
 
 func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	// make sure we passed a valid argument to the command
 	if len(args) < 1 {
 		return "```You didn't tell me who to zap with the friendship gun, silly.```", false, nil
@@ -228,6 +237,9 @@ func (c *TimeCommand) Name() string {
 }
 
 func (c *TimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```This server's local time is: " + ApplyTimezone(time.Now().UTC(), info, nil).Format("Jan 2, 3:04pm```"), false, nil
 	}
@@ -265,6 +277,9 @@ func (c *SetTimeZoneCommand) Name() string {
 }
 
 func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to specify what your timezone is!```", false, nil
 	}
@@ -318,6 +333,9 @@ func (c *UserInfoCommand) Name() string {
 	return "UserInfo"
 }
 func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You must provide a user to search for.```", false, nil
 	}
@@ -402,6 +420,9 @@ func (c *DefaultServerCommand) Name() string {
 	return "DefaultServer"
 }
 func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	gIDs := sb.db.GetUserGuilds(SBatoi(msg.Author.ID))
 	find := ""
 	if len(args) > 0 {
@@ -482,12 +503,14 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 	if code < 0 {
 		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
 	} else if code == 1 {
-		t := sb.db.GetUnsilenceDate(gID, IDs[0])
+		var t *time.Time
+		if sb.db.status.get() {
+			t = sb.db.GetUnsilenceDate(gID, IDs[0])
+		}
 		if t == nil {
 			return "```" + IDsToUsernames(IDs, info)[0] + " is already silenced!```", false, nil
-		} else {
-			return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
 		}
+		return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
 	}
 	if len(info.config.Spam.SilenceMessage) > 0 {
 		sb.dg.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)

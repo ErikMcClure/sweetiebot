@@ -62,9 +62,9 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 }
 
 func SilenceMember(userID string, info *GuildInfo) int8 {
-	// Manually set our internal state to say this user has the Silent role, to prevent race conditions
-	m, err := info.GetMember(userID)
-	if err == nil {
+	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole)) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
+	m, merr := info.GetMember(userID)
+	if merr == nil { // Manually set our internal state to say this spammer is silent to prevent race conditions
 		sb.dg.State.Lock()
 		if IsSilenced(m, info) {
 			sb.dg.State.Unlock()
@@ -73,9 +73,8 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
 		sb.dg.State.Unlock()
 	}
-	err = sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole)) // Tell discord to make this spammer silent
 	if err != nil {
-		info.log.Log("GuildMemberRoleAdd returned error: ", err.Error())
+		info.log.Log("GuildMemberRoleAdd(", info.Guild.ID, ",", userID, ",", info.config.Spam.SilentRole, ") returned error: ", err.Error())
 		return -1
 	}
 
@@ -112,7 +111,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 		info.log.Log(logmsg)
 		return
 	}
-	silenced := SilenceMember(u.ID, info) == 1
+	silenced := SilenceMember(u.ID, info) > 0
 
 	if info.config.Spam.MaxRemoveLookback > 0 && !silenced {
 		IDs := []string{msg.ID}
@@ -224,6 +223,9 @@ func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	return w.CheckSpam(info, m, false)
 }
 func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
+	if !sb.db.CheckStatus() {
+		return
+	}
 	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.Guild.ID))
 	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.RaidTime*2) {
 		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.Guild.ID))
@@ -296,6 +298,9 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 	if info.config.Spam.AutoSilence <= 0 {
 		// unsilence everyone
 	} else if c.s.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+		if !sb.db.CheckStatus() {
+			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
+		}
 		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.Guild.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")

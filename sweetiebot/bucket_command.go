@@ -169,6 +169,9 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []
 		if len(args) > 0 {
 			c.monster = ExtraSanitize(msg.Content[indices[0]:])
 		} else {
+			if !sb.db.CheckStatus() {
+				return "```A temporary database outage is preventing this command from being executed.```", false, nil
+			}
 			if info.config.Markov.UseMemberNames {
 				c.monster = ExtraSanitize(sb.db.GetRandomMember(SBatoi(info.Guild.ID)))
 			} else {
