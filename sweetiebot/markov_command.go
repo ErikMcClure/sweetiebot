@@ -267,6 +267,9 @@ func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, indices
 		s = "%s %s is the best pony."
 	}
 
+	if len(a) < 2 || len(b) < 2 {
+		return fmt.Sprintf("```\n"+s+"```", a, b), false, nil
+	}
 	return fmt.Sprintf("```\n"+s+"```", strings.ToUpper(a[:1])+a[1:], strings.ToUpper(b[:1])+b[1:]), false, nil
 }
 func (c *BestPonyCommand) Usage(info *GuildInfo) *CommandUsage {
