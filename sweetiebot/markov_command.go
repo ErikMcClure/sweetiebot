@@ -38,6 +38,9 @@ func (c *EpisodeGenCommand) Name() string {
 	return "episodegen"
 }
 func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if c.lock.test_and_set() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
@@ -62,7 +65,7 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 	prev2 = 0
 	lines := make([]string, 0, maxlines)
 	line := ""
-	for i := 0; i < maxlines; i++ {
+	for i := 0; i < maxlines && sb.db.status.get(); i++ {
 		if double {
 			line, prev, prev2 = sb.db.GetMarkovLine2(prev, prev2)
 		} else {
@@ -97,6 +100,9 @@ func (c *EpisodeQuoteCommand) Name() string {
 	return "EpisodeQuote"
 }
 func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}
@@ -176,6 +182,9 @@ func (c *ShipCommand) Name() string {
 	return "ship"
 }
 func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}
@@ -240,6 +249,9 @@ func (c *BestPonyCommand) Name() string {
 	return "BestPony"
 }
 func (c *BestPonyCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if !CheckShutup(msg.ChannelID) {
 		return "", false, nil
 	}
