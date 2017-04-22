@@ -92,7 +92,10 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 	s := make([]string, 0, len(IDs))
 	gid := SBatoi(info.Guild.ID)
 	for _, v := range IDs {
-		m, _ := sb.db.GetMember(v, gid)
+		var m *discordgo.Member = nil
+		if sb.db.status.get() {
+			m, _ = sb.db.GetMember(v, gid)
+		}
 		if m != nil {
 			if len(m.Nick) > 0 {
 				s = append(s, m.Nick)
@@ -201,7 +204,7 @@ func SinceUTC(t time.Time) time.Duration {
 }
 
 func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
-	if user != nil {
+	if user != nil && sb.db.status.get() {
 		loc := sb.db.GetTimeZone(SBatoi(user.ID))
 		if loc != nil {
 			return loc
@@ -339,6 +342,9 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}
+	if !sb.db.status.get() {
+		return []uint64{}
+	}
 	discriminant := ""
 	username := ""
 	if discriminantregex.MatchString(user) {
@@ -455,7 +461,10 @@ func FindIntSlice(item uint64, s []uint64) bool {
 	return false
 }
 func getUserName(user uint64, info *GuildInfo) string {
-	m, _ := sb.db.GetMember(user, SBatoi(info.Guild.ID))
+	var m *discordgo.Member = nil
+	if sb.db.status.get() {
+		m, _ = sb.db.GetMember(user, SBatoi(info.Guild.ID))
+	}
 	if m == nil {
 		return "<@" + SBitoa(user) + ">"
 	}
@@ -472,6 +481,9 @@ func SanitizeMentions(s string) string {
 }
 
 func replacementionhelper(s string) string {
+	if !sb.db.status.get() {
+		return s
+	}
 	u, _, _, _ := sb.db.GetUser(SBatoi(StripPing(s)))
 	if u == nil {
 		return s

@@ -27,6 +27,9 @@ func MsgHighlightMatch(msg string, match string) string {
 	return strings.Replace(msg, match, "**"+match+"**", -1)
 }
 func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if c.lock.test_and_set() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
@@ -216,7 +219,9 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	q, err := stmt[1].Query(params...)
-	info.log.LogError("Search error: ", err)
+	if sb.db.CheckError("Search Command", err) {
+		return "```Error getting search results.```", false, nil
+	}
 	defer q.Close()
 	r := make([]PingContext, 0, 5)
 	for q.Next() {

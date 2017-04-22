@@ -36,6 +36,9 @@ func (w *ScheduleModule) Description() string {
 }
 
 func (w *ScheduleModule) OnTick(info *GuildInfo) {
+	if !sb.db.CheckStatus() {
+		return
+	}
 	events := sb.db.GetSchedule(SBatoi(info.Guild.ID))
 	channel := SBitoa(info.config.Basic.ModChannel)
 	if len(info.config.Modules.Channels[strings.ToLower(w.Name())]) > 0 {
@@ -118,6 +121,9 @@ func (c *ScheduleCommand) Name() string {
 	return "Schedule"
 }
 func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	maxresults := 5
 	var ty uint8
 	ty = 255
@@ -235,6 +241,9 @@ func (c *NextCommand) Name() string {
 	return "Next"
 }
 func (c *NextCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You must specify an event type.```", false, nil
 	}
@@ -305,6 +314,9 @@ func (c *AddEventCommand) Name() string {
 	return "AddEvent"
 }
 func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 2 {
 		return "```At least a type and a date must be specified!```", false, nil
 	}
@@ -400,6 +412,9 @@ func (c *RemoveEventCommand) Name() string {
 	return "RemoveEvent"
 }
 func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You must specify an event ID.```", false, nil
 	}
@@ -412,7 +427,8 @@ func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, indi
 	if e == nil {
 		return "```Error: Event does not exist.```", false, nil
 	}
-	if !info.UserHasRole(msg.Author.ID, SBitoa(info.config.Basic.AlertRole)) && !userOwnsEvent(e, msg.Author) {
+	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+	if !isOwner && !info.UserHasRole(msg.Author.ID, SBitoa(info.config.Basic.AlertRole)) && !userOwnsEvent(e, msg.Author) {
 		return "```Error: You do not have permission to delete that event.```", false, nil
 	}
 
@@ -436,6 +452,9 @@ func (c *RemindMeCommand) Name() string {
 	return "RemindMe"
 }
 func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 3 {
 		return "```You must start your message with 'in' or 'on', followed by a time or duration, followed by a message.```", false, nil
 	}
@@ -513,6 +532,9 @@ func (c *AddBirthdayCommand) Name() string {
 	return "AddBirthday"
 }
 func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 2 {
 		return "```You must first ping the member and then provide the date!```", false, nil
 	}

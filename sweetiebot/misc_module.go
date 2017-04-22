@@ -38,6 +38,9 @@ func (c *LastSeenCommand) Name() string {
 	return "LastSeen"
 }
 func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(indices) < 1 {
 		return "```You have to give me someone to look for!```", false, nil
 	}
