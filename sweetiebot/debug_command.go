@@ -253,7 +253,7 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices [
 		}
 	}
 
-	sb.quit = true // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
+	sb.quit.set(true) // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
 	return "```Shutting down for update...```", false, nil
 }
 func (c *UpdateCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -372,6 +372,9 @@ func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, indi
 	if len(args) < 2 {
 		return "```You must provide an alias to remove.```", false, nil
 	}
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	sb.db.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
 	return "```Attempted to remove the alias. Use !aka to check if it worked.```", false, nil
 }
@@ -397,6 +400,10 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 	var high uint64 = 10
 	var user *uint64 = nil
 	var search string = ""
+
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 
 	for i := 0; i < len(args); i++ {
 		if len(args[i]) > 0 {

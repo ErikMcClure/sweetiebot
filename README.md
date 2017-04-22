@@ -298,6 +298,9 @@ In response to certain patterns (determined by a regex) will post a response pic
 * **AddWit:** Adds a line to wittyremarks.
 * **RemoveWit:** Removes a remark from wittyremarks.
 
+## Error Recovery
+Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 2 minutes.
+
 ## Contributing
 Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 
 
