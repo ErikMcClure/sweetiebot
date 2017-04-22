@@ -1340,7 +1340,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 0},
+		version:            Version{0, 9, 6, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1356,6 +1356,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 1):  "- Fix !bestpony crash",
 			AssembleVersion(0, 9, 6, 0):  "- Sweetiebot is now self-repairing and can function without a database, although her functionality is EXTREMELY limited in this state.",
 			AssembleVersion(0, 9, 5, 9):  "- MaxRemoveLookback no longer relies on the database and can now be used in any server. However, it only deletes messages from the channel that was spammed in.",
 			AssembleVersion(0, 9, 5, 8):  "- You can now specify per-channel pressure overrides via '!setconfig spam.maxchannelpressure <channel> <pressure>'.",

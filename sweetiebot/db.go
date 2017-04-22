@@ -631,7 +631,7 @@ func (db *BotDB) GetRandomQuote() Transcript {
 	var i uint64
 	err := db.sql_GetRandomQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
-	if db.CheckError("GetRandomQuoteInt", err) {
+	if !db.CheckError("GetRandomQuoteInt", err) {
 		err = db.sql_GetRandomQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
 		db.CheckError("GetRandomQuote", err)
 	}
@@ -643,7 +643,7 @@ func (db *BotDB) GetSpeechQuote() Transcript {
 	var i uint64
 	err := db.sql_GetSpeechQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
-	if db.CheckError("GetSpeechQuoteInt", err) {
+	if !db.CheckError("GetSpeechQuoteInt", err) {
 		err = db.sql_GetSpeechQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
 		db.CheckError("GetSpeechQuote", err)
 	}
@@ -655,7 +655,7 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	var i uint64
 	err := db.sql_GetCharacterQuoteInt.QueryRow(character).Scan(&i)
 	var p Transcript
-	if db.CheckError("GetCharacterQuoteInt ", err) {
+	if !db.CheckError("GetCharacterQuoteInt ", err) {
 		err = db.sql_GetCharacterQuote.QueryRow(character, i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
 		if err == sql.ErrNoRows || db.CheckError("GetCharacterQuote ", err) {
 			return Transcript{0, 0, 0, "", ""}
@@ -669,7 +669,7 @@ func (db *BotDB) GetRandomSpeaker() string {
 	var i uint64
 	err := db.sql_GetRandomSpeakerInt.QueryRow().Scan(&i)
 	var p string
-	if db.CheckError("GetRandomSpeakerInt", err) {
+	if !db.CheckError("GetRandomSpeakerInt", err) {
 		err = db.sql_GetRandomSpeaker.QueryRow(i).Scan(&p)
 		db.CheckError("GetRandomSpeaker", err)
 	}
@@ -681,7 +681,7 @@ func (db *BotDB) GetRandomMember(guild uint64) string {
 	var i uint64
 	err := db.sql_GetRandomMemberInt.QueryRow(guild).Scan(&i)
 	var p string
-	if db.CheckError("GetRandomMemberInt", err) {
+	if !db.CheckError("GetRandomMemberInt", err) {
 		err = db.sql_GetRandomMember.QueryRow(guild, i).Scan(&p)
 		db.CheckError("GetRandomMember", err)
 	}
@@ -693,7 +693,7 @@ func (db *BotDB) GetRandomWord() string {
 	var i uint64
 	err := db.sql_GetRandomWordInt.QueryRow().Scan(&i)
 	var p string
-	if db.CheckError("GetRandomWordInt", err) {
+	if !db.CheckError("GetRandomWordInt", err) {
 		err = db.sql_GetRandomWord.QueryRow(i).Scan(&p)
 		db.CheckError("GetRandomWord", err)
 	}
