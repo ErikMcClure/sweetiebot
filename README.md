@@ -32,16 +32,15 @@ A limited version of sweetiebot can be added to any server. Simply follow [this 
 
 ## Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). **You must run `!quickconfig` to configure Sweetie Bot for your server!** `!quickconfig` takes the following parameters, in order:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). Sweetiebot should send you a PM when she is first added with instructions on how to run the `!setup` command. **You must run `!setup` to configure Sweetie Bot for your server!** `!setup` takes the following parameters, in order:
 
-* **logchannel** should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
-* **alertrole** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
-* **modchannel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
-* **freechannels** should be set to a list of channel IDs that are excluded from rate limiting. If you have a #bot channel for spamming the bot, add it here.
-* **silentrole** should be set to a role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.
-* **boredchannel** should either be set to the channel that sweetiebot will post bored messages on, or to `0`, which will disable the bored module. **This is not a real config option**, it only exists as a shortcut inside `!quickconfig`. To manually set this option, use `!setconfig Modules.Channels bored #channelname`
+* **Mod Role** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
+* **Mod Channel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
+* **Log Channel** [OPTIONAL] should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
 
-Use `!help quickconfig` for an example of how to use the command. `!quickconfig` will automatically restrict all sensitive commands to `alertrole` and re-enable all modules. **You must PING the role or channel that you are adding to the bot!** For example, `!quickconfig #botlog @Server Moderator #modchat #bots @Silence #bots` would be a valid configuration. If you are manually setting a configuration option and you have a moderator role called "Server Moderator", you would use `!setconfig Basic.AlertRole @Server Moderator`, so that the bot recieves the actual role ID. You can go to your discord server configuration to make a specific role mentionable.
+For example: `!setup @Mods #staff-lounge #Bot-log`
+
+`!setup` will automatically restrict all sensitive commands to `alertrole` and enable a default set of modules. **You must PING the role or channel that you are adding to the bot!** To ensure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure "Allow anyone to @mention this role" is checked. You won't be able to properly configure Sweetie Bot over PM, because you won't be able to specify the channels. Make sure you configure her in a place where Discord autocompletes `#channelname` for you and highlights it.
 
 **DO NOT GIVE SWEETIE BOT ADMINISTRATIVE PERMISSIONS OR THE ABILITY TO PING EVERYONE!** Sweetie bot does not and will never attempt to filter `@everyone` pings, because if you don't want her to be able to ping everyone, you shouldn't give her the ability to do so in the first place. Sweetie bot only requires the following permissions: `Manage Roles`, `Ban Members`, `Manage Messages`, plus all the default read/write permissions given to everyone.
 
@@ -192,7 +191,7 @@ Manages Sweetie Bot's configuration file.
 #### Commands
 * **SetConfig:** Sets a config value and saves the new configuration.
 * **GetConfig:** Returns the current configuration, or a specific option.
-* **QuickConfig:** Quickly performs basic configuration.
+* **Setup:** Performs initial setup on Sweetie Bot for a new server.
 
 ### Debug
 Contains various debugging commands. Some of these commands can only be run by the bot owner.
