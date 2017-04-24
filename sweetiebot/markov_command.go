@@ -212,7 +212,11 @@ func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []i
 	case 2:
 		s = "%s and %s, sitting in a tree, K-I-S-S-- well, you know the rest."
 	case 3:
-		s = "%s falls head over hooves for %s."
+		if info.config.Markov.UseMemberNames {
+			s = "%s falls head over heels for %s."
+		} else {
+			s = "%s falls head over hooves for %s."
+		}
 	case 4:
 		s = "%s watches %s sleep at night."
 	case 5:

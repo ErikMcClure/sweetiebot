@@ -595,7 +595,35 @@ func AttachToGuild(g *discordgo.Guild) {
 	config, err := ioutil.ReadFile(g.ID + ".json")
 	disableall := false
 	if err != nil {
+		fmt.Println("New Guild Detected: " + g.Name)
 		config, _ = ioutil.ReadFile("default.json")
+		ch, e := sb.dg.UserChannelCreate(g.OwnerID)
+		if e == nil {
+			sb.db.SetDefaultServer(SBatoi(g.OwnerID), SBatoi(g.ID)) // This ensures no one blows up another server by accident
+			perms, _ := getAllPerms(guild, sb.SelfID)
+			warning := ""
+			if perms&0x00000008 != 0 {
+				warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitely gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+			}
+			if perms&0x00020000 != 0 {
+				warning = "\nWARNING: You have given sweetiebot the Mention Everyone role, which means users will be able to abuse her to ping everyone on the server! Sweetie Bot does NOT attempt to filter @\u200Beveryone from her messages!" + warning
+			}
+			if perms&0x00000004 == 0 {
+				warning = "\nWARNING: Sweetiebot cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
+			}
+			if perms&0x10000000 == 0 {
+				warning = "\nWARNING: Sweetiebot cannot silence members or give birthday roles without the Manage Roles role!" + warning
+			}
+			if perms&0x00002000 == 0 {
+				warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
+			}
+			sb.dg.ChannelMessageSend(ch.ID, "You've successfully added Sweetie Bot to your server! To finish setting her up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. Sweetie Bot will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. This ensures that you can always fix a broken configuration. Before running `!setup`, make sure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.\n\n**> Mod Channel**\nThis is the channel Sweetie Bot will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nThis is an optional channel where sweetiebot will post errors and update notifications. Usually, this is only visible to server admins and the bot. Remember to give the bot permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often Sweetie Bot's last resort for notifying you about potential errors.\n\nThat's it! Here is an example of the command: ```!setup @Mods #staff-chat #bot-log```\n\nNote: **Do not run `!setup` in this PM!** It won't work because Discord won't autocomplete `#channel` for you. Run `!setup` directly on your server.")
+			if len(warning) > 0 {
+				sb.dg.ChannelMessageSend(ch.ID, warning)
+			}
+		} else {
+			fmt.Println("Error sending introductory PM: ", e)
+		}
 		disableall = true
 	}
 	err = MigrateSettings(config, guild)
@@ -1340,7 +1368,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 1},
+		version:            Version{0, 9, 6, 2},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1356,6 +1384,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 2):  "- Renamed !quickconfig to !setup, added a friendly PM to new servers to make initial setup easier.",
 			AssembleVersion(0, 9, 6, 1):  "- Fix !bestpony crash",
 			AssembleVersion(0, 9, 6, 0):  "- Sweetiebot is now self-repairing and can function without a database, although her functionality is EXTREMELY limited in this state.",
 			AssembleVersion(0, 9, 5, 9):  "- MaxRemoveLookback no longer relies on the database and can now be used in any server. However, it only deletes messages from the channel that was spammed in.",
