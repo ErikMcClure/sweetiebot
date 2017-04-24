@@ -24,7 +24,7 @@ func (w *ConfigModule) Commands() []Command {
 	return []Command{
 		&SetConfigCommand{},
 		&GetConfigCommand{},
-		&QuickConfigCommand{},
+		&SetupCommand{},
 	}
 }
 
@@ -270,34 +270,71 @@ func (c *GetConfigCommand) UsageShort() string {
 	return "Returns the current configuration, or a specific option."
 }
 
-type QuickConfigCommand struct {
+func (c *SetupCommand) DisableModule(info *GuildInfo, module string) {
+	for _, v := range info.modules {
+		if strings.ToLower(v.Name()) == module {
+			cmds := v.Commands()
+			for _, v := range cmds {
+				str := strings.ToLower(v.Name())
+				CheckMapNilBool(&info.config.Modules.CommandDisabled)
+				info.config.Modules.CommandDisabled[str] = true
+			}
+		}
+	}
+
+	info.config.Modules.Disabled[module] = true
 }
 
-func (c *QuickConfigCommand) Name() string {
-	return "QuickConfig"
+type SetupCommand struct {
 }
-func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+
+func (c *SetupCommand) Name() string {
+	return "Setup"
+}
+func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if msg.Author.ID != info.Guild.OwnerID {
 		return "```Only the owner of this server can use this command!```", false, nil
 	}
-	if len(args) < 6 {
-		return "```You must provide all 6 parameters to this function. Use !help quickconfig and carefully review each one to make sure it is accurate.```", false, nil
+	if len(args) < 2 {
+		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
+	}
+	if len(args) > 3 {
+		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels?```", len(args)), false, nil
 	}
 
-	log := StripPing(args[0])
-	mod := StripPing(args[1])
-	modchannel := StripPing(args[2])
-	free := StripPing(args[3])
-	silent := StripPing(args[4])
-	boredchannel := StripPing(args[5])
+	mod := StripPing(args[0])
+	modchannel := StripPing(args[1])
 
-	info.config.Log.Channel = SBatoi(log)
+	if SBatoi(modchannel) == 0 {
+		return fmt.Sprintf("```%s is not a valid channel ID! Remember to use #channel so discord actually sends the ID.```", modchannel), false, nil
+	}
+	if SBatoi(mod) == 0 {
+		return fmt.Sprintf("```%s is not a valid role ID! Remember to use @role so discord actually sends the ID.```", mod), false, nil
+	}
+
+	silent, err := sb.dg.GuildRoleCreate(info.Guild.ID)
+	if err != nil {
+		return fmt.Sprintf("```Failed to create the silent role! %s```", err.Error()), false, nil
+	}
+	_, err = sb.dg.GuildRoleEdit(info.Guild.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
+	if err != nil {
+		sb.dg.GuildRoleDelete(info.Guild.ID, silent.ID)
+		return fmt.Sprintf("```Failed to set up the silent role! %s```", err.Error()), false, nil
+	}
+
+	log := "[None]"
+	if len(args) > 2 {
+		log = StripPing(args[2])
+		if SBatoi(log) == 0 {
+			return fmt.Sprintf("```%s is not a valid channel ID!```", log), false, nil
+		}
+		info.config.Log.Channel = SBatoi(log)
+	}
+
 	info.config.Basic.AlertRole = SBatoi(mod)
 	info.config.Basic.ModChannel = SBatoi(modchannel)
-	info.config.Spam.SilentRole = SBatoi(silent)
-	info.config.Basic.FreeChannels = make(map[string]bool)
-	info.config.Basic.FreeChannels[SBitoa(SBatoi(free))] = true
-	info.config.Basic.Aliases["cute"] = "pick cute"
+	info.config.Spam.SilentRole = SBatoi(silent.ID)
+	info.config.Log.Channel = 0
 	info.config.Basic.Aliases["calc"] = "roll"
 	info.config.Basic.Aliases["calculate"] = "roll"
 
@@ -312,44 +349,26 @@ func (c *QuickConfigCommand) Process(args []string, msg *discordgo.Message, indi
 	info.config.Modules.CommandDisabled = make(map[string]bool)
 	info.config.Modules.Disabled = make(map[string]bool)
 
-	boredint := SBatoi(boredchannel)
-	if boredint > 0 {
-		info.config.Modules.Channels["bored"] = map[string]bool{SBitoa(boredint): true}
-	} else {
-		info.config.Modules.Disabled["bored"] = true
-	}
+	c.DisableModule(info, "bucket")
+	c.DisableModule(info, "bored")
+	c.DisableModule(info, "markov")
+	c.DisableModule(info, "witty")
+	c.DisableModule(info, "emote")
+	c.DisableModule(info, "spoiler")
 
 	info.SaveConfig()
-	warning := "```"
-	perms, _ := getAllPerms(info, sb.SelfID)
-	if perms&0x00000008 != 0 {
-		warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitely gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
-	}
-	if perms&0x00020000 != 0 {
-		warning = "\nWARNING: You have given sweetiebot the Mention Everyone role, which means users will be able to abuse her to ping everyone on the server! Sweetie Bot does NOT attempt to filter @\u200Beveryone from her messages!" + warning
-	}
-	if perms&0x00000004 == 0 {
-		warning = "\nWARNING: Sweetiebot cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
-	}
-	if perms&0x10000000 == 0 {
-		warning = "\nWARNING: Sweetiebot cannot silence members or give birthday roles without the Manage Roles role! (If you do not use these features, it is safe to ignore this warning)." + warning
-	}
-	if perms&0x00002000 == 0 {
-		warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
-	}
-	return "```Server configured! \nLog Channel: " + log + "\nModerator Role: " + mod + "\nMod Channel: " + modchannel + "\nFree Channel: " + free + "\nSilent Role: " + silent + "\nBored Channel: " + boredchannel + warning, false, nil
+	return fmt.Sprintf("```Server configured!\nModerator Role: %s\nMod Channel: %s\nLog Channel: %s```\nNow that you've done basic configuration on Sweetie Bot, here are some additional features you can enable. For additional help, type `!help` for a list of commands and modules, or `!getconfig` with no arguments for a list of configuration options. Using `!help <module>` will display detailed help for that module and all its commands. Using `!getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check out the readme: https://github.com/blackhole12/sweetiebot/blob/master/README.md \n\n**Bucket**\nIf you'd like to enable Sweetie Bot's bucket, use the command `!enable Bucket`. She defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like Sweetie Bot to perform actions when the chat in a certain channel hasn't been active for a period of time, use `!enable bored` followed by `!setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands she picks from are stored in `bored.commands`. By default, she will quote someone or attempt to throw an item out of her bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```!setconfig basic.freechannels #bot```.", mod, modchannel, log), false, nil
 }
-func (c *QuickConfigCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *SetupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Quickly performs basic configuration on the server and restricts all sensitive commands to `Moderator Role`, then enables all commands and all modules. If `bored channel` is not zero, it restricts the bored module to that channel. Otherwise it disables the bored module to prevent the bot from spamming inactive channels. You must ping each role and channel via `@Role` or `#channel`, you cannot simply input the name of a role or channel.",
+		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`. You must ping each role and channel via `@Role` or `#channel`, you cannot simply input the name of a role or channel. Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "Log Channel", Desc: "The channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: false},
 			CommandUsageParam{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
 			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
-			CommandUsageParam{Name: "Free Channel", Desc: "A list of channel IDs that are excluded from rate limiting. If you have a `#bot` channel for spamming the bot, add it here.", Optional: false},
-			CommandUsageParam{Name: "Silent Role", Desc: "A role with all permissions disabled. This is the role assigned to spammers, which allows the moderation team to review what happened and ban them if necessary.", Optional: false},
-			CommandUsageParam{Name: "Bored Channel", Desc: "Either the channel that sweetiebot will post bored messages on, or 0, which will disable the bored module. *This is not a real config option*, to manually set this option, use `!setconfig Modules.Channels bored #channelname`", Optional: false},
+			CommandUsageParam{Name: "Log Channel", Desc: "An optional channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
 		},
 	}
 }
-func (c *QuickConfigCommand) UsageShort() string { return "Quickly performs basic configuration." }
+func (c *SetupCommand) UsageShort() string {
+	return "Performs first-time initialization for Sweetie Bot on this server."
+}
