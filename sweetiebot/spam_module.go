@@ -31,7 +31,6 @@ func (w *SpamModule) Register(info *GuildInfo) {
 	w.tracker = make(map[uint64]*UserPressure)
 	w.lastraid = 0
 	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
 	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
 	info.hooks.OnGuildMemberAdd = append(info.hooks.OnGuildMemberAdd, w)
 	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
@@ -170,7 +169,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		}
 		if (info.config.Basic.AlertRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole))) ||
 			(info.config.Spam.IgnoreRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.IgnoreRole))) {
-			return false
+			//return false
 		}
 		id := SBatoi(m.Author.ID)
 		tm, err := m.Timestamp.Parse()
@@ -183,7 +182,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		}
 		_, ok := w.tracker[id]
 		if !ok {
-			w.tracker[id] = &UserPressure{0, 0, ""}
+			w.tracker[id] = &UserPressure{0, tm.Unix()*1000 + int64(tm.Nanosecond()/1000000), ""}
 		}
 		track := w.tracker[id]
 		p := GetPressure(info, m, edited)
@@ -193,6 +192,10 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		track.lastcache = strings.ToLower(m.Content)
 		last := track.lastmessage
 		track.lastmessage = tm.Unix()*1000 + int64(tm.Nanosecond()/1000000)
+		if track.lastmessage < last { // This can happen because discord has a bad habit of re-sending timestamps if anything so much as touches a message
+			track.lastmessage = last
+			return false // An invalid timestamp is never spam
+		}
 		interval := track.lastmessage - last
 
 		override, ok := info.config.Spam.MaxChannelPressure[SBatoi(m.ChannelID)]
@@ -215,11 +218,6 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 }
 func (w *SpamModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	w.CheckSpam(info, m, false)
-}
-func (w *SpamModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
-	if len(m.Timestamp) > 0 { // If the timestamp was empty, this wasn't actually a message edit by the user, it was just an embed update from discord
-		w.CheckSpam(info, m, true)
-	}
 }
 func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	return w.CheckSpam(info, m, false)

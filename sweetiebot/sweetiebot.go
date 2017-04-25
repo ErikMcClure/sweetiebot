@@ -1400,7 +1400,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 6},
+		version:            Version{0, 9, 6, 7},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1418,6 +1418,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 7):  "- Sweetiebot no longer attempts to track edited messages for spam detection. This also fixes a timestamp bug with pinned messages.",
 			AssembleVersion(0, 9, 6, 6):  "- Sweetiebot now automatically sets Silence permissions on newly created channels. If you have a channel that silenced members should be allowed to speak in, make sure you've set it as the welcome channel via !setconfig users.welcomechannel #yourchannel",
 			AssembleVersion(0, 9, 6, 5):  "- Fix spam detection error for edited messages.",
 			AssembleVersion(0, 9, 6, 4):  "- Enforce max DB connections to try to mitigate connection problems",
