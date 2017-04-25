@@ -12,11 +12,9 @@ import (
 )
 
 type UserPressure struct {
-	pressure     float32
-	lastmessage  int64
-	lastcache    string
-	lastinterval int64
-	botcount     int // Number of consecutive messages with suspicious intervals
+	pressure    float32
+	lastmessage int64
+	lastcache   string
 }
 
 // The emote module detects banned emotes and deletes them
@@ -61,8 +59,12 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 	return false
 }
 
+func DoDiscordSilence(userID string, info *GuildInfo) {
+	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole))
+	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %s) return error: ", info.Guild.ID, userID, info.config.Spam.SilentRole), err)
+}
 func SilenceMember(userID string, info *GuildInfo) int8 {
-	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole)) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
+	defer DoDiscordSilence(userID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
 	m, merr := info.GetMember(userID)
 	if merr == nil { // Manually set our internal state to say this spammer is silent to prevent race conditions
 		sb.dg.State.Lock()
@@ -72,10 +74,6 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 		}
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
 		sb.dg.State.Unlock()
-	}
-	if err != nil {
-		info.log.Log("GuildMemberRoleAdd(", info.Guild.ID, ",", userID, ",", info.config.Spam.SilentRole, ") returned error: ", err.Error())
-		return -1
 	}
 
 	return 0
@@ -169,14 +167,18 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
-		if info.config.Spam.IgnoreRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.IgnoreRole)) {
+		if (info.config.Basic.AlertRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole))) ||
+			(info.config.Spam.IgnoreRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.IgnoreRole))) {
 			return false
 		}
 		id := SBatoi(m.Author.ID)
-		tm := time.Now().UTC()
+		tm, err := m.Timestamp.Parse()
+		if err != nil {
+			tm = time.Now().UTC()
+		}
 		_, ok := w.tracker[id]
 		if !ok {
-			w.tracker[id] = &UserPressure{0, tm.Unix() * 1000, "", 0, 0}
+			w.tracker[id] = &UserPressure{0, 0, ""}
 		}
 		track := w.tracker[id]
 		p := GetPressure(info, m, edited)
@@ -187,12 +189,6 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		last := track.lastmessage
 		track.lastmessage = tm.Unix()*1000 + int64(tm.Nanosecond()/1000000)
 		interval := track.lastmessage - last
-		if AbsInt(interval-track.lastinterval) < 9 { // If the difference is less than 9 milliseconds, this is suspicious
-			track.botcount++
-		} else {
-			track.botcount = 0
-		}
-		track.lastinterval = interval
 
 		override, ok := info.config.Spam.MaxChannelPressure[SBatoi(m.ChannelID)]
 		if ok && override > 0.0 {
