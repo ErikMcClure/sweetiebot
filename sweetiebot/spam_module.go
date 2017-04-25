@@ -178,7 +178,7 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 			tm, err = m.EditedTimestamp.Parse()
 		}
 		if err != nil {
-			fmt.Println("Error parsing discord timestamp: ", m.Timestamp)
+			fmt.Println("Error parsing discord timestamp: ", m)
 			tm = time.Now().UTC()
 		}
 		_, ok := w.tracker[id]

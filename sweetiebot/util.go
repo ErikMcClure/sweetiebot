@@ -860,3 +860,13 @@ func getDefaultServer(user uint64) *GuildInfo {
 func snowflakeTime(id uint64) time.Time {
 	return time.Unix(int64(((id>>22)+DISCORD_EPOCH)/1000), 0)
 }
+
+func setupSilenceRole(info *GuildInfo) {
+	if info.config.Spam.SilentRole > 0 {
+		for _, ch := range info.Guild.Channels {
+			if SBatoi(ch.ID) != info.config.Users.WelcomeChannel {
+				sb.dg.ChannelPermissionSet(ch.ID, SBitoa(info.config.Spam.SilentRole), "role", 0, 0x00000800)
+			}
+		}
+	}
+}
