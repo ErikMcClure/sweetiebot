@@ -1228,6 +1228,11 @@ func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 		sb.GuildChannelsLock.Lock()
 		sb.GuildChannels[c.ID] = guild
 		sb.GuildChannelsLock.Unlock()
+		ch, err := sb.dg.GuildChannels(c.GuildID)
+		if err == nil {
+			guild.Guild.Channels = ch
+		}
+		setupSilenceRole(guild)
 	}
 }
 func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
@@ -1395,7 +1400,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 5},
+		version:            Version{0, 9, 6, 6},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1413,6 +1418,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 6):  "- Sweetiebot now automatically sets Silence permissions on newly created channels. If you have a channel that silenced members should be allowed to speak in, make sure you've set it as the welcome channel via !setconfig users.welcomechannel #yourchannel",
 			AssembleVersion(0, 9, 6, 5):  "- Fix spam detection error for edited messages.",
 			AssembleVersion(0, 9, 6, 4):  "- Enforce max DB connections to try to mitigate connection problems",
 			AssembleVersion(0, 9, 6, 3):  "- Extreme spam could flood SB with user updates, crashing the database. She now throttles user updates to help prevent this.\n- Anti-spam now uses discord's message timestamp, which should prevent false positives from network problems\n- Sweetie will no longer silence mods for spamming under any circumstance.",
