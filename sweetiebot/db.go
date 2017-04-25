@@ -104,6 +104,7 @@ func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
 		return &r, err
 	}
 
+	r.db.SetMaxOpenConns(80)
 	err = r.db.Ping()
 	r.status.set(err == nil)
 	return &r, err
@@ -124,7 +125,7 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 	return statement, err
 }
 
-const DB_RECONNECT_TIMEOUT = time.Duration(120) * time.Second // Reconnect time interval in seconds
+const DB_RECONNECT_TIMEOUT = time.Duration(30) * time.Second // Reconnect time interval in seconds
 
 func (db *BotDB) CheckStatus() bool {
 	if !db.status.get() {
