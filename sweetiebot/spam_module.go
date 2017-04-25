@@ -88,7 +88,7 @@ func BanMember(u *discordgo.User, info *GuildInfo) {
 	}
 }
 
-func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string) {
+func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
 	msgembeds := ""
 	if len(msg.Embeds) > 0 {
 		msgembeds = "\nEmbedded URLs: "
@@ -102,7 +102,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if err == nil {
 		chname = ch.Name
 	}
-	logmsg := fmt.Sprintf("Killing spammer %s. Last message sent on #%s: \n%s%s", u.Username, chname, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
+	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Guild.Name, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
@@ -155,10 +155,11 @@ func GetPressure(info *GuildInfo, m *discordgo.Message, edited bool) float32 {
 	p += info.config.Spam.PingPressure * float32(len(m.Mentions))
 	p += info.config.Spam.ImagePressure * float32(len(m.Embeds))
 	p += info.config.Spam.LengthPressure * float32(len(m.Content))
-	if edited { // Editing a message contributes only the square root of any additional penalties (so you can edit a post with lots of pictures and not get instabanned)
+	p += info.config.Spam.BasePressure
+	if edited { // Editing a message contributes only the square root of the total (so you can edit a post with lots of pictures and not get instabanned)
 		p = float32(math.Sqrt(float64(p)))
 	}
-	return p + info.config.Spam.BasePressure
+	return p
 }
 
 func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited bool) bool {
@@ -173,7 +174,11 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		}
 		id := SBatoi(m.Author.ID)
 		tm, err := m.Timestamp.Parse()
+		if len(m.EditedTimestamp) > 0 {
+			tm, err = m.EditedTimestamp.Parse()
+		}
 		if err != nil {
+			fmt.Println("Error parsing discord timestamp: ", m.Timestamp)
 			tm = time.Now().UTC()
 		}
 		_, ok := w.tracker[id]
@@ -194,16 +199,15 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 		if ok && override > 0.0 {
 			p *= (info.config.Spam.MaxPressure / override)
 		}
+		oldpressure := track.pressure
 		track.pressure -= info.config.Spam.BasePressure * (float32(interval) / (info.config.Spam.PressureDecay * 1000.0))
 		if track.pressure < 0 {
 			track.pressure = 0
 		}
 		track.pressure += p
 		//fmt.Println("Current Pressure: ", track.pressure)
-		//if track.botcount > info.config.Spam.MaxBotFlags || track.pressure > info.config.Spam.MaxPressure {
 		if track.pressure > info.config.Spam.MaxPressure {
-			//info.SendMessage(m.ChannelID, "Pressure Limit Hit")
-			KillSpammer(m.Author, info, m, "spamming too many messages")
+			KillSpammer(m.Author, info, m, "spamming too many messages", oldpressure, track.pressure)
 			return true
 		}
 	}
