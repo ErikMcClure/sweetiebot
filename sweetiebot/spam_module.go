@@ -217,7 +217,9 @@ func (w *SpamModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	w.CheckSpam(info, m, false)
 }
 func (w *SpamModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
-	w.CheckSpam(info, m, true)
+	if len(m.Timestamp) > 0 { // If the timestamp was empty, this wasn't actually a message edit by the user, it was just an embed update from discord
+		w.CheckSpam(info, m, true)
+	}
 }
 func (w *SpamModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	return w.CheckSpam(info, m, false)
