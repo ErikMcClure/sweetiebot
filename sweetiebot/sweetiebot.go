@@ -225,6 +225,11 @@ func AssembleVersion(major byte, minor byte, revision byte, build byte) int {
 	return int(build) | (int(revision) << 8) | (int(minor) << 16) | (int(major) << 24)
 }
 
+type UserBuffer struct {
+	user     *discordgo.User
+	presence *discordgo.Presence
+}
+
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
@@ -249,6 +254,7 @@ type SweetieBot struct {
 	MaxConfigSize      int
 	StartTime          int64
 	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
+	UserAddBuffer      chan UserBuffer
 }
 
 var sb *SweetieBot
@@ -1104,13 +1110,16 @@ func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
 		}
 	})
 }
-func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) { ProcessUser(m.User, nil) }
+func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
+	sb.UserAddBuffer <- UserBuffer{m.User, nil}
+}
 func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 	info := GetGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	ProcessUser(m.User, info)
+	sb.UserAddBuffer <- UserBuffer{m.User, &m.Presence}
+
 	ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) {
 			info.hooks.OnPresenceUpdate[i].OnPresenceUpdate(info, m)
@@ -1214,17 +1223,8 @@ func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
 	delete(sb.GuildChannels, c.ID)
 	sb.GuildChannelsLock.Unlock()
 }
-func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
-	isonline := true
-	if info != nil {
-		var p *discordgo.Presence = nil
-		for _, v := range info.Guild.Presences {
-			if v.User.ID == u.ID {
-				p = v
-			}
-		}
-		isonline = (p != nil && p.Status != "Offline")
-	}
+func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
+	isonline := (p != nil && p.Status != "Offline")
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
 	if sb.db.CheckStatus() {
@@ -1234,7 +1234,7 @@ func ProcessUser(u *discordgo.User, info *GuildInfo) uint64 {
 }
 
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
-	ProcessUser(u.User, info)
+	ProcessUser(u.User, nil)
 
 	t := time.Now().UTC()
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
@@ -1356,6 +1356,12 @@ func IdleCheckLoop() {
 	}
 }
 
+func UserProcessLoop() {
+	for !sb.quit.get() {
+		v := <-sb.UserAddBuffer
+		ProcessUser(v.user, v.presence)
+	}
+}
 func WaitForInput() {
 	var input string
 	fmt.Scanln(&input)
@@ -1368,7 +1374,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 2},
+		version:            Version{0, 9, 6, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1383,7 +1389,9 @@ func Initialize(Token string) {
 		MaxConfigSize:      1000000,
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
+		UserAddBuffer:      make(chan UserBuffer, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 3):  "- Extreme spam could flood SB with user updates, crashing the database. She now throttles user updates to help prevent this.\n- Anti-spam now uses discord's message timestamp, which should prevent false positives from network problems\n- Sweetie will no longer silence mods for spamming under any circumstance.",
 			AssembleVersion(0, 9, 6, 2):  "- Renamed !quickconfig to !setup, added a friendly PM to new servers to make initial setup easier.",
 			AssembleVersion(0, 9, 6, 1):  "- Fix !bestpony crash",
 			AssembleVersion(0, 9, 6, 0):  "- Sweetiebot is now self-repairing and can function without a database, although her functionality is EXTREMELY limited in this state.",
@@ -1519,6 +1527,7 @@ func Initialize(Token string) {
 		go WaitForInput()
 	}
 
+	go UserProcessLoop()
 	go IdleCheckLoop()
 
 	//BuildMarkov(1, 1)
