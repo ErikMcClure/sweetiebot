@@ -255,6 +255,7 @@ type SweetieBot struct {
 	StartTime          int64
 	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 	UserAddBuffer      chan UserBuffer
+	MemberAddBuffer    chan []*discordgo.Member
 }
 
 var sb *SweetieBot
@@ -577,15 +578,26 @@ func AttachToGuild(g *discordgo.Guild) {
 	sb.guildsLock.RLock()
 	guild, exists := sb.guilds[SBatoi(g.ID)]
 	sb.guildsLock.RUnlock()
-	if sb.Debug {
-		_, ok := sb.DebugChannels[g.ID]
-		if !ok {
-			return
-		}
-	}
 	if exists {
 		guild.ProcessGuild(g)
 		return
+	}
+	if sb.Debug {
+		_, ok := sb.DebugChannels[g.ID]
+		if !ok {
+			guild = &GuildInfo{
+				Guild:        g,
+				command_last: make(map[string]map[string]int64),
+				commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
+				commands:     make(map[string]Command),
+				emotemodule:  nil,
+			}
+			sb.guildsLock.Lock()
+			sb.guilds[SBatoi(g.ID)] = guild
+			sb.guildsLock.Unlock()
+			guild.ProcessGuild(g)
+			return
+		}
 	}
 
 	fmt.Println("Initializing " + g.Name)
@@ -1155,7 +1167,7 @@ func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	if info == nil {
 		return
 	}
-	info.ProcessMember(m.Member)
+	sb.MemberAddBuffer <- []*discordgo.Member{m.Member}
 	ApplyFuncRange(len(info.hooks.OnGuildMemberAdd), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberAdd[i]) {
 			info.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(info, m.Member)
@@ -1178,7 +1190,7 @@ func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	if info == nil {
 		return
 	}
-	info.ProcessMember(m.Member)
+	sb.MemberAddBuffer <- []*discordgo.Member{m.Member}
 	ApplyFuncRange(len(info.hooks.OnGuildMemberUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberUpdate[i]) {
 			info.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(info, m.Member)
@@ -1279,9 +1291,7 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 			sb.GuildChannels[v.ID] = info
 			sb.GuildChannelsLock.Unlock()
 		}
-		for _, v := range g.Members {
-			info.ProcessMember(v)
-		}
+		sb.MemberAddBuffer <- g.Members
 	}
 }
 
@@ -1362,6 +1372,17 @@ func UserProcessLoop() {
 		ProcessUser(v.user, v.presence)
 	}
 }
+func MemberProcessLoop() {
+	for !sb.quit.get() {
+		m := <-sb.MemberAddBuffer
+		if len(m) > 0 {
+			info := GetGuildFromID(m[0].GuildID)
+			for _, v := range m {
+				info.ProcessMember(v)
+			}
+		}
+	}
+}
 func WaitForInput() {
 	var input string
 	fmt.Scanln(&input)
@@ -1390,6 +1411,7 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		MessageCount:       0,
 		UserAddBuffer:      make(chan UserBuffer, 1000),
+		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
 			AssembleVersion(0, 9, 6, 3):  "- Extreme spam could flood SB with user updates, crashing the database. She now throttles user updates to help prevent this.\n- Anti-spam now uses discord's message timestamp, which should prevent false positives from network problems\n- Sweetie will no longer silence mods for spamming under any circumstance.",
 			AssembleVersion(0, 9, 6, 2):  "- Renamed !quickconfig to !setup, added a friendly PM to new servers to make initial setup easier.",
@@ -1527,6 +1549,7 @@ func Initialize(Token string) {
 		go WaitForInput()
 	}
 
+	go MemberProcessLoop()
 	go UserProcessLoop()
 	go IdleCheckLoop()
 
