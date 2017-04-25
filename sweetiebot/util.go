@@ -865,7 +865,18 @@ func setupSilenceRole(info *GuildInfo) {
 	if info.config.Spam.SilentRole > 0 {
 		for _, ch := range info.Guild.Channels {
 			if SBatoi(ch.ID) != info.config.Users.WelcomeChannel {
-				sb.dg.ChannelPermissionSet(ch.ID, SBitoa(info.config.Spam.SilentRole), "role", 0, 0x00000800)
+				allow := 0
+				deny := 0
+				for _, v := range ch.PermissionOverwrites {
+					if strings.ToLower(v.Type) == "role" && SBatoi(v.ID) == info.config.Spam.SilentRole {
+						allow = v.Allow
+						deny = v.Deny
+						break
+					}
+				}
+				allow &= (^0x00000800)
+				deny |= 0x00000800
+				sb.dg.ChannelPermissionSet(ch.ID, SBitoa(info.config.Spam.SilentRole), "role", allow, deny)
 			}
 		}
 	}
