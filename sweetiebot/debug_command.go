@@ -312,7 +312,14 @@ func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indic
 				private++
 			}
 		} else {
-			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, len(v.Guild.Members), len(v.Guild.Channels), getUserName(SBatoi(v.Guild.OwnerID), v))))
+			username := "<@" + v.Guild.OwnerID + ">"
+			if sb.db.status.get() {
+				m, _, _, _ := sb.db.GetUser(SBatoi(v.Guild.OwnerID))
+				if m != nil {
+					username = m.Username + "#" + m.Discriminator
+				}
+			}
+			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, len(v.Guild.Members), len(v.Guild.Channels), username)))
 		}
 	}
 	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
