@@ -38,6 +38,7 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 				Verified: true,
 				Bot:      true,
 			},
+			Timestamp: discordgo.Timestamp(time.Now().UTC().Format(time.RFC3339Nano)),
 		}
 
 		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID))

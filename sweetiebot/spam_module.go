@@ -60,7 +60,7 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 
 func DoDiscordSilence(userID string, info *GuildInfo) {
 	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole))
-	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %s) return error: ", info.Guild.ID, userID, info.config.Spam.SilentRole), err)
+	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.Guild.ID, userID, info.config.Spam.SilentRole), err)
 }
 func SilenceMember(userID string, info *GuildInfo) int8 {
 	defer DoDiscordSilence(userID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
