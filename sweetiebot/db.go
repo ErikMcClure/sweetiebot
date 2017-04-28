@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,7 +18,7 @@ type BotDB struct {
 	log                        Logger
 	driver                     string
 	conn                       string
-	statuslock                 sync.RWMutex
+	statuslock                 AtomicFlag
 	sql_AddMessage             *sql.Stmt
 	sql_GetMessage             *sql.Stmt
 	sql_AddUser                *sql.Stmt
@@ -129,8 +128,10 @@ const DB_RECONNECT_TIMEOUT = time.Duration(30) * time.Second // Reconnect time i
 
 func (db *BotDB) CheckStatus() bool {
 	if !db.status.get() {
-		db.statuslock.Lock()
-		defer db.statuslock.Unlock()
+		if db.statuslock.test_and_set() { // If this was already true, bail out
+			return false
+		}
+		defer db.statuslock.clear()
 
 		if db.status.get() { // If the database was already fixed, return true
 			return true
@@ -252,7 +253,9 @@ func (db *BotDB) CheckError(name string, err error) bool {
 	if err != nil {
 		db.log.LogError(name+" error: ", err)
 		if err != sql.ErrNoRows && err != sql.ErrTxDone {
-			db.status.set(false)
+			if db.db.Ping() != nil {
+				db.status.set(false)
+			}
 			return true
 		}
 	}
@@ -260,15 +263,11 @@ func (db *BotDB) CheckError(name string, err error) bool {
 }
 
 func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool, guild uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddMessage.Exec(id, author, message, channel, everyone, guild)
 	db.CheckError("AddMessage", err)
 }
 
 func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var author uint64
 	var message string
 	var timestamp time.Time
@@ -287,22 +286,16 @@ type PingContext struct {
 }
 
 func (db *BotDB) AddUser(id uint64, email string, username string, discriminator int, avatar string, verified bool, isonline bool) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddUser.Exec(id, email, username, discriminator, avatar, verified, isonline)
 	db.CheckError("AddUser", err)
 }
 
 func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nickname string) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddMember.Exec(id, guild, firstseen, nickname)
 	db.CheckError("AddMember", err)
 }
 
 func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location, *uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	u := &discordgo.User{}
 	var lastseen time.Time
 	var i sql.NullInt64
@@ -324,7 +317,6 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 }
 
 func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time) {
-	db.statuslock.RLock()
 	m := &discordgo.Member{}
 	m.User = &discordgo.User{}
 	var lastseen time.Time
@@ -334,7 +326,6 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 		m.User.Discriminator = strconv.Itoa(discriminator)
 	}
 	if err == sql.ErrNoRows {
-		db.statuslock.RUnlock()
 		m.User, lastseen, _, _ = db.GetUser(id)
 		if m.User == nil {
 			return nil, lastseen
@@ -342,13 +333,10 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 		return m, lastseen
 	}
 	db.CheckError("GetMember", err)
-	db.statuslock.RUnlock()
 	return m, lastseen
 }
 
 func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_FindGuildUsers.Query(guild, name, name, name, maxresults, offset)
 	if db.CheckError("FindGuildUsers", err) {
 		return []uint64{}
@@ -365,8 +353,6 @@ func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, g
 }
 
 func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_FindUsers.Query(name, name, name, maxresults, offset)
 	if db.CheckError("FindUsers", err) {
 		return []uint64{}
@@ -386,8 +372,6 @@ func (db *BotDB) GetRecentMessages(user uint64, duration uint64, guild uint64) [
 	message uint64
 	channel uint64
 } {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetRecentMessages.Query(guild, user, duration)
 	if db.CheckError("GetRecentMessages", err) {
 		return []struct {
@@ -416,8 +400,6 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 	User      *discordgo.User
 	FirstSeen time.Time
 } {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetNewestUsers.Query(guild, maxresults)
 	if db.CheckError("GetNewestUsers", err) {
 		return []struct {
@@ -443,8 +425,6 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 }
 
 func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetRecentUsers.Query(guild, since)
 	if db.CheckError("GetRecentUsers", err) {
 		return []*discordgo.User{}
@@ -461,8 +441,6 @@ func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User
 }
 
 func (db *BotDB) GetAliases(user uint64) []string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetAliases.Query(user)
 	if db.CheckError("GetAliases", err) {
 		return []string{}
@@ -485,8 +463,6 @@ func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uin
 }
 
 func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search string, guild uint64) []PingContext {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var q *sql.Rows
 	var err error
 	maxresults := end - start
@@ -519,8 +495,6 @@ func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search str
 }
 
 func (db *BotDB) GetTableCounts() string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	if !db.status.get() {
 		return "DATABASE ERROR"
 	}
@@ -533,8 +507,6 @@ func (db *BotDB) GetTableCounts() string {
 }
 
 func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string, text string) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddTranscript.Exec(season, episode, line, speaker, text)
 	if err != nil {
 		db.log.Log("AddTranscript error: ", err.Error, "\nS", season, "E", episode, ":", line, " ", speaker, ": ", text)
@@ -550,8 +522,6 @@ type Transcript struct {
 }
 
 func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Transcript {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetTranscript.Query(season, episode, start, end)
 	if db.CheckError("GetTranscript", err) {
 		return []Transcript{}
@@ -572,14 +542,10 @@ func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Tr
 }
 
 func (db *BotDB) RemoveTranscript(season int, episode int, line int) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_RemoveTranscript.Exec(season, episode, line)
 	db.CheckError("RemoveTranscript", err)
 }
 func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text string) uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var id uint64
 	err := db.sql_AddMarkov.QueryRow(last, last2, speaker, text).Scan(&id)
 	db.CheckError("AddMarkov", err)
@@ -587,8 +553,6 @@ func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text strin
 }
 
 func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var r sql.NullString
 	err := db.sql_GetMarkovLine.QueryRow(last).Scan(&r)
 	if db.CheckError("GetMarkovLine", err) || !r.Valid {
@@ -602,8 +566,6 @@ func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
 }
 
 func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var r sql.NullString
 	err := db.sql_GetMarkovLine2.QueryRow(last, last2).Scan(&r)
 	if db.CheckError("GetMarkovLine2", err) || !r.Valid {
@@ -616,8 +578,6 @@ func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint
 	return str[0], SBatoi(str[1]), SBatoi(str[2])
 }
 func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var r string
 	err := db.sql_GetMarkovWord.QueryRow(speaker, phrase).Scan(&r)
 	if err == sql.ErrNoRows {
@@ -627,8 +587,6 @@ func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
 	return r
 }
 func (db *BotDB) GetRandomQuote() Transcript {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetRandomQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
@@ -639,8 +597,6 @@ func (db *BotDB) GetRandomQuote() Transcript {
 	return p
 }
 func (db *BotDB) GetSpeechQuote() Transcript {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetSpeechQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
@@ -651,8 +607,6 @@ func (db *BotDB) GetSpeechQuote() Transcript {
 	return p
 }
 func (db *BotDB) GetCharacterQuote(character string) Transcript {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetCharacterQuoteInt.QueryRow(character).Scan(&i)
 	var p Transcript
@@ -665,8 +619,6 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	return p
 }
 func (db *BotDB) GetRandomSpeaker() string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetRandomSpeakerInt.QueryRow().Scan(&i)
 	var p string
@@ -677,8 +629,6 @@ func (db *BotDB) GetRandomSpeaker() string {
 	return p
 }
 func (db *BotDB) GetRandomMember(guild uint64) string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetRandomMemberInt.QueryRow(guild).Scan(&i)
 	var p string
@@ -689,8 +639,6 @@ func (db *BotDB) GetRandomMember(guild uint64) string {
 	return p
 }
 func (db *BotDB) GetRandomWord() string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i uint64
 	err := db.sql_GetRandomWordInt.QueryRow().Scan(&i)
 	var p string
@@ -701,8 +649,6 @@ func (db *BotDB) GetRandomWord() string {
 	return p
 }
 func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i int
 	err := db.sql_CountNewUsers.QueryRow(seconds, guild).Scan(&i)
 	db.CheckError("CountNewUsers", err)
@@ -710,14 +656,10 @@ func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 }
 
 func (db *BotDB) RemoveSchedule(id uint64) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_RemoveSchedule.Exec(id)
 	db.CheckError("RemoveSchedule", err)
 }
 func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) bool {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i int
 	err := db.sql_CountEvents.QueryRow(guild).Scan(&i)
 
@@ -728,8 +670,6 @@ func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string
 	return false
 }
 func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) bool {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i int
 	err := db.sql_CountEvents.QueryRow(guild).Scan(&i)
 	if !db.CheckError("CountEvents", err) && i < 5000 {
@@ -747,8 +687,6 @@ type ScheduleEvent struct {
 }
 
 func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetSchedule.Query(guild)
 	if db.CheckError("GetSchedule", err) {
 		return []ScheduleEvent{}
@@ -765,8 +703,6 @@ func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 }
 
 func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	e := &ScheduleEvent{}
 	err := db.sql_GetEvent.QueryRow(id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
 	if err == sql.ErrNoRows || db.CheckError("GetEvent", err) {
@@ -776,8 +712,6 @@ func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
 }
 
 func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetEvents.Query(guild, maxnum)
 	if db.CheckError("GetEvents", err) {
 		return []ScheduleEvent{}
@@ -794,8 +728,6 @@ func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
 }
 
 func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetEventsByType.Query(guild, ty, maxnum)
 	if db.CheckError("GetEventsByType", err) {
 		return []ScheduleEvent{}
@@ -812,8 +744,6 @@ func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleE
 }
 
 func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	p := ScheduleEvent{}
 	err := db.sql_GetNextEvent.QueryRow(guild, ty).Scan(&p.ID, &p.Date, &p.Type, &p.Data)
 	if err == sql.ErrNoRows || db.CheckError("GetNextEvent", err) {
@@ -823,8 +753,6 @@ func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 }
 
 func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEvent {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetReminders.Query(guild, id+"|%", maxnum)
 	if db.CheckError("GetReminders", err) {
 		return []ScheduleEvent{}
@@ -841,8 +769,6 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 }
 
 func (db *BotDB) GetUnsilenceDate(guild uint64, id uint64) *time.Time {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var timestamp time.Time
 	err := db.sql_GetUnsilenceDate.QueryRow(guild, id).Scan(&timestamp)
 	if err == sql.ErrNoRows || db.CheckError("GetUnsilenceDate", err) {
@@ -865,8 +791,6 @@ func evalTimeZone(i sql.NullInt64, loc sql.NullString) *time.Location {
 }
 
 func (db *BotDB) GetTimeZone(user uint64) *time.Location {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var i sql.NullInt64
 	var loc sql.NullString
 	err := db.sql_GetTimeZone.QueryRow(user).Scan(&i, &loc)
@@ -877,8 +801,6 @@ func (db *BotDB) GetTimeZone(user uint64) *time.Location {
 }
 
 func (db *BotDB) FindTimeZone(s string) []string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_FindTimeZone.Query(s)
 	if db.CheckError("FindTimeZone", err) {
 		return []string{}
@@ -895,8 +817,6 @@ func (db *BotDB) FindTimeZone(s string) []string {
 }
 
 func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_FindTimeZoneOffset.Query(s, minutes, minutes)
 	if db.CheckError("FindTimeZoneOffset", err) {
 		return []string{}
@@ -913,23 +833,17 @@ func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
 }
 
 func (db *BotDB) SetTimeZone(user uint64, tz *time.Location) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_SetTimeZone.Exec(tz.String(), user)
 	db.CheckError("SetTimeZone", err)
 	return err
 }
 
 func (db *BotDB) RemoveAlias(user uint64, alias string) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_RemoveAlias.Exec(user, alias)
 	db.CheckError("RemoveAlias", err)
 }
 
 func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetUserGuilds.Query(user)
 	if db.CheckError("GetUserGuilds", err) {
 		return []uint64{}
@@ -946,8 +860,6 @@ func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 }
 
 func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var id uint64
 	err := db.sql_FindEvent.QueryRow(ty, user, guild).Scan(&id)
 	if err == sql.ErrNoRows || db.CheckError("FindEvent", err) {
@@ -957,8 +869,6 @@ func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 }
 
 func (db *BotDB) SetDefaultServer(user uint64, server uint64) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_SetDefaultServer.Exec(server, user)
 	db.CheckError("SetDefaultServer", err)
 	return err
@@ -968,8 +878,6 @@ func (db *BotDB) GetPolls(server uint64) []struct {
 	name        string
 	description string
 } {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetPolls.Query(server)
 	if db.CheckError("GetPolls", err) {
 		return []struct {
@@ -995,8 +903,6 @@ func (db *BotDB) GetPolls(server uint64) []struct {
 }
 
 func (db *BotDB) GetPoll(name string, server uint64) (uint64, string) {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var id uint64
 	var desc string
 	err := db.sql_GetPoll.QueryRow(name, server).Scan(&id, &desc)
@@ -1012,8 +918,6 @@ type PollOptionStruct struct {
 }
 
 func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetOptions.Query(poll)
 	if db.CheckError("GetOptions", err) {
 		return []PollOptionStruct{}
@@ -1030,8 +934,6 @@ func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 }
 
 func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var id uint64
 	err := db.sql_GetOption.QueryRow(poll, option).Scan(&id)
 	if err == sql.ErrNoRows || db.CheckError("GetOption", err) {
@@ -1046,8 +948,6 @@ type PollResultStruct struct {
 }
 
 func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	q, err := db.sql_GetResults.Query(poll)
 	if db.CheckError("GetResults", err) {
 		return []PollResultStruct{}
@@ -1064,48 +964,36 @@ func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 }
 
 func (db *BotDB) AddPoll(name string, description string, server uint64) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddPoll.Exec(name, description, server)
 	db.CheckError("AddPoll", err)
 	return err
 }
 
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddOption.Exec(poll, index, option)
 	db.CheckError("AddOption", err)
 	return err
 }
 
 func (db *BotDB) AppendOption(poll uint64, option string) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AppendOption.Exec(option, poll)
 	db.CheckError("AppendOption", err)
 	return err
 }
 
 func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_AddVote.Exec(poll, user, option, option)
 	db.CheckError("AddVote", err)
 	return err
 }
 
 func (db *BotDB) RemovePoll(name string, server uint64) error {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	_, err := db.sql_RemovePoll.Exec(name, server)
 	db.CheckError("RemovePoll", err)
 	return err
 }
 
 func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
-	db.statuslock.RLock()
-	defer db.statuslock.RUnlock()
 	var name string
 	err := db.sql_CheckOption.QueryRow(poll, option).Scan(&name)
 	if err == sql.ErrNoRows || db.CheckError("CheckOption", err) {
