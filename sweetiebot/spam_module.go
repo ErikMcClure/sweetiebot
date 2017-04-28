@@ -67,12 +67,11 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 	m, merr := info.GetMember(userID)
 	if merr == nil { // Manually set our internal state to say this spammer is silent to prevent race conditions
 		sb.dg.State.Lock()
+		defer sb.dg.State.Unlock()
 		if IsSilenced(m, info) {
-			sb.dg.State.Unlock()
 			return 1
 		}
 		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
-		sb.dg.State.Unlock()
 	}
 
 	return 0
@@ -372,7 +371,7 @@ func (c *GetPressureCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	u, ok := c.s.tracker[IDs[0]]
