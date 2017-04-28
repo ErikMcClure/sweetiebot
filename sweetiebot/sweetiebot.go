@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -256,6 +257,7 @@ type SweetieBot struct {
 	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 	UserAddBuffer      chan UserBuffer
 	MemberAddBuffer    chan []*discordgo.Member
+	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
 }
 
 var sb *SweetieBot
@@ -484,6 +486,9 @@ func ExtraSanitize(s string) string {
 }
 
 func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
+	if channelID == "heartbeat" {
+		return nil, true
+	}
 	ch, err := sb.dg.State.Channel(channelID)
 	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
 		return ch, ch.IsPrivate
@@ -500,7 +505,11 @@ func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed
 		}
 		return false
 	}
-	sb.dg.ChannelMessageSendEmbed(channelID, embed)
+	if channelID == "heartbeat" {
+		atomic.AddUint32(&sb.heartbeat, 1)
+	} else {
+		sb.dg.ChannelMessageSendEmbed(channelID, embed)
+	}
 	return true
 }
 
@@ -851,10 +860,11 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
 		private := info == nil
 		isfree := private
+		authorid := SBatoi(m.Author.ID)
 		if info != nil {
 			_, isfree = info.config.Basic.FreeChannels[m.ChannelID]
 		}
-		_, isOwner := sb.Owners[SBatoi(m.Author.ID)]
+		_, isOwner := sb.Owners[authorid]
 		isSelf := m.Author.ID == sb.SelfID
 		if !isSelf && info != nil {
 			ignore := false
@@ -867,7 +877,6 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				return
 			}
 		}
-
 		args, indices := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
 		if info == nil && !sb.db.status.get() {
@@ -875,16 +884,19 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			return
 		}
 		if info == nil {
-			info = getDefaultServer(SBatoi(m.Author.ID))
+			info = getDefaultServer(authorid)
 		}
 		if info == nil {
-			gIDs := sb.db.GetUserGuilds(SBatoi(m.Author.ID))
+			gIDs := sb.db.GetUserGuilds(authorid)
 			_, independent := sb.NonServerCommands[arg]
 			if !independent && len(gIDs) != 1 {
 				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
 				return
 			}
 
+			if len(gIDs) == 0 {
+				gIDs = []uint64{sb.MainGuildID}
+			}
 			sb.guildsLock.RLock()
 			info = sb.guilds[gIDs[0]]
 			sb.guildsLock.RUnlock()
@@ -1021,6 +1033,12 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	/*if m.Content == "DO_DEADLOCK" && sb.Debug {
+		sb.LastMessagesLock.Lock() // DEBUG: DELIBERATELY DEADLOCK
+	} else if m.Content == "UNDO_DEADLOCK" {
+		sb.LastMessagesLock.Unlock()
+	}*/
+
 	t := time.Now().UTC().Unix()
 	sb.LastMessagesLock.Lock()
 	sb.LastMessages[m.ChannelID] = t
@@ -1038,24 +1056,24 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		isdbguild = sb.IsDBGuild(info)
 		isdebug = info.IsDebug(m.ChannelID)
 	}
-	cid := SBatoi(m.ChannelID)
 	if isdebug && !sb.Debug {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
-
-	if info != nil && cid != info.config.Log.Channel && isdbguild && sb.db.CheckStatus() { // Log this message if it was sent to the main guild only.
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
-
-		if m.Author.ID == sb.SelfID { // ALWAYS discard any of our own messages before analysis.
+	if m.ChannelID != "heartbeat" {
+		if info != nil && isdbguild && sb.db.CheckStatus() { // Log this message if it was sent to the main guild only.
+			cid := SBatoi(m.ChannelID)
+			if cid != info.config.Log.Channel {
+				sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+			}
+		}
+		if m.Author.ID == sb.SelfID { // discard all our own messages (unless this is a heartbeat message)
 			return
 		}
-	}
-	if m.Author.ID == sb.SelfID { // if this is true here, it means we were unable to log the message, so we can't possibly add the ping.
-		return
-	}
-
-	if boolXOR(sb.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
-		return
+		if boolXOR(sb.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
+			return
+		}
+	} else {
+		info, _ = sb.guilds[sb.MainGuildID]
 	}
 
 	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug)
@@ -1388,6 +1406,42 @@ func MemberProcessLoop() {
 		}
 	}
 }
+
+const HEARTBEAT_INTERVAL = 20
+
+func DeadlockDetector() {
+	var counter uint32 = sb.heartbeat
+	var missed uint32 = 0
+	time.Sleep(HEARTBEAT_INTERVAL * time.Second) // Give sweetie time to load everything first before initiating heartbeats
+	for !sb.quit.get() {
+		m := discordgo.MessageCreate{
+			&discordgo.Message{ChannelID: "heartbeat", Content: "!about",
+				Author: &discordgo.User{
+					ID:       sb.SelfID,
+					Username: "Sweetie",
+					Verified: true,
+					Bot:      true,
+				},
+				Timestamp: discordgo.Timestamp(time.Now().UTC().Format(time.RFC3339Nano)),
+			},
+		}
+		go SBMessageCreate(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
+		time.Sleep(HEARTBEAT_INTERVAL * time.Second)
+		if atomic.LoadUint32(&sb.heartbeat) == counter+1 {
+			counter++
+			missed = 0
+		} else {
+			missed++
+			fmt.Println("MISSED HEARTBEAT SIGNAL ", missed, " TIMES IN A ROW")
+			counter = atomic.LoadUint32(&sb.heartbeat)
+		}
+		if missed >= 5 {
+			fmt.Println("FATAL ERROR: DEADLOCK DETECTED! TERMINATING PROGRAM...")
+			os.Exit(-1)
+		}
+	}
+}
+
 func WaitForInput() {
 	var input string
 	fmt.Scanln(&input)
@@ -1400,11 +1454,11 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 7},
+		version:            Version{0, 9, 6, 8},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
-		NonServerCommands:  map[string]bool{"roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
+		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
@@ -1414,10 +1468,12 @@ func Initialize(Token string) {
 		LastMessages:       make(map[string]int64),
 		MaxConfigSize:      1000000,
 		StartTime:          time.Now().UTC().Unix(),
+		heartbeat:          4294967290,
 		MessageCount:       0,
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 6, 8):  "- Sweetiebot now has a deadlock detector and will auto-restart if she detects that she is not responding to !about\n- Appending @ to the end of a name or server is no longer necessary. If sweetie finds an exact match to your query, she will always use that.",
 			AssembleVersion(0, 9, 6, 7):  "- Sweetiebot no longer attempts to track edited messages for spam detection. This also fixes a timestamp bug with pinned messages.",
 			AssembleVersion(0, 9, 6, 6):  "- Sweetiebot now automatically sets Silence permissions on newly created channels. If you have a channel that silenced members should be allowed to speak in, make sure you've set it as the welcome channel via !setconfig users.welcomechannel #yourchannel",
 			AssembleVersion(0, 9, 6, 5):  "- Fix spam detection error for edited messages.",
@@ -1561,6 +1617,7 @@ func Initialize(Token string) {
 	go MemberProcessLoop()
 	go UserProcessLoop()
 	go IdleCheckLoop()
+	go DeadlockDetector()
 
 	//BuildMarkov(1, 1)
 	//return

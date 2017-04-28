@@ -377,19 +377,17 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 	other := []*GuildInfo{}
 	str := args[0]
 	exact := false
-	if str[len(str)-1] == '@' {
-		str = str[:len(str)-1]
-		exact = true
-	}
 	func() {
 		sb.guildsLock.RLock()
 		defer sb.guildsLock.RUnlock()
 		for _, v := range sb.guilds {
-			if exact {
-				if strings.Compare(strings.ToLower(v.Guild.Name), strings.ToLower(str)) == 0 {
-					other = append(other, v)
+			if strings.Compare(strings.ToLower(v.Guild.Name), strings.ToLower(str)) == 0 {
+				if !exact {
+					other = []*GuildInfo{}
+					exact = true
 				}
-			} else {
+				other = append(other, v)
+			} else if !exact {
 				if strings.Contains(strings.ToLower(v.Guild.Name), strings.ToLower(str)) {
 					other = append(other, v)
 				}

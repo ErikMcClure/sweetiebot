@@ -427,7 +427,7 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 						return "```Error: Could not find any usernames or aliases matching " + args[i] + "!```", false, nil
 					}
 					if len(IDs) > 1 {
-						return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+						return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 					}
 					user = &IDs[0]
 					break

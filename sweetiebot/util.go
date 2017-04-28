@@ -88,7 +88,7 @@ func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r'
 }
 
-func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
+func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string {
 	s := make([]string, 0, len(IDs))
 	gid := SBatoi(info.Guild.ID)
 	for _, v := range IDs {
@@ -98,9 +98,17 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo) []string {
 		}
 		if m != nil {
 			if len(m.Nick) > 0 {
-				s = append(s, m.Nick)
+				if discriminator {
+					s = append(s, fmt.Sprintf("%s (%s#%s)", m.Nick, m.User.Username, m.User.Discriminator))
+				} else {
+					s = append(s, m.Nick)
+				}
 			} else {
-				s = append(s, m.User.Username)
+				if discriminator {
+					s = append(s, m.User.Username+"#"+m.User.Discriminator)
+				} else {
+					s = append(s, m.User.Username)
+				}
 			}
 		} else {
 			s = append(s, "<@"+SBitoa(v)+">")
@@ -354,12 +362,12 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 			user = user[:pos]
 			username = strings.ToLower(user)
 		}
-	} else if user[len(user)-1] == '@' {
-		user = user[:len(user)-1]
-	} else {
-		user = "%" + user + "%"
 	}
 	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
+	if len(r) == 0 {
+		user = "%" + user + "%"
+		r = sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
+	}
 	if len(r) == 0 {
 		r = sb.db.FindUsers(user, 20, 0)
 	}

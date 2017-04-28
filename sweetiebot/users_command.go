@@ -95,7 +95,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	r := sb.db.GetAliases(IDs[0])
@@ -196,7 +196,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	gID := SBatoi(info.Guild.ID)
@@ -250,7 +250,7 @@ func (c *TimeCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	tz := sb.db.GetTimeZone(IDs[0])
@@ -345,7 +345,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 	aliases := sb.db.GetAliases(IDs[0])
 	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
@@ -489,7 +489,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	gID := SBatoi(info.Guild.ID)
@@ -501,16 +501,16 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	code := SilenceMember(SBitoa(IDs[0]), info)
 	if code < 0 {
-		return "```Error occured trying to silence " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
+		return "```Error occured trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 	} else if code == 1 {
 		var t *time.Time
 		if sb.db.status.get() {
 			t = sb.db.GetUnsilenceDate(gID, IDs[0])
 		}
 		if t == nil {
-			return "```" + IDsToUsernames(IDs, info)[0] + " is already silenced!```", false, nil
+			return "```" + IDsToUsernames(IDs, info, false)[0] + " is already silenced!```", false, nil
 		}
-		return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
+		return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info, false)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
 	}
 	if len(info.config.Spam.SilenceMessage) > 0 {
 		sb.dg.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)
@@ -518,7 +518,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 	if len(reason) > 0 {
 		reason = " because " + reason
 	}
-	return fmt.Sprintf("```Silenced %s%s.```", IDsToUsernames(IDs, info)[0], reason), false, nil
+	return fmt.Sprintf("```Silenced %s%s.```", IDsToUsernames(IDs, info, false)[0], reason), false, nil
 }
 func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -558,14 +558,14 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
 	err := UnsilenceMember(IDs[0], info)
 	if err != nil {
 		return "```Error unsilencing member: " + err.Error() + "```", false, nil
 	}
-	return "```Unsilenced " + IDsToUsernames(IDs, info)[0] + ".```", false, nil
+	return "```Unsilenced " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 }
 func (c *UnsilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
