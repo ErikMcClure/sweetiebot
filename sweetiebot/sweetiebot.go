@@ -190,7 +190,9 @@ var ConfigHelp map[string]string = map[string]string{
 }
 
 type GuildInfo struct {
-	Guild        *discordgo.Guild
+	ID           string           // Cache the ID because it doesn't change
+	Name         string           // Cache the name to reduce locking
+	Guild        *discordgo.Guild // This should only be accessed with a read lock on sb.dg.State
 	log          *Log
 	commandLock  sync.RWMutex
 	command_last map[string]map[string]int64
@@ -273,10 +275,10 @@ var locUTC = time.FixedZone("UTC", 0)
 var DISCORD_EPOCH uint64 = 1420070400000
 
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
-	return SBatoi(info.Guild.ID) == sbot.MainGuildID
+	return SBatoi(info.ID) == sbot.MainGuildID
 }
 func (sbot *SweetieBot) IsDBGuild(info *GuildInfo) bool {
-	_, ok := sbot.DBGuilds[SBatoi(info.Guild.ID)]
+	_, ok := sbot.DBGuilds[SBatoi(info.ID)]
 	return ok
 }
 func (info *GuildInfo) AddCommand(c Command) {
@@ -289,7 +291,7 @@ func (info *GuildInfo) SaveConfig() {
 		if len(data) > sb.MaxConfigSize {
 			info.log.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(sb.MaxConfigSize) + " bytes.")
 		} else {
-			ioutil.WriteFile(info.Guild.ID+".json", data, 0664)
+			ioutil.WriteFile(info.ID+".json", data, 0664)
 		}
 	} else {
 		info.log.Log("Error writing json: ", err.Error())
@@ -501,7 +503,7 @@ func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
 
 func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) bool {
 	ch, private := ChannelIsPrivate(channelID)
-	if !private && ch.GuildID != info.Guild.ID {
+	if !private && ch.GuildID != info.ID {
 		if SBatoi(channelID) != info.config.Log.Channel {
 			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
 		}
@@ -517,7 +519,7 @@ func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed
 
 func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	ch, private := ChannelIsPrivate(channelID)
-	if !private && ch.GuildID != info.Guild.ID {
+	if !private && ch.GuildID != info.ID {
 		if SBatoi(channelID) != info.config.Log.Channel {
 			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
 		}
@@ -614,6 +616,8 @@ func AttachToGuild(g *discordgo.Guild) {
 	fmt.Println("Initializing " + g.Name)
 
 	guild = &GuildInfo{
+		ID:           g.ID,
+		Name:         g.Name,
 		Guild:        g,
 		command_last: make(map[string]map[string]int64),
 		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
@@ -795,6 +799,34 @@ func AttachToGuild(g *discordgo.Guild) {
 		go guild.SwapStatusLoop()
 	}
 
+	stateguild, err := sb.dg.State.Guild(g.ID)
+	if err == nil {
+		guild.Guild = stateguild
+	} else {
+		fmt.Println("COULD NOT SYNC STATE GUILD POINTER FOR: ", guild.Name, " - ", guild.ID)
+	}
+
+	go func() { // Do this concurrently because we don't need this to function properly, we just need it to happen eventually
+		// Discord doesn't send us all the members, so we force feed them into the state ourselves
+		members := []*discordgo.Member{}
+		lastid := ""
+		for {
+			m, err := sb.dg.GuildMembers(guild.ID, lastid, 999)
+			if err != nil || len(m) == 0 {
+				break
+			}
+			members = append(members, m...)
+			lastid = m[len(m)-1].User.ID
+		}
+		for i := range members { // Put the guildID back in because discord is stupid
+			members[i].GuildID = guild.ID
+		}
+
+		sb.dg.State.Lock()
+		guild.Guild.Members = members
+		sb.dg.State.Unlock()
+	}()
+
 	debug := "."
 	if sb.Debug {
 		debug = ".\n[DEBUG BUILD]"
@@ -830,7 +862,7 @@ func GetGuildFromID(id string) *GuildInfo {
 	return g
 }
 func (info *GuildInfo) IsDebug(channel string) bool {
-	debugchannel, isdebug := sb.DebugChannels[info.Guild.ID]
+	debugchannel, isdebug := sb.DebugChannels[info.ID]
 	if isdebug {
 		return channel == debugchannel
 	}
@@ -923,7 +955,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		if ok {
 			if isdbguild && sb.db.status.get() && m.Author.ID != sb.SelfID {
-				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.Guild.ID))
+				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.ID))
 			}
 			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
 			cmdname := strings.ToLower(c.Name())
@@ -1294,7 +1326,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 		}
 	}
 	if sb.db.CheckStatus() {
-		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.Guild.ID), t, u.Nick)
+		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), t, u.Nick)
 	}
 }
 
@@ -1303,10 +1335,11 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
+	sb.dg.State.Lock()
 	if len(g.Members) == 0 || len(g.Channels) == 0 || len(g.Roles) == 0 { // If this is true we were given half a guild update
+		defer sb.dg.State.Unlock()
 		info.log.Log("Got half a guild update for " + g.Name)
+		info.Name = g.Name
 		info.Guild.Name = g.Name
 		info.Guild.Icon = g.Icon
 		info.Guild.Region = g.Region
@@ -1322,6 +1355,8 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 		info.Guild.DefaultMessageNotifications = g.DefaultMessageNotifications
 	} else {
 		info.Guild = g
+		info.Name = g.Name
+		sb.dg.State.Unlock()
 		for _, v := range info.Guild.Channels {
 			sb.GuildChannelsLock.Lock()
 			sb.GuildChannels[v.ID] = info
@@ -1371,7 +1406,7 @@ func IdleCheckLoop() {
 		for _, info := range infos {
 			channels := info.Guild.Channels
 			if sb.Debug { // override this in debug mode
-				c, err := sb.dg.State.Channel(sb.DebugChannels[info.Guild.ID])
+				c, err := sb.dg.State.Channel(sb.DebugChannels[info.ID])
 				if err == nil {
 					channels = []*discordgo.Channel{c}
 				} else {
@@ -1467,7 +1502,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 7, 0},
+		version:            Version{0, 9, 7, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1486,6 +1521,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 7, 1):  "- Fixed an issue with out-of-date guild objects not including all server members.",
 			AssembleVersion(0, 9, 7, 0):  "- Groups have been removed and replaced with user-assignable roles. All your groups have automatically been migrated to roles. If there was a name-collision with an existing role, your group name will be prefixed with 'sb-', which you can then resolve yourself. Use '!help roles' to get usage information about the new commands.",
 			AssembleVersion(0, 9, 6, 9):  "- Sweetiebot no longer logs her own actions in the audit log",
 			AssembleVersion(0, 9, 6, 8):  "- Sweetiebot now has a deadlock detector and will auto-restart if she detects that she is not responding to !about\n- Appending @ to the end of a name or server is no longer necessary. If sweetie finds an exact match to your query, she will always use that.",

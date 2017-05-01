@@ -90,7 +90,7 @@ func IsSpace(b byte) bool {
 
 func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string {
 	s := make([]string, 0, len(IDs))
-	gid := SBatoi(info.Guild.ID)
+	gid := SBatoi(info.ID)
 	for _, v := range IDs {
 		var m *discordgo.Member = nil
 		if sb.db.status.get() {
@@ -194,7 +194,7 @@ func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
 			return m, nil
 		}
 	}
-	return sb.dg.GuildMember(info.Guild.ID, id)
+	return sb.dg.GuildMember(info.ID, id)
 }
 
 func ReadUserPingArg(args []string) (uint64, string) {
@@ -363,10 +363,10 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 			username = strings.ToLower(user)
 		}
 	}
-	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
+	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	if len(r) == 0 {
 		user = "%" + user + "%"
-		r = sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.Guild.ID))
+		r = sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	}
 	if len(r) == 0 {
 		r = sb.db.FindUsers(user, 20, 0)
@@ -471,7 +471,7 @@ func FindIntSlice(item uint64, s []uint64) bool {
 func getUserName(user uint64, info *GuildInfo) string {
 	var m *discordgo.Member = nil
 	if sb.db.status.get() {
-		m, _ = sb.db.GetMember(user, SBatoi(info.Guild.ID))
+		m, _ = sb.db.GetMember(user, SBatoi(info.ID))
 	}
 	if m == nil {
 		return "<@" + SBitoa(user) + ">"
@@ -503,7 +503,7 @@ func ReplaceAllMentions(s string) string {
 }
 
 func ReplaceAllRolePings(s string, info *GuildInfo) string {
-	roles, err := sb.dg.GuildRoles(info.Guild.ID)
+	roles, err := sb.dg.GuildRoles(info.ID)
 	if err != nil {
 		return s
 	}
@@ -790,16 +790,16 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 				if check != nil {
 					role = "sb-" + role
 				}
-				r, err := sb.dg.GuildRoleCreate(guild.Guild.ID)
+				r, err := sb.dg.GuildRoleCreate(guild.ID)
 				if err == nil {
-					r, err = sb.dg.GuildRoleEdit(guild.Guild.ID, r.ID, role, 0, false, 0, true)
+					r, err = sb.dg.GuildRoleEdit(guild.ID, r.ID, role, 0, false, 0, true)
 				}
 				if err == nil {
 					idmap[strings.ToLower(k)] = r.ID
 					guild.config.Users.Roles[SBatoi(r.ID)] = true
 
 					for u := range v {
-						err = sb.dg.GuildMemberRoleAdd(guild.Guild.ID, u, r.ID)
+						err = sb.dg.GuildMemberRoleAdd(guild.ID, u, r.ID)
 						if err != nil {
 							fmt.Println(err)
 						}
@@ -814,7 +814,7 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				q, err := stmt.Query(SBatoi(guild.Guild.ID))
+				q, err := stmt.Query(SBatoi(guild.ID))
 				if err != nil {
 					fmt.Println(err)
 				} else {
@@ -923,7 +923,7 @@ func findServers(name string, guilds []uint64) []*GuildInfo {
 		guild, ok := sb.guilds[g]
 		sb.guildsLock.RUnlock()
 		if ok {
-			n := strings.ToLower(guild.Guild.Name)
+			n := strings.ToLower(guild.Name)
 			if len(n) > 0 {
 				if n == name { // if these are an EXACT match, throw away the other results and just return this
 					return []*GuildInfo{guild}

@@ -59,8 +59,8 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 }
 
 func DoDiscordSilence(userID string, info *GuildInfo) {
-	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, userID, SBitoa(info.config.Spam.SilentRole))
-	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.Guild.ID, userID, info.config.Spam.SilentRole), err)
+	err := sb.dg.GuildMemberRoleAdd(info.ID, userID, SBitoa(info.config.Spam.SilentRole))
+	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.ID, userID, info.config.Spam.SilentRole), err)
 }
 func SilenceMember(userID string, info *GuildInfo) int8 {
 	defer DoDiscordSilence(userID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
@@ -78,11 +78,11 @@ func SilenceMember(userID string, info *GuildInfo) int8 {
 }
 
 func BanMember(u *discordgo.User, info *GuildInfo) {
-	m, err := sb.dg.GuildMember(info.Guild.ID, u.ID)
+	m, err := sb.dg.GuildMember(info.ID, u.ID)
 	sb.dg.State.RLock()
 	defer sb.dg.State.RUnlock()
 	if err != nil || IsSilenced(m, info) {
-		sb.dg.GuildBanCreate(info.Guild.ID, u.ID, 1)
+		sb.dg.GuildBanCreate(info.ID, u.ID, 1)
 	}
 }
 
@@ -100,7 +100,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if err == nil {
 		chname = ch.Name
 	}
-	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Guild.Name, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
+	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
@@ -225,9 +225,9 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	if !sb.db.CheckStatus() {
 		return
 	}
-	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.Guild.ID))
+	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.ID))
 	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.RaidTime*2) {
-		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.Guild.ID))
+		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.ID))
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
@@ -238,7 +238,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		}
 		ch := SBitoa(info.config.Basic.ModChannel)
 		if sb.Debug {
-			ch, _ = sb.DebugChannels[info.Guild.ID]
+			ch, _ = sb.DebugChannels[info.ID]
 		}
 		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `!autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
 	}
@@ -300,7 +300,7 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		if !sb.db.CheckStatus() {
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
-		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.Guild.ID))
+		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
 		for _, v := range r {

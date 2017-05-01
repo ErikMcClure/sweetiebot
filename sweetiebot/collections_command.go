@@ -381,14 +381,14 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 		sb.guildsLock.RLock()
 		defer sb.guildsLock.RUnlock()
 		for _, v := range sb.guilds {
-			if strings.Compare(strings.ToLower(v.Guild.Name), strings.ToLower(str)) == 0 {
+			if strings.Compare(strings.ToLower(v.Name), strings.ToLower(str)) == 0 {
 				if !exact {
 					other = []*GuildInfo{}
 					exact = true
 				}
 				other = append(other, v)
 			} else if !exact {
-				if strings.Contains(strings.ToLower(v.Guild.Name), strings.ToLower(str)) {
+				if strings.Contains(strings.ToLower(v.Name), strings.ToLower(str)) {
 					other = append(other, v)
 				}
 			}
@@ -398,7 +398,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 	if len(other) > 1 {
 		names := make([]string, len(other), len(other))
 		for i := 0; i < len(other); i++ {
-			names[i] = other[i].Guild.Name
+			names[i] = other[i].Name
 		}
 		return fmt.Sprintf("```Could be any of the following servers: \n%s```", PartialSanitize(strings.Join(names, "\n"))), len(names) > 8, nil
 	}
@@ -420,7 +420,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	sourceCollection, ok := other[0].config.Basic.Collections[source]
 	if !ok {
-		return fmt.Sprintf("```The source collection (%s) does not exist on the source server (%s)!```", source, other[0].Guild.Name), false, nil
+		return fmt.Sprintf("```The source collection (%s) does not exist on the source server (%s)!```", source, other[0].Name), false, nil
 	}
 
 	targetCollection, tok := info.config.Basic.Collections[target]
@@ -433,7 +433,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	info.SaveConfig()
-	return fmt.Sprintf("```Successfully merged \"%s\" from %s into \"%s\" on this server. New size: %v```", source, other[0].Guild.Name, target, len(targetCollection)), false, nil
+	return fmt.Sprintf("```Successfully merged \"%s\" from %s into \"%s\" on this server. New size: %v```", source, other[0].Name, target, len(targetCollection)), false, nil
 }
 func (c *ImportCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
