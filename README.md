@@ -3,6 +3,8 @@ Sweetie Bot is an administration bot for Discord servers. Her primary function i
 
 ### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358).
 
+**If you have questions about Sweetie Bot, please join it's [support channel](https://discord.gg/t2gVQvN)**
+
 **If you use Sweetie Bot, consider [contributing to it's Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
 
 ## Compiling
@@ -76,9 +78,8 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **ModChannel:** This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.
 * **FreeChannels [list]:** This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.
 * **BotChannel:** Allows you to designate a particular channel for Sweetie Bot to point users to if they try to send too many commands at once. This channel is usually also included in `Basic.FreeChannels`.
-* **Aliases [map]:** Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts. Example: `!setconfig Basic.Aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
+* **Aliases [map]:** Can be used to redirect commands, such as making `!listroles` call the `!listrole` command. Useful for making shortcuts. Example: `!setconfig Basic.Aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
 * **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
-* **Groups [maplist]:** A map of groups. Manipulate it via the `!addgroup` and `!purgegroup` commands.
 
 ### Modules
 * **Channels [maplist]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
@@ -123,6 +124,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **TimezoneLocation:** Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.
 * **WelcomeChannel:** If set to a channel ID, the bot will treat this channel as a "quarantine zone" for silenced members. If autosilence is enabled, new users will be sent to this channel
 * **WelcomeMessage:** If autosilence is enabled, this message will be sent to a new user upon joining.
+* **Roles**: A list of all user-assignable roles, managed via !addrole and !removerole.
 
 ### Bored
 * **Cooldown:** The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it. Note that Sweetie Bot only checks each channel for inactivity every 30 seconds.
@@ -137,7 +139,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **Cooldown:** The cooldown time for sweetiebot to display an error message, in seconds, intended to prevent the bot from spamming itself. Default: 4
 
 ### Witty
-* **Reponses [map]:** Stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`
+* **Responses [map]:** Stores the replies used by the Witty module and must be configured using `!addwit` or `!removewit`
 * **Cooldown:** The cooldown time for the witty module. At least this many seconds must have passed before the bot will make another witty reply.
 
 ### Schedule
@@ -209,15 +211,15 @@ Contains various debugging commands. Some of these commands can only be run by t
 ### Emotes
 Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them.
 
-### Groups
-Contains commands for manipulating groups and pinging them.
+### Roles
+Contains commands for manipulating user-assignable roles. Roles created via !addrole are pingable by default, but user-assignable roles do NOT have any restrictions on them, so you can make a user-assignable role that isn't pingable, or gives special permissions, etc.
 #### Commands
-* **AddGroup:** Creates a new group.
-* **JoinGroup:** Joins an existing group.
-* **ListGroup:** Lists all groups.
-* **LeaveGroup:** Removes you from a group.
-* **Ping:** Pings a group.
-* **PurgeGroup:** Deletes a group.
+* **AddRole:** Either creates a new role, or adds an existing role to Sweetie's list of user-assignable roles. To create a new role, simply put in the name of the new role. To set an existing role as user-assignable, ping the role instead, via @role.
+* **JoinRole:** Adds you to a user-assignable role.
+* **ListRole:** Lists all users in a given role.
+* **LeaveRole:** Removes you from a role.
+* **RemoveRole:** Removes a role from the list of user-assignable roles, but **does not delete the role**. Use `!deleterole` for that.
+* **DeleteRole:** Completely deletes a user-assignable role from the server. To prevent accidents, this cannot be used on roles that aren't user-assignable.
 
 ### Help/About
 Contains commands for getting information about Sweetie Bot, her commands, or the server she is in.
@@ -298,7 +300,7 @@ In response to certain patterns (determined by a regex) will post a response pic
 * **RemoveWit:** Removes a remark from wittyremarks.
 
 ## Error Recovery
-Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds.
+Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also had a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if sweetiebot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
 
 ## Contributing
 Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 

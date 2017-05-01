@@ -33,6 +33,7 @@ type ModuleHooks struct {
 	OnGuildMemberUpdate []ModuleOnGuildMemberUpdate
 	OnGuildBanAdd       []ModuleOnGuildBanAdd
 	OnGuildBanRemove    []ModuleOnGuildBanRemove
+	OnGuildRoleDelete   []ModuleOnGuildRoleDelete
 	OnCommand           []ModuleOnCommand
 	OnIdle              []ModuleOnIdle
 	OnTick              []ModuleOnTick
@@ -50,7 +51,6 @@ type BotConfig struct {
 		BotChannel            uint64                     `json:"botchannel"`
 		Aliases               map[string]string          `json:"aliases"`
 		Collections           map[string]map[string]bool `json:"collections"`
-		Groups                map[string]map[string]bool `json:"groups"`
 	} `json:"basic"`
 	Modules struct {
 		Channels           map[string]map[string]bool `json:"modulechannels"`
@@ -92,9 +92,10 @@ type BotConfig struct {
 		UseMemberNames bool `json:"usemembernames"`
 	} `json:"markov"`
 	Users struct {
-		TimezoneLocation string `json:"timezonelocation"`
-		WelcomeChannel   uint64 `json:"welcomechannel"`
-		WelcomeMessage   string `json:"welcomemessage"`
+		TimezoneLocation string          `json:"timezonelocation"`
+		WelcomeChannel   uint64          `json:"welcomechannel"`
+		WelcomeMessage   string          `json:"welcomemessage"`
+		Roles            map[uint64]bool `json:"userroles"`
 	} `json:"users"`
 	Bored struct {
 		Cooldown int64           `json:"maxbored"`
@@ -138,7 +139,6 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.botchannel":            "This allows you to designate a particular channel for sweetie bot to point users to if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
 	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
-	"basic.groups":                "A map of groups. Manipulate it via the `!addgroup` and `!purgegroup` commands.",
 	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
 	"modules.commandchannels":     "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
 	"modules.commandlimits":       "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
@@ -173,6 +173,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"users.timezonelocation":      "Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.",
 	"users.welcomechannel":        "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for silenced members. If autosilence is enabled, new users will be sent to this channel.",
 	"users.welcomemessage":        "If autosilence is enabled, this message will be sent to a new user upon joining.",
+	"users.roles":                 "A list of all user-assignable roles. Manage it via !addrole and !removerole",
 	"bored.cooldown":              "The bored cooldown timer, in seconds. This is the length of time a channel must be inactive for sweetiebot to post a bored message in it.",
 	"bored.commands":              "This determines what commands sweetie will run when she gets bored. She will choose one command from this list at random.\n\nExample: `!setconfig bored.commands !drop \"!pick bored\"`",
 	"help.rules":                  "Contains a list of numbered rules. The numbers do not need to be contiguous, and can be negative.",
@@ -262,6 +263,7 @@ type SweetieBot struct {
 
 var sb *SweetieBot
 var channelregex = regexp.MustCompile("<#[0-9]+>")
+var roleregex = regexp.MustCompile("<@&[0-9]+>")
 var userregex = regexp.MustCompile("<@!?[0-9]+>")
 var mentionregex = regexp.MustCompile("<@(!|&)?[0-9]+>")
 var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
@@ -687,8 +689,8 @@ func AttachToGuild(g *discordgo.Guild) {
 	if len(guild.config.Modules.Channels) == 0 {
 		guild.config.Modules.Channels = make(map[string]map[string]bool)
 	}
-	if len(guild.config.Basic.Groups) == 0 {
-		guild.config.Basic.Groups = make(map[string]map[string]bool)
+	if len(guild.config.Users.Roles) == 0 {
+		guild.config.Users.Roles = make(map[uint64]bool)
 	}
 	if len(guild.config.Basic.Collections) == 0 {
 		guild.config.Basic.Collections = make(map[string]map[string]bool)
@@ -751,7 +753,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.modules = append(guild.modules, &UsersModule{})
 	guild.modules = append(guild.modules, &CollectionsModule{AddFuncMap: addfuncmap, RemoveFuncMap: removefuncmap})
 	guild.modules = append(guild.modules, &ScheduleModule{})
-	guild.modules = append(guild.modules, &GroupsModule{})
+	guild.modules = append(guild.modules, &RolesModule{})
 	guild.modules = append(guild.modules, &PollModule{})
 	guild.modules = append(guild.modules, &HelpModule{})
 	guild.modules = append(guild.modules, &MarkovModule{})
@@ -1237,6 +1239,17 @@ func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 		}
 	})
 }
+func SBGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
+	info := GetGuildFromID(m.GuildID)
+	if info == nil {
+		return
+	}
+	ApplyFuncRange(len(info.hooks.OnGuildRoleDelete), func(i int) {
+		if info.ProcessModule("", info.hooks.OnGuildRoleDelete[i]) {
+			info.hooks.OnGuildRoleDelete[i].OnGuildRoleDelete(info, m)
+		}
+	})
+}
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
 func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 	sb.guildsLock.RLock()
@@ -1454,7 +1467,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 6, 9},
+		version:            Version{0, 9, 7, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1473,6 +1486,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 7, 0):  "- Groups have been removed and replaced with user-assignable roles. All your groups have automatically been migrated to roles. If there was a name-collision with an existing role, your group name will be prefixed with 'sb-', which you can then resolve yourself. Use '!help roles' to get usage information about the new commands.",
 			AssembleVersion(0, 9, 6, 9):  "- Sweetiebot no longer logs her own actions in the audit log",
 			AssembleVersion(0, 9, 6, 8):  "- Sweetiebot now has a deadlock detector and will auto-restart if she detects that she is not responding to !about\n- Appending @ to the end of a name or server is no longer necessary. If sweetie finds an exact match to your query, she will always use that.",
 			AssembleVersion(0, 9, 6, 7):  "- Sweetiebot no longer attempts to track edited messages for spam detection. This also fixes a timestamp bug with pinned messages.",
@@ -1607,6 +1621,7 @@ func Initialize(Token string) {
 	sb.dg.AddHandler(SBGuildMemberUpdate)
 	sb.dg.AddHandler(SBGuildBanAdd)
 	sb.dg.AddHandler(SBGuildBanRemove)
+	sb.dg.AddHandler(SBGuildRoleDelete)
 	sb.dg.AddHandler(SBGuildCreate)
 	sb.dg.AddHandler(SBChannelCreate)
 	sb.dg.AddHandler(SBChannelDelete)

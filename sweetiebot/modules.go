@@ -80,6 +80,11 @@ type ModuleOnGuildBanRemove interface {
 	OnGuildBanRemove(*GuildInfo, *discordgo.GuildBanRemove)
 }
 
+type ModuleOnGuildRoleDelete interface {
+	Module
+	OnGuildRoleDelete(*GuildInfo, *discordgo.GuildRoleDelete)
+}
+
 type ModuleOnCommand interface {
 	Module
 	OnCommand(*GuildInfo, *discordgo.Message) bool

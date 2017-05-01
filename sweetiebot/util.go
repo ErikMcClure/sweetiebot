@@ -502,6 +502,22 @@ func ReplaceAllMentions(s string) string {
 	return SanitizeMentions(userregex.ReplaceAllStringFunc(s, replacementionhelper))
 }
 
+func ReplaceAllRolePings(s string, info *GuildInfo) string {
+	roles, err := sb.dg.GuildRoles(info.Guild.ID)
+	if err != nil {
+		return s
+	}
+
+	return roleregex.ReplaceAllStringFunc(s, func(s string) string {
+		r := StripPing(s)
+		for _, v := range roles {
+			if v.ID == r {
+				return v.Name
+			}
+		}
+		return s
+	})
+}
 func RestrictCommand(v string, roles map[string]map[string]bool, alertrole uint64) {
 	_, ok := roles[v]
 	if !ok && alertrole != 0 {
@@ -590,6 +606,12 @@ type legacyBotConfigV12 struct {
 	} `json:"spam"`
 }
 
+type legacyBotConfigV13 struct {
+	Basic struct {
+		Groups map[string]map[string]bool `json:"groups"`
+	} `json:"basic"`
+}
+
 // migrate settings from earlier config version
 func MigrateSettings(config []byte, guild *GuildInfo) error {
 	err := json.Unmarshal(config, &guild.config)
@@ -666,7 +688,6 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Basic.Aliases = legacy.Aliases
 		guild.config.Basic.Collections = legacy.Collections
 		guild.config.Basic.FreeChannels = legacy.FreeChannels
-		guild.config.Basic.Groups = legacy.Groups
 		guild.config.Basic.IgnoreInvalidCommands = legacy.IgnoreInvalidCommands
 		guild.config.Basic.Importable = legacy.Importable
 		guild.config.Basic.ModChannel = legacy.ModChannel
@@ -756,8 +777,75 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		}
 	}
 
-	if guild.config.Version != 13 {
-		guild.config.Version = 13 // set version to most recent config version
+	if guild.config.Version <= 13 {
+		legacy := legacyBotConfigV13{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			guild.config.Users.Roles = make(map[uint64]bool, len(legacy.Basic.Groups))
+			idmap := make(map[string]string, len(legacy.Basic.Groups)) // Map initial group name to new role ID
+
+			for k, v := range legacy.Basic.Groups {
+				role := k
+				check, err := GetRoleByName(role, guild)
+				if check != nil {
+					role = "sb-" + role
+				}
+				r, err := sb.dg.GuildRoleCreate(guild.Guild.ID)
+				if err == nil {
+					r, err = sb.dg.GuildRoleEdit(guild.Guild.ID, r.ID, role, 0, false, 0, true)
+				}
+				if err == nil {
+					idmap[strings.ToLower(k)] = r.ID
+					guild.config.Users.Roles[SBatoi(r.ID)] = true
+
+					for u := range v {
+						err = sb.dg.GuildMemberRoleAdd(guild.Guild.ID, u, r.ID)
+						if err != nil {
+							fmt.Println(err)
+						}
+					}
+				} else {
+					fmt.Println(err)
+				}
+			}
+
+			stmt, err := sb.db.Prepare("SELECT ID, Data FROM schedule WHERE Guild = ? AND Type = 7")
+			stmt2, err := sb.db.Prepare("UPDATE schedule SET Data = ? WHERE ID = ?")
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				q, err := stmt.Query(SBatoi(guild.Guild.ID))
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					defer q.Close()
+					for q.Next() {
+						var id uint64
+						var dat string
+						if err := q.Scan(&id, &dat); err == nil {
+							datas := strings.SplitN(dat, "|", 2)
+							groups := strings.Split(datas[0], "+")
+							for i := range groups {
+								rid, ok := idmap[strings.ToLower(groups[i])]
+								if ok {
+									groups[i] = "<@&" + rid + ">"
+								}
+							}
+							_, err = stmt2.Exec(strings.Join(groups, " ")+"|"+datas[1], id)
+							if err != nil {
+								fmt.Println(err)
+							}
+						}
+					}
+				}
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+	}
+
+	if guild.config.Version != 14 {
+		guild.config.Version = 14 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
