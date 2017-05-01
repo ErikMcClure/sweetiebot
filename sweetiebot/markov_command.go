@@ -191,8 +191,8 @@ func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []i
 	var a string
 	var b string
 	if info.config.Markov.UseMemberNames {
-		a = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
-		b = sb.db.GetRandomMember(SBatoi(info.Guild.ID))
+		a = sb.db.GetRandomMember(SBatoi(info.ID))
+		b = sb.db.GetRandomMember(SBatoi(info.ID))
 	} else {
 		a = sb.db.GetRandomSpeaker()
 		b = sb.db.GetRandomSpeaker()
