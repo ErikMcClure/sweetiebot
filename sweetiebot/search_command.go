@@ -110,7 +110,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	// Assemble query string and parameter list
 	params := make([]interface{}, 0, 3)
-	params = append(params, SBatoi(info.Guild.ID))
+	params = append(params, SBatoi(info.ID))
 	query := ""
 
 	if len(userIDs) > 0 {
