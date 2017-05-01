@@ -100,7 +100,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			}
 		case 7:
 			dat := strings.SplitN(v.Data, "|", 2)
-			info.SendMessage(channel, getGroupPings(strings.Split(dat[0], "+"), info)+" "+dat[1])
+			info.SendMessage(channel, dat[0]+" "+dat[1])
 		case 8:
 			err := UnsilenceMember(SBatoi(v.Data), info)
 			if err != nil {
@@ -193,7 +193,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, indices
 			data = strings.SplitN(data, "|", 2)[1]
 		case 7:
 			datas := strings.SplitN(data, "|", 2)
-			mt = "GROUP:" + datas[0]
+			mt = "ROLE:" + ReplaceAllRolePings(datas[0], info)
 			data = datas[1]
 		}
 		lines[k+1] = fmt.Sprintf("#%v **%s** [%s] %s", SBitoa(v.ID), t, mt, ReplaceAllMentions(data))
@@ -205,7 +205,7 @@ func (c *ScheduleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists up to `maxresults` upcoming events from the schedule. If the first argument is specified, lists only events of that type. Some event types can only be viewed by moderators. Max results: 20",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, reminders.", Optional: true},
+			CommandUsageParam{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, roles, reminders.", Optional: true},
 			CommandUsageParam{Name: "maxresults", Desc: "Defaults to 5.", Optional: true},
 		},
 	}
@@ -226,7 +226,7 @@ func getScheduleType(s string) uint8 {
 		return 5
 	case "reminders", "reminder":
 		return 6
-	case "groups", "group":
+	case "roles", "role":
 		return 7
 	case "silences", "silence":
 		return 8
@@ -270,7 +270,7 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, indices []i
 	case 5:
 		return "```" + event.Data + " starts in " + diff + "```", false, nil
 	case 7:
-		return "```Sweetie is scheduled to send a message to " + strings.SplitN(event.Data, "|", 2)[0] + " in " + diff + "```", false, nil
+		return "```Sweetie is scheduled to send a message to " + ReplaceAllRolePings(strings.SplitN(event.Data, "|", 2)[0], info) + " in " + diff + "```", false, nil
 	default:
 		return "```There are no upcoming events of that type (or you aren't allowed to view them).```", false, nil
 	}
@@ -327,12 +327,9 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices
 	data := ""
 	if ty == 7 {
 		data = strings.ToLower(args[1])
-		_, ok := info.config.Basic.Groups[data]
-		if !ok {
-			return "Error: That group doesn't exist.", false, nil
-		}
 		data += "|"
 		args = append(args[:1], args[2:]...)
+		indices = append(indices[:1], indices[2:]...)
 	}
 	if ty == 6 {
 		data = StripPing(args[1])
@@ -342,6 +339,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 		data += "|"
 		args = append(args[:1], args[2:]...)
+		indices = append(indices[:1], indices[2:]...)
 	}
 	t, err := parseCommonTime(args[1], info, msg.Author)
 	if err != nil {
@@ -386,8 +384,8 @@ func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds an arbitrary event to the schedule table. For example: `!addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!`, or `!addevent episode \"9 Dec 15\" Slice of Life`. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, group. You shouldn't add birthday or reminder events manually, though.", Optional: false},
-			CommandUsageParam{Name: "group/user", Desc: "The target group or user to ping. Only include this if the type is group or reminder.", Optional: true},
+			CommandUsageParam{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, role. You shouldn't add birthday or reminder events manually, though.", Optional: false},
+			CommandUsageParam{Name: "role/user", Desc: "The target role or user to ping. Only include this if the type is role or reminder. If the type is \"role\", it must be an actual ping for the role, not just the name.", Optional: true},
 			CommandUsageParam{Name: "date", Desc: "A date in the format 12 Jun 16 2:10pm. The time, year, and timezone are all optional.", Optional: false},
 			CommandUsageParam{Name: "REPEAT N INTERVAL", Desc: "INTERVAL can be one of SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS. This parameter MUST be surrounded by quotes!", Optional: true},
 		},
