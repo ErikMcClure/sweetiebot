@@ -36,7 +36,7 @@ func (w *RolesModule) OnGuildRoleDelete(info *GuildInfo, r *discordgo.GuildRoleD
 }
 
 func GetRoleByName(role string, info *GuildInfo) (*discordgo.Role, error) {
-	roles, err := sb.dg.GuildRoles(info.Guild.ID)
+	roles, err := sb.dg.GuildRoles(info.ID)
 	role = strings.ToLower(role)
 	if err != nil {
 		info.log.LogError("GuildRoles(): ", err)
@@ -77,7 +77,7 @@ func GetRoleByNameOrPing(role string, info *GuildInfo) (*discordgo.Role, uint64,
 		if !ok || id == info.config.Spam.SilentRole || id == info.config.Basic.AlertRole {
 			return nil, 0, "```That's not a user-assignable role!```"
 		}
-		roles, err := sb.dg.GuildRoles(info.Guild.ID)
+		roles, err := sb.dg.GuildRoles(info.ID)
 		if err != nil {
 			return nil, 0, "```Couldn't get roles! + " + err.Error() + "```"
 		}
@@ -118,7 +118,7 @@ func (c *AddRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 		if ok {
 			return "```That role is already user-assignable!```", false, nil
 		}
-		roles, err := sb.dg.GuildRoles(info.Guild.ID)
+		roles, err := sb.dg.GuildRoles(info.ID)
 		if err != nil {
 			return "```Could not get roles! + " + err.Error() + "```", false, nil
 		}
@@ -140,9 +140,9 @@ func (c *AddRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	if check != nil {
 		return "```That's already a role name in this server. If you want to set an existing role as user-assignable, you must ping the role.```", false, nil
 	}
-	r, err := sb.dg.GuildRoleCreate(info.Guild.ID)
+	r, err := sb.dg.GuildRoleCreate(info.ID)
 	if err == nil {
-		r, err = sb.dg.GuildRoleEdit(info.Guild.ID, r.ID, role, 0, false, 0, true)
+		r, err = sb.dg.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
 	}
 	if err != nil {
 		return "```Could not create role! " + err.Error() + "```", false, nil
@@ -178,7 +178,7 @@ func (c *JoinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		return e, false, nil
 	}
 	hasrole := info.UserHasRole(msg.Author.ID, r.ID)
-	err := sb.dg.GuildMemberRoleAdd(info.Guild.ID, msg.Author.ID, r.ID) // Try adding the role no matter what, just in case discord screwed up
+	err := sb.dg.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID) // Try adding the role no matter what, just in case discord screwed up
 	if hasrole {
 		return "```You already have that role.```", false, nil
 	}
@@ -210,7 +210,7 @@ func (c *ListRoleCommand) Name() string {
 
 func (c *ListRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		roles, err := sb.dg.GuildRoles(info.Guild.ID)
+		roles, err := sb.dg.GuildRoles(info.ID)
 		if err != nil {
 			return fmt.Sprintf("```Error getting roles: %s```", err.Error()), false, nil
 		}
@@ -229,6 +229,8 @@ func (c *ListRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		return e, false, nil
 	}
 
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	out := []string{}
 	for _, v := range info.Guild.Members {
 		if info.UserHasRole(v.User.ID, r.ID) {
@@ -272,7 +274,7 @@ func (c *LeaveRoleCommand) Process(args []string, msg *discordgo.Message, indice
 		return e, false, nil
 	}
 	hasrole := info.UserHasRole(msg.Author.ID, r.ID)
-	err := sb.dg.GuildMemberRoleRemove(info.Guild.ID, msg.Author.ID, r.ID) // Try removing it no matter what in case discord screwed up
+	err := sb.dg.GuildMemberRoleRemove(info.ID, msg.Author.ID, r.ID) // Try removing it no matter what in case discord screwed up
 	if !hasrole {
 		return "```You don't have that role.```", false, nil
 	}
@@ -339,7 +341,7 @@ func (c *DeleteRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	if len(e) > 0 {
 		return e, false, nil
 	}
-	err := sb.dg.GuildRoleDelete(info.Guild.ID, r.ID)
+	err := sb.dg.GuildRoleDelete(info.ID, r.ID)
 	if err != nil {
 		return "```Error deleting role! " + err.Error() + "```", false, nil
 	}

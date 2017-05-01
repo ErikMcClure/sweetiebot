@@ -40,7 +40,7 @@ func (c *PollCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	if len(args) < 1 {
 		polls := sb.db.GetPolls(gID)
 		str := make([]string, 0, len(polls)+1)
@@ -90,7 +90,7 @@ func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indic
 	if len(args) < 3 {
 		return "```You must provide a name, a description, and one or more options to create the poll. Example: !createpoll pollname \"Description With Space\" \"Option 1\" \"Option 2\"```", false, nil
 	}
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	name := strings.ToLower(args[0])
 	err := sb.db.AddPoll(name, args[1], gID)
 	if err != nil {
@@ -136,7 +136,7 @@ func (c *DeletePollCommand) Process(args []string, msg *discordgo.Message, indic
 		return "```You have to give me a poll name to delete!```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	id, _ := sb.db.GetPoll(arg, gID)
 	if id == 0 {
 		return "```That poll doesn't exist!```", false, nil
@@ -167,7 +167,7 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	if len(args) < 2 {
 		polls := sb.db.GetPolls(gID)
 		lastpoll := ""
@@ -221,7 +221,7 @@ func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, indices 
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	if len(args) < 1 {
 		return "```You have to give me a valid poll name! Use \"!poll\" to list active polls.```", false, nil
 	}
@@ -300,7 +300,7 @@ func (c *AddOptionCommand) Process(args []string, msg *discordgo.Message, indice
 	if len(args) < 2 {
 		return "```You have to give me an option to add!```", false, nil
 	}
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	id, _ := sb.db.GetPoll(args[0], gID)
 	if id == 0 {
 		return "```That poll doesn't exist!```", false, nil

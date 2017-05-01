@@ -312,13 +312,13 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 		return fmt.Sprintf("```%s is not a valid role ID! Remember to use @role so discord actually sends the ID.```", mod), false, nil
 	}
 
-	silent, err := sb.dg.GuildRoleCreate(info.Guild.ID)
+	silent, err := sb.dg.GuildRoleCreate(info.ID)
 	if err != nil {
 		return fmt.Sprintf("```Failed to create the silent role! %s```", err.Error()), false, nil
 	}
-	_, err = sb.dg.GuildRoleEdit(info.Guild.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
+	_, err = sb.dg.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
 	if err != nil {
-		sb.dg.GuildRoleDelete(info.Guild.ID, silent.ID)
+		sb.dg.GuildRoleDelete(info.ID, silent.ID)
 		return fmt.Sprintf("```Failed to set up the silent role! %s```", err.Error()), false, nil
 	}
 

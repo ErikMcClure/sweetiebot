@@ -176,7 +176,7 @@ func (c *RulesCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	if len(args) < 1 {
 		rules := make([]string, 0, len(info.config.Help.Rules)+1)
-		rules = append(rules, "Official rules of "+info.Guild.Name+":")
+		rules = append(rules, "Official rules of "+info.Name+":")
 		keys := MapIntToSlice(info.config.Help.Rules)
 		sort.Ints(keys)
 

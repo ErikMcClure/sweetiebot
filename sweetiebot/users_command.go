@@ -56,7 +56,7 @@ func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, indices
 	if maxresults > 30 {
 		maxresults = 30
 	}
-	r := sb.db.GetNewestUsers(maxresults, SBatoi(info.Guild.ID))
+	r := sb.db.GetNewestUsers(maxresults, SBatoi(info.ID))
 	s := make([]string, 0, len(r))
 
 	for _, v := range r {
@@ -99,7 +99,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	r := sb.db.GetAliases(IDs[0])
-	u, _ := sb.db.GetMember(IDs[0], SBatoi(info.Guild.ID))
+	u, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
 	}
@@ -199,7 +199,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	u, _, _, _ := sb.db.GetUser(IDs[0])
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
@@ -211,7 +211,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	fmt.Printf("Banned %s because: %s\n", u.Username, reason)
-	err := sb.dg.GuildBanCreate(info.Guild.ID, uID, 1) // Note that this will probably generate a SawBan event
+	err := sb.dg.GuildBanCreate(info.ID, uID, 1) // Note that this will probably generate a SawBan event
 	if err != nil {
 		return "```Error: " + err.Error() + "```", false, nil
 	}
@@ -374,10 +374,13 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if err == nil {
 		joined = TimeDiff(time.Now().UTC().Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
 	}
-	guildroles, err := sb.dg.GuildRoles(info.Guild.ID)
+	guildroles, err := sb.dg.GuildRoles(info.ID)
 	if err != nil {
 		guildroles = info.Guild.Roles
 	}
+
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {
@@ -431,13 +434,13 @@ func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	guilds := findServers(find, gIDs)
 	names := make([]string, len(guilds), len(guilds))
 	for k, v := range guilds {
-		names[k] = v.Guild.Name
+		names[k] = v.Name
 	}
 
 	if len(args) < 1 {
 		server := getDefaultServer(SBatoi(msg.Author.ID))
 		if server != nil {
-			return fmt.Sprintf("```Your default server is %s. You are on the following servers:\n%s```", server.Guild.Name, strings.Join(names, "\n")), false, nil
+			return fmt.Sprintf("```Your default server is %s. You are on the following servers:\n%s```", server.Name, strings.Join(names, "\n")), false, nil
 		}
 		return fmt.Sprintf("```You have no default server. You are on the following servers:\n%s```", strings.Join(names, "\n")), false, nil
 	}
@@ -448,13 +451,13 @@ func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, in
 		return "```No server matches that string (or you haven't joined that server).```", false, nil
 	}
 
-	target := SBatoi(guilds[0].Guild.ID)
-	_, err := sb.dg.GuildMember(guilds[0].Guild.ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
+	target := SBatoi(guilds[0].ID)
+	_, err := sb.dg.GuildMember(guilds[0].ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
 	if err != nil {
-		return fmt.Sprintf("```You aren't a member of %s (or discord blew up, in which case, try again).```", guilds[0].Guild.Name), false, nil
+		return fmt.Sprintf("```You aren't a member of %s (or discord blew up, in which case, try again).```", guilds[0].Name), false, nil
 	}
 	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
-	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Guild.Name), false, nil
+	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Name), false, nil
 }
 func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -492,7 +495,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	gID := SBatoi(info.Guild.ID)
+	gID := SBatoi(info.ID)
 	uID := SBitoa(IDs[0])
 	reason, e := ProcessDurationAndReason(args[index:], msg, indices[index:], 8, uID, gID)
 	if len(e) > 0 {
@@ -539,7 +542,7 @@ func UnsilenceMember(user uint64, info *GuildInfo) error {
 		sb.dg.State.Unlock()
 	}
 
-	return sb.dg.GuildMemberRoleRemove(info.Guild.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
+	return sb.dg.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }
 
 type UnsilenceCommand struct {
