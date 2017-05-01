@@ -173,7 +173,7 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []
 				return "```A temporary database outage is preventing this command from being executed.```", false, nil
 			}
 			if info.config.Markov.UseMemberNames {
-				c.monster = ExtraSanitize(sb.db.GetRandomMember(SBatoi(info.Guild.ID)))
+				c.monster = ExtraSanitize(sb.db.GetRandomMember(SBatoi(info.ID)))
 			} else {
 				c.monster = sb.db.GetRandomSpeaker()
 			}

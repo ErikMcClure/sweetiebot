@@ -297,6 +297,8 @@ func (c *ListGuildsCommand) Name() string {
 }
 func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
+	sb.dg.State.RLock()
+	defer sb.dg.State.RUnlock()
 	guilds := []*GuildInfo{}
 	for _, v := range sb.guilds {
 		guilds = append(guilds, v)
@@ -455,7 +457,7 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 	}
 
-	r := sb.db.GetAuditRows(low, high, user, search, SBatoi(info.Guild.ID))
+	r := sb.db.GetAuditRows(low, high, user, search, SBatoi(info.ID))
 	ret := []string{"```Matching Audit Log entries:```"}
 
 	for _, v := range r {
