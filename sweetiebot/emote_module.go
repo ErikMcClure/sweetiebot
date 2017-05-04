@@ -28,7 +28,7 @@ func (w *EmoteModule) Register(info *GuildInfo) {
 func (w *EmoteModule) Commands() []Command { return []Command{} }
 
 func (w *EmoteModule) Description() string {
-	return "Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them in any channels this module is active in."
+	return "Keeps a list of banned emotes that are either seizure-inducing or way too big, and deletes any messages that use them in any channels this module is active in."
 }
 
 func (w *EmoteModule) HasBigEmote(info *GuildInfo, m *discordgo.Message) bool {
