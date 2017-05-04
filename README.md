@@ -1,16 +1,16 @@
 # Sweetie Bot
-Sweetie Bot is an administration bot for Discord servers. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and it's users, and provides a command to find the last message that pinged a given user.
+Sweetie Bot is an administration bot for Discord servers. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and its users, and provides a command to find the last message that pinged a given user.
 
 ### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358).
 
-**If you have questions about Sweetie Bot, please join it's [support channel](https://discord.gg/t2gVQvN)**
+**If you have questions about Sweetie Bot, please join its [support channel](https://discord.gg/t2gVQvN)**
 
-**If you use Sweetie Bot, consider [contributing to it's Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
+**If you use Sweetie Bot, consider [contributing to its Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
 
 ## Compiling
 **You only need to follow these steps if you are hosting the bot yourself.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
 
-Three files are necessary for sweetiebot to run that are never uploaded to the git repo:
+Three files are necessary for sweetiebot to run that are never uploaded to the Git repository:
 
 * `db.auth`: Database connection string
 * `token`: Bot token used for login. [Create an application](https://discordapp.com/developers/applications/me#top) and turn it into a Bot User to get one.
@@ -22,7 +22,7 @@ If your MariaDB installation uses default settings, your `db.auth` file should l
 
 `root:PASSWORD@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`
 
-If you get compiler errors, sweetiebot has two dependences you should get:
+If you get compiler errors, sweetiebot has two dependencies you should get:
 * `go get github.com/go-sql-driver/mysql`
 * `go get github.com/bwmarrin/discordgo`
 
@@ -117,7 +117,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 ### Markov
 * **MaxPMLines:** This is the maximum number of lines a response can be before sweetiebot automatically sends it as a PM to avoid cluttering the chat. Default: 5
 * **Maxlines:** Maximum number of lines the `!episodequote` command can be given.
-* **DefaultLines:** Number of lines for the markov chain to spawn when not given a line count.
+* **DefaultLines:** Number of lines for the Markov chain to spawn when not given a line count.
 * **UseMemberNames:** Use member names instead of random pony names
 
 ### Users
@@ -209,7 +209,7 @@ Contains various debugging commands. Some of these commands can only be run by t
 * **RemoveAlias:** [RESTRICTED] Removes an alias.
 
 ### Emotes
-Keeps a list of banned emotes that are either siezure inducing or way too big, and deletes any messages that use them.
+Keeps a list of banned emotes that are either seizure-inducing or way too big, and deletes any messages that use them.
 
 ### Roles
 Contains commands for manipulating user-assignable roles. Roles created via !addrole are pingable by default, but user-assignable roles do NOT have any restrictions on them, so you can make a user-assignable role that isn't pingable, or gives special permissions, etc.
@@ -230,7 +230,7 @@ Contains commands for getting information about Sweetie Bot, her commands, or th
 * **Changelog:** Retrieves the changelog for Sweetie Bot.
 
 ### Markov
-Generates content using markov chains.
+Generates content using Markov chains.
 #### Commands
 * **episodegen:** Randomly generates episodes.
 * **EpisodeQuote:** Quotes random or specific lines from the show.
