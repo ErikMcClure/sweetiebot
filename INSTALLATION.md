@@ -2,9 +2,9 @@ How to properly set up Sweetiebot for use on your server
 
 **1.** Install [Golang](https://golang.org/dl/) (at least v1.5) and [MariaDB](https://downloads.mariadb.org/) (at least v10.1) to your computer. Take note of your credentials for MariaDB, as you'll need to know that for later.
 
-**2.** Verify that Go was properly installed to your PATH variable by typing "go ver" in your terminal / command prompt. If you aren't prompted with something Go related, restart your computer and try again.
+**2.** Verify that Go was properly installed to your PATH variable by typing `go version` in your terminal / command prompt. If you aren't prompted with something Go related, restart your computer and try again.
 
-**3.** Clone the repository in it's entirety
+**3.** Clone the repository in its entirety
 
 **4.** Install the required libraries with the commands `go get github.com/go-sql-driver/mysql` and `go get github.com/bwmarrin/discordgo`.
 
@@ -22,7 +22,7 @@ How to properly set up Sweetiebot for use on your server
 
 **10.** Run `main.exe`.
 
-You may have noticed that your bot isn't in your server yet. You will be able to connect your bot to your server by using this url.
+You may have noticed that your bot isn't in your server yet. You will be able to connect your bot to your server by using this URL.
 
 `https://discordapp.com/oauth2/authorize?client_id=<YOUR_BOT_CLIENT_ID>&scope=bot`
 
