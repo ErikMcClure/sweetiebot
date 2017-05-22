@@ -1502,7 +1502,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 7, 3},
+		version:            Version{0, 9, 7, 4},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1521,7 +1521,8 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 7, 3):  "- Update discordgo API.",
+			AssembleVersion(0, 9, 7, 4):  "- Update discordgo API.",
+			AssembleVersion(0, 9, 7, 3):  "- Fix permissions issue.",
 			AssembleVersion(0, 9, 7, 2):  "- Fix ignoring admins in anti-spam.",
 			AssembleVersion(0, 9, 7, 1):  "- Fixed an issue with out-of-date guild objects not including all server members.",
 			AssembleVersion(0, 9, 7, 0):  "- Groups have been removed and replaced with user-assignable roles. All your groups have automatically been migrated to roles. If there was a name-collision with an existing role, your group name will be prefixed with 'sb-', which you can then resolve yourself. Use '!help roles' to get usage information about the new commands.",
