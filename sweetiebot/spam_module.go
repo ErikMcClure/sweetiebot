@@ -116,7 +116,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 
 	EndLoop: // Even though this label is defined above the for loop, breaking to this label will actually skip the for loop entirely. Don't ask.
 		for {
-			messages, err := sb.dg.ChannelMessages(msg.ChannelID, 99, lastid, "")
+			messages, err := sb.dg.ChannelMessages(msg.ChannelID, 99, lastid, "", "")
 			info.log.LogError("Error encountered while attempting to retrieve messages: ", err)
 			if len(messages) == 0 || err != nil {
 				break
@@ -329,7 +329,7 @@ func (c *WipeWelcomeCommand) Name() string {
 }
 func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	ch := SBitoa(info.config.Users.WelcomeChannel)
-	list, err := sb.dg.ChannelMessages(ch, 99, "", "")
+	list, err := sb.dg.ChannelMessages(ch, 99, "", "", "")
 	if err != nil {
 		info.log.LogError("Error retrieving messages: ", err)
 		return "```Error retrieving messages.```", false, nil
@@ -340,7 +340,7 @@ func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, indi
 			IDs[i] = list[i].ID
 		}
 		sb.dg.ChannelMessagesBulkDelete(ch, IDs)
-		list, err = sb.dg.ChannelMessages(ch, 99, "", "")
+		list, err = sb.dg.ChannelMessages(ch, 99, "", "", "")
 	}
 	return "Deleted all messages in <#" + ch + ">.", false, nil
 }
