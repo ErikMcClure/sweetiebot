@@ -844,8 +844,14 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		}
 	}
 
-	if guild.config.Version != 14 {
-		guild.config.Version = 14 // set version to most recent config version
+	if guild.config.Version <= 14 {
+		RestrictCommand("addrole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("removerole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("deleterole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+	}
+
+	if guild.config.Version != 15 {
+		guild.config.Version = 15 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
