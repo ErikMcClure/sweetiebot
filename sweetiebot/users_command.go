@@ -349,6 +349,8 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	aliases := sb.db.GetAliases(IDs[0])
 	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
+	dbmember, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+
 	localtime := ""
 	if tz == nil {
 		tz = time.FixedZone("[Not Set]", 0)
@@ -358,7 +360,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	m, err := info.GetMember(SBitoa(IDs[0]))
 
 	if err != nil {
-		m = &discordgo.Member{Roles: []string{}}
+		m = dbmember
 		u, err := sb.dg.User(SBitoa(IDs[0]))
 		if err != nil {
 			if dbuser == nil {
@@ -368,8 +370,12 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 		m.User = u
 	}
+
+	if len(dbmember.JoinedAt) > 0 {
+		m.JoinedAt = dbmember.JoinedAt
+	}
 	authortz := getTimezone(info, msg.Author)
-	joinedat, err := time.Parse(time.RFC3339Nano, m.JoinedAt)
+	joinedat, err := time.Parse(time.RFC3339, m.JoinedAt)
 	joined := ""
 	if err == nil {
 		joined = TimeDiff(time.Now().UTC().Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
