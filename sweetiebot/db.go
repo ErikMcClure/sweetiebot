@@ -320,8 +320,12 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	m := &discordgo.Member{}
 	m.User = &discordgo.User{}
 	var lastseen time.Time
+	var joinedat time.Time
 	var discriminator int = 0
-	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &m.JoinedAt)
+	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat)
+	if !joinedat.IsZero() {
+		m.JoinedAt = joinedat.Format(time.RFC3339)
+	}
 	if discriminator > 0 {
 		m.User.Discriminator = strconv.Itoa(discriminator)
 	}

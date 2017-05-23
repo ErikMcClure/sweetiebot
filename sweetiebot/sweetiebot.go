@@ -1319,7 +1319,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	t := time.Now().UTC()
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
 		var err error
-		t, err = time.Parse(time.RFC3339Nano, u.JoinedAt)
+		t, err = time.Parse(time.RFC3339, u.JoinedAt)
 		if err != nil {
 			fmt.Println(err.Error())
 			return
@@ -1502,7 +1502,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 7, 4},
+		version:            Version{0, 9, 7, 5},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1521,6 +1521,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 7, 5):  "- Compensate for discordgo being braindead and forgetting JoinedAt dates.",
 			AssembleVersion(0, 9, 7, 4):  "- Update discordgo API.",
 			AssembleVersion(0, 9, 7, 3):  "- Fix permissions issue.",
 			AssembleVersion(0, 9, 7, 2):  "- Fix ignoring admins in anti-spam.",
