@@ -564,7 +564,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   `Verified` bit(1) NOT NULL DEFAULT b'0',
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
-  `Timezone` int(11) DEFAULT NULL,
   `Location` varchar(40) DEFAULT NULL,
   `DefaultServer` bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY (`ID`),
