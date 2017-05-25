@@ -975,7 +975,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					return
 				}
 			}
-			if !isdebug && !isfree && !isSelf && info.config.Modules.CommandPerDuration > 0 { // debug channels aren't limited
+			if !isdebug && !isfree && !isSelf && info.config.Modules.CommandPerDuration > 0 && !info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole)) { // debug channels aren't limited
 				if len(info.commandlimit.times) < info.config.Modules.CommandPerDuration*2 { // Check if we need to re-allocate the array because the configuration changed
 					info.commandlimit.times = make([]int64, info.config.Modules.CommandPerDuration*2, info.config.Modules.CommandPerDuration*2)
 				}
