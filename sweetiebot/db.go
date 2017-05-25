@@ -163,7 +163,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
-	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Discriminator, Avatar, LastSeen, Timezone, Location, DefaultServer FROM users WHERE ID = ?")
+	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sql_FindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
@@ -209,7 +209,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
 	db.sql_GetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
 	db.sql_GetUnsilenceDate, err = db.Prepare("SELECT Date FROM schedule WHERE Guild = ? AND Type = 8 AND Data = ?")
-	db.sql_GetTimeZone, err = db.Prepare("SELECT Timezone, Location FROM users WHERE ID = ?")
+	db.sql_GetTimeZone, err = db.Prepare("SELECT Location FROM users WHERE ID = ?")
 	db.sql_FindTimeZone, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ?")
 	db.sql_FindTimeZoneOffset, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ? AND (Offset = ? OR DST = ?)")
 	db.sql_SetTimeZone, err = db.Prepare("UPDATE users SET Location = ? WHERE ID = ?")
@@ -298,11 +298,10 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location, *uint64) {
 	u := &discordgo.User{}
 	var lastseen time.Time
-	var i sql.NullInt64
 	var loc sql.NullString
 	var guild sql.NullInt64
 	var discriminator int = 0
-	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &discriminator, &u.Avatar, &lastseen, &i, &loc, &guild)
+	err := db.sql_GetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &discriminator, &u.Avatar, &lastseen, &loc, &guild)
 	if discriminator > 0 {
 		u.Discriminator = strconv.Itoa(discriminator)
 	}
@@ -310,10 +309,10 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 		return nil, lastseen, nil, nil
 	}
 	if !guild.Valid {
-		return u, lastseen, evalTimeZone(i, loc), nil
+		return u, lastseen, evalTimeZone(loc), nil
 	}
 	g := uint64(guild.Int64)
-	return u, lastseen, evalTimeZone(i, loc), &g
+	return u, lastseen, evalTimeZone(loc), &g
 }
 
 func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time) {
@@ -781,27 +780,23 @@ func (db *BotDB) GetUnsilenceDate(guild uint64, id uint64) *time.Time {
 	return &timestamp
 }
 
-func evalTimeZone(i sql.NullInt64, loc sql.NullString) *time.Location {
+func evalTimeZone(loc sql.NullString) *time.Location {
 	if loc.Valid && len(loc.String) > 0 {
 		l, err := time.LoadLocation(loc.String)
 		if err == nil {
 			return l
 		}
 	}
-	if i.Valid {
-		return time.FixedZone("Legacy/GMT"+strconv.FormatInt(i.Int64, 10), int(i.Int64*3600))
-	}
 	return nil
 }
 
 func (db *BotDB) GetTimeZone(user uint64) *time.Location {
-	var i sql.NullInt64
 	var loc sql.NullString
-	err := db.sql_GetTimeZone.QueryRow(user).Scan(&i, &loc)
+	err := db.sql_GetTimeZone.QueryRow(user).Scan(&loc)
 	if db.CheckError("GetTimeZone", err) {
 		return nil
 	}
-	return evalTimeZone(i, loc)
+	return evalTimeZone(loc)
 }
 
 func (db *BotDB) FindTimeZone(s string) []string {

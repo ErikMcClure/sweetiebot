@@ -594,7 +594,6 @@ INSERT INTO `timezones` (`Location`, `Offset`, `DST`) VALUES
 	('US/Michigan', -300, -240),
 	('US/Mountain', -420, -360),
 	('US/Pacific', -480, -420),
-	('US/Pacific-New', -480, -420),
 	('US/Samoa', -660, -660),
 	('UTC', 0, 0),
 	('W-SU', 180, 180),
