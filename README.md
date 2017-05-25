@@ -80,6 +80,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **BotChannel:** Allows you to designate a particular channel for Sweetie Bot to point users to if they try to send too many commands at once. This channel is usually also included in `Basic.FreeChannels`.
 * **Aliases [map]:** Can be used to redirect commands, such as making `!listroles` call the `!listrole` command. Useful for making shortcuts. Example: `!setconfig Basic.Aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
 * **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
+* **ListenToBots:** If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.
 
 ### Modules
 * **Channels [maplist]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
