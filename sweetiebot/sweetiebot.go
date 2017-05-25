@@ -51,6 +51,7 @@ type BotConfig struct {
 		BotChannel            uint64                     `json:"botchannel"`
 		Aliases               map[string]string          `json:"aliases"`
 		Collections           map[string]map[string]bool `json:"collections"`
+		ListenToBots          bool                       `json:"listentobots"`
 	} `json:"basic"`
 	Modules struct {
 		Channels           map[string]map[string]bool `json:"modulechannels"`
@@ -139,6 +140,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.botchannel":            "This allows you to designate a particular channel for sweetie bot to point users to if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
 	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
+	"basic.listentobots":          "If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.",
 	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
 	"modules.commandchannels":     "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
 	"modules.commandlimits":       "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
@@ -1103,6 +1105,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == sb.SelfID { // discard all our own messages (unless this is a heartbeat message)
 			return
 		}
+		if info != nil && !info.config.Basic.ListenToBots && m.Author.Bot { // If we aren't supposed to listen to bot messages, discard them.
+			return
+		}
 		if boolXOR(sb.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
 			return
 		}
@@ -1502,7 +1507,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 7, 5},
+		version:            Version{0, 9, 7, 6},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1521,6 +1526,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 7, 6):  "- Sweetiebot now ignores other bots by default. To revert this, run '!setconfig basic.listentobots true' and she will listen to them again, but will never attempt to silence them.",
 			AssembleVersion(0, 9, 7, 5):  "- Compensate for discordgo being braindead and forgetting JoinedAt dates.",
 			AssembleVersion(0, 9, 7, 4):  "- Update discordgo API.",
 			AssembleVersion(0, 9, 7, 3):  "- Fix permissions issue.",
