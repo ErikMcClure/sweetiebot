@@ -100,7 +100,11 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if err == nil {
 		chname = ch.Name
 	}
-	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, SanitizeMentions(msg.ContentWithMentionsReplaced()), msgembeds)
+	lastmsg := SanitizeMentions(msg.ContentWithMentionsReplaced())
+	if len(lastmsg) > 300 {
+		lastmsg = lastmsg[:300] + " [truncated]"
+	}
+	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		BanMember(u, info)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")

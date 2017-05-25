@@ -1526,7 +1526,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 7, 6):  "- Sweetiebot now ignores other bots by default. To revert this, run '!setconfig basic.listentobots true' and she will listen to them again, but will never attempt to silence them.",
+			AssembleVersion(0, 9, 7, 6):  "- Sweetiebot now ignores other bots by default. To revert this, run '!setconfig basic.listentobots true' and she will listen to them again, but will never attempt to silence them.\n- Removed legacy timezones\n- Spam messages are limited to 300 characters in the log.",
 			AssembleVersion(0, 9, 7, 5):  "- Compensate for discordgo being braindead and forgetting JoinedAt dates.",
 			AssembleVersion(0, 9, 7, 4):  "- Update discordgo API.",
 			AssembleVersion(0, 9, 7, 3):  "- Fix permissions issue.",
