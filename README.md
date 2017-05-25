@@ -7,27 +7,6 @@ Sweetie Bot is an administration bot for Discord servers. Her primary function i
 
 **If you use Sweetie Bot, consider [contributing to its Patreon](https://www.patreon.com/erikmcclure) to help pay for hosting and maintenence costs.**
 
-## Compiling
-**You only need to follow these steps if you are hosting the bot yourself.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
-
-Three files are necessary for sweetiebot to run that are never uploaded to the Git repository:
-
-* `db.auth`: Database connection string
-* `token`: Bot token used for login. [Create an application](https://discordapp.com/developers/applications/me#top) and turn it into a Bot User to get one.
-* [OPTIONAL] `isdebug`: If this file exists and contains the word "true", sweetiebot will start in debug mode, and will only respond to commands on the hardcoded debug channels.
-
-These files must in the root directory of wherever `main.exe` is compiled to. For testing purposes, it is sufficient to navigate to `/sweetiebot/main` in your command line and compile it there by typing `go build`, which will create `/sweetiebot/main/main.exe`. An example `config.json` file is included in `/sweetiebot/main` for testing purposes.
-
-If your MariaDB installation uses default settings, your `db.auth` file should look like this:
-
-`root:PASSWORD@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`
-
-If you get compiler errors, sweetiebot has two dependencies you should get:
-* `go get github.com/go-sql-driver/mysql`
-* `go get github.com/bwmarrin/discordgo`
-
-If you're having any additional issues getting sweetiebot working, check INSTALLATION.md for more information.
-
 ## Adding Sweetiebot To Your Server
 
 A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search is unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
@@ -303,7 +282,28 @@ In response to certain patterns (determined by a regex) will post a response pic
 ## Error Recovery
 Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also had a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if sweetiebot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
 
-## Contributing
+## Compiling
+**You only need to follow these steps if you are hosting the bot yourself.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.5](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
+
+Three files are necessary for sweetiebot to run that are never uploaded to the Git repository:
+
+* `db.auth`: Database connection string
+* `token`: Bot token used for login. [Create an application](https://discordapp.com/developers/applications/me#top) and turn it into a Bot User to get one.
+* [OPTIONAL] `isdebug`: If this file exists and contains the word "true", sweetiebot will start in debug mode, and will only respond to commands on the hardcoded debug channels.
+
+These files must in the root directory of wherever `main.exe` is compiled to. For testing purposes, it is sufficient to navigate to `/sweetiebot/main` in your command line and compile it there by typing `go build`, which will create `/sweetiebot/main/main.exe`. An example `config.json` file is included in `/sweetiebot/main` for testing purposes.
+
+If your MariaDB installation uses default settings, your `db.auth` file should look like this:
+
+`root:PASSWORD@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`
+
+If you get compiler errors, sweetiebot has two dependencies you should get:
+* `go get github.com/go-sql-driver/mysql`
+* `go get github.com/bwmarrin/discordgo`
+
+If you're having any additional issues getting sweetiebot working, check INSTALLATION.md for more information.
+
+### Contributing
 Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 
 
     type Command interface {
@@ -335,4 +335,4 @@ A module must satisfy the interface of the hook it is trying to add itself to, w
 
 ******
 
-©2016 Erik McClure
+©2017 Erik McClure
