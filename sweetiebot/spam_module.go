@@ -305,6 +305,8 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		if !sb.db.CheckStatus() {
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
+		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
+		info.SendMessage(msg.ChannelID, "```Set the auto silence level to "+strings.ToLower(args[0])+".```")
 		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
