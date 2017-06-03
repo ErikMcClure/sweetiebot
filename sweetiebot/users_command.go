@@ -361,6 +361,9 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 
 	if err != nil {
 		m = dbmember
+		if m == nil {
+			m = &discordgo.Member{Roles: []string{}}
+		}
 		u, err := sb.dg.User(SBitoa(IDs[0]))
 		if err != nil {
 			if dbuser == nil {
@@ -370,8 +373,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 		m.User = u
 	}
-
-	if len(dbmember.JoinedAt) > 0 {
+	if dbmember != nil && len(dbmember.JoinedAt) > 0 {
 		m.JoinedAt = dbmember.JoinedAt
 	}
 	authortz := getTimezone(info, msg.Author)
@@ -406,7 +408,22 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if m.User.Bot {
 		fullusername += " [BOT]"
 	}
-	s := fmt.Sprintf("        ID: %v\n  Username: %s\n  Nickname: %v\n   Aliases: %v\n     Roles: %v\n  Timezone: %v\nLocal Time: %v\n   Created: %s ago (%v)\n    Joined: %s\n Last Seen: %s ago (%v)\n    Avatar: ", m.User.ID, fullusername, m.Nick, strings.Join(aliases, ", "), strings.Join(roles, ", "), tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822))
+	lastseenstring := "Never"
+	if !lastseen.IsZero() {
+		lastseenstring = fmt.Sprintf("%s ago (%v)", TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822))
+	}
+	s := fmt.Sprintf("        ID: %v\n  Username: %s\n  Nickname: %v\n   Aliases: %v\n     Roles: %v\n  Timezone: %v\nLocal Time: %v\n   Created: %s ago (%v)\n    Joined: %s\n Last Seen: %s\n    Avatar: ",
+		m.User.ID,
+		fullusername,
+		m.Nick,
+		strings.Join(aliases, ", "),
+		strings.Join(roles, ", "),
+		tz,
+		localtime,
+		TimeDiff(time.Now().UTC().Sub(created)),
+		created.Format(time.RFC822),
+		joined,
+		lastseenstring)
 	return "```http\n" + PartialSanitize(s) + "```\n" + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
 
 	//s := fmt.Sprintf("**ID:** %v\n**Username:** %s\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Created:** %s ago (%v)\n **Joined:** %s\n**Roles:** %v\n**Last Seen:** %s ago (%v)\n**Aliases:** %v\n**Avatar:** %s", m.User.ID, fullusername, m.Nick, tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, strings.Join(roles, ", "), TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822), strings.Join(aliases, ", "), discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar))
