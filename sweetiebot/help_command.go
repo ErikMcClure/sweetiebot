@@ -154,6 +154,7 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 			&discordgo.MessageEmbedField{Name: "Messages Seen", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&sb.MessageCount)), 10), Inline: true},
 			&discordgo.MessageEmbedField{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
 			&discordgo.MessageEmbedField{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
+			&discordgo.MessageEmbedField{Name: "Add Sweetie Bot To Your Server", Value: "https://goo.gl/S6Kstw", Inline: false},
 		},
 	}
 	return "", false, embed
