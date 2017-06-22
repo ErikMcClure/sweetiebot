@@ -1,7 +1,7 @@
 # Sweetie Bot
 Sweetie Bot is an administration bot for Discord servers. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and its users, and provides a command to find the last message that pinged a given user.
 
-### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358).
+### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
 
 **If you have questions about Sweetie Bot, please join its [support channel](https://discord.gg/t2gVQvN)**
 
@@ -9,7 +9,7 @@ Sweetie Bot is an administration bot for Discord servers. Her primary function i
 
 ## Adding Sweetiebot To Your Server
 
-A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948358) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search is unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
+A limited version of sweetiebot can be added to any server. Simply follow [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390) to add her to your server. The limited version of sweetiebot does not have a chatlog, which means !search is unavailable. The status change loop and !setstatus are also disabled. All other commands and modules still function, however. 
 
 ## Configuration
 
@@ -87,6 +87,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **RaidSize:** Specifies how many people must have joined the server within the `Spam.RaidTime` period to qualify as a raid.
 * **SilenceMessage:** This message will be sent to users that have been silenced by the !silence command.
 * **AutoSilence:** Gets the current autosilence state. Use the !autosilence command to set this.
+* **LockdownDuration:** Determines how long the server's verification mode will temporarily be increased to tableflip levels after a raid is detected. If set to 0, disables lockdown entirely.
 
 ### Bucket
 * **MaxItems:** Determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.
@@ -266,6 +267,7 @@ Contains commands for getting and setting user information.
 * **newusers:** [PM Only] Gets a list of the most recent users to join the server.
 * **aka:** Lists all known aliases of a user.
 * **ban:** Bans a user.
+* **BanNewcomers:** Bans any users that have sent their first message in the past 2 minutes.
 * **time:** Gets a user's local time.
 * **settimezone:** Set your local timezone.
 * **UserInfo:** Lists information about a user.
