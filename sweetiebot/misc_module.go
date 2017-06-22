@@ -53,7 +53,7 @@ func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	u, lastseen := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+	u, lastseen, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
 	}

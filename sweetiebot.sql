@@ -418,6 +418,7 @@ CREATE TABLE IF NOT EXISTS `members` (
   `FirstSeen` datetime NOT NULL,
   `Nickname` varchar(128) NOT NULL DEFAULT '',
   `LastNickChange` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `FirstMessage` datetime DEFAULT NULL,
   PRIMARY KEY (`ID`,`Guild`),
   KEY `INDEX_NICKNAME` (`Nickname`),
   CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)

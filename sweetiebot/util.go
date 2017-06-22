@@ -94,7 +94,7 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string 
 	for _, v := range IDs {
 		var m *discordgo.Member = nil
 		if sb.db.status.get() {
-			m, _ = sb.db.GetMember(v, gid)
+			m, _, _ = sb.db.GetMember(v, gid)
 		}
 		if m != nil {
 			if len(m.Nick) > 0 {
@@ -188,13 +188,35 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 // Attempts to get a member from the guild by checking the state first before making the REST API call.
 func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
 	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
 	for _, m := range info.Guild.Members {
 		if m.User.ID == id {
+			sb.dg.State.RUnlock()
 			return m, nil
 		}
 	}
+	sb.dg.State.RUnlock()
 	return sb.dg.GuildMember(info.ID, id)
+}
+
+// If a member does not exist, this function creates an entry in the state and returns that.
+func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
+	sb.dg.State.RLock()
+	for _, m := range info.Guild.Members {
+		if m.User.ID == u.ID {
+			sb.dg.State.RUnlock()
+			return m
+		}
+	}
+	sb.dg.State.RUnlock()
+
+	m, err := sb.dg.GuildMember(info.ID, u.ID)
+	if err != nil || m == nil {
+		m = &discordgo.Member{info.ID, "", "", false, false, u, []string{}}
+	}
+	sb.dg.State.Lock()
+	defer sb.dg.State.Unlock()
+	info.Guild.Members = append(info.Guild.Members, m)
+	return info.Guild.Members[len(info.Guild.Members)-1]
 }
 
 func ReadUserPingArg(args []string) (uint64, string) {
@@ -471,7 +493,7 @@ func FindIntSlice(item uint64, s []uint64) bool {
 func getUserName(user uint64, info *GuildInfo) string {
 	var m *discordgo.Member = nil
 	if sb.db.status.get() {
-		m, _ = sb.db.GetMember(user, SBatoi(info.ID))
+		m, _, _ = sb.db.GetMember(user, SBatoi(info.ID))
 	}
 	if m == nil {
 		return "<@" + SBitoa(user) + ">"
@@ -850,8 +872,13 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		RestrictCommand("deleterole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 	}
 
-	if guild.config.Version != 15 {
-		guild.config.Version = 15 // set version to most recent config version
+	if guild.config.Version <= 15 {
+		RestrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		guild.config.Spam.LockdownDuration = 120
+	}
+
+	if guild.config.Version != 16 {
+		guild.config.Version = 16 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
