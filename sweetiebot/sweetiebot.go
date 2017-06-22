@@ -79,6 +79,7 @@ type BotConfig struct {
 		RaidSize           int                `json:"raidsize"`
 		SilenceMessage     string             `json:"silencemessage"`
 		AutoSilence        int                `json:"autosilence"`
+		LockdownDuration   int                `json:"lockdownduration"`
 	} `json:"spam"`
 	Bucket struct {
 		MaxItems       int `json:"maxbucket"`
@@ -164,6 +165,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"spam.raidsize":               "Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.",
 	"spam.silencemessage":         "This message will be sent to users that have been silenced by the `!silence` command.",
 	"spam.autosilence":            "Gets the current autosilence state. Use the `!autosilence` command to set this.",
+	"spam.lockdownduration":       "Determines how long the server's verification mode will temporarily be increased to tableflip levels after a raid is detected. If set to 0, disables lockdown entirely.",
 	"bucket.maxitems":             "Determines the maximum number of items sweetiebot can carry in her bucket. If set to 0, her bucket is disabled.",
 	"bucket.maxitemlength":        "Determines the maximum length of a string that can be added to her bucket.",
 	"bucket.maxfighthp":           "Maximum HP of the randomly generated enemy for the `!fight` command.",
@@ -204,6 +206,8 @@ type GuildInfo struct {
 	hooks        ModuleHooks
 	modules      []Module
 	commands     map[string]Command
+	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
+	lastlockdown time.Time
 }
 
 type Version struct {
@@ -629,6 +633,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 		commands:     make(map[string]Command),
 		emotemodule:  nil,
+		lockdown:     -1,
 	}
 	guild.log = &Log{0, guild}
 	config, err := ioutil.ReadFile(g.ID + ".json")
@@ -655,6 +660,9 @@ func AttachToGuild(g *discordgo.Guild) {
 			}
 			if perms&0x00002000 == 0 {
 				warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
+			}
+			if perms&0x00000020 == 0 {
+				warning = "\nWARNING: Sweetiebot cannot engage lockdown mode without the Manage Server role!" + warning
 			}
 			sb.dg.ChannelMessageSend(ch.ID, "You've successfully added Sweetie Bot to your server! To finish setting her up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. Sweetie Bot will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. This ensures that you can always fix a broken configuration. Before running `!setup`, make sure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.\n\n**> Mod Channel**\nThis is the channel Sweetie Bot will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nThis is an optional channel where sweetiebot will post errors and update notifications. Usually, this is only visible to server admins and the bot. Remember to give the bot permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often Sweetie Bot's last resort for notifying you about potential errors.\n\nThat's it! Here is an example of the command: ```!setup @Mods #staff-chat #bot-log```\n\nNote: **Do not run `!setup` in this PM!** It won't work because Discord won't autocomplete `#channel` for you. Run `!setup` directly on your server.")
 			if len(warning) > 0 {
@@ -1106,6 +1114,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 			}
 		}
+		if info != nil {
+			sb.db.SentMessage(SBatoi(m.Author.ID), SBatoi(info.ID))
+		}
 		if m.Author.ID == sb.SelfID { // discard all our own messages (unless this is a heartbeat message)
 			return
 		}
@@ -1215,7 +1226,7 @@ func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 	if info == nil {
 		return
 	}
-	info.log.Log("Guild update detected, updating ", m.Name)
+	fmt.Println("Guild update detected, updating", m.Name)
 	info.ProcessGuild(m.Guild)
 	ApplyFuncRange(len(info.hooks.OnGuildUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildUpdate[i]) {
@@ -1240,11 +1251,18 @@ func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	if info == nil {
 		return
 	}
+	sb.db.RemoveMember(SBatoi(m.User.ID), SBatoi(info.ID))
 	ApplyFuncRange(len(info.hooks.OnGuildMemberRemove), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberRemove[i]) {
 			info.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(info, m.Member)
 		}
 	})
+	if m.User.ID == sb.SelfID {
+		fmt.Println("Sweetie was removed from", info.Name)
+		sb.guildsLock.Lock()
+		delete(sb.guilds, SBatoi(info.ID))
+		sb.guildsLock.Unlock()
+	}
 }
 func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	info := GetGuildFromID(m.GuildID)
@@ -1292,6 +1310,11 @@ func SBGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
 	})
 }
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
+func SBGuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	sb.guildsLock.Lock()
+	delete(sb.guilds, SBatoi(m.Guild.ID))
+	sb.guildsLock.Unlock()
+}
 func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 	sb.guildsLock.RLock()
 	guild, ok := sb.guilds[SBatoi(c.GuildID)]
@@ -1441,8 +1464,12 @@ func IdleCheckLoop() {
 					info.hooks.OnTick[i].OnTick(info)
 				}
 			})
+
+			if info.lockdown != -1 && time.Now().UTC().Sub(info.lastlockdown) > (time.Duration(info.config.Spam.LockdownDuration)*time.Second) {
+				DisableLockdown(info)
+			}
 		}
-		time.Sleep(30 * time.Second)
+		time.Sleep(20 * time.Second)
 	}
 }
 
@@ -1511,7 +1538,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 7, 9},
+		version:            Version{0, 9, 8, 0},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1530,6 +1557,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 0):  "- Attempts to register if she is removed from a server.\n- Silencing has been redone to minimize rate-limiting problems.\n- Sweetie now tracks the first time someone posts a message, used in the \"bannewcomers\" command, which bans everyone who sent their first message in the past two minutes (configurable).\n- Sweetie now attempts to engage a lockdown when a raid is detected by temporarily increasing the server verification level. YOU MUST GIVE HER \"MANAGE SERVER\" PERMISSIONS FOR THIS TO WORK! This can be disabled by setting Spam.LockdownDuration to 0.",
 			AssembleVersion(0, 9, 7, 9):  "- Discard Group DM errors from legacy conversations.",
 			AssembleVersion(0, 9, 7, 8):  "- Correctly deal with rare edge-case on !userinfo queries.",
 			AssembleVersion(0, 9, 7, 7):  "- Sweetiebot sends an autosilence change message before she starts silencing raiders, to ensure admins get immediate feedback even if discord is being slow.",
