@@ -23,6 +23,7 @@ type BotDB struct {
 	sql_GetMessage             *sql.Stmt
 	sql_AddUser                *sql.Stmt
 	sql_AddMember              *sql.Stmt
+	sql_RemoveMember           *sql.Stmt
 	sql_GetUser                *sql.Stmt
 	sql_GetMember              *sql.Stmt
 	sql_FindGuildUsers         *sql.Stmt
@@ -88,6 +89,8 @@ type BotDB struct {
 	sql_AddVote                *sql.Stmt
 	sql_RemovePoll             *sql.Stmt
 	sql_CheckOption            *sql.Stmt
+	sql_SentMessage            *sql.Stmt
+	sql_GetNewcomers           *sql.Stmt
 }
 
 func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
@@ -163,8 +166,9 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_GetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
 	db.sql_AddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?,?)")
 	db.sql_AddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
+	db.sql_RemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
 	db.sql_GetUser, err = db.Prepare("SELECT ID, Email, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
-	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
+	db.sql_GetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sql_FindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_FindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sql_GetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
@@ -228,6 +232,8 @@ func (db *BotDB) LoadStatements() error {
 	db.sql_AddVote, err = db.Prepare("INSERT INTO votes (Poll, User, `Option`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `Option` = ?")
 	db.sql_RemovePoll, err = db.Prepare("DELETE FROM polls WHERE Name = ? AND Guild = ?")
 	db.sql_CheckOption, err = db.Prepare("SELECT `Option` FROM polloptions WHERE poll = ? AND `Index` = ?")
+	db.sql_SentMessage, err = db.Prepare("UPDATE `members` SET `FirstMessage` = UTC_TIMESTAMP() WHERE ID = ? AND Guild = ? AND `FirstMessage` IS NULL")
+	db.sql_GetNewcomers, err = db.Prepare("SELECT ID FROM `members` WHERE `Guild` = ? AND `FirstMessage` > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	return err
 }
 
@@ -294,6 +300,11 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 	_, err := db.sql_AddMember.Exec(id, guild, firstseen, nickname)
 	db.CheckError("AddMember", err)
 }
+func (db *BotDB) RemoveMember(id uint64, guild uint64) error {
+	_, err := db.sql_RemoveMember.Exec(guild, id)
+	db.CheckError("RemoveMember", err)
+	return err
+}
 
 func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location, *uint64) {
 	u := &discordgo.User{}
@@ -315,13 +326,14 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	return u, lastseen, evalTimeZone(loc), &g
 }
 
-func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time) {
+func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time, *time.Time) {
 	m := &discordgo.Member{}
 	m.User = &discordgo.User{}
 	var lastseen time.Time
+	var firstmessage *time.Time
 	var joinedat time.Time
 	var discriminator int = 0
-	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat)
+	err := db.sql_GetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat, &firstmessage)
 	if !joinedat.IsZero() {
 		m.JoinedAt = joinedat.Format(time.RFC3339)
 	}
@@ -331,12 +343,12 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	if err == sql.ErrNoRows {
 		m.User, lastseen, _, _ = db.GetUser(id)
 		if m.User == nil {
-			return nil, lastseen
+			return nil, lastseen, firstmessage
 		}
-		return m, lastseen
+		return m, lastseen, firstmessage
 	}
 	db.CheckError("GetMember", err)
-	return m, lastseen
+	return m, lastseen, firstmessage
 }
 
 func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
@@ -999,4 +1011,26 @@ func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
 		return false
 	}
 	return true
+}
+
+func (db *BotDB) SentMessage(user uint64, guild uint64) error {
+	_, err := db.sql_SentMessage.Exec(user, guild)
+	db.CheckError("SentMessage", err)
+	return err
+}
+
+func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
+	q, err := db.sql_GetNewcomers.Query(guild, lookback)
+	if db.CheckError("GetNewcomers", err) {
+		return []uint64{}
+	}
+	defer q.Close()
+	r := make([]uint64, 0, 2)
+	for q.Next() {
+		var id uint64
+		if err := q.Scan(&id); err == nil {
+			r = append(r, id)
+		}
+	}
+	return r
 }

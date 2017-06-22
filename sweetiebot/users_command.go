@@ -23,6 +23,7 @@ func (w *UsersModule) Commands() []Command {
 		&NewUsersCommand{},
 		&AKACommand{},
 		&BanCommand{},
+		&BanNewcomersCommand{},
 		&TimeCommand{},
 		&SetTimeZoneCommand{},
 		&UserInfoCommand{},
@@ -99,7 +100,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	r := sb.db.GetAliases(IDs[0])
-	u, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+	u, _, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
 	}
@@ -229,6 +230,52 @@ func (c *BanCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *BanCommand) UsageShort() string { return "Bans a user." }
 
+// Bans everyone who has spoken their first message in the past N seconds, defaulting to 120
+type BanNewcomersCommand struct {
+}
+
+func (c *BanNewcomersCommand) Name() string {
+	return "bannewcomers"
+}
+
+func (c *BanNewcomersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.db.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
+	duration := 120
+	if len(args) > 0 {
+		var err error
+		duration, err = strconv.Atoi(args[0])
+		if err != nil {
+			return "```That's not a valid number of seconds!```", false, nil
+		}
+	}
+
+	IDs := sb.db.GetNewcomers(duration, SBatoi(info.ID))
+	if len(IDs) == 0 {
+		return fmt.Sprintf("```No one has sent their first message in the past %v seconds!```", duration), false, nil
+	}
+	for _, id := range IDs {
+		//var err error = nil
+		err := sb.dg.GuildBanCreate(info.ID, SBitoa(id), 1)
+		//sb.dg.ChannelMessageSend(msg.ChannelID, fmt.Sprintf("Pretending to ban <@%v>", id))
+		info.log.LogError("Error banning user: ", err)
+	}
+
+	return fmt.Sprintf("```Banned %v people from the server. Use discord's audit log if you need to reverse a ban.```", len(IDs)), false, nil
+}
+func (c *BanNewcomersCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Bans all users who have sent their first message in the past `duration` seconds.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "duration", Desc: "The number of seconds to look back, defaults to 120 seconds (so anyone who sent their first message in the past 2 minutes would be banned).", Optional: true},
+		},
+	}
+}
+func (c *BanNewcomersCommand) UsageShort() string {
+	return "Bans everyone who's recently spoken for the first time."
+}
+
 type TimeCommand struct {
 }
 
@@ -349,7 +396,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	aliases := sb.db.GetAliases(IDs[0])
 	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
-	dbmember, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+	dbmember, _, firstmessage := sb.db.GetMember(IDs[0], SBatoi(info.ID))
 
 	localtime := ""
 	if tz == nil {
@@ -412,7 +459,11 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if !lastseen.IsZero() {
 		lastseenstring = fmt.Sprintf("%s ago (%v)", TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822))
 	}
-	s := fmt.Sprintf("        ID: %v\n  Username: %s\n  Nickname: %v\n   Aliases: %v\n     Roles: %v\n  Timezone: %v\nLocal Time: %v\n   Created: %s ago (%v)\n    Joined: %s\n Last Seen: %s\n    Avatar: ",
+	firstmessagestring := ""
+	if firstmessage != nil {
+		firstmessagestring = fmt.Sprintf("%s ago (%v)", TimeDiff(time.Now().UTC().Sub(firstmessage.In(authortz))), firstmessage.In(authortz).Format(time.RFC822))
+	}
+	s := fmt.Sprintf("        ID: %v\n  Username: %s\n  Nickname: %v\n   Aliases: %v\n     Roles: %v\n  Timezone: %v\nLocal Time: %v\n   Created: %s ago (%v)\n    Joined: %s\n Last Seen: %s\nFirst Msg: %s\n    Avatar: ",
 		m.User.ID,
 		fullusername,
 		m.Nick,
@@ -423,7 +474,8 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		TimeDiff(time.Now().UTC().Sub(created)),
 		created.Format(time.RFC822),
 		joined,
-		lastseenstring)
+		lastseenstring,
+		firstmessagestring)
 	return "```http\n" + PartialSanitize(s) + "```\n" + discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar), false, nil
 
 	//s := fmt.Sprintf("**ID:** %v\n**Username:** %s\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Created:** %s ago (%v)\n **Joined:** %s\n**Roles:** %v\n**Last Seen:** %s ago (%v)\n**Aliases:** %v\n**Avatar:** %s", m.User.ID, fullusername, m.Nick, tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, strings.Join(roles, ", "), TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822), strings.Join(aliases, ", "), discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar))
@@ -525,7 +577,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return e, false, nil
 	}
 
-	code := SilenceMember(SBitoa(IDs[0]), info)
+	code := SilenceMemberSimple(SBitoa(IDs[0]), info)
 	if code < 0 {
 		return "```Error occured trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 	} else if code == 1 {
