@@ -1496,8 +1496,13 @@ const HEARTBEAT_INTERVAL = 20
 func DeadlockDetector() {
 	var counter uint32 = sb.heartbeat
 	var missed uint32 = 0
+	PINGCOUNTER := 0
 	time.Sleep(HEARTBEAT_INTERVAL * time.Second) // Give sweetie time to load everything first before initiating heartbeats
 	for !sb.quit.get() {
+		if PINGCOUNTER == 0 {
+			fmt.Printf("ping")
+		}
+		PINGCOUNTER = (PINGCOUNTER + 1) % 4
 		m := discordgo.MessageCreate{
 			&discordgo.Message{ChannelID: "heartbeat", Content: "!about",
 				Author: &discordgo.User{
