@@ -306,10 +306,52 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	modchannel := StripPing(args[1])
 
 	if SBatoi(modchannel) == 0 {
-		return fmt.Sprintf("```%s is not a valid channel ID! Remember to use #channel so discord actually sends the ID.```", modchannel), false, nil
+		if args[1][0] == '#' {
+			args[1] = strings.ToLower(args[1][1:])
+			for _, c := range info.Guild.Channels {
+				if strings.ToLower(c.Name) == args[1] {
+					modchannel = c.ID
+					break
+				}
+			}
+		}
+		if SBatoi(modchannel) == 0 {
+			return fmt.Sprintf("```%s is not a valid channel ID! Remember to use #channel so discord actually sends the ID.```", modchannel), false, nil
+		}
 	}
 	if SBatoi(mod) == 0 {
-		return fmt.Sprintf("```%s is not a valid role ID! Remember to use @role so discord actually sends the ID.```", mod), false, nil
+		if args[0][0] == '@' {
+			args[0] = strings.ToLower(args[0][1:])
+			for _, r := range info.Guild.Roles {
+				if strings.ToLower(r.Name) == args[0] {
+					mod = r.ID
+					break
+				}
+			}
+		}
+		if SBatoi(mod) == 0 {
+			return fmt.Sprintf("```%s is not a valid role ID! Remember to use @role so discord actually sends the ID.```", mod), false, nil
+		}
+	}
+
+	log := "[None]"
+	if len(args) > 2 {
+		log = StripPing(args[2])
+		if SBatoi(log) == 0 {
+			if args[2][0] == '#' {
+				args[2] = strings.ToLower(args[2][1:])
+				for _, c := range info.Guild.Channels {
+					if strings.ToLower(c.Name) == args[2] {
+						log = c.ID
+						break
+					}
+				}
+			}
+			if SBatoi(log) == 0 {
+				return fmt.Sprintf("```%s is not a valid channel ID!```", log), false, nil
+			}
+		}
+		info.config.Log.Channel = SBatoi(log)
 	}
 
 	silent, err := sb.dg.GuildRoleCreate(info.ID)
@@ -320,15 +362,6 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	if err != nil {
 		sb.dg.GuildRoleDelete(info.ID, silent.ID)
 		return fmt.Sprintf("```Failed to set up the silent role! %s```", err.Error()), false, nil
-	}
-
-	log := "[None]"
-	if len(args) > 2 {
-		log = StripPing(args[2])
-		if SBatoi(log) == 0 {
-			return fmt.Sprintf("```%s is not a valid channel ID!```", log), false, nil
-		}
-		info.config.Log.Channel = SBatoi(log)
 	}
 
 	info.config.Basic.AlertRole = SBatoi(mod)
