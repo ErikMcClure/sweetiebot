@@ -1,9 +1,10 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 // This module picks a random action to do whenever #manechat has been idle for several minutes (configurable)
@@ -31,6 +32,7 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
 
 	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.Bored.Commands) > 0 {
+		fmt.Println("Sending bored command on ", id)
 		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.Commands),
 			Author: &discordgo.User{
 				ID:       sb.SelfID,

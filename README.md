@@ -301,7 +301,7 @@ If your MariaDB installation uses default settings, your `db.auth` file should l
 
 If you get compiler errors, sweetiebot has two dependencies you should get:
 * `go get github.com/go-sql-driver/mysql`
-* `go get github.com/bwmarrin/discordgo`
+* `go get github.com/blackhole12/discordgo`
 
 If you're having any additional issues getting sweetiebot working, check INSTALLATION.md for more information.
 

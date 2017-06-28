@@ -1,6 +1,6 @@
 package sweetiebot
 
-import "github.com/bwmarrin/discordgo"
+import "github.com/blackhole12/discordgo"
 import "fmt"
 import "strings"
 
