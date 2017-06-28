@@ -1,6 +1,7 @@
 package sweetiebot
 
 import "fmt"
+import "time"
 
 type Logger interface {
 	Log(args ...interface{})
@@ -15,7 +16,7 @@ type Log struct {
 
 func (l *Log) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
-	fmt.Println(s)
+	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
 	if sb.db != nil && l.info != nil && sb.IsMainGuild(l.info) && sb.db.status.get() {
 		sb.db.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(l.info.ID))
 	}
