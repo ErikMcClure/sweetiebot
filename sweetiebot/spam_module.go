@@ -249,8 +249,13 @@ func DisableLockdown(info *GuildInfo) {
 		if sb.Debug {
 			modchan, _ = sb.DebugChannels[info.ID]
 		}
-		g := discordgo.GuildParams{"", "", &info.lockdown, 0, "", 0, "", "", ""}
-		_, err := sb.dg.GuildEdit(info.ID, g)
+		var err error
+		if info.Guild.VerificationLevel != discordgo.VerificationLevelHigh {
+			info.SendMessage(modchan, fmt.Sprintf("The verification level is at %v instead of %v, which means it was manually changed by someone other than sweetiebot, so it has not been restored.", info.Guild.VerificationLevel, discordgo.VerificationLevelHigh))
+		} else {
+			g := discordgo.GuildParams{"", "", &info.lockdown, 0, "", 0, "", "", ""}
+			_, err = sb.dg.GuildEdit(info.ID, g)
+		}
 		if err != nil {
 			info.SendMessage(modchan, "Could not disengage lockdown! Make sure you've given the Sweetie Bot role the Manage Server permission, you'll have to manually restore it yourself this time.")
 		} else {
@@ -350,6 +355,7 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 	if info.config.Spam.AutoSilence <= 0 {
 		DisableLockdown(info)
 	} else if c.s.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+		info.lastlockdown = time.Now().UTC() // Reset lockdown timer just in case
 		if !sb.db.CheckStatus() {
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
