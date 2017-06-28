@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 // Giving each possible hook function its own interface ensures each module

@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 type HelpModule struct {

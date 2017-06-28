@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 type UsersModule struct {

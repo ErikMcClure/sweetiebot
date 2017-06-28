@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 // This module is intended for any witty comments sweetie bot makes in response to what users say or do.

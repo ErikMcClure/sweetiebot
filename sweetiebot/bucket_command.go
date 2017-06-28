@@ -7,7 +7,7 @@ import (
 
 	"fmt"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 type BucketModule struct {

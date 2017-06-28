@@ -6,7 +6,7 @@ How to properly set up Sweetiebot for use on your server
 
 **3.** Clone the repository in its entirety
 
-**4.** Install the required libraries with the commands `go get github.com/go-sql-driver/mysql` and `go get github.com/bwmarrin/discordgo`.
+**4.** Install the required libraries with the commands `go get github.com/go-sql-driver/mysql` and `go get github.com/blackhole12/discordgo`.
 
 **5.** Open your command prompt / terminal in the `/main` folder and type `go build`. You should see `main.exe` appear in the folder.
 

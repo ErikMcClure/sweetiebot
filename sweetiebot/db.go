@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 	_ "github.com/go-sql-driver/mysql"
 )
 

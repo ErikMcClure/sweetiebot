@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/blackhole12/discordgo"
 )
 
 type ModuleHooks struct {
@@ -1311,6 +1311,7 @@ func SBGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
 }
 func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
 func SBGuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	fmt.Println("Sweetie was deleted from", m.Guild.Name)
 	sb.guildsLock.Lock()
 	delete(sb.guilds, SBatoi(m.Guild.ID))
 	sb.guildsLock.Unlock()
@@ -1469,6 +1470,8 @@ func IdleCheckLoop() {
 				DisableLockdown(info)
 			}
 		}
+
+		fmt.Println("Idle Check: ", time.Now())
 		time.Sleep(20 * time.Second)
 	}
 }
@@ -1538,7 +1541,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 0},
+		version:            Version{0, 9, 8, 1},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1557,6 +1560,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 1):  "- Switch to fork of discordgo to fix serious connection error handling issues.",
 			AssembleVersion(0, 9, 8, 0):  "- Attempts to register if she is removed from a server.\n- Silencing has been redone to minimize rate-limiting problems.\n- Sweetie now tracks the first time someone posts a message, used in the \"bannewcomers\" command, which bans everyone who sent their first message in the past two minutes (configurable).\n- Sweetie now attempts to engage a lockdown when a raid is detected by temporarily increasing the server verification level. YOU MUST GIVE HER \"MANAGE SERVER\" PERMISSIONS FOR THIS TO WORK! This can be disabled by setting Spam.LockdownDuration to 0.",
 			AssembleVersion(0, 9, 7, 9):  "- Discard Group DM errors from legacy conversations.",
 			AssembleVersion(0, 9, 7, 8):  "- Correctly deal with rare edge-case on !userinfo queries.",
@@ -1718,6 +1722,7 @@ func Initialize(Token string) {
 
 	//BuildMarkov(1, 1)
 	//return
+	sb.dg.LogLevel = discordgo.LogInformational
 	err = sb.dg.Open()
 	if err == nil {
 		fmt.Println("Connection established")
