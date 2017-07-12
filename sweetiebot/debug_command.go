@@ -321,7 +321,11 @@ func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indic
 					username = m.Username + "#" + m.Discriminator
 				}
 			}
-			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, v.Guild.MemberCount, len(v.Guild.Channels), username)))
+			count := v.Guild.MemberCount
+			if count < len(v.Guild.Members) {
+				count = len(v.Guild.Members)
+			}
+			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, count, len(v.Guild.Channels), username)))
 		}
 	}
 	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
