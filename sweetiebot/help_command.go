@@ -142,7 +142,7 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		Author: &discordgo.MessageEmbedAuthor{
 			URL:     "https://github.com/blackhole12/sweetiebot",
 			Name:    "Sweetie Bot v" + sb.version.String() + tag,
-			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.png", sb.SelfID, sb.SelfAvatar),
 		},
 		Color: 0x3e92e5,
 		Fields: []*discordgo.MessageEmbedField{

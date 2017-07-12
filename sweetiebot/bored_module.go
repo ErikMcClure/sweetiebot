@@ -32,7 +32,6 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
 
 	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && CheckShutup(id) && len(info.config.Bored.Commands) > 0 {
-		fmt.Println("Sending bored command on ", id)
 		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.Commands),
 			Author: &discordgo.User{
 				ID:       sb.SelfID,
@@ -42,6 +41,7 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 			},
 			Timestamp: discordgo.Timestamp(time.Now().UTC().Format(time.RFC3339Nano)),
 		}
+		fmt.Println("Sending bored command ", m.Content, " on ", id)
 
 		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID))
 	}
