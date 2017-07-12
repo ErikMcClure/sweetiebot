@@ -267,6 +267,7 @@ type SweetieBot struct {
 	UserAddBuffer      chan UserBuffer
 	MemberAddBuffer    chan []*discordgo.Member
 	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
+	locknumber         uint32
 }
 
 var sb *SweetieBot
@@ -1082,9 +1083,13 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	/*if m.Content == "DO_DEADLOCK" && sb.Debug {
-		sb.LastMessagesLock.Lock() // DEBUG: DELIBERATELY DEADLOCK
+		//sb.LastMessagesLock.Lock() // DEBUG: DELIBERATELY DEADLOCK
+		sb.dg.Lock()
+		fmt.Println("Deadlocking")
 	} else if m.Content == "UNDO_DEADLOCK" {
-		sb.LastMessagesLock.Unlock()
+		//sb.LastMessagesLock.Unlock()
+		sb.dg.Unlock()
+		fmt.Println("Undeadlocking")
 	}*/
 
 	t := time.Now().UTC().Unix()
@@ -1494,6 +1499,16 @@ func MemberProcessLoop() {
 	}
 }
 
+func DeadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
+	sb.dg.State.RLock()
+	sb.dg.State.RUnlock()
+	sb.locknumber++
+	sb.dg.RLock()
+	sb.dg.RUnlock()
+	sb.locknumber++
+	SBMessageCreate(sb.dg, m)
+}
+
 const HEARTBEAT_INTERVAL = 20
 
 func DeadlockDetector() {
@@ -1512,7 +1527,8 @@ func DeadlockDetector() {
 				Timestamp: discordgo.Timestamp(time.Now().UTC().Format(time.RFC3339Nano)),
 			},
 		}
-		go SBMessageCreate(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
+		sb.locknumber = 0
+		go DeadlockTestFunc(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
 		time.Sleep(HEARTBEAT_INTERVAL * time.Second)
 		if atomic.LoadUint32(&sb.heartbeat) == counter+1 {
 			counter++
@@ -1523,7 +1539,7 @@ func DeadlockDetector() {
 			counter = atomic.LoadUint32(&sb.heartbeat)
 		}
 		if missed >= 5 {
-			fmt.Println("FATAL ERROR: DEADLOCK DETECTED! TERMINATING PROGRAM...")
+			fmt.Println("FATAL ERROR: DEADLOCK DETECTED! (", sb.locknumber, ") TERMINATING PROGRAM...")
 			os.Exit(-1)
 		}
 	}
@@ -1541,7 +1557,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 2},
+		version:            Version{0, 9, 8, 3},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1560,6 +1576,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 3):  "- Allow deadlock detector to respond to deadlocks in the underlying discordgo library.\n- Fixed guild user count.",
 			AssembleVersion(0, 9, 8, 2):  "- Simplify sweetiebot setup\n- Setting autosilence now resets the lockdown timer\n- Sweetiebot won't restore the verification level if it was manually changed by an administrator.",
 			AssembleVersion(0, 9, 8, 1):  "- Switch to fork of discordgo to fix serious connection error handling issues.",
 			AssembleVersion(0, 9, 8, 0):  "- Attempts to register if she is removed from a server.\n- Silencing has been redone to minimize rate-limiting problems.\n- Sweetie now tracks the first time someone posts a message, used in the \"bannewcomers\" command, which bans everyone who sent their first message in the past two minutes (configurable).\n- Sweetie now attempts to engage a lockdown when a raid is detected by temporarily increasing the server verification level. YOU MUST GIVE HER \"MANAGE SERVER\" PERMISSIONS FOR THIS TO WORK! This can be disabled by setting Spam.LockdownDuration to 0.",
