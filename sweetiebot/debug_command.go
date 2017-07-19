@@ -286,7 +286,17 @@ func (s GuildSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s GuildSlice) Less(i, j int) bool {
-	return len(s[i].Guild.Members) > len(s[j].Guild.Members)
+	if s[i].Guild.MemberCount > len(s[i].Guild.Members) {
+		i = s[i].Guild.MemberCount
+	} else {
+		i = len(s[i].Guild.Members)
+	}
+	if s[j].Guild.MemberCount > len(s[j].Guild.Members) {
+		j = s[j].Guild.MemberCount
+	} else {
+		j = len(s[j].Guild.Members)
+	}
+	return i > j
 }
 
 type ListGuildsCommand struct {
