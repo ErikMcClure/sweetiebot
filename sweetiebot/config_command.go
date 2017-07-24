@@ -292,7 +292,11 @@ func (c *SetupCommand) Name() string {
 	return "Setup"
 }
 func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if msg.Author.ID != info.Guild.OwnerID {
+	guild, err := sb.dg.State.Guild(info.ID)
+	if err != nil || guild == nil {
+		return "```Can't find guild in state object?!?", false, nil
+	}
+	if msg.Author.ID != guild.OwnerID {
 		return "```Only the owner of this server can use this command!```", false, nil
 	}
 	if len(args) < 2 {
@@ -308,7 +312,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	if SBatoi(modchannel) == 0 {
 		if args[1][0] == '#' {
 			args[1] = strings.ToLower(args[1][1:])
-			for _, c := range info.Guild.Channels {
+			for _, c := range guild.Channels {
 				if strings.ToLower(c.Name) == args[1] {
 					modchannel = c.ID
 					break
@@ -322,7 +326,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	if SBatoi(mod) == 0 {
 		if args[0][0] == '@' {
 			args[0] = strings.ToLower(args[0][1:])
-			for _, r := range info.Guild.Roles {
+			for _, r := range guild.Roles {
 				if strings.ToLower(r.Name) == args[0] {
 					mod = r.ID
 					break
@@ -340,7 +344,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 		if SBatoi(log) == 0 {
 			if args[2][0] == '#' {
 				args[2] = strings.ToLower(args[2][1:])
-				for _, c := range info.Guild.Channels {
+				for _, c := range guild.Channels {
 					if strings.ToLower(c.Name) == args[2] {
 						log = c.ID
 						break

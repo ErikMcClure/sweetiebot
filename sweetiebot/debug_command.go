@@ -277,7 +277,7 @@ func (c *DumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
 
-type GuildSlice []*GuildInfo
+type GuildSlice []*discordgo.Guild
 
 func (s GuildSlice) Len() int {
 	return len(s)
@@ -286,15 +286,15 @@ func (s GuildSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 func (s GuildSlice) Less(i, j int) bool {
-	if s[i].Guild.MemberCount > len(s[i].Guild.Members) {
-		i = s[i].Guild.MemberCount
+	if s[i].MemberCount > len(s[i].Members) {
+		i = s[i].MemberCount
 	} else {
-		i = len(s[i].Guild.Members)
+		i = len(s[i].Members)
 	}
-	if s[j].Guild.MemberCount > len(s[j].Guild.Members) {
-		j = s[j].Guild.MemberCount
+	if s[j].MemberCount > len(s[j].Members) {
+		j = s[j].MemberCount
 	} else {
-		j = len(s[j].Guild.Members)
+		j = len(s[j].Members)
 	}
 	return i > j
 }
@@ -308,34 +308,34 @@ func (c *ListGuildsCommand) Name() string {
 func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
-	guilds := []*GuildInfo{}
-	for _, v := range sb.guilds {
-		guilds = append(guilds, v)
-	}
+	guilds := append([]*discordgo.Guild{}, sb.dg.State.Guilds...)
+	sb.dg.State.RUnlock()
 	sort.Sort(GuildSlice(guilds))
 	s := make([]string, 0, len(guilds))
 	private := 0
 	for _, v := range guilds {
 		if !isOwner {
-			if v.config.Basic.Importable {
-				s = append(s, PartialSanitize(v.Guild.Name))
+			sb.guildsLock.RLock()
+			g, ok := sb.guilds[SBatoi(v.ID)]
+			sb.guildsLock.RUnlock()
+			if ok && g.config.Basic.Importable {
+				s = append(s, PartialSanitize(v.Name))
 			} else {
 				private++
 			}
 		} else {
-			username := "<@" + v.Guild.OwnerID + ">"
+			username := "<@" + v.OwnerID + ">"
 			if sb.db.status.get() {
-				m, _, _, _ := sb.db.GetUser(SBatoi(v.Guild.OwnerID))
+				m, _, _, _ := sb.db.GetUser(SBatoi(v.OwnerID))
 				if m != nil {
 					username = m.Username + "#" + m.Discriminator
 				}
 			}
-			count := v.Guild.MemberCount
-			if count < len(v.Guild.Members) {
-				count = len(v.Guild.Members)
+			count := v.MemberCount
+			if count < len(v.Members) {
+				count = len(v.Members)
 			}
-			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Guild.Name, count, len(v.Guild.Channels), username)))
+			s = append(s, PartialSanitize(fmt.Sprintf("%v (%v users) [%v channels] - %v", v.Name, count, len(v.Channels), username)))
 		}
 	}
 	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
