@@ -2,7 +2,6 @@ package sweetiebot
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -187,36 +186,26 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 
 // Attempts to get a member from the guild by checking the state first before making the REST API call.
 func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
-	sb.dg.State.RLock()
-	for _, m := range info.Guild.Members {
-		if m.User.ID == id {
-			sb.dg.State.RUnlock()
-			return m, nil
-		}
+	m, err := sb.dg.State.Member(info.ID, id)
+	if err == nil {
+		return m, nil
 	}
-	sb.dg.State.RUnlock()
 	return sb.dg.GuildMember(info.ID, id)
 }
 
 // If a member does not exist, this function creates an entry in the state and returns that.
 func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
-	sb.dg.State.RLock()
-	for _, m := range info.Guild.Members {
-		if m.User.ID == u.ID {
-			sb.dg.State.RUnlock()
-			return m
-		}
+	m, err := sb.dg.State.Member(info.ID, u.ID)
+	if err == nil {
+		return m
 	}
-	sb.dg.State.RUnlock()
 
-	m, err := sb.dg.GuildMember(info.ID, u.ID)
+	m, err = sb.dg.GuildMember(info.ID, u.ID)
 	if err != nil || m == nil {
 		m = &discordgo.Member{info.ID, "", "", false, false, u, []string{}}
 	}
-	sb.dg.State.Lock()
-	defer sb.dg.State.Unlock()
-	info.Guild.Members = append(info.Guild.Members, m)
-	return info.Guild.Members[len(info.Guild.Members)-1]
+	sb.dg.State.MemberAdd(m)
+	return m
 }
 
 func ReadUserPingArg(args []string) (uint64, string) {
@@ -930,22 +919,18 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 }
 
 func getAllPerms(info *GuildInfo, user string) (int64, error) {
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
-	for _, v := range info.Guild.Members {
-		if v.User.ID == user {
-			var perms int64 = 0
-			for _, r := range v.Roles {
-				for _, x := range info.Guild.Roles {
-					if x.ID == r {
-						perms |= int64(x.Permissions)
-					}
-				}
-			}
-			return perms, nil
+	m, err := sb.dg.State.Member(info.ID, user)
+	if err != nil {
+		return 0, err
+	}
+	var perms int64 = 0
+	for _, r := range m.Roles {
+		role, err := sb.dg.State.Role(info.ID, r)
+		if err != nil {
+			perms |= int64(role.Permissions)
 		}
 	}
-	return 0, errors.New("Cannot find member!")
+	return perms, nil
 }
 
 func findServers(name string, guilds []uint64) []*GuildInfo {
@@ -992,7 +977,12 @@ func snowflakeTime(id uint64) time.Time {
 
 func setupSilenceRole(info *GuildInfo) {
 	if info.config.Spam.SilentRole > 0 {
-		for _, ch := range info.Guild.Channels {
+		guild, err := sb.dg.State.Guild(info.ID)
+		if err != nil {
+			info.log.Log("Failed to setup silence roles!")
+			return
+		}
+		for _, ch := range guild.Channels {
 			if SBatoi(ch.ID) != info.config.Users.WelcomeChannel {
 				allow := 0
 				deny := 0

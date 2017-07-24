@@ -429,23 +429,12 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if err == nil {
 		joined = TimeDiff(time.Now().UTC().Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
 	}
-	guildroles, err := sb.dg.GuildRoles(info.ID)
-	if err != nil {
-		guildroles = info.Guild.Roles
-	}
-
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
 
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {
+		role, err := sb.dg.State.Role(info.ID, v)
 		if err == nil {
-			for _, role := range guildroles {
-				if role.ID == v {
-					roles = append(roles, role.Name)
-					break
-				}
-			}
+			roles = append(roles, role.Name)
 		} else {
 			roles = append(roles, "<@&"+v+">")
 		}

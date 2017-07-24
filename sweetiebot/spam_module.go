@@ -90,15 +90,6 @@ func SilenceMemberSimple(userID string, info *GuildInfo) int8 {
 	return 0
 }
 
-func BanMember(u *discordgo.User, info *GuildInfo) {
-	m, err := sb.dg.GuildMember(info.ID, u.ID)
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
-	if err != nil || IsSilenced(m, info) {
-		sb.dg.GuildBanCreate(info.ID, u.ID, 1)
-	}
-}
-
 func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
 	// Before anything else happens, we delete this message. This ensures that even if we get rate-limited, we can still delete any new messages
 	if info.config.Spam.MaxRemoveLookback >= 0 {
@@ -124,7 +115,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
-		BanMember(u, info)
+		sb.dg.GuildBanCreateWithReason(info.ID, u.ID, "Autobanned for "+reason+" in the welcome channel.", 1)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
 		info.log.Log(logmsg)
 		return
@@ -249,9 +240,11 @@ func DisableLockdown(info *GuildInfo) {
 		if sb.Debug {
 			modchan, _ = sb.DebugChannels[info.ID]
 		}
-		var err error
-		if info.Guild.VerificationLevel != discordgo.VerificationLevelHigh {
-			info.SendMessage(modchan, fmt.Sprintf("The verification level is at %v instead of %v, which means it was manually changed by someone other than sweetiebot, so it has not been restored.", info.Guild.VerificationLevel, discordgo.VerificationLevelHigh))
+		guild, err := sb.dg.State.Guild(info.ID)
+		if err != nil {
+			info.SendMessage(modchan, "Guild cannot be found in state?!")
+		} else if guild.VerificationLevel != discordgo.VerificationLevelHigh {
+			info.SendMessage(modchan, fmt.Sprintf("The verification level is at %v instead of %v, which means it was manually changed by someone other than sweetiebot, so it has not been restored.", guild.VerificationLevel, discordgo.VerificationLevelHigh))
 		} else {
 			g := discordgo.GuildParams{"", "", &info.lockdown, 0, "", 0, "", "", ""}
 			_, err = sb.dg.GuildEdit(info.ID, g)
@@ -286,10 +279,15 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `!autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
 		if info.config.Spam.LockdownDuration > 0 {
 			if info.lockdown == -1 { // Only engage lockdown if it wasn't already engaged
-				info.lockdown = info.Guild.VerificationLevel
+				guild, err := sb.dg.State.Guild(info.ID)
+				if err != nil {
+					info.lockdown = discordgo.VerificationLevelHigh
+				} else {
+					info.lockdown = guild.VerificationLevel
+				}
 				level := discordgo.VerificationLevelHigh
 				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", ""}
-				_, err := sb.dg.GuildEdit(info.ID, g)
+				_, err = sb.dg.GuildEdit(info.ID, g)
 				if err != nil {
 					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given Sweetie Bot the Manage Server permission, or disable the lockdown entirely via `!setconfig spam.lockdownduration 0`.")
 				} else {
