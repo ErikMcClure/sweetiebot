@@ -194,9 +194,9 @@ var ConfigHelp map[string]string = map[string]string{
 }
 
 type GuildInfo struct {
-	ID           string           // Cache the ID because it doesn't change
-	Name         string           // Cache the name to reduce locking
-	Guild        *discordgo.Guild // This should only be accessed with a read lock on sb.dg.State
+	ID           string // Cache the ID because it doesn't change
+	Name         string // Cache the name to reduce locking
+	OwnerID      string
 	log          *Log
 	commandLock  sync.RWMutex
 	command_last map[string]map[string]int64
@@ -257,8 +257,6 @@ type SweetieBot struct {
 	quit               AtomicBool
 	guilds             map[uint64]*GuildInfo
 	guildsLock         sync.RWMutex
-	GuildChannels      map[string]*GuildInfo
-	GuildChannelsLock  sync.RWMutex
 	LastMessages       map[string]int64
 	LastMessagesLock   sync.RWMutex
 	MaxConfigSize      int
@@ -496,17 +494,16 @@ func ExtraSanitize(s string) string {
 	return PartialSanitize(ReplaceAllMentions(s))
 }
 
+func TypeIsPrivate(ty discordgo.ChannelType) bool {
+	return ty != discordgo.ChannelTypeGuildText && ty != discordgo.ChannelTypeGuildCategory && ty != discordgo.ChannelTypeGuildVoice
+}
 func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
 	if channelID == "heartbeat" {
 		return nil, true
 	}
 	ch, err := sb.dg.State.Channel(channelID)
 	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-		return ch, ch.IsPrivate
-	}
-	ch, err = sb.dg.State.PrivateChannel(channelID)
-	if err == nil {
-		return ch, true
+		return ch, TypeIsPrivate(ch.Type)
 	}
 	// Bots aren't supposed to be in Group DMs but can be grandfathered into them, and these channels will always fail to exist, so we simply ignore this error as harmless.
 	return nil, true
@@ -629,7 +626,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild = &GuildInfo{
 		ID:           g.ID,
 		Name:         g.Name,
-		Guild:        g,
+		OwnerID:      g.OwnerID,
 		command_last: make(map[string]map[string]int64),
 		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 		commands:     make(map[string]Command),
@@ -814,13 +811,6 @@ func AttachToGuild(g *discordgo.Guild) {
 		go guild.SwapStatusLoop()
 	}
 
-	stateguild, err := sb.dg.State.Guild(g.ID)
-	if err == nil {
-		guild.Guild = stateguild
-	} else {
-		fmt.Println("COULD NOT SYNC STATE GUILD POINTER FOR: ", guild.Name, " - ", guild.ID)
-	}
-
 	go func() { // Do this concurrently because we don't need this to function properly, we just need it to happen eventually
 		// Discord doesn't send us all the members, so we force feed them into the state ourselves
 		members := []*discordgo.Member{}
@@ -835,11 +825,8 @@ func AttachToGuild(g *discordgo.Guild) {
 		}
 		for i := range members { // Put the guildID back in because discord is stupid
 			members[i].GuildID = guild.ID
+			sb.dg.State.MemberAdd(members[i])
 		}
-
-		sb.dg.State.Lock()
-		defer sb.dg.State.Unlock()
-		guild.Guild.Members = members
 	}()
 
 	debug := "."
@@ -859,9 +846,14 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
 func GetChannelGuild(id string) *GuildInfo {
-	sb.GuildChannelsLock.RLock()
-	g, ok := sb.GuildChannels[id]
-	sb.GuildChannelsLock.RUnlock()
+	c, err := sb.dg.State.Channel(id)
+	if err != nil {
+		fmt.Println("Failed to get channel " + id)
+		return nil
+	}
+	sb.guildsLock.RLock()
+	g, ok := sb.guilds[SBatoi(c.GuildID)]
+	sb.guildsLock.RUnlock()
 	if !ok {
 		return nil
 	}
@@ -922,7 +914,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
 				}
 			})
-			if ignore && !isOwner && m.Author.ID != info.Guild.OwnerID { // if true, a module wants us to ignore this command
+			if ignore && !isOwner && m.Author.ID != info.OwnerID { // if true, a module wants us to ignore this command
 				return
 			}
 		}
@@ -972,7 +964,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			if isdbguild && sb.db.status.get() && m.Author.ID != sb.SelfID {
 				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.ID))
 			}
-			isOwner = isOwner || m.Author.ID == info.Guild.OwnerID
+			isOwner = isOwner || m.Author.ID == info.OwnerID
 			cmdname := strings.ToLower(c.Name())
 			cch := info.config.Modules.CommandChannels[cmdname]
 			_, disabled := info.config.Modules.CommandDisabled[cmdname]
@@ -1132,7 +1124,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 	} else {
+		sb.guildsLock.RLock()
 		info, _ = sb.guilds[sb.MainGuildID]
+		sb.guildsLock.RUnlock()
 	}
 
 	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug)
@@ -1159,7 +1153,7 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	info.log.LogError("Error retrieving channel ID "+m.ChannelID+": ", err)
 	private := true
 	if err == nil {
-		private = ch.IsPrivate
+		private = TypeIsPrivate(ch.Type)
 	}
 	cid := SBatoi(m.ChannelID)
 	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.db.CheckStatus() { // Always ignore messages from the log channel
@@ -1326,20 +1320,11 @@ func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 	guild, ok := sb.guilds[SBatoi(c.GuildID)]
 	sb.guildsLock.RUnlock()
 	if ok {
-		sb.GuildChannelsLock.Lock()
-		sb.GuildChannels[c.ID] = guild
-		sb.GuildChannelsLock.Unlock()
-		ch, err := sb.dg.GuildChannels(c.GuildID)
-		if err == nil {
-			guild.Guild.Channels = ch
-		}
 		setupSilenceRole(guild)
 	}
 }
 func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
-	sb.GuildChannelsLock.Lock()
-	delete(sb.GuildChannels, c.ID)
-	sb.GuildChannelsLock.Unlock()
+
 }
 func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	isonline := (p != nil && p.Status != "Offline")
@@ -1373,41 +1358,22 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 }
 
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	sb.dg.State.Lock()
-	if len(g.Members) == 0 || len(g.Channels) == 0 || len(g.Roles) == 0 { // If this is true we were given half a guild update
-		defer sb.dg.State.Unlock()
-		info.log.Log("Got half a guild update for " + g.Name)
-		info.Name = g.Name
-		info.Guild.Name = g.Name
-		info.Guild.Icon = g.Icon
-		info.Guild.Region = g.Region
-		info.Guild.AfkChannelID = g.AfkChannelID
-		info.Guild.EmbedChannelID = g.EmbedChannelID
-		info.Guild.OwnerID = g.OwnerID
-		info.Guild.JoinedAt = g.JoinedAt
-		info.Guild.Splash = g.Splash
-		info.Guild.AfkTimeout = g.AfkTimeout
-		info.Guild.VerificationLevel = g.VerificationLevel
-		info.Guild.EmbedEnabled = g.EmbedEnabled
-		info.Guild.Large = g.Large
-		info.Guild.DefaultMessageNotifications = g.DefaultMessageNotifications
-	} else {
-		info.Guild = g
-		info.Name = g.Name
-		sb.dg.State.Unlock()
-		for _, v := range info.Guild.Channels {
-			sb.GuildChannelsLock.Lock()
-			sb.GuildChannels[v.ID] = info
-			sb.GuildChannelsLock.Unlock()
-		}
+	info.Name = g.Name
+	info.OwnerID = g.OwnerID
+
+	if len(g.Members) > 0 {
 		sb.MemberAddBuffer <- g.Members
 	}
 }
 
 func (info *GuildInfo) FindChannelID(name string) string {
+	guild, err := sb.dg.State.Guild(info.ID)
+	if err != nil {
+		return ""
+	}
 	sb.dg.State.RLock()
 	defer sb.dg.State.RUnlock()
-	for _, v := range info.Guild.Channels {
+	for _, v := range guild.Channels {
 		if v.Name == name {
 			return v.ID
 		}
@@ -1423,14 +1389,11 @@ func ApplyFuncRange(length int, fn func(i int)) {
 }
 
 func (info *GuildInfo) HasChannel(id string) bool {
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
-	for _, v := range info.Guild.Channels {
-		if v.ID == id {
-			return true
-		}
+	c, err := sb.dg.State.Channel(id)
+	if err != nil {
+		return false
 	}
-	return false
+	return c.GuildID == info.ID
 }
 
 func IdleCheckLoop() {
@@ -1442,7 +1405,13 @@ func IdleCheckLoop() {
 		}
 		sb.guildsLock.RUnlock()
 		for _, info := range infos {
-			channels := info.Guild.Channels
+			guild, err := sb.dg.State.Guild(info.ID)
+			if err != nil {
+				continue
+			}
+			sb.dg.State.RLock()
+			channels := guild.Channels
+			sb.dg.State.RUnlock()
 			if sb.Debug { // override this in debug mode
 				c, err := sb.dg.State.Channel(sb.DebugChannels[info.ID])
 				if err == nil {
@@ -1557,7 +1526,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 4},
+		version:            Version{0, 9, 8, 5},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1565,7 +1534,6 @@ func Initialize(Token string) {
 		MainGuildID:        98609319519453184,
 		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
 		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
-		GuildChannels:      make(map[string]*GuildInfo),
 		quit:               AtomicBool{0},
 		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
@@ -1576,6 +1544,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 5):  "- Augment discordgo with maps instead of slices, and switch to using standard discordgo functions.",
 			AssembleVersion(0, 9, 8, 4):  "- Update discordgo.",
 			AssembleVersion(0, 9, 8, 3):  "- Allow deadlock detector to respond to deadlocks in the underlying discordgo library.\n- Fixed guild user count.",
 			AssembleVersion(0, 9, 8, 2):  "- Simplify sweetiebot setup\n- Setting autosilence now resets the lockdown timer\n- Sweetiebot won't restore the verification level if it was manually changed by an administrator.",

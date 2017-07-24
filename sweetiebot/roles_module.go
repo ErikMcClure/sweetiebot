@@ -229,10 +229,14 @@ func (c *ListRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		return e, false, nil
 	}
 
+	guild, err := sb.dg.State.Guild(info.ID)
+	if err != nil {
+		return "```Guild not in state?!```", false, nil
+	}
 	sb.dg.State.RLock()
 	defer sb.dg.State.RUnlock()
 	out := []string{}
-	for _, v := range info.Guild.Members {
+	for _, v := range guild.Members {
 		if info.UserHasRole(v.User.ID, r.ID) {
 			if len(v.Nick) > 0 {
 				out = append(out, v.Nick)
