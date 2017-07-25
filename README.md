@@ -13,7 +13,7 @@ A limited version of sweetiebot can be added to any server. Simply follow [this 
 
 ## Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). Sweetiebot should send you a PM when she is first added with instructions on how to run the `!setup` command. **You must run `!setup` to configure Sweetie Bot for your server!** `!setup` takes the following parameters, in order:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. **Only the owner of a server can setup Sweetie Bot. No one else can, even if they have admin rights.** This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). Sweetiebot should send you a PM when she is first added with instructions on how to run the `!setup` command. **You must run `!setup` to configure Sweetie Bot for your server!** `!setup` takes the following parameters, in order:
 
 * **Mod Role** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
 * **Mod Channel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
