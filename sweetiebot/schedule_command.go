@@ -343,7 +343,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	t, err := parseCommonTime(args[1], info, msg.Author)
 	if err != nil {
-		return "```Error: Could not parse time! Make sure it's in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional)```", false, nil
+		return "```Error: Could not parse time! Make sure it's in the format \"2 January 2006 3:04pm -0700\" (or something similar, year, time and timezone are optional)```", false, nil
 	}
 	t = t.UTC()
 	if t.Before(time.Now().UTC()) {
@@ -386,7 +386,7 @@ func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, role. You shouldn't add birthday or reminder events manually, though.", Optional: false},
 			CommandUsageParam{Name: "role/user", Desc: "The target role or user to ping. Only include this if the type is role or reminder. If the type is \"role\", it must be an actual ping for the role, not just the name.", Optional: true},
-			CommandUsageParam{Name: "date", Desc: "A date in the format 12 Jun 16 2:10pm. The time, year, and timezone are all optional.", Optional: false},
+			CommandUsageParam{Name: "date", Desc: "A date in the format 12 Jun 16 2:10pm, in quotes. The time, year, and timezone are all optional.", Optional: false},
 			CommandUsageParam{Name: "REPEAT N INTERVAL", Desc: "INTERVAL can be one of SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS. This parameter MUST be surrounded by quotes!", Optional: true},
 		},
 	}
@@ -454,7 +454,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 3 {
-		return "```You must start your message with 'in' or 'on', followed by a time or duration, followed by a message.```", false, nil
+		return "```You must start your message with 'in' or 'on', followed by a date (in quotes!) or duration, followed by a message.```", false, nil
 	}
 
 	var t time.Time
@@ -465,6 +465,9 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices
 		d, err := strconv.Atoi(args[1])
 		if err != nil {
 			return "```Duration is not numeric! Make sure it's in the format 'in 99 days', and DON'T put quotes around it.```", false, nil
+		}
+		if d <= 0 {
+			return "```That was " + TimeDiff(time.Now().UTC().Sub(t)) + " ago, you idiot! Do you think I have a time machine or something?```", false, nil
 		}
 		switch parseRepeatInterval(args[2]) {
 		case 1:
@@ -492,7 +495,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices
 		var err error
 		t, err = parseCommonTime(strings.ToLower(args[1]), info, msg.Author)
 		if err != nil {
-			return "```Could not parse time! Make sure its in the format \"2 Jan 06 3:04pm -0700\" (time and timezone are optional). Make sure you surround it with quotes!```", false, nil
+			return "```Could not parse time! Make sure its in the format \"2 January 2006 3:04pm -0700\" (or something similar, time, year, and timezone are optional). Make sure you surround it with quotes!```", false, nil
 		}
 		t = t.UTC()
 		if t.Before(time.Now().UTC()) {
@@ -514,7 +517,7 @@ func (c *RemindMeCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Tells sweetiebot to remind you about something in the future. ",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "in N seconds/minutes/hours/etc.", Desc: "represents a time `N` units from the current time. The available units are: seconds, minutes, hours, days, weeks, months, years.", Optional: true},
-			CommandUsageParam{Name: "on \"2 Jan 06 3:04pm -0700\"", Desc: "represents an absolute date and time. You must choose the `in` syntax OR the `on` syntax to specify your time, not both.", Optional: true},
+			CommandUsageParam{Name: "on \"2 January 2006 3:04pm -0700\"", Desc: "represents an absolute date and time, which must be in quotes. You must choose the `in` syntax OR the `on` syntax to specify your time, not both.", Optional: true},
 			CommandUsageParam{Name: "message", Desc: "An arbitrary string that will be sent to you at the appropriate time.", Optional: false},
 		},
 	}
@@ -541,6 +544,12 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, indi
 	t, err := time.ParseInLocation("_2 Jan 2006", arg, getTimezone(info, nil)) // Deliberately do not include the user timezone here. We want this to operate on the server timezone.
 	if err != nil {
 		t, err = time.ParseInLocation("Jan _2 2006", arg, getTimezone(info, nil))
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("January _2 2006", arg, getTimezone(info, nil))
+	}
+	if err != nil {
+		t, err = time.ParseInLocation("_2 January 2006", arg, getTimezone(info, nil))
 	}
 	t = t.UTC()
 	if err != nil {

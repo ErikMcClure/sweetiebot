@@ -873,47 +873,78 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 	return nil
 }
 
+const (
+	FORMAT_PARTIALYEAR = 0
+	FORMAT_FULLYEAR    = 1
+	FORMAT_NOYEAR      = 2
+	FORMAT_STANDARD    = 0
+	FORMAT_MILITARY    = 1
+	FORMAT_NOTIME      = 2
+	FORMAT_ZONEOFFSET  = 0
+	FORMAT_ZONEHOURS   = 1
+	FORMAT_ZONENAME    = 2
+	FORMAT_NOZONE      = 3
+)
+
+func getTimeFormat(monthfirst bool, fullmonth bool, year int, hours int, timezone int) string {
+	month := "Jan"
+	if fullmonth {
+		month = "January"
+	}
+	date := "_2 " + month
+	if monthfirst {
+		date = month + " _2"
+	}
+	switch year {
+	case FORMAT_PARTIALYEAR:
+		date += " 06"
+	case FORMAT_FULLYEAR:
+		date += " 2006"
+	}
+	switch hours {
+	case FORMAT_STANDARD:
+		date += " 3:04pm"
+	case FORMAT_MILITARY:
+		date += " 15:04"
+	}
+	switch timezone {
+	case FORMAT_ZONEOFFSET:
+		date += " -0700"
+	case FORMAT_ZONEHOURS:
+		date += " -07"
+	case FORMAT_ZONENAME:
+		date += " MST"
+	}
+	return date
+}
 func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time, error) {
-	t, err := time.ParseInLocation("_2 Jan 06 3:04pm -0700", s, locUTC)
+	var t time.Time
+	var err error
 	tz := getTimezone(info, user)
-	if err != nil {
-		t, err = time.ParseInLocation("_2 Jan 2006 3:04pm -0700", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("_2 Jan 2006 15:04 -0700", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 2006 3:04pm", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 2006 15:04", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 2006", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 3:04pm", s, tz)
-		if err == nil {
-			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+
+	// Iterate through every single imaginable time format that we could possibly parse
+	for year := 0; year < 3; year++ {
+		for hours := 0; hours < 3; hours++ {
+			for timezone := 0; timezone < 4; timezone++ {
+				for monthfirst := 0; monthfirst < 2; monthfirst++ {
+					for fullmonth := 0; fullmonth < 2; fullmonth++ {
+						format := getTimeFormat(monthfirst != 0, fullmonth != 0, year, hours, timezone)
+
+						if timezone == FORMAT_NOZONE {
+							t, err = time.ParseInLocation(format, s, tz)
+						} else {
+							t, err = time.Parse(format, s)
+						}
+						if err == nil {
+							if year == FORMAT_NOYEAR {
+								t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
+							}
+							return t, err
+						}
+					}
+				}
+			}
 		}
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2 15:04", s, tz)
-		if err == nil {
-			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
-		}
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("Jan _2", s, tz)
-		if err == nil {
-			t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
-		}
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("_2 Jan 06 3:04pm", s, tz)
-	}
-	if err != nil {
-		t, err = time.ParseInLocation("_2 Jan 06", s, tz)
 	}
 	return t, err
 }
