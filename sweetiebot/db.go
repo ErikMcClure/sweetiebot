@@ -257,7 +257,9 @@ func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 }
 func (db *BotDB) CheckError(name string, err error) bool {
 	if err != nil {
-		db.log.LogError(name+" error: ", err)
+		if db.status.get() {
+			db.log.LogError(name+" error: ", err)
+		}
 		if err != sql.ErrNoRows && err != sql.ErrTxDone {
 			if db.db.Ping() != nil {
 				db.status.set(false)
