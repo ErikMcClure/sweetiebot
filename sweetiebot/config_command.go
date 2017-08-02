@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -30,6 +31,40 @@ func (w *ConfigModule) Commands() []Command {
 
 func (w *ConfigModule) Description() string { return "Manages Sweetie Bot's configuration file." }
 
+func FixRequest(arg string, t reflect.Value) (string, error) {
+	args := strings.SplitN(strings.ToLower(arg), ".", 3)
+	list := []string{}
+	n := t.NumField()
+
+	for i := 0; i < n; i++ {
+		if strings.ToLower(t.Type().Field(i).Name) == args[0] {
+			return arg, nil
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		switch t.Field(i).Kind() {
+		case reflect.Struct:
+			f := t.Field(i)
+			for j := 0; j < f.NumField(); j++ {
+				if strings.ToLower(f.Type().Field(j).Name) == args[0] {
+					list = append(list, t.Type().Field(i).Name)
+				}
+			}
+		}
+	}
+	if len(list) < 1 {
+		return arg, nil
+	}
+	if len(list) == 1 {
+		return strings.ToLower(list[0]) + "." + arg, nil
+	}
+	for i := 0; i < len(list); i++ {
+		list[i] += "." + args[0]
+	}
+	return "", errors.New("```Could be any of the following:\n" + strings.Join(list, "\n") + "```")
+}
+
 type SetConfigCommand struct {
 }
 
@@ -42,6 +77,11 @@ func (c *SetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	if len(args) < 2 {
 		return "```No value to set!```", false, nil
+	}
+	var err error
+	args[0], err = FixRequest(args[0], reflect.ValueOf(&info.config).Elem())
+	if err != nil {
+		return err.Error(), false, nil
 	}
 	n, ok := info.SetConfig(args[0], args[1], args[2:]...)
 	info.SaveConfig()
@@ -154,6 +194,32 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect
 	return "```\n" + strings.Join(s, "\n") + "```", false, nil
 }
 
+func (c *GetConfigCommand) GetSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(arg) > 2 {
+		str := f.Type().Field(j).Name
+		var val reflect.Value
+		switch f.Field(j).Interface().(type) {
+		case map[string]string, map[string]int64, map[string]map[string]bool:
+			val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
+		case map[int64]int:
+			ival, _ := strconv.ParseInt(arg[2], 10, 64)
+			val = f.Field(j).MapIndex(reflect.ValueOf(ival))
+		case map[int]string:
+			ival, _ := strconv.Atoi(arg[2])
+			val = f.Field(j).MapIndex(reflect.ValueOf(ival))
+		case map[uint64][]string:
+			val = f.Field(j).MapIndex(reflect.ValueOf(SBatoi(arg[2])))
+		default:
+			return fmt.Sprintf("```Error: %s is not a map.```", str), false, nil
+		}
+		if !val.IsValid() || val == reflect.Zero(val.Type()) {
+			return fmt.Sprintf("```Error: Can't find %v in %s.```", arg[2], str), false, nil
+		}
+		return c.GetOption(val, info, f)
+	}
+	return c.GetOption(f.Field(j), info, f)
+}
+
 func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	t := reflect.ValueOf(&info.config).Elem()
 	n := t.NumField()
@@ -164,9 +230,9 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 			case reflect.Struct:
 				f := t.Field(i)
 				s := make([]string, 0, f.NumField())
-				for i := 0; i < f.NumField(); i++ {
-					str := f.Type().Field(i).Name
-					switch f.Field(i).Interface().(type) {
+				for j := 0; j < f.NumField(); j++ {
+					str := f.Type().Field(j).Name
+					switch f.Field(j).Interface().(type) {
 					case []uint64, map[string]bool:
 						str += " [list]"
 					case map[string]string, map[int64]int, map[int]string, map[string]int64:
@@ -192,6 +258,11 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		info.SendEmbed(msg.ChannelID, embed)
 		return "", false, nil
 	}
+	var err error
+	args[0], err = FixRequest(args[0], t)
+	if err != nil {
+		return err.Error(), false, nil
+	}
 	arg := strings.SplitN(strings.ToLower(args[0]), ".", 3)
 	if len(args) > 1 {
 		arg = append(arg, args[1])
@@ -205,29 +276,7 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 				if len(arg) > 1 {
 					for j := 0; j < f.NumField(); j++ {
 						if strings.ToLower(f.Type().Field(j).Name) == arg[1] {
-							if len(arg) > 2 {
-								str := f.Type().Field(j).Name
-								var val reflect.Value
-								switch f.Field(j).Interface().(type) {
-								case map[string]string, map[string]int64, map[string]map[string]bool:
-									val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
-								case map[int64]int:
-									ival, _ := strconv.ParseInt(arg[2], 10, 64)
-									val = f.Field(j).MapIndex(reflect.ValueOf(ival))
-								case map[int]string:
-									ival, _ := strconv.Atoi(arg[2])
-									val = f.Field(j).MapIndex(reflect.ValueOf(ival))
-								case map[uint64][]string:
-									val = f.Field(j).MapIndex(reflect.ValueOf(SBatoi(arg[2])))
-								default:
-									return fmt.Sprintf("```Error: %s is not a map.```", str), false, nil
-								}
-								if !val.IsValid() || val == reflect.Zero(val.Type()) {
-									return fmt.Sprintf("```Error: Can't find %v in %s.```", arg[2], str), false, nil
-								}
-								return c.GetOption(val, info, t.Field(i))
-							}
-							return c.GetOption(f.Field(j), info, t.Field(i))
+							return c.GetSubStruct(arg, f, j, info)
 						}
 					}
 				} else {

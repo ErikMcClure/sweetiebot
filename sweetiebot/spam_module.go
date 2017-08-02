@@ -300,18 +300,19 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 	}
 }
 func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
+	created := "(Created " + TimeDiff(time.Now().UTC().Sub(snowflakeTime(SBatoi(m.User.ID)))) + " ago)"
 	if info.config.Spam.AutoSilence >= 2 || (info.config.Spam.AutoSilence >= 1 && w.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix()) {
 		SilenceMember(m.User, info)
-		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server and was autosilenced. Please vet them before unsilencing them.")
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> "+created+" joined the server and was autosilenced. Please vet them before unsilencing them.")
 		if len(info.config.Users.WelcomeMessage) > 0 {
 			info.SendMessage(SBitoa(info.config.Users.WelcomeChannel), "<@"+m.User.ID+"> "+info.config.Users.WelcomeMessage)
 		}
 	}
 	if info.config.Spam.AutoSilence == -1 {
-		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> joined the server.")
+		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> "+created+" joined the server.")
 	}
 	if info.config.Spam.AutoSilence == -2 {
-		info.SendMessage(SBitoa(info.config.Log.Channel), "<@"+m.User.ID+"> joined the server.")
+		info.SendMessage(SBitoa(info.config.Log.Channel), "<@"+m.User.ID+"> "+created+" joined the server.")
 	}
 	w.checkRaid(info, m)
 }
