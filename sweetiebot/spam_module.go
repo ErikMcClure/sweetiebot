@@ -276,7 +276,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		if sb.Debug {
 			ch, _ = sb.DebugChannels[info.ID]
 		}
-		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `!autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
+		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `"+info.config.Basic.CommandPrefix+"autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
 		if info.config.Spam.LockdownDuration > 0 {
 			if info.lockdown == -1 { // Only engage lockdown if it wasn't already engaged
 				guild, err := sb.dg.State.Guild(info.ID)
@@ -289,9 +289,9 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", ""}
 				_, err = sb.dg.GuildEdit(info.ID, g)
 				if err != nil {
-					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given Sweetie Bot the Manage Server permission, or disable the lockdown entirely via `!setconfig spam.lockdownduration 0`.")
+					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given Sweetie Bot the Manage Server permission, or disable the lockdown entirely via `"+info.config.Basic.CommandPrefix+"setconfig spam.lockdownduration 0`.")
 				} else {
-					info.SendMessage(ch, fmt.Sprintf("Lockdown engaged! Server verification level will be reset in %v seconds. This lockdown can be manually ended via `!autosilence off/alert/log`.", info.config.Spam.LockdownDuration))
+					info.SendMessage(ch, fmt.Sprintf("Lockdown engaged! Server verification level will be reset in %v seconds. This lockdown can be manually ended via `"+info.config.Basic.CommandPrefix+"autosilence off/alert/log`.", info.config.Spam.LockdownDuration))
 				}
 			}
 			// Otherwise just reset the timer
