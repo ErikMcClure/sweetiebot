@@ -88,7 +88,7 @@ func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indic
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 3 {
-		return "```You must provide a name, a description, and one or more options to create the poll. Example: !createpoll pollname \"Description With Space\" \"Option 1\" \"Option 2\"```", false, nil
+		return "```You must provide a name, a description, and one or more options to create the poll. Example: " + info.config.Basic.CommandPrefix + "createpoll pollname \"Description With Space\" \"Option 1\" \"Option 2\"```", false, nil
 	}
 	gID := SBatoi(info.ID)
 	name := strings.ToLower(args[0])
@@ -174,12 +174,12 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []i
 		if len(polls) > 0 {
 			lastpoll = fmt.Sprintf(" The most recent poll is \"%s\".", polls[0].name)
 		}
-		return fmt.Sprintf("```You have to provide both a poll name and the option you want to vote for!%s Use !poll without any arguments to list all active polls.```", lastpoll), false, nil
+		return fmt.Sprintf("```You have to provide both a poll name and the option you want to vote for!%s Use "+info.config.Basic.CommandPrefix+"poll without any arguments to list all active polls.```", lastpoll), false, nil
 	}
 	name := strings.ToLower(args[0])
 	id, _ := sb.db.GetPoll(name, gID)
 	if id == 0 {
-		return "```That poll doesn't exist! Use !poll with no arguments to list all active polls.```", false, nil
+		return "```That poll doesn't exist! Use " + info.config.Basic.CommandPrefix + "poll with no arguments to list all active polls.```", false, nil
 	}
 
 	option, err := strconv.ParseUint(args[1], 10, 64)
@@ -198,7 +198,7 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```Error adding vote.```", false, nil
 	}
 
-	return "```Voted! Use !results to check the results.```", false, nil
+	return "```Voted! Use " + info.config.Basic.CommandPrefix + "results to check the results.```", false, nil
 }
 func (c *VoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

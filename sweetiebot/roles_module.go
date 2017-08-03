@@ -149,7 +149,7 @@ func (c *AddRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	}
 	info.config.Users.Roles[SBatoi(r.ID)] = true
 	info.SaveConfig()
-	return fmt.Sprintf("```Created the %s role. By default, it has no permissions and can be pinged by users, but you can change these settings if you like. Use !deleterole to delete it.```", r.Name), false, nil
+	return fmt.Sprintf("```Created the %s role. By default, it has no permissions and can be pinged by users, but you can change these settings if you like. Use "+info.config.Basic.CommandPrefix+"deleterole to delete it.```", r.Name), false, nil
 }
 func (c *AddRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -189,7 +189,7 @@ func (c *JoinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	if r.Mentionable {
 		pingable = " You may ping everyone in the role via @" + r.Name + ", but do so sparingly."
 	}
-	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via !leaverole %s, or list everyone in it via !listrole %s.%s```", r.Name, r.Name, r.Name, pingable), false, nil
+	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via "+info.config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.config.Basic.CommandPrefix+"listrole %s.%s```", r.Name, r.Name, r.Name, pingable), false, nil
 }
 func (c *JoinRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -315,11 +315,11 @@ func (c *RemoveRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	delete(info.config.Users.Roles, id)
 	info.SaveConfig()
-	return fmt.Sprintf("```The %s role is no longer user-assignable, but it has NOT been deleted! Use !deleterole to delete a user-assignable role.```", r.Name), false, nil
+	return fmt.Sprintf("```The %s role is no longer user-assignable, but it has NOT been deleted! Use "+info.config.Basic.CommandPrefix+"deleterole to delete a user-assignable role.```", r.Name), false, nil
 }
 func (c *RemoveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Removes a role from the list of user-assignable roles, but DOES NOT DELETE IT. If you want to also delete the role, use !deleterole.",
+		Desc: "Removes a role from the list of user-assignable roles, but DOES NOT DELETE IT. If you want to also delete the role, use " + info.config.Basic.CommandPrefix + "deleterole.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "name", Desc: "Name or ping of the role you no longer want user-assignable.", Optional: false},
 		},

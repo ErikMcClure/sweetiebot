@@ -145,7 +145,7 @@ func (c *EchoEmbedCommand) UsageShort() string {
 
 func SetCommandEnable(args []string, enable bool, success string, info *GuildInfo, channelID string) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
-		return "```No module or command specified.Use !help with no arguments to list all modules and commands.```", false, nil
+		return "```No module or command specified.Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 	}
 	name := strings.ToLower(args[0])
 	for _, v := range info.modules {
@@ -184,7 +184,7 @@ func SetCommandEnable(args []string, enable bool, success string, info *GuildInf
 			return "", false, DumpCommandsModules(channelID, info, "", "**Success!** "+args[0]+success)
 		}
 	}
-	return "```The " + args[0] + " module/command does not exist. Use !help with no arguments to list all modules and commands.```", false, nil
+	return "```The " + args[0] + " module/command does not exist. Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 }
 
 type DisableCommand struct {
@@ -399,7 +399,7 @@ func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	sb.db.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
-	return "```Attempted to remove the alias. Use !aka to check if it worked.```", false, nil
+	return "```Attempted to remove the alias. Use " + info.config.Basic.CommandPrefix + "aka to check if it worked.```", false, nil
 }
 func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
