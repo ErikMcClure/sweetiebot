@@ -439,7 +439,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 			roles = append(roles, "<@&"+v+">")
 		}
 	}
-	created := snowflakeTime(IDs[0]).In(authortz)
+	created := snowflakeTime(IDs[0])
 	fullusername := m.User.Username + "#" + m.User.Discriminator
 	if m.User.Bot {
 		fullusername += " [BOT]"
@@ -461,7 +461,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		tz,
 		localtime,
 		TimeDiff(time.Now().UTC().Sub(created)),
-		created.Format(time.RFC822),
+		created.In(authortz).Format(time.RFC822),
 		joined,
 		lastseenstring,
 		firstmessagestring)

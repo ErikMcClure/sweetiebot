@@ -285,7 +285,7 @@ In response to certain patterns (determined by a regex) will post a response pic
 Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also had a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if sweetiebot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
 
 ## Compiling
-**You only need to follow these steps if you are hosting the bot yourself.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.6](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
+**You only need to follow these steps if you're hosting the bot yourself. DO NOT ATTEMPT TO SELF-HOST SWEETIEBOT UNLESS YOU KNOW WHAT YOU'RE DOING!** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.6](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. 
 
 Three files are necessary for sweetiebot to run that are never uploaded to the Git repository:
 
@@ -304,6 +304,8 @@ If you get compiler errors, sweetiebot has two dependencies you should get:
 * `go get github.com/blackhole12/discordgo`
 
 Note that sweetiebot requires the **develop** branch of `discordgo`. To switch, you will need to find where Golang downloaded the `discordgo` library, open a terminal in that directory, and use the command `git checkout develop`. Failure to do so will cause random compilation errors due to missing features. If you're having any additional issues getting sweetiebot working, check INSTALLATION.md for more information.
+
+You will need to set MainGuildID at [sweetiebot.go:1534](https://github.com/blackhole12/sweetiebot/blob/master/sweetiebot/sweetiebot.go#L1534) to the primary Guild ID that Sweetiebot is attached to. If you don't do this, the deadlock detector will fail to send a heartbeat command and terminate the bot.
 
 ### Contributing
 Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 
