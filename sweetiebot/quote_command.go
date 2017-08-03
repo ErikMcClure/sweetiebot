@@ -87,7 +87,7 @@ func (c *QuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "If no arguments are specified, returns a random quote. If a user is specified, returns a random quote from that user. If a quote index is specified, returns that specific quote.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "user", Desc: "A @user ping or simply the name of the user to quote.", Optional: true},
-			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `!searchquote` to find a quote index.", Optional: true},
+			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `" + info.config.Basic.CommandPrefix + "searchquote` to find a quote index.", Optional: true},
 		},
 	}
 }
@@ -128,7 +128,7 @@ func (c *AddQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Adds a quote to the quote database for the given user. If the user is ambiguous, sweetiebot will return all possible matches.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "user", Desc: "A @user ping or simply the name of the user to quote. If the username has spaces, it must be in quotes.", Optional: false},
-			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `!searchquote` to find a quote index.", Optional: false},
+			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `" + info.config.Basic.CommandPrefix + "searchquote` to find a quote index.", Optional: false},
 		},
 	}
 }
@@ -175,7 +175,7 @@ func (c *RemoveQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Removes the quote with the given quote index from the user's set of quotes. If the user is ambiguous, sweetiebot will return all possible matches.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "user", Desc: "A @user ping or simply the name of the user to quote. If the username has spaces, it must be in quotes.", Optional: false},
-			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `!searchquote` to find a quote index.", Optional: false},
+			CommandUsageParam{Name: "quote", Desc: "A specific quote index. Use `" + info.config.Basic.CommandPrefix + "searchquote` to find a quote index.", Optional: false},
 		},
 	}
 }

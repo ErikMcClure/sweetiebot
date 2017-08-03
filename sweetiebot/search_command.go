@@ -150,7 +150,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 		}
 	}
 
-	query += "C.ID != ? AND C.Author != ? AND C.Channel != ? AND C.Message NOT LIKE '!search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
+	query += "C.ID != ? AND C.Author != ? AND C.Channel != ? AND C.Message NOT LIKE '" + info.config.Basic.CommandPrefix + "search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
 	params = append(params, SBatoi(msg.ID))
 	params = append(params, SBatoi(sb.SelfID))
 	params = append(params, info.config.Basic.ModChannel)
@@ -248,7 +248,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 }
 func (c *SearchCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "This is an arbitrary search command run on sweetiebot's 7 day chat log. All parameters are optional and can be input in any order, and will all be combined into a single search as appropriate, but if no searchable parameters are given, the operation will fail.  Remember that if a username has spaces in it, you have to put the entire username parameter in quotes, not just the username itself! \n\n Example: `!search #manechat @cloud|@JamesNotABot *4 \"~Sep 8 12:00pm\"`\n This will return the most recent 4 messages said by any user with \"cloud\" in the name, or the user JamesNotABot, in the #manechat channel, before Sept 8 12:00pm.",
+		Desc: "This is an arbitrary search command run on sweetiebot's 7 day chat log. All parameters are optional and can be input in any order, and will all be combined into a single search as appropriate, but if no searchable parameters are given, the operation will fail.  Remember that if a username has spaces in it, you have to put the entire username parameter in quotes, not just the username itself! \n\n Example: `" + info.config.Basic.CommandPrefix + "search #manechat @cloud|@JamesNotABot *4 \"~Sep 8 12:00pm\"`\n This will return the most recent 4 messages said by any user with \"cloud\" in the name, or the user JamesNotABot, in the #manechat channel, before Sept 8 12:00pm.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "*[result-range]", Desc: "Specifies what results should be returned. Specifing '*10' will return the first 10 results, while '*5-10' will return the 5th to the 10th result (inclusive). If you ONLY specify a single * character, it will only return a count of the total number of results.", Optional: true},
 			CommandUsageParam{Name: "@user[|@user2|...]", Desc: "Specifies a target user name to search for. An actual ping will be more effective, as it can directly use the user ID, but a raw username will be searched for in the alias table. Multiple users can be searched for by seperating them with `|`, but each user must still be prefixed with `@` even if it's not a ping", Optional: true},

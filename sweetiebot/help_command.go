@@ -202,7 +202,7 @@ func (c *RulesCommand) Process(args []string, msg *discordgo.Message, indices []
 }
 func (c *RulesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Lists all the rules in this server, or displays the specific rule requested, if it exists. Rules can be set using `!setconfig rules 1 this is a rule`",
+		Desc: "Lists all the rules in this server, or displays the specific rule requested, if it exists. Rules can be set using `" + info.config.Basic.CommandPrefix + "setconfig rules 1 this is a rule`",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "index", Desc: "Index of the rule to display. If omitted, displays all rules.", Optional: true},
 		},

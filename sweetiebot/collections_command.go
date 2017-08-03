@@ -406,7 +406,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 		return fmt.Sprintf("```Could not find any server matching %s!```", args[0]), false, nil
 	}
 	if !other[0].config.Basic.Importable {
-		return "```That server has not made their collections importable by other servers. If this is a public server, you can ask a moderator on that server to run \"!setconfig importable true\" if they wish to make their collections public.```", false, nil
+		return "```That server has not made their collections importable by other servers. If this is a public server, you can ask a moderator on that server to run \"" + info.config.Basic.CommandPrefix + "setconfig importable true\" if they wish to make their collections public.```", false, nil
 	}
 
 	if len(args) < 2 {
@@ -437,7 +437,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 }
 func (c *ImportCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Adds all elements from the source collection on the source server to the target collection on this server. If no target is specified, attempts to copy all items into a collection of the same name as the source. Example: ```!import Manechat cool notcool```",
+		Desc: "Adds all elements from the source collection on the source server to the target collection on this server. If no target is specified, attempts to copy all items into a collection of the same name as the source. Example: ```" + info.config.Basic.CommandPrefix + "import Manechat cool notcool```",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "source server", Desc: "The exact name of the source server to copy from.", Optional: false},
 			CommandUsageParam{Name: "source collection", Desc: "Name of the collection to copy from on the source server.", Optional: false},

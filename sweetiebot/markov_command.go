@@ -167,7 +167,7 @@ func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of " + strconv.Itoa(info.config.Markov.MaxLines) + " lines, but a line count above 5 will be sent in a private message. \n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "S0E00:000-000|action|speech|\"Character Name\"", Desc: "Example: `!quote S4E22:7-14`", Optional: true},
+			CommandUsageParam{Name: "S0E00:000-000|action|speech|\"Character Name\"", Desc: "Example: `"+info.config.Basic.CommandPrefix+"quote S4E22:7-14`", Optional: true},
 		},
 	}
 }

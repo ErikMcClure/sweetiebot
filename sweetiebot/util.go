@@ -866,8 +866,12 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Spam.LockdownDuration = 120
 	}
 
-	if guild.config.Version != 16 {
-		guild.config.Version = 16 // set version to most recent config version
+	if guild.config.Version <= 16 {
+		guild.config.Basic.CommandPrefix = "!"
+	}
+
+	if guild.config.Version != 17 {
+		guild.config.Version = 17 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
