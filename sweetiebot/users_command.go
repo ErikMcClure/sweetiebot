@@ -220,7 +220,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []in
 }
 func (c *BanCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Bans the given user. Examples: `'!ban @CrystalFlash for: 5 MINUTES because he's a dunce` or `!ban \"Name With Spaces\" caught stealing cookies`",
+		Desc: "Bans the given user. Examples: `'" + info.config.Basic.CommandPrefix + "ban @CrystalFlash for: 5 MINUTES because he's a dunce` or `" + info.config.Basic.CommandPrefix + "ban \"Name With Spaces\" caught stealing cookies`",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name. If the name has spaces, this argument must be put in quotes.", Optional: false},
 			CommandUsageParam{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unban event that will be fired after that much time has passed from now.", Optional: true},

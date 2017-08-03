@@ -112,7 +112,7 @@ func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indic
 }
 func (c *CreatePollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Creates a new poll with the given name, description, and options. All arguments MUST use quotes if they have spaces. \n\nExample usage: `!createpoll pollname \"Description With Space\" \"Option 1\" NoSpaceOption`",
+		Desc: "Creates a new poll with the given name, description, and options. All arguments MUST use quotes if they have spaces. \n\nExample usage: `" + info.config.Basic.CommandPrefix + "createpoll pollname \"Description With Space\" \"Option 1\" NoSpaceOption`",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "name", Desc: "Name of the new poll. It's suggested to not use spaces because this makes things difficult for other commands. ", Optional: false},
 			CommandUsageParam{Name: "description", Desc: "Poll description that appears when displaying it.", Optional: false},
@@ -186,11 +186,11 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if err != nil {
 		opt := sb.db.GetOption(id, msg.Content[indices[1]:])
 		if opt == nil {
-			return fmt.Sprintf("```That's not one of the poll options! You have to either type in the exact name of the option you want, or provide the numeric index. Use \"!poll %s\" to list the available options.```", name), false, nil
+			return fmt.Sprintf("```That's not one of the poll options! You have to either type in the exact name of the option you want, or provide the numeric index. Use \""+info.config.Basic.CommandPrefix+"poll %s\" to list the available options.```", name), false, nil
 		}
 		option = *opt
 	} else if !sb.db.CheckOption(id, option) {
-		return fmt.Sprintf("```That's not a valid option index! Use \"!poll %s\" to get all available options for this poll.```", name), false, nil
+		return fmt.Sprintf("```That's not a valid option index! Use \""+info.config.Basic.CommandPrefix+"poll %s\" to get all available options for this poll.```", name), false, nil
 	}
 
 	err = sb.db.AddVote(SBatoi(msg.Author.ID), id, option)
@@ -223,12 +223,12 @@ func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, indices 
 	}
 	gID := SBatoi(info.ID)
 	if len(args) < 1 {
-		return "```You have to give me a valid poll name! Use \"!poll\" to list active polls.```", false, nil
+		return "```You have to give me a valid poll name! Use \"" + info.config.Basic.CommandPrefix + "poll\" to list active polls.```", false, nil
 	}
 	arg := strings.ToLower(msg.Content[indices[0]:])
 	id, desc := sb.db.GetPoll(arg, gID)
 	if id == 0 {
-		return "```That poll doesn't exist! Use \"!poll\" to list active polls.```", false, nil
+		return "```That poll doesn't exist! Use \"" + info.config.Basic.CommandPrefix + "poll\" to list active polls.```", false, nil
 	}
 	results := sb.db.GetResults(id)
 	options := sb.db.GetOptions(id)
