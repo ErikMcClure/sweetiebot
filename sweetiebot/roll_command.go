@@ -114,11 +114,11 @@ func (c *RollCommand) Eval1ArgFunc(args []string, index *int, fn func(float64) f
 	if c.EatSymbols(args, index, "(") == 0 {
 		r := c.Eval(args, index, info)
 		if c.EatSymbols(args, index, ")") != 0 {
-			info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+			panic("Expression missing ending ')': " + strings.Join(args, ""))
 		}
 		return fn(r)
 	}
-	info.log.Log("Function has no parameters??? ", strings.Join(args, ""))
+	panic("Function has no parameters??? " + strings.Join(args, ""))
 	return 0.0
 }
 func (c *RollCommand) Eval2ArgFunc(args []string, index *int, fn func(float64, float64) float64, info *GuildInfo) float64 {
@@ -126,23 +126,23 @@ func (c *RollCommand) Eval2ArgFunc(args []string, index *int, fn func(float64, f
 	if c.EatSymbols(args, index, "(") == 0 {
 		r := c.Eval(args, index, info)
 		if c.EatSymbols(args, index, ",") != 0 {
-			info.log.Log("Expression missing second argument: ", strings.Join(args, ""))
+			panic("Expression missing second argument: " + strings.Join(args, ""))
 			return 0.0
 		}
 		r2 := c.Eval(args, index, info)
 		if c.EatSymbols(args, index, ")") != 0 {
-			info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+			panic("Expression missing ending ')': " + strings.Join(args, ""))
 		}
 		return fn(r, r2)
 	}
-	info.log.Log("Function has no parameters??? ", strings.Join(args, ""))
+	panic("Function has no parameters??? " + strings.Join(args, ""))
 	return 0.0
 }
 func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 {
 	if c.EatSymbols(args, index, "(") == 0 {
 		r := c.Eval(args, index, info)
 		if c.EatSymbols(args, index, ")") != 0 {
-			info.log.Log("Expression missing ending ')': ", strings.Join(args, ""))
+			panic("Expression missing ending ')': " + strings.Join(args, ""))
 		}
 		return r
 	}
@@ -252,7 +252,7 @@ func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 
 	default:
 		a, err := strconv.ParseFloat(args[*index], 64)
 		if err != nil {
-			info.log.Log("could not parse value: ", err.Error())
+			panic("could not parse value: " + err.Error())
 		}
 		*index++
 		r = a
@@ -260,10 +260,15 @@ func (c *RollCommand) Value(args []string, index *int, info *GuildInfo) float64 
 
 	return r
 }
-func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Nothing to roll or calculate!```", false, nil
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			retval = "```ERROR: " + r.(string) + "```"
+		}
+	}()
 	index := 0
 	r := c.Eval(c.OpSplit(strings.Join(args, "")), &index, info)
 	s := strconv.FormatFloat(r, 'f', -1, 64)
@@ -271,7 +276,7 @@ func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []i
 }
 func (c *RollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of `n` random numbers from 1 to **X**, inclusive. For example, `!roll d10` will return 1-10, whereas `!roll 2d10 + 2` will return a number between 4 and 22.",
+		Desc: "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of `n` random numbers from 1 to **X**, inclusive. For example, `" + info.config.Basic.CommandPrefix + "roll d10` will return 1-10, whereas `" + info.config.Basic.CommandPrefix + "roll 2d10 + 2` will return a number between 4 and 22.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "expression", Desc: "The mathematical expression to parse.", Optional: false},
 		},

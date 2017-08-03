@@ -59,7 +59,6 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	}
 
 	if len(channel) == 0 {
-		//info.log.Error(SBitoa(info.config.Channel), "No channel available to process events on. No events processed. If you want to suppress this message, you should either disable the schedule module, or use '!setconfig module_channels schedule #channel'.")
 		return
 	}
 
@@ -382,7 +381,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices
 }
 func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Adds an arbitrary event to the schedule table. For example: `!addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!`, or `!addevent episode \"9 Dec 15\" Slice of Life`. ",
+		Desc: "Adds an arbitrary event to the schedule table. For example: `" + info.config.Basic.CommandPrefix + "addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!`, or `" + info.config.Basic.CommandPrefix + "addevent episode \"9 Dec 15\" Slice of Life`. ",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, role. You shouldn't add birthday or reminder events manually, though.", Optional: false},
 			CommandUsageParam{Name: "role/user", Desc: "The target role or user to ping. Only include this if the type is role or reminder. If the type is \"role\", it must be an actual ping for the role, not just the name.", Optional: true},
@@ -437,7 +436,7 @@ func (c *RemoveEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes an event with the given ID from the schedule. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "ID", Desc: "The event ID as gotten from a `!schedule` command.", Optional: false},
+			CommandUsageParam{Name: "ID", Desc: "The event ID as gotten from a `" + info.config.Basic.CommandPrefix + "schedule` command.", Optional: false},
 		},
 	}
 }

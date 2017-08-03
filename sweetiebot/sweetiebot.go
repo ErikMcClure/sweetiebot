@@ -52,6 +52,7 @@ type BotConfig struct {
 		Aliases               map[string]string          `json:"aliases"`
 		Collections           map[string]map[string]bool `json:"collections"`
 		ListenToBots          bool                       `json:"listentobots"`
+		CommandPrefix         string                     `json:"commandprefix"`
 	} `json:"basic"`
 	Modules struct {
 		Channels           map[string]map[string]bool `json:"modulechannels"`
@@ -142,6 +143,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
 	"basic.listentobots":          "If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.",
+	"basic.commandprefix":         "Determines the SINGLE CHARACTER prefix used to denote sweetiebot commands. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.",
 	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
 	"modules.commandchannels":     "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
 	"modules.commandlimits":       "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
@@ -897,8 +899,13 @@ func GetAddMsg(info *GuildInfo) string {
 }
 
 func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool) {
+	var prefix byte = '!'
+	if info != nil && len(info.config.Basic.CommandPrefix) == 1 {
+		prefix = info.config.Basic.CommandPrefix[0]
+	}
+
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
-	if len(m.Content) > 1 && m.Content[0] == '!' && (len(m.Content) < 2 || m.Content[1] != '!') { // We check for > 1 here because a single character can't possibly be a valid command
+	if len(m.Content) > 1 && m.Content[0] == prefix && (len(m.Content) < 2 || m.Content[1] != prefix) { // We check for > 1 here because a single character can't possibly be a valid command
 		private := info == nil
 		isfree := private
 		authorid := SBatoi(m.Author.ID)
@@ -951,9 +958,9 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			alias, aliasok := info.config.Basic.Aliases[arg]
 			if aliasok {
 				if len(indices) > 1 {
-					m.Content = "!" + alias + " " + m.Content[indices[1]:]
+					m.Content = info.config.Basic.CommandPrefix + alias + " " + m.Content[indices[1]:]
 				} else {
-					m.Content = "!" + alias
+					m.Content = info.config.Basic.CommandPrefix + alias
 				}
 				args, indices = ParseArguments(m.Content[1:])
 				arg = strings.ToLower(args[0])
@@ -1485,8 +1492,17 @@ func DeadlockDetector() {
 	var missed uint32 = 0
 	time.Sleep(HEARTBEAT_INTERVAL * time.Second) // Give sweetie time to load everything first before initiating heartbeats
 	for !sb.quit.get() {
+		sb.guildsLock.RLock()
+		info, ok := sb.guilds[sb.MainGuildID]
+		sb.guildsLock.RUnlock()
+
+		if !ok {
+			fmt.Println("MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
+			time.Sleep(HEARTBEAT_INTERVAL * time.Second)
+			continue
+		}
 		m := discordgo.MessageCreate{
-			&discordgo.Message{ChannelID: "heartbeat", Content: "!about",
+			&discordgo.Message{ChannelID: "heartbeat", Content: info.config.Basic.CommandPrefix + "about",
 				Author: &discordgo.User{
 					ID:       sb.SelfID,
 					Username: "Sweetie",
