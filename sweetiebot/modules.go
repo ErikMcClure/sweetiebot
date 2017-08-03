@@ -195,7 +195,7 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 	r := info.GetRoles(c)
 	ch := info.GetChannels(c)
 	fields := make([]*discordgo.MessageEmbedField, 0, len(usage.Params))
-	use := "> !" + strings.ToLower(c.Name())
+	use := "> " + info.config.Basic.CommandPrefix + strings.ToLower(c.Name())
 	for _, v := range usage.Params {
 		opt := ""
 		if v.Optional {

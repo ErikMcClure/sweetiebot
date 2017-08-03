@@ -143,7 +143,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
 	"basic.listentobots":          "If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.",
-	"basic.commandprefix":         "Determines the SINGLE CHARACTER prefix used to denote sweetiebot commands. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.",
+	"basic.commandprefix":         "Determines the SINGLE ASCII CHARACTER prefix used to denote sweetiebot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.",
 	"modules.commandroles":        "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
 	"modules.commandchannels":     "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If \"!\" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
 	"modules.commandlimits":       "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
@@ -1542,7 +1542,7 @@ func Initialize(Token string) {
 	rand.Seed(time.Now().UTC().Unix())
 
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 7},
+		version:            Version{0, 9, 8, 8},
 		Debug:              (err == nil && len(isdebug) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1560,6 +1560,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 8):  "- !roll returns errors now.\n- You can now change the command prefix to a different ascii character - no, you can't set it to an emoji. Don't try.",
 			AssembleVersion(0, 9, 8, 7):  "- Account creation time included on join message.\n- Specifying the config category is now optional. For example, !setconfig rules 3 \"blah\" works.",
 			AssembleVersion(0, 9, 8, 6):  "- Support a lot more time formats and make time format more obvious.",
 			AssembleVersion(0, 9, 8, 5):  "- Augment discordgo with maps instead of slices, and switch to using standard discordgo functions.",

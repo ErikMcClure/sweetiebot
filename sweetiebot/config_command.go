@@ -304,7 +304,7 @@ func (c *GetConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		}
 	}
 
-	return "```That's not a recognized config option! Type !getconfig without any arguments to list all possible config options. Use \".\" to specify which category of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\". Using !getconfig with just a category will list help for that category, e.g. \"" + info.config.Basic.CommandPrefix + "getconfig Basic\".```", false, nil
+	return "```That's not a recognized config option! Type " + info.config.Basic.CommandPrefix + "getconfig without any arguments to list all possible config options. Use \".\" to specify which category of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\". Using " + info.config.Basic.CommandPrefix + "getconfig with just a category will list help for that category, e.g. \"" + info.config.Basic.CommandPrefix + "getconfig Basic\".```", false, nil
 }
 func (c *GetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
