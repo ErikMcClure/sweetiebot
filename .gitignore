@@ -1,10 +1,9 @@
 bin/
 main/main.exe
-main/passwd
 main/db.auth
-main/username
-main/client_id
-main/client_secret
+main/db.guilds
+main/debug
+main/mainguild
 main/*.json
 !main/default.json
 *.log
@@ -12,5 +11,4 @@ main/token
 *.jpg
 *.png
 main/email
-sweetiebot_data.sql
 sweetiebot_data.sql
