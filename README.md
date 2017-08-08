@@ -28,7 +28,7 @@ For example: `!setup @Mods #staff-lounge #Bot-log`
 Additional configuration is optional via `!setconfig` depending on what features of the bot are being used.
 
 ### Using !setconfig
-Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a paramter, use `!getconfig <paramater name>`.
+Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use `!getconfig <paramater name>`.
 
 Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
 
@@ -283,57 +283,6 @@ In response to certain patterns (determined by a regex) will post a response pic
 
 ## Error Recovery
 Sweetiebot can function with no database, but over half her commands will no longer function, and it will be impossible for her to respond to PMs. While in this state, there will be no errors in the log about failed database operations, becuase sweetiebot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also had a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if sweetiebot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
-
-## Compiling
-**SELF-HOSTING THE BOT IS NOT SUPPORTED! If these instructions don't work, you're on your own.** If you would simply like to add the public instance of the bot to your server, use the link above. Sweetie Bot uses Go and MariaDB for a database backend. Install at least [Go 1.6](https://golang.org/dl/) (required for some language constructs) on your computer and [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). After cloning the project, `sweetiebot.sql` is included in the main folder directory. Run it from HiediSQL or your command line and it will create the necessary sweetiebot database. Then run the `sweetiebot_tz.sql` script.
-
-Three files are necessary for sweetiebot to run that are never uploaded to the Git repository:
-
-* `db.auth`: Database connection string
-* `token`: Bot token used for login. [Create an application](https://discordapp.com/developers/applications/me#top) and turn it into a Bot User to get one.
-* [OPTIONAL] `isdebug`: If this file exists and contains the word "true", sweetiebot will start in debug mode, and will only respond to commands on the hardcoded debug channels.
-
-These files must in the root directory of wherever `main.exe` is compiled to. For testing purposes, it is sufficient to navigate to `/sweetiebot/main` in your command line and compile it there by typing `go build`, which will create `/sweetiebot/main/main.exe`. An example `config.json` file is included in `/sweetiebot/main` for testing purposes.
-
-If your MariaDB installation uses default settings, your `db.auth` file should look like this:
-
-`root:PASSWORD@tcp(127.0.0.1:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci`
-
-If you get compiler errors, sweetiebot has two dependencies you should get:
-* `go get github.com/go-sql-driver/mysql`
-* `go get github.com/blackhole12/discordgo`
-
-Note that sweetiebot requires the **develop** branch of `discordgo`. To switch, you will need to find where Golang downloaded the `discordgo` library, open a terminal in that directory, and use the command `git checkout develop`. Failure to do so will cause random compilation errors due to missing features. You will need to set MainGuildID at [sweetiebot.go:1534](https://github.com/blackhole12/sweetiebot/blob/master/sweetiebot/sweetiebot.go#L1534) to the primary Guild ID that Sweetiebot is attached to. If you don't do this, the deadlock detector will fail and terminate the bot.
-
-### Contributing
-Sweetiebot is modular and can easily incorporate additional modules or commands. A command is a struct that satisfies the `Command` interface. 
-
-    type Command interface {
-      Name() string
-      Process([]string, *discordgo.Message, []int, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
-      Usage(*GuildInfo) *CommandUsage
-      UsageShort() string
-    }
-    
-`Name()` returns the actual text that invokes the command, `Usage()` is a long, structured explanation of the command and it's parameters, and `UsageShort()` is a much shorter explanation of the command, both used by `!help`. `Process()` is called when Sweetiebot evaluates a command and matches it with this command's name (case-insensitive). The first `[]string` parameter is a list of the arguments to the command, which are seperated by spaces, unless they were surrounded by double-quotes `"`, just how command-line arguments work on all standard operating systems.
-
-Commands belong to Modules, and are automatically added when adding a module. Modules are more complicated and respond to certain events in the chat if they are enabled. At minimum, a module must implement the `Module` interface:
-
-    type Module interface {
-      Name() string
-      Register(*GuildInfo)
-      Commands() []Command
-      Description() string
-    }
-    
-`Name()` returns the name of the module, only used for enabling or restricting the module configuration. `Register()` is called whenever a guild is loaded, and that guild's configuration information is passed into the function. `Description()` is called by `!help` and should briefly describe the module's purpose. `Commands()` should return an initialized list of all commands associated with the module. A module must add itself to any hooks that it requires. For example:
-
-    func (w *WittyModule) Register(info *GuildInfo) {
-      info.hooks.OnMessageDelete = append(info.hooks.OnMessageDelete, w)
-      info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-    }
-    
-A module must satisfy the interface of the hook it is trying to add itself to, which simply means implementing a hook function with the appropriate parameters. You can access the bot database using `sb.db`, but this will only work for server-independent database information (like users or transcripts), or on servers that have permission to write to the database. Additional modules will always be disabled on existing servers until they are explicitely enabled. [Submit a pull request](https://github.com/blackhole12/sweetiebot/pull/new/master) if you'd like to contribute!
 
 ******
 
