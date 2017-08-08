@@ -1501,7 +1501,7 @@ func DeadlockDetector() {
 		sb.guildsLock.RUnlock()
 
 		if !ok {
-			fmt.Println("MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
+			fmt.Println(sb.MainGuildID, "MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
 			time.Sleep(HEARTBEAT_INTERVAL * time.Second)
 			continue
 		}
@@ -1551,6 +1551,7 @@ func Initialize(Token string) {
 	debugchannels, err := ioutil.ReadFile("debug")
 	rand.Seed(time.Now().UTC().Unix())
 
+	fmt.Println("Using guild: " + string(mainguild))
 	mainguildid := SBatoi(string(mainguild))
 	sb = &SweetieBot{
 		version:            Version{0, 9, 8, 9},
