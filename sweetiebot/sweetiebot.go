@@ -254,8 +254,8 @@ type SweetieBot struct {
 	RestrictedCommands map[string]bool
 	NonServerCommands  map[string]bool
 	MainGuildID        uint64
-	DBGuilds           map[uint64]bool
-	DebugChannels      map[string]string
+	DBGuilds           map[uint64]bool   `json:"dbguilds"`
+	DebugChannels      map[string]string `json:"debugchannels"`
 	quit               AtomicBool
 	guilds             map[uint64]*GuildInfo
 	guildsLock         sync.RWMutex
@@ -914,6 +914,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		_, isOwner := sb.Owners[authorid]
 		isSelf := m.Author.ID == sb.SelfID
+
 		if !isSelf && info != nil {
 			ignore := false
 			ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
@@ -1133,6 +1134,9 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else {
 		sb.guildsLock.RLock()
 		info, _ = sb.guilds[sb.MainGuildID]
+		if info == nil {
+			fmt.Println("Failed to get main guild during heartbeat test!")
+		}
 		sb.guildsLock.RUnlock()
 	}
 
@@ -1505,7 +1509,6 @@ func DeadlockDetector() {
 			&discordgo.Message{ChannelID: "heartbeat", Content: info.config.Basic.CommandPrefix + "about",
 				Author: &discordgo.User{
 					ID:       sb.SelfID,
-					Username: "Sweetie",
 					Verified: true,
 					Bot:      true,
 				},
@@ -1537,19 +1540,27 @@ func WaitForInput() {
 }
 
 func Initialize(Token string) {
-	dbauth, _ := ioutil.ReadFile("db.auth")
-	isdebug, err := ioutil.ReadFile("isdebug")
+	dbauth, err := ioutil.ReadFile("db.auth")
+	if err != nil {
+		fmt.Println("db.auth cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
+	}
+	mainguild, err := ioutil.ReadFile("mainguild")
+	if err != nil {
+		fmt.Println("mainguild cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
+	}
+	debugchannels, err := ioutil.ReadFile("debug")
 	rand.Seed(time.Now().UTC().Unix())
 
+	mainguildid := SBatoi(string(mainguild))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 8},
-		Debug:              (err == nil && len(isdebug) > 0),
+		version:            Version{0, 9, 8, 9},
+		Debug:              (err == nil && len(debugchannels) > 0),
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
-		MainGuildID:        98609319519453184,
-		DBGuilds:           map[uint64]bool{98609319519453184: true, 164188105031680000: true, 105443346608095232: true},
-		DebugChannels:      map[string]string{"98609319519453184": "141710126628339712", "105443346608095232": "200112394494541824"},
+		MainGuildID:        mainguildid,
+		DBGuilds:           make(map[uint64]bool),
+		DebugChannels:      make(map[string]string),
 		quit:               AtomicBool{0},
 		guilds:             make(map[uint64]*GuildInfo),
 		LastMessages:       make(map[string]int64),
@@ -1560,6 +1571,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 9):  "- Moved several options to outside files to make self-hosting simpler to set up",
 			AssembleVersion(0, 9, 8, 8):  "- !roll returns errors now.\n- You can now change the command prefix to a different ascii character - no, you can't set it to an emoji. Don't try.",
 			AssembleVersion(0, 9, 8, 7):  "- Account creation time included on join message.\n- Specifying the config category is now optional. For example, !setconfig rules 3 \"blah\" works.",
 			AssembleVersion(0, 9, 8, 6):  "- Support a lot more time formats and make time format more obvious.",
@@ -1667,6 +1679,15 @@ func Initialize(Token string) {
 			AssembleVersion(0, 8, 0, 0):  "- Appease the dark gods of discord's API\n- Allow sweetiebot to track nicknames\n- update help\n- Include nickname in searches",
 		},
 	}
+
+	if sb.Debug {
+		json.Unmarshal(debugchannels, sb)
+	}
+	dbguilds, err := ioutil.ReadFile("db.guilds")
+	if err == nil && len(dbguilds) > 0 {
+		json.Unmarshal(dbguilds, sb)
+	}
+	sb.DBGuilds[sb.MainGuildID] = true
 
 	rand.Intn(10)
 	for i := 0; i < 20+rand.Intn(20); i++ {
