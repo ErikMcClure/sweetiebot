@@ -1551,8 +1551,7 @@ func Initialize(Token string) {
 	debugchannels, err := ioutil.ReadFile("debug")
 	rand.Seed(time.Now().UTC().Unix())
 
-	fmt.Println("Using guild: " + string(mainguild))
-	mainguildid := SBatoi(string(mainguild))
+	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
 		version:            Version{0, 9, 8, 9},
 		Debug:              (err == nil && len(debugchannels) > 0),
