@@ -363,7 +363,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
 	}
 	if len(args) > 3 {
-		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels?```", len(args)), false, nil
+		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels? Alternatively, put your moderator role in \"quotes\".```", len(args)), false, nil
 	}
 
 	mod := StripPing(args[0])
@@ -460,7 +460,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 }
 func (c *SetupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`. You must ping each role and channel via `@Role` or `#channel`, you cannot simply input the name of a role or channel. Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.",
+		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
 			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
