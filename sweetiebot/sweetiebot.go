@@ -526,6 +526,13 @@ func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed
 	if channelID == "heartbeat" {
 		atomic.AddUint32(&sb.heartbeat, 1)
 	} else {
+		fields := embed.Fields
+		for len(fields) > 25 {
+			embed.Fields = fields[:25]
+			fields = fields[25:]
+			sb.dg.ChannelMessageSendEmbed(channelID, embed)
+		}
+		embed.Fields = fields
 		sb.dg.ChannelMessageSendEmbed(channelID, embed)
 	}
 	return true
@@ -811,6 +818,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		for _, v := range guild.modules {
 			guild.config.Modules.Disabled[strings.ToLower(v.Name())] = true
 		}
+		delete(guild.config.Modules.CommandDisabled, "setup")
 		guild.SaveConfig()
 	}
 	if sb.IsMainGuild(guild) {
@@ -1575,6 +1583,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 10): "- !setup can now be run by any user with the administrator role.\n- Sweetie splits up embed messages if they have more than 25 fields.",
 			AssembleVersion(0, 9, 8, 9):  "- Moved several options to outside files to make self-hosting simpler to set up",
 			AssembleVersion(0, 9, 8, 8):  "- !roll returns errors now.\n- You can now change the command prefix to a different ascii character - no, you can't set it to an emoji. Don't try.",
 			AssembleVersion(0, 9, 8, 7):  "- Account creation time included on join message.\n- Specifying the config category is now optional. For example, !setconfig rules 3 \"blah\" works.",
