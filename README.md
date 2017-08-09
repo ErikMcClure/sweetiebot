@@ -1,5 +1,5 @@
 # Sweetie Bot
-Sweetie Bot is an administration bot for Discord servers. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. She also keeps a log of the chat and its users, and provides a command to find the last message that pinged a given user.
+Sweetie Bot is an administration bot for Discord servers. Her primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. This helps immunize the chat against bot raids. If [self-hosted](https://github.com/blackhole12/sweetiebot/blob/master/INSTALLATION.md), she also keeps a log of the chat and its users.
 
 ### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
 
@@ -13,7 +13,7 @@ A limited version of sweetiebot can be added to any server. Simply follow [this 
 
 ## Configuration
 
-Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. **Only the owner of a server can setup Sweetie Bot. No one else can, even if they have admin rights.** This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). Sweetiebot should send you a PM when she is first added with instructions on how to run the `!setup` command. **You must run `!setup` to configure Sweetie Bot for your server!** `!setup` takes the following parameters, in order:
+Upon being added to a server, Sweetiebot will begin with all her commands and modules disabled, pending configuration. **Only users with admin rights can setup a server.** This is to ensure that members of the server cannot abuse the bot during the configuration process - the owner of the server can run any command, even if it's disabled (except for !update, !removealias and !announce, which can only be run by the bot owner). Sweetiebot should send the owner of the server a PM when she is first added with instructions on how to run the `!setup` command. **You must run `!setup` to configure Sweetie Bot for your server!** `!setup` takes the following parameters, in order:
 
 * **Mod Role** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
 * **Mod Channel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
@@ -21,7 +21,7 @@ Upon being added to a server, Sweetiebot will begin with all her commands and mo
 
 For example: `!setup @Mods #staff-lounge #Bot-log`
 
-`!setup` will automatically restrict all sensitive commands to `alertrole` and enable a default set of modules. **You must PING the role or channel that you are adding to the bot!** To ensure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure "Allow anyone to @mention this role" is checked. You won't be able to properly configure Sweetie Bot over PM, because you won't be able to specify the channels. Make sure you configure her in a place where Discord autocompletes `#channelname` for you and highlights it.
+`!setup` will automatically restrict all sensitive commands to `alertrole` and enable a default set of modules. You won't be able to properly configure Sweetie Bot over PM, because you won't be able to specify the channels. Make sure you configure her in a place where Discord autocompletes `#channelname` for you and highlights it.
 
 **DO NOT GIVE SWEETIE BOT ADMINISTRATIVE PERMISSIONS OR THE ABILITY TO PING EVERYONE!** Sweetie bot does not and will never attempt to filter `@everyone` pings, because if you don't want her to be able to ping everyone, you shouldn't give her the ability to do so in the first place. Sweetie bot only requires the following permissions: `Manage Roles`, `Ban Members`, `Manage Messages`, plus all the default read/write permissions given to everyone.
 
@@ -60,6 +60,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **Aliases [map]:** Can be used to redirect commands, such as making `!listroles` call the `!listrole` command. Useful for making shortcuts. Example: `!setconfig Basic.Aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
 * **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
 * **ListenToBots:** If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.
+* **TrackUserLeft:** If true, sweetiebot will also track users that leave the server if autosilence is set to alert or log. Defaults to false.
 
 ### Modules
 * **Channels [maplist]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
@@ -76,6 +77,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **PingPressure:** Additional pressure generated by each unique ping in a message. Defaults to (`MaxPressure` - `BasePressure`) / 20, instantly silencing anyone pinging 20 or more people at once.
 * **LengthPressure:** Additional pressure generated by each individual character in the message. Discord allows messages up to 2000 characters in length. Defaults to (`MaxPressure` - `BasePressure`) / 8000, silencing anyone posting 3 huge messages at the same time.
 * **RepeatPressure:** Additional pressure generated by a message that is identical to the previous message sent (ignores case). Defaults to `BasePressure`, effectively doubling the pressure penalty for repeated messages.
+* **LinePressure:** Additional pressure generated by each newline in the message. Defaults to (MaxPressure - BasePressure) / 70, silencing anyone posting more than 70 newlines in a single message
 * **BasePressure:** The base pressure generated by sending a message, regardless of length or content. Defaults to 10.
 * **PressureDecay:** The number of seconds it takes for a user to lose `Spam.BasePressure` from their pressure amount. Defaults to 2.5, so after sending 3 messages, it will take 7.5 seconds for their pressure to return to 0.
 * **MaxPressure:** The maximum pressure allowed. If a user's pressure exceeds this amount, they will be silenced. Defaults to 60, which is intended to ban after a maximum of 6 short messages sent in rapid succession.
@@ -143,8 +145,10 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 Tracks all channels it is active on for spammers. Each message someone sends generates "pressure", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid.
 #### Commands
 * **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and unsilences everyone.
-* **WipeWelcome:** Deletes all messages in the welcome channel, if there is one.
+* **Wipe:** Deletes up to N seconds worth of messages in the specified channel.
 * **GetPressure:** [RESTRICTED] Gets user's spam pressure.
+* **GetRaid:** Lists users considered part of the current raid, if there is one.
+* **BanRaid:** Bans all users considered part of the current raid, if there is one.
 
 ### Bored
 After the chat is inactive for a given amount of time, chooses a random action from the `Bored.Commands` configuration option to run, such posting a link from the bored collection or throwing an item from her bucket.
