@@ -40,8 +40,9 @@ type ModuleHooks struct {
 }
 
 type BotConfig struct {
-	Version     int `json:"version"`
-	LastVersion int `json:"lastversion"`
+	Version     int  `json:"version"`
+	LastVersion int  `json:"lastversion"`
+	SetupDone   bool `json:"setupdone"`
 	Basic       struct {
 		IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
 		Importable            bool                       `json:"importable"`
@@ -245,7 +246,7 @@ type UserBuffer struct {
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
-	Debug              bool
+	Debug              bool `json:"debug"`
 	version            Version
 	changelog          map[int]string
 	SelfID             string
@@ -298,7 +299,10 @@ func (info *GuildInfo) SaveConfig() {
 		if len(data) > sb.MaxConfigSize {
 			info.log.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(sb.MaxConfigSize) + " bytes.")
 		} else {
-			ioutil.WriteFile(info.ID+".json", data, 0664)
+			err = ioutil.WriteFile(info.ID+".json", data, 0664)
+			if err != nil {
+				info.log.Log("Error saving config file: ", err.Error())
+			}
 		}
 	} else {
 		info.log.Log("Error writing json: ", err.Error())
@@ -1540,21 +1544,21 @@ func WaitForInput() {
 }
 
 func Initialize(Token string) {
-	dbauth, err := ioutil.ReadFile("db.auth")
-	if err != nil {
+	dbauth, dberr := ioutil.ReadFile("db.auth")
+	if dberr != nil {
 		fmt.Println("db.auth cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
 	}
-	mainguild, err := ioutil.ReadFile("mainguild")
-	if err != nil {
+	mainguild, gerr := ioutil.ReadFile("mainguild")
+	if gerr != nil {
 		fmt.Println("mainguild cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
 	}
-	debugchannels, err := ioutil.ReadFile("debug")
+	debugchannels, debugerr := ioutil.ReadFile("debug")
 	rand.Seed(time.Now().UTC().Unix())
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
 		version:            Version{0, 9, 8, 9},
-		Debug:              (err == nil && len(debugchannels) > 0),
+		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
 		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
@@ -1680,7 +1684,7 @@ func Initialize(Token string) {
 		},
 	}
 
-	if sb.Debug {
+	if debugerr == nil && len(debugchannels) > 0 {
 		json.Unmarshal(debugchannels, sb)
 	}
 	dbguilds, err := ioutil.ReadFile("db.guilds")
