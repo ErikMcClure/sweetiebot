@@ -435,7 +435,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	info.config.Basic.Aliases["calc"] = "roll"
 	info.config.Basic.Aliases["calculate"] = "roll"
 
-	sensitive := []string{"add", "addrole", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "deleterole", "removerole", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed", "getaudit"}
+	sensitive := []string{"add", "addrole", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "deleterole", "removerole", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipe", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed", "getpressure", "getaudit", "getraid", "banraid", "bannewcomers"}
 	modint := SBitoa(info.config.Basic.AlertRole)
 
 	for _, v := range sensitive {
