@@ -874,8 +874,17 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.SetupDone = true
 	}
 
-	if guild.config.Version != 18 {
-		guild.config.Version = 18 // set version to most recent config version
+	if guild.config.Version <= 18 {
+		RestrictCommand("banraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("getraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("wipe", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		RestrictCommand("getpressure", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		guild.config.Spam.LinePressure = (guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / 70.0
+	}
+
+	if guild.config.Version != 19 {
+		guild.config.Version = 19 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
