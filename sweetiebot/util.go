@@ -870,8 +870,12 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Basic.CommandPrefix = "!"
 	}
 
-	if guild.config.Version != 17 {
-		guild.config.Version = 17 // set version to most recent config version
+	if guild.config.Version <= 17 {
+		guild.config.SetupDone = true
+	}
+
+	if guild.config.Version != 18 {
+		guild.config.Version = 18 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil

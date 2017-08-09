@@ -345,11 +345,19 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	if err != nil || guild == nil {
 		return "```Can't find guild in state object?!?", false, nil
 	}
-	if msg.Author.ID != guild.OwnerID {
-		return "```Only the owner of this server can use this command!```", false, nil
+	perms, _ := sb.dg.State.UserChannelPermissions(msg.Author.ID, msg.ChannelID)
+	if perms&0x00000008 == 0 {
+		return "```Only administrators can call use this command!```", false, nil
 	}
 	if len(args) < 2 {
 		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
+	}
+	if info.config.SetupDone {
+		if strings.ToLower(args[0]) != "override" {
+			return "```WARNING: This server has already been configured. If you run !setup again, it will destroy ALL CONFIGURATION DATA! If you wish to proceed, use !setup OVERRIDE <your arguments>```", false, nil
+		}
+		args = args[1:]
+		indices = indices[1:]
 	}
 	if len(args) > 3 {
 		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels?```", len(args)), false, nil
@@ -443,6 +451,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	c.DisableModule(info, "spoiler")
 
 	setupSilenceRole(info)
+	info.config.SetupDone = true
 	info.SaveConfig()
 	return fmt.Sprintf("```Server configured!\nModerator Role: %s\nMod Channel: %s\nLog Channel: %s```\nNow that you've done basic configuration on Sweetie Bot, here are some additional features you can enable. For additional help, type `"+info.config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check out the readme: https://github.com/blackhole12/sweetiebot/blob/master/README.md \n\n**Bucket**\nIf you'd like to enable Sweetie Bot's bucket, use the command `"+info.config.Basic.CommandPrefix+"enable Bucket`. She defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like Sweetie Bot to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.config.Basic.CommandPrefix+"enable bored` followed by `"+info.config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands she picks from are stored in `bored.commands`. By default, she will quote someone or attempt to throw an item out of her bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", mod, modchannel, log), false, nil
 }
