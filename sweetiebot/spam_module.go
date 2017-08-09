@@ -1,6 +1,7 @@
 package sweetiebot
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,13 +35,16 @@ func (w *SpamModule) Register(info *GuildInfo) {
 	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
 	info.hooks.OnGuildMemberAdd = append(info.hooks.OnGuildMemberAdd, w)
 	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
+	info.hooks.OnGuildMemberRemove = append(info.hooks.OnGuildMemberRemove, w)
 }
 
 func (w *SpamModule) Commands() []Command {
 	return []Command{
 		&AutoSilenceCommand{w},
-		&WipeWelcomeCommand{},
+		&WipeCommand{},
 		&GetPressureCommand{w},
+		&GetRaidCommand{w},
+		&BanRaidCommand{w},
 	}
 }
 
@@ -147,7 +151,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 			}
 		}
 
-		sb.dg.ChannelMessagesBulkDelete(msg.ChannelID, IDs)
+		sb.BulkDelete(msg.ChannelID, IDs)
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
@@ -164,6 +168,7 @@ func GetPressure(info *GuildInfo, m *discordgo.Message, edited bool) float32 {
 	p += info.config.Spam.PingPressure * float32(len(m.Mentions))
 	p += info.config.Spam.ImagePressure * float32(len(m.Embeds))
 	p += info.config.Spam.LengthPressure * float32(len(m.Content))
+	p += info.config.Spam.LinePressure * float32(strings.Count(m.Content, "\n"))
 	p += info.config.Spam.BasePressure
 	if edited { // Editing a message contributes only the square root of the total (so you can edit a post with lots of pictures and not get instabanned)
 		p = float32(math.Sqrt(float64(p)))
@@ -319,6 +324,21 @@ func (w *SpamModule) OnGuildMemberAdd(info *GuildInfo, m *discordgo.Member) {
 func (w *SpamModule) OnGuildMemberUpdate(info *GuildInfo, m *discordgo.Member) {
 	w.checkRaid(info, m)
 }
+func (w *SpamModule) OnGuildMemberRemove(info *GuildInfo, m *discordgo.Member) {
+	if info.config.Basic.TrackUserLeft {
+		if info.config.Spam.AutoSilence == -1 || info.config.Spam.AutoSilence >= 2 {
+			info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> left the server.")
+		} else if info.config.Spam.AutoSilence == -2 {
+			info.SendMessage(SBitoa(info.config.Log.Channel), "<@"+m.User.ID+"> left the server.")
+		}
+	}
+}
+func (w *SpamModule) GetRaidUsers(info *GuildInfo) []*discordgo.User {
+	return sb.db.GetRecentUsers(time.Unix(w.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
+}
+func (w *SpamModule) IsRecentRaid(info *GuildInfo) bool {
+	return w.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix()
+}
 
 type AutoSilenceCommand struct {
 	s *SpamModule
@@ -353,14 +373,14 @@ func (c *AutoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 
 	if info.config.Spam.AutoSilence <= 0 {
 		DisableLockdown(info)
-	} else if c.s.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix() { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
+	} else if c.s.IsRecentRaid(info) { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		info.lastlockdown = time.Now().UTC() // Reset lockdown timer just in case
 		if !sb.db.CheckStatus() {
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
 		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
 		info.SendMessage(msg.ChannelID, "```Set the auto silence level to "+strings.ToLower(args[0])+".```")
-		r := sb.db.GetRecentUsers(time.Unix(c.s.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
+		r := c.s.GetRaidUsers(info)
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
 		for _, v := range r {
@@ -381,33 +401,76 @@ func (c *AutoSilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *AutoSilenceCommand) UsageShort() string { return "Toggle auto silence." }
 
-type WipeWelcomeCommand struct {
+type WipeCommand struct {
 }
 
-func (c *WipeWelcomeCommand) Name() string {
-	return "WipeWelcome"
+func (c *WipeCommand) Name() string {
+	return "Wipe"
 }
-func (c *WipeWelcomeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	ch := SBitoa(info.config.Users.WelcomeChannel)
-	list, err := sb.dg.ChannelMessages(ch, 99, "", "", "")
-	if err != nil {
-		info.log.LogError("Error retrieving messages: ", err)
-		return "```Error retrieving messages.```", false, nil
-	}
-	for len(list) > 0 {
-		IDs := make([]string, len(list), len(list))
-		for i := 0; i < len(list); i++ {
-			IDs[i] = list[i].ID
+func (c *WipeCommand) WipeMessages(ch string, num int, seconds int) (int, error) {
+	date := time.Now().UTC().Add(time.Duration(-seconds) * time.Second)
+
+	ret := 0
+	lastid := ""
+	for ret < num {
+		n := num - ret
+		if n > 99 {
+			n = 99
+		}
+		list, err := sb.dg.ChannelMessages(ch, n, lastid, "", "")
+		if err != nil || len(list) == 0 {
+			return ret, err
+		}
+		IDs := make([]string, 0, len(list))
+		for i := 0; i < len(list) && ret < num; i++ {
+			if seconds > 0 {
+				t, err := list[i].Timestamp.Parse()
+				if err != nil || t.Before(date) {
+					break
+				}
+			}
+			IDs = append(IDs, list[i].ID)
+			ret++
+		}
+		if len(IDs) == 0 {
+			break
 		}
 		sb.dg.ChannelMessagesBulkDelete(ch, IDs)
-		list, err = sb.dg.ChannelMessages(ch, 99, "", "", "")
+		lastid = IDs[len(IDs)-1]
 	}
-	return "Deleted all messages in <#" + ch + ">.", false, nil
+	return ret, nil
 }
-func (c *WipeWelcomeCommand) Usage(info *GuildInfo) *CommandUsage {
-	return &CommandUsage{Desc: "Cleans out welcome channel."}
+func (c *WipeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 2 {
+		return "```You must specify the channel and the duration.```", false, nil
+	}
+
+	ch := StripPing(args[0])
+	num, err := strconv.Atoi(args[1])
+	if err != nil || num <= 0 {
+		return "```There's no point deleting 0 messages!.```", false, nil
+	}
+	if len(args) > 2 && strings.ToLower(args[2]) == "messages" {
+		num, err = c.WipeMessages(ch, num, 0)
+	} else {
+		num, err = c.WipeMessages(ch, 9999, num)
+	}
+	if err != nil {
+		return "```Error retrieving messages. Are you sure you gave sweetiebot a channel that exists? This won't work in PMs! " + err.Error() + "```", false, nil
+	}
+	return fmt.Sprintf("Deleted %v messages in <#%s>.", num, ch), false, nil
 }
-func (c *WipeWelcomeCommand) UsageShort() string { return "Cleans out welcome channel." }
+func (c *WipeCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Removes all messages in a channel sent within the last N seconds, or simply removes the last N messages if \"messages\" is appended.",
+		Params: []CommandUsageParam{
+			CommandUsageParam{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work.", Optional: false},
+			CommandUsageParam{Name: "seconds", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago.", Optional: false},
+			CommandUsageParam{Name: "MESSAGES", Desc: "If you append \"MESSAGES\" to the end of the command, it will remove that many messages, instead of looking back that many seconds.", Optional: true},
+		},
+	}
+}
+func (c *WipeCommand) UsageShort() string { return "Cleans out welcome channel." }
 
 type GetPressureCommand struct {
 	s *SpamModule
@@ -449,3 +512,48 @@ func (c *GetPressureCommand) Usage(info *GuildInfo) *CommandUsage {
 	}
 }
 func (c *GetPressureCommand) UsageShort() string { return "[RESTRICTED] Gets user's spam pressure." }
+
+type GetRaidCommand struct {
+	s *SpamModule
+}
+
+func (c *GetRaidCommand) Name() string {
+	return "GetRaid"
+}
+func (c *GetRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !c.s.IsRecentRaid(info) {
+		return fmt.Sprintf("```No raid has occured within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
+	}
+	s := []string{"Users in latest raid: "}
+	for _, v := range c.s.GetRaidUsers(info) {
+		s = append(s, v.Username+"#"+v.Discriminator)
+	}
+	return "```" + strings.Join(s, "\n") + "```", false, nil
+}
+func (c *GetRaidCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{Desc: "Lists all users that are considered part of the most recent raid, if there was one."}
+}
+func (c *GetRaidCommand) UsageShort() string { return "Lists users in most recent raid." }
+
+type BanRaidCommand struct {
+	s *SpamModule
+}
+
+func (c *BanRaidCommand) Name() string {
+	return "BanRaid"
+}
+func (c *BanRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !c.s.IsRecentRaid(info) {
+		return fmt.Sprintf("```No raid has occured within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
+	}
+	reason := fmt.Sprintf("Banned by %s#%s via the !banraid command.", msg.Author.Username, msg.Author.Discriminator)
+	users := c.s.GetRaidUsers(info)
+	for _, v := range users {
+		sb.dg.GuildBanCreateWithReason(info.ID, v.ID, reason, 1)
+	}
+	return fmt.Sprintf("```Banned %v users. The ban log will reflect who ran this command.```", len(users)), false, nil
+}
+func (c *BanRaidCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{Desc: "Bans all users that are considered part of the most recent raid, if there was one. Use !getraid to check who will be banned before using this command."}
+}
+func (c *BanRaidCommand) UsageShort() string { return "Bans all users in most recent raid." }
