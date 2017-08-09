@@ -347,7 +347,7 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	perms, _ := sb.dg.State.UserChannelPermissions(msg.Author.ID, msg.ChannelID)
 	if perms&0x00000008 == 0 {
-		return "```Only administrators can call use this command!```", false, nil
+		return "```Only administrators can use this command!```", false, nil
 	}
 	if len(args) < 2 {
 		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
@@ -358,6 +358,9 @@ func (c *SetupCommand) Process(args []string, msg *discordgo.Message, indices []
 		}
 		args = args[1:]
 		indices = indices[1:]
+	}
+	if len(args) < 2 {
+		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
 	}
 	if len(args) > 3 {
 		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels?```", len(args)), false, nil
