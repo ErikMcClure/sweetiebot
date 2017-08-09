@@ -1,6 +1,6 @@
 These instructions are for **self-hosting only**. SELF-HOSTING IS NOT SUPPORTED. If you would simply like to add the public instance of the bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
 
-**1.** Install at least [Go 1.6](https://golang.org/dl/). Verify that Go was properly installed to your PATH variable by typing `go version` in your terminal / command prompt. If you aren't prompted with something Go related, restart your computer and try again.
+**1.** Install at least [Go 1.8](https://golang.org/dl/) (required for json serialization). Verify that Go was properly installed to your PATH variable by typing `go version` in your terminal / command prompt. If you aren't prompted with something Go related, restart your computer and try again.
 
 **2.** Install at least [MariaDB 10.1](https://downloads.mariadb.org/) (required for utf8mb4 support). If you get database errors, your MariaDB version is too old. Some repos ship very old versions of MariaDB, so don't trust them.
 
