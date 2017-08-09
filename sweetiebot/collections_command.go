@@ -167,7 +167,7 @@ func ShowAllCollections(message string, info *GuildInfo) *discordgo.MessageEmbed
 			Name:    "Sweetie Bot Collections",
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
 		},
-		Description: message,
+		Description: message + fmt.Sprintf(" Total collections: %v", len(info.config.Basic.Collections)),
 		Color:       0x3e92e5,
 		Fields:      fields,
 	}
