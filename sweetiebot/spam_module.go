@@ -326,10 +326,11 @@ func (w *SpamModule) OnGuildMemberUpdate(info *GuildInfo, m *discordgo.Member) {
 }
 func (w *SpamModule) OnGuildMemberRemove(info *GuildInfo, m *discordgo.Member) {
 	if info.config.Basic.TrackUserLeft {
+		text := m.User.Username + "#" + m.User.Discriminator + " left the server."
 		if info.config.Spam.AutoSilence == -1 || info.config.Spam.AutoSilence >= 2 {
-			info.SendMessage(SBitoa(info.config.Basic.ModChannel), "<@"+m.User.ID+"> left the server.")
+			info.SendMessage(SBitoa(info.config.Basic.ModChannel), text)
 		} else if info.config.Spam.AutoSilence == -2 {
-			info.SendMessage(SBitoa(info.config.Log.Channel), "<@"+m.User.ID+"> left the server.")
+			info.SendMessage(SBitoa(info.config.Log.Channel), text)
 		}
 	}
 }
