@@ -155,6 +155,7 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 			&discordgo.MessageEmbedField{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
 			&discordgo.MessageEmbedField{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
 			&discordgo.MessageEmbedField{Name: "Add Sweetie Bot To Your Server", Value: "https://goo.gl/NQtUZv", Inline: false},
+			&discordgo.MessageEmbedField{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
 		},
 	}
 	return "", false, embed
