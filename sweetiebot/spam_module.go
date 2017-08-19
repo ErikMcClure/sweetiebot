@@ -1,11 +1,11 @@
 package sweetiebot
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
-
-	"fmt"
 
 	"math"
 
@@ -20,6 +20,7 @@ type UserPressure struct {
 
 // The emote module detects banned emotes and deletes them
 type SpamModule struct {
+	sync.Mutex
 	tracker  map[uint64]*UserPressure
 	lastraid int64
 }
@@ -196,11 +197,13 @@ func (w *SpamModule) CheckSpam(info *GuildInfo, m *discordgo.Message, edited boo
 			fmt.Println("Error parsing discord timestamp: ", m)
 			tm = time.Now().UTC()
 		}
+		w.Lock()
 		_, ok := w.tracker[id]
 		if !ok {
 			w.tracker[id] = &UserPressure{0, tm.Unix()*1000 + int64(tm.Nanosecond()/1000000), ""}
 		}
 		track := w.tracker[id]
+		w.Unlock()
 		p := GetPressure(info, m, edited)
 		if len(m.Content) > 0 && strings.ToLower(m.Content) == track.lastcache {
 			p += info.config.Spam.RepeatPressure
@@ -498,7 +501,9 @@ func (c *GetPressureCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
+	c.s.Lock()
 	u, ok := c.s.tracker[IDs[0]]
+	c.s.Unlock()
 	if !ok {
 		return "0", false, nil
 	}

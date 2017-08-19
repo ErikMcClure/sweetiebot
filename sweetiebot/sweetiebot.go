@@ -554,6 +554,68 @@ func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed
 	return true
 }
 
+type SBRequestBuffer struct {
+	buffer []*discordgo.MessageSend
+	count  int
+}
+
+func CreateRequestBuffer() discordgo.RequestBuffer {
+	return &SBRequestBuffer{nil, 0}
+}
+
+func (b *SBRequestBuffer) Append(obj interface{}) int {
+	m := obj.(*discordgo.MessageSend)
+	b.buffer = append(b.buffer, m)
+	b.count += len(m.Content)
+	if b.count+len(b.buffer) >= 1999 { // add one for each message in the buffer for added newlines
+		return len(b.buffer)
+	}
+	return 0
+}
+func (b *SBRequestBuffer) Process() (interface{}, int) {
+	if len(b.buffer) < 1 {
+		return nil, 0
+	}
+
+	if len(b.buffer) == 1 {
+		msg := b.buffer[0]
+		b.buffer = nil
+		b.count = 0
+		return msg, 0
+	}
+
+	count := len(b.buffer[0].Content)
+	msg := make([]string, 1, len(b.buffer))
+	msg[0] = b.buffer[0].Content
+	i := 1
+
+	for i < len(b.buffer) && (count+i+len(b.buffer[i].Content)) < 2000 {
+		msg = append(msg, b.buffer[i].Content)
+		count += len(b.buffer[i].Content)
+		i++
+	}
+
+	b.count -= count
+	if i >= len(b.buffer) {
+		b.buffer = nil
+	} else {
+		b.buffer = b.buffer[i:]
+	}
+
+	return &discordgo.MessageSend{
+		Content: strings.Join(msg, "\n"),
+	}, len(b.buffer)
+}
+
+func (info *GuildInfo) sendContent(channelID string, message string, minRequest int) {
+	_, err := sb.dg.RequestPostWithBuffer(discordgo.EndpointChannelMessages(channelID), &discordgo.MessageSend{
+		Content: info.SanitizeOutput(message),
+	}, CreateRequestBuffer, minRequest)
+	if err != nil {
+		fmt.Println("Failed to send message: ", err.Error())
+	}
+}
+
 func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	ch, private := ChannelIsPrivate(channelID)
 	if !private && ch.GuildID != info.ID {
@@ -562,7 +624,27 @@ func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 		}
 		return false
 	}
-	sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
+
+	for len(message) > 1999 { // discord has a 2000 character limit
+		if message[0:3] == "```" && message[len(message)-3:len(message)] == "```" {
+			index := strings.LastIndex(message[:1995], "\n")
+			if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
+				index = 1995
+			}
+			info.sendContent(channelID, message[:index]+"```", 1)
+			message = "```\n" + message[index:]
+		} else {
+			index := strings.LastIndex(message[:1999], "\n")
+			if index < 10 {
+				index = 1999
+			}
+			info.sendContent(channelID, message[:index], 1)
+			message = message[index:]
+		}
+	}
+	go info.sendContent(channelID, message, 2)
+
+	//sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
 	return true
 }
 
@@ -1070,23 +1152,6 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				if resultembed != nil {
 					info.SendEmbed(targetchannel, resultembed)
 				} else {
-					for len(result) > 1999 { // discord has a 2000 character limit
-						if result[0:3] == "```" && result[len(result)-3:len(result)] == "```" {
-							index := strings.LastIndex(result[:1995], "\n")
-							if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
-								index = 1995
-							}
-							info.SendMessage(targetchannel, result[:index]+"```")
-							result = "```\n" + result[index:]
-						} else {
-							index := strings.LastIndex(result[:1999], "\n")
-							if index < 10 {
-								index = 1999
-							}
-							info.SendMessage(targetchannel, result[:index])
-							result = result[index:]
-						}
-					}
 					info.SendMessage(targetchannel, result)
 				}
 			}
@@ -1136,6 +1201,12 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		isdbguild = sb.IsDBGuild(info)
 		isdebug = info.IsDebug(m.ChannelID)
+	}
+
+	if m.Content == "DO_SPAM" && sb.Debug && info != nil {
+		for i := 0; i < 100; i++ {
+			go info.SendMessage(m.ChannelID, fmt.Sprintf("example message joining notification #%v", i+1))
+		}
 	}
 	if isdebug && !sb.Debug {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
@@ -1581,7 +1652,7 @@ func Initialize(Token string) {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 10},
+		version:            Version{0, 9, 8, 11},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1599,7 +1670,7 @@ func Initialize(Token string) {
 		UserAddBuffer:      make(chan UserBuffer, 1000),
 		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 8, 11): "- User left now lists username+discriminator instead of pinging them to avoid @invalid-user problems.\n- Try to avoid accidentally PMing everyone <_<\n- Add ToS to !about",
+			AssembleVersion(0, 9, 8, 11): "- User left now lists username+discriminator instead of pinging them to avoid @invalid-user problems.\n- Add ToS to !about\n- Bot now detects when it's about to be rate limited and combines short messages into a single large message. Helps keep bot responsive during huge raids.\n- Fixed race condition in spam module.",
 			AssembleVersion(0, 9, 8, 10): "- !setup can now be run by any user with the administrator role.\n- Sweetie splits up embed messages if they have more than 25 fields.\n- Added !getraid and !banraid commands\n- Replaced !wipewelcome with generic !wipe command\n- Added LinePressure, which adds pressure for each newline in a message\n- Added TrackUserLeft, which will send a message when a user leaves in addition to when they join.",
 			AssembleVersion(0, 9, 8, 9):  "- Moved several options to outside files to make self-hosting simpler to set up",
 			AssembleVersion(0, 9, 8, 8):  "- !roll returns errors now.\n- You can now change the command prefix to a different ascii character - no, you can't set it to an emoji. Don't try.",
