@@ -69,14 +69,14 @@ func (s *SaturationLimit) resize(size int) {
 }
 
 func CheckRateLimit(prevtime *int64, interval int64) bool {
-	return time.Now().UTC().Unix()-atomic.LoadInt64(prevtime) > interval
+	return time.Now().UTC().Unix()-(*prevtime) > interval
 }
 
 func RateLimit(prevtime *int64, interval int64) bool {
 	t := time.Now().UTC().Unix()
-	d := atomic.LoadInt64(prevtime) // perform a read so it doesn't change on us
+	d := (*prevtime) // perform a read so it doesn't change on us
 	if t-d > interval {
-		atomic.StoreInt64(prevtime, t) // CompareAndSwapInt64 doesn't work on x86, temporarily removing this
+		*prevtime = t // CompareAndSwapInt64 doesn't work on x86, temporarily removing this
 		return true
 		//return atomic.CompareAndSwapInt64(prevtime, d, t) // If the swapped failed, it means another thread already sent a message and swapped it out, so don't send a message.
 	}
