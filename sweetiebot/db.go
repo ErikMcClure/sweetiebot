@@ -106,7 +106,7 @@ func DB_Load(log Logger, driver string, conn string) (*BotDB, error) {
 		return &r, err
 	}
 
-	r.db.SetMaxOpenConns(80)
+	r.db.SetMaxOpenConns(70)
 	err = r.db.Ping()
 	r.status.set(err == nil)
 	return &r, err
