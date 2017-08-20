@@ -384,7 +384,7 @@ func AttachToGuild(g *discordgo.Guild) {
 			perms, _ := getAllPerms(guild, sb.SelfID)
 			warning := ""
 			if perms&0x00000008 != 0 {
-				warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitely gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+				warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitly gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
 			}
 			if perms&0x00020000 != 0 {
 				warning = "\nWARNING: You have given sweetiebot the Mention Everyone role, which means users will be able to abuse her to ping everyone on the server! Sweetie Bot does NOT attempt to filter @\u200Beveryone from her messages!" + warning
