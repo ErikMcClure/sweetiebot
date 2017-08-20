@@ -112,7 +112,7 @@ func (c *HelpCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all available commands Sweetie Bot knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed !help help for some reason.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "command/module", Desc: "The command or module to display help for. You do not need to include a command's parent module, just the command name itself.", Optional: true},
+			{Name: "command/module", Desc: "The command or module to display help for. You do not need to include a command's parent module, just the command name itself.", Optional: true},
 		},
 	}
 }
@@ -132,7 +132,7 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		tag = " [debug]"
 	}
 	owners := make([]string, 0, len(sb.Owners))
-	for k, _ := range sb.Owners {
+	for k := range sb.Owners {
 		owners = append(owners, SBitoa(k))
 	}
 	embed := &discordgo.MessageEmbed{
@@ -144,16 +144,16 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		},
 		Color: 0x3e92e5,
 		Fields: []*discordgo.MessageEmbedField{
-			&discordgo.MessageEmbedField{Name: "Author", Value: "Blackhole#8270", Inline: true},
-			&discordgo.MessageEmbedField{Name: "Library", Value: "discordgo", Inline: true},
-			&discordgo.MessageEmbedField{Name: "Owner ID(s)", Value: strings.Join(owners, ", "), Inline: true},
-			&discordgo.MessageEmbedField{Name: "Presence", Value: Pluralize(int64(len(sb.guilds)), " server"), Inline: true},
-			&discordgo.MessageEmbedField{Name: "Uptime", Value: TimeDiff(time.Duration(time.Now().UTC().Unix()-sb.StartTime) * time.Second), Inline: true},
-			&discordgo.MessageEmbedField{Name: "Messages Seen", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&sb.MessageCount)), 10), Inline: true},
-			&discordgo.MessageEmbedField{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
-			&discordgo.MessageEmbedField{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
-			&discordgo.MessageEmbedField{Name: "Add Sweetie Bot To Your Server", Value: "https://goo.gl/NQtUZv", Inline: false},
-			&discordgo.MessageEmbedField{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
+			{Name: "Author", Value: "Blackhole#8270", Inline: true},
+			{Name: "Library", Value: "discordgo", Inline: true},
+			{Name: "Owner ID(s)", Value: strings.Join(owners, ", "), Inline: true},
+			{Name: "Presence", Value: Pluralize(int64(len(sb.guilds)), " server"), Inline: true},
+			{Name: "Uptime", Value: TimeDiff(time.Duration(time.Now().UTC().Unix()-sb.StartTime) * time.Second), Inline: true},
+			{Name: "Messages Seen", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&sb.MessageCount)), 10), Inline: true},
+			{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
+			{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
+			{Name: "Add Sweetie Bot To Your Server", Value: "https://goo.gl/NQtUZv", Inline: false},
+			{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
 		},
 	}
 	return "", false, embed
@@ -203,7 +203,7 @@ func (c *RulesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all the rules in this server, or displays the specific rule requested, if it exists. Rules can be set using `" + info.config.Basic.CommandPrefix + "setconfig rules 1 this is a rule`",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "index", Desc: "Index of the rule to display. If omitted, displays all rules.", Optional: true},
+			{Name: "index", Desc: "Index of the rule to display. If omitted, displays all rules.", Optional: true},
 		},
 	}
 }
@@ -260,7 +260,7 @@ func (c *ChangelogCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays the given changelog for Sweetie Bot. If no version is given, lists all versions with a changelog. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "version", Desc: "A version in the format 1.2.3.4. Use \"current\" for the most recent version.", Optional: true},
+			{Name: "version", Desc: "A version in the format 1.2.3.4. Use \"current\" for the most recent version.", Optional: true},
 		},
 	}
 }

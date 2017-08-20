@@ -77,8 +77,8 @@ func (c *AddCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds [arbitrary string] to [collection], then calls a handler function for that specific collection.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection(s)", Desc: "The name of a collection. Specify multiple collections with \"collection1+collection2\"", Optional: false},
-			CommandUsageParam{Name: "arbitrary string", Desc: "Arbitrary string to add to collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
+			{Name: "collection(s)", Desc: "The name of a collection. Specify multiple collections with \"collection1+collection2\"", Optional: false},
+			{Name: "arbitrary string", Desc: "Arbitrary string to add to collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
 }
@@ -124,8 +124,8 @@ func (c *RemoveCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes [arbitrary string] from [collection], then calls a handler function for that specific collection.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection(s)", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: false},
-			CommandUsageParam{Name: "arbitrary string", Desc: "Arbitrary string to remove from collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
+			{Name: "collection(s)", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: false},
+			{Name: "arbitrary string", Desc: "Arbitrary string to remove from collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
 }
@@ -191,7 +191,7 @@ func (c *CollectionsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all the collections that sweetiebot is using, or the contents of a specific collection.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: true},
+			{Name: "collection", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: true},
 		},
 	}
 }
@@ -240,7 +240,7 @@ func (c *PickCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Picks a random item from the given collection and displays it.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: false},
+			{Name: "collection", Desc: "The name of a collection. Specifying multiple collections is not supported.", Optional: false},
 		},
 	}
 }
@@ -274,7 +274,7 @@ func (c *NewCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Creates a new collection with the given name, provided the collection does not already exist.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection", Desc: "The name of the new collection. No spaces are allowed, should only use letters and numbers.", Optional: false},
+			{Name: "collection", Desc: "The name of the new collection. No spaces are allowed, should only use letters and numbers.", Optional: false},
 		},
 	}
 }
@@ -309,7 +309,7 @@ func (c *DeleteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Deletes a collection with the given name, provided the collection is not protected.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection", Desc: "The name of the collection. Certain collections cannot be deleted.", Optional: false},
+			{Name: "collection", Desc: "The name of the collection. Certain collections cannot be deleted.", Optional: false},
 		},
 	}
 }
@@ -339,7 +339,7 @@ func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message,
 	}
 	results := []string{}
 	arg := msg.Content[indices[1]:]
-	for k, _ := range cmap {
+	for k := range cmap {
 		if strings.Contains(k, arg) {
 			results = append(results, k)
 		}
@@ -354,8 +354,8 @@ func (c *SearchCollectionCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns all members of the given collection that contain the given string.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "collection", Desc: "The name of the collection. Specifying multiple collections is not supported.", Optional: false},
-			CommandUsageParam{Name: "arbitrary string", Desc: "Arbitrary string to add to collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
+			{Name: "collection", Desc: "The name of the collection. Specifying multiple collections is not supported.", Optional: false},
+			{Name: "arbitrary string", Desc: "Arbitrary string to add to collection. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
 }
@@ -437,9 +437,9 @@ func (c *ImportCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds all elements from the source collection on the source server to the target collection on this server. If no target is specified, attempts to copy all items into a collection of the same name as the source. Example: ```" + info.config.Basic.CommandPrefix + "import Manechat cool notcool```",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "source server", Desc: "The exact name of the source server to copy from.", Optional: false},
-			CommandUsageParam{Name: "source collection", Desc: "Name of the collection to copy from on the source server.", Optional: false},
-			CommandUsageParam{Name: "target collection", Desc: "The target collection to copy to on this server. If omitted, defaults to the source collection name.", Optional: true},
+			{Name: "source server", Desc: "The exact name of the source server to copy from.", Optional: false},
+			{Name: "source collection", Desc: "Name of the collection to copy from on the source server.", Optional: false},
+			{Name: "target collection", Desc: "The target collection to copy to on this server. If omitted, defaults to the source collection name.", Optional: true},
 		},
 	}
 }

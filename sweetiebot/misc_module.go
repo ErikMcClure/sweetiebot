@@ -65,7 +65,7 @@ func (c *LastSeenCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns when a user was last seen on discord, which is usually their last status change.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "@user", Desc: "Either a ping for the user, their username, or their nickname.", Optional: false},
+			{Name: "@user", Desc: "Either a ping for the user, their username, or their nickname.", Optional: false},
 		},
 	}
 }
@@ -90,7 +90,7 @@ func (c *SnowflakeTimeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Given a discord snowflake ID, returns when that ID was created.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "ID", Desc: "Any unique ID used by discord (these are called snowflake IDs)", Optional: false},
+			{Name: "ID", Desc: "Any unique ID used by discord (these are called snowflake IDs)", Optional: false},
 		},
 	}
 }

@@ -67,7 +67,7 @@ func (c *NewUsersCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists up to maxresults users, starting with the newest user to join the server.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "maxresults", Desc: "Defaults to 5 results, returns a maximum of 30.", Optional: true},
+			{Name: "maxresults", Desc: "Defaults to 5 results, returns a maximum of 30.", Optional: true},
 		},
 	}
 }
@@ -115,7 +115,7 @@ func (c *AKACommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: true},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: true},
 		},
 	}
 }
@@ -220,9 +220,9 @@ func (c *BanCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Bans the given user. Examples: `'" + info.config.Basic.CommandPrefix + "ban @CrystalFlash for: 5 MINUTES because he's a dunce` or `" + info.config.Basic.CommandPrefix + "ban \"Name With Spaces\" caught stealing cookies`",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name. If the name has spaces, this argument must be put in quotes.", Optional: false},
-			CommandUsageParam{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unban event that will be fired after that much time has passed from now.", Optional: true},
-			CommandUsageParam{Name: "reason", Desc: "The rest of the message is treated as a reason for the ban (currently not saved anywhere).", Optional: true},
+			{Name: "user", Desc: "A ping of the user, or simply their name. If the name has spaces, this argument must be put in quotes.", Optional: false},
+			{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unban event that will be fired after that much time has passed from now.", Optional: true},
+			{Name: "reason", Desc: "The rest of the message is treated as a reason for the ban (currently not saved anywhere).", Optional: true},
 		},
 	}
 }
@@ -266,7 +266,7 @@ func (c *BanNewcomersCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Bans all users who have sent their first message in the past `duration` seconds.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "duration", Desc: "The number of seconds to look back, defaults to 120 seconds (so anyone who sent their first message in the past 2 minutes would be banned).", Optional: true},
+			{Name: "duration", Desc: "The number of seconds to look back, defaults to 120 seconds (so anyone who sent their first message in the past 2 minutes would be banned).", Optional: true},
 		},
 	}
 }
@@ -308,7 +308,7 @@ func (c *TimeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gets the local time for the specified user, or simply gets the local time for this server.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: true},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: true},
 		},
 	}
 }
@@ -364,8 +364,8 @@ func (c *SetTimeZoneCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets your timezone to the given location. Providing a partial timezone name, like \"America\", will return a list of all possible timezones that contain that string.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "timezone", Desc: "A timezone location, such as `America/Los_Angeles`. Note that timezones do not have spaces.", Optional: true},
-			CommandUsageParam{Name: "offset", Desc: "Your expected timezone offset in hours, used to narrow the search. For example, if you know you're in the PDT timezone, which is GMT-7, you could search for `America -7` to list all timezones in america with a standard or DST timezone offset of -7.", Optional: true},
+			{Name: "timezone", Desc: "A timezone location, such as `America/Los_Angeles`. Note that timezones do not have spaces.", Optional: true},
+			{Name: "offset", Desc: "Your expected timezone offset in hours, used to narrow the search. For example, if you know you're in the PDT timezone, which is GMT-7, you could search for `America -7` to list all timezones in america with a standard or DST timezone offset of -7.", Optional: true},
 		},
 	}
 }
@@ -472,7 +472,7 @@ func (c *UserInfoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists the ID, username, nickname, timezone, roles, avatar, join date, and other information about a given user.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
 		},
 	}
 }
@@ -525,7 +525,7 @@ func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets the default server SB will run commands on that you PM to her.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "server", Desc: "The exact name of your default server.", Optional: false},
+			{Name: "server", Desc: "The exact name of your default server.", Optional: false},
 		},
 	}
 }
@@ -589,8 +589,8 @@ func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Silences the given user.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
-			CommandUsageParam{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unsilence event that will be fired after that much time has passed from now.", Optional: true},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+			{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unsilence event that will be fired after that much time has passed from now.", Optional: true},
 		},
 	}
 }
@@ -636,7 +636,7 @@ func (c *UnsilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Unsilences the given user.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
 		},
 	}
 }
