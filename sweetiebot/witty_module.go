@@ -12,7 +12,6 @@ import (
 type WittyModule struct {
 	lastdelete   int64
 	lastcomment  int64
-	shutupregex  *regexp.Regexp
 	wittyregex   *regexp.Regexp
 	triggerregex []*regexp.Regexp
 	remarks      [][]string
@@ -20,15 +19,6 @@ type WittyModule struct {
 
 func (w *WittyModule) Name() string {
 	return "Witty"
-}
-
-func (w *WittyModule) Register(info *GuildInfo) {
-	w.lastdelete = 0
-	w.lastcomment = 0
-	w.shutupregex = regexp.MustCompile("shut ?up,? (sb|sweetie ?bot)")
-	w.UpdateRegex(info)
-	info.hooks.OnMessageDelete = append(info.hooks.OnMessageDelete, w)
-	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
 }
 
 func (w *WittyModule) Commands() []Command {
@@ -67,7 +57,7 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 	}
 
 	if len(w.triggerregex) != len(w.remarks) { // This should never happen but we check just in case
-		info.log.Log("ERROR! triggers do not equal remarks!!")
+		info.Log("ERROR! triggers do not equal remarks!!")
 		return false
 	}
 	return err == nil
@@ -80,12 +70,6 @@ func (w *WittyModule) SendWittyComment(channel string, comment string, info *Gui
 }
 func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	str := strings.ToLower(m.Content)
-	/*if w.shutupregex.MatchString(str) {
-	  if CheckRateLimit(&info.lastshutup, info.config.Maxshutup) {
-	    info.SendMessage(m.ChannelID, "[](/sadbot) `Sorry! (All comments and public commands disabled in #manechat for the next " + TimeDiff(time.Duration(info.config.Maxshutup) * time.Second) + ").`")
-	  }
-	  info.lastshutup = time.Now().UTC().Unix()
-	}*/
 	if CheckRateLimit(&w.lastcomment, info.config.Witty.Cooldown) && CheckShutup(m.ChannelID) {
 		if w.wittyregex != nil && w.wittyregex.MatchString(str) {
 			for i := 0; i < len(w.triggerregex); i++ {
@@ -96,12 +80,6 @@ func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 			}
 		}
 	}
-}
-
-func (w *WittyModule) OnMessageDelete(info *GuildInfo, m *discordgo.Message) {
-	//if RateLimit(&w.lastdelete, 60) { // It turns out this triggers when the bot itself deletes things, which looks awkward - maybe this can be fixed?
-	//  sb.SendMessage(m.ChannelID, "[](/sbstare) `I SAW THAT`")
-	//}
 }
 
 type AddWitCommand struct {

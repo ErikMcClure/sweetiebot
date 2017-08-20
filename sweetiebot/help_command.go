@@ -18,8 +18,6 @@ func (w *HelpModule) Name() string {
 	return "Help/About"
 }
 
-func (w *HelpModule) Register(info *GuildInfo) {}
-
 func (w *HelpModule) Commands() []Command {
 	return []Command{
 		&HelpCommand{},

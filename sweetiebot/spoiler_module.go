@@ -7,7 +7,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-// This module picks a random action to do whenever #manechat has been idle for several minutes (configurable)
+// SpoilerModule picks a random action to do whenever #manechat has been idle for several minutes (configurable)
 type SpoilerModule struct {
 	spoilerban *regexp.Regexp
 	lastmsg    int64 // Sanity rate limiter
@@ -15,14 +15,6 @@ type SpoilerModule struct {
 
 func (w *SpoilerModule) Name() string {
 	return "Spoiler"
-}
-
-func (w *SpoilerModule) Register(info *GuildInfo) {
-	w.lastmsg = 0
-	w.UpdateRegex(info)
-	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
-	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
 }
 
 func (w *SpoilerModule) Commands() []Command { return []Command{} }

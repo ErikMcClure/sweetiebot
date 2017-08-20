@@ -16,10 +16,6 @@ func (w *ScheduleModule) Name() string {
 	return "Scheduler"
 }
 
-func (w *ScheduleModule) Register(info *GuildInfo) {
-	info.hooks.OnTick = append(info.hooks.OnTick, w)
-}
-
 func (w *ScheduleModule) Commands() []Command {
 	return []Command{
 		&ScheduleCommand{},
@@ -73,10 +69,10 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			}
 		case 1:
 			if info.config.Schedule.BirthdayRole == 0 {
-				info.log.Log("No birthday role set!")
+				info.Log("No birthday role set!")
 			} else {
 				err := sb.dg.GuildMemberRoleAdd(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
-				info.log.LogError("Failed to set birthday role: ", err)
+				info.LogError("Failed to set birthday role: ", err)
 			}
 			info.SendMessage(channel, "Happy Birthday <@"+v.Data+">!")
 		case 2:
@@ -85,15 +81,15 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			info.SendMessage(channel, v.Data+" is starting now!")
 		case 4:
 			if info.config.Schedule.BirthdayRole == 0 {
-				info.log.Log("No birthday role set!")
+				info.Log("No birthday role set!")
 			} else {
 				err := sb.dg.GuildMemberRoleRemove(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
-				info.log.LogError("Failed to remove birthday role: ", err)
+				info.LogError("Failed to remove birthday role: ", err)
 			}
 		case 6:
 			dat := strings.SplitN(v.Data, "|", 2)
 			ch, err := sb.dg.UserChannelCreate(dat[0])
-			info.log.LogError("Error opening private channel: ", err)
+			info.LogError("Error opening private channel: ", err)
 			if err == nil {
 				info.SendMessage(ch.ID, dat[1])
 			}

@@ -17,8 +17,6 @@ func (w *DebugModule) Name() string {
 	return "Debug"
 }
 
-func (w *DebugModule) Register(info *GuildInfo) {}
-
 func (w *DebugModule) Commands() []Command {
 	return []Command{
 		&EchoCommand{},

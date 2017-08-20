@@ -29,16 +29,6 @@ func (w *SpamModule) Name() string {
 	return "Anti-Spam"
 }
 
-func (w *SpamModule) Register(info *GuildInfo) {
-	w.tracker = make(map[uint64]*UserPressure)
-	w.lastraid = 0
-	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
-	info.hooks.OnGuildMemberAdd = append(info.hooks.OnGuildMemberAdd, w)
-	info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, w)
-	info.hooks.OnGuildMemberRemove = append(info.hooks.OnGuildMemberRemove, w)
-}
-
 func (w *SpamModule) Commands() []Command {
 	return []Command{
 		&AutoSilenceCommand{w},
@@ -65,7 +55,7 @@ func IsSilenced(m *discordgo.Member, info *GuildInfo) bool {
 
 func DoDiscordSilence(userID string, info *GuildInfo) {
 	err := sb.dg.GuildMemberRoleAdd(info.ID, userID, SBitoa(info.config.Spam.SilentRole))
-	info.log.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.ID, userID, info.config.Spam.SilentRole), err)
+	info.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.ID, userID, info.config.Spam.SilentRole), err)
 }
 func SilenceMember(user *discordgo.User, info *GuildInfo) int8 {
 	defer DoDiscordSilence(user.ID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
@@ -122,7 +112,7 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
 		sb.dg.GuildBanCreateWithReason(info.ID, u.ID, "Autobanned for "+reason+" in the welcome channel.", 1)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
-		info.log.Log(logmsg)
+		info.Log(logmsg)
 		return
 	}
 	silenced := SilenceMember(u, info) > 0
@@ -135,14 +125,14 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	EndLoop: // Even though this label is defined above the for loop, breaking to this label will actually skip the for loop entirely. Don't ask.
 		for {
 			messages, err := sb.dg.ChannelMessages(msg.ChannelID, 99, lastid, "", "")
-			info.log.LogError("Error encountered while attempting to retrieve messages: ", err)
+			info.LogError("Error encountered while attempting to retrieve messages: ", err)
 			if len(messages) == 0 || err != nil {
 				break
 			}
 			lastid = messages[len(messages)-1].ID
 			for _, v := range messages {
 				tm, terr := v.Timestamp.Parse()
-				info.log.LogError("Error encountered while attempting to parse timestamp: ", terr)
+				info.LogError("Error encountered while attempting to parse timestamp: ", terr)
 				if terr != nil || tm.Before(endtime) {
 					break EndLoop // break out of both loops
 				}
@@ -157,9 +147,9 @@ func KillSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 
 	if !silenced { // Only send the alert if they weren't silenced already
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
-		info.log.Log(logmsg)
+		info.Log(logmsg)
 	} else {
-		info.log.Log("Killing spammer " + u.Username)
+		info.Log("Killing spammer " + u.Username)
 	}
 }
 
