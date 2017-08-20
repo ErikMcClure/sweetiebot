@@ -121,8 +121,8 @@ func (c *AddWitCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds a `response` that is triggered by `trigger`.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "trigger", Desc: "Any valid regex string, but it must be in quotes if it has spaces.", Optional: false},
-			CommandUsageParam{Name: "response", Desc: "All possible responses, split up by `|`. Also requires quotes if it has spaces.", Optional: false},
+			{Name: "trigger", Desc: "Any valid regex string, but it must be in quotes if it has spaces.", Optional: false},
+			{Name: "response", Desc: "All possible responses, split up by `|`. Also requires quotes if it has spaces.", Optional: false},
 		},
 	}
 }
@@ -153,7 +153,7 @@ func (c *RemoveWitCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes `trigger` from wittyremarks, provided it exists.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "trigger", Desc: "Any valid regex string.", Optional: false},
+			{Name: "trigger", Desc: "Any valid regex string.", Optional: false},
 		},
 	}
 }
