@@ -17,11 +17,6 @@ func (w *BoredModule) Name() string {
 	return "Bored"
 }
 
-func (w *BoredModule) Register(info *GuildInfo) {
-	w.lastmessage = 0
-	info.hooks.OnIdle = append(info.hooks.OnIdle, w)
-}
-
 func (w *BoredModule) Commands() []Command { return []Command{} }
 
 func (w *BoredModule) Description() string {

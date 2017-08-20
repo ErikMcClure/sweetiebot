@@ -16,8 +16,6 @@ func (w *MiscModule) Name() string {
 	return "Miscellaneous"
 }
 
-func (w *MiscModule) Register(info *GuildInfo) {}
-
 func (w *MiscModule) Commands() []Command {
 	return []Command{
 		&LastSeenCommand{},

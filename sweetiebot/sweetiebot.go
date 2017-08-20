@@ -1,15 +1,12 @@
 package sweetiebot
 
 import (
-	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,27 +17,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-type ModuleHooks struct {
-	OnEvent             []ModuleOnEvent
-	OnTypingStart       []ModuleOnTypingStart
-	OnMessageCreate     []ModuleOnMessageCreate
-	OnMessageUpdate     []ModuleOnMessageUpdate
-	OnMessageDelete     []ModuleOnMessageDelete
-	OnMessageAck        []ModuleOnMessageAck
-	OnPresenceUpdate    []ModuleOnPresenceUpdate
-	OnVoiceStateUpdate  []ModuleOnVoiceStateUpdate
-	OnGuildUpdate       []ModuleOnGuildUpdate
-	OnGuildMemberAdd    []ModuleOnGuildMemberAdd
-	OnGuildMemberRemove []ModuleOnGuildMemberRemove
-	OnGuildMemberUpdate []ModuleOnGuildMemberUpdate
-	OnGuildBanAdd       []ModuleOnGuildBanAdd
-	OnGuildBanRemove    []ModuleOnGuildBanRemove
-	OnGuildRoleDelete   []ModuleOnGuildRoleDelete
-	OnCommand           []ModuleOnCommand
-	OnIdle              []ModuleOnIdle
-	OnTick              []ModuleOnTick
-}
-
+// BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
 	Version     int  `json:"version"`
 	LastVersion int  `json:"lastversion"`
@@ -138,6 +115,7 @@ type BotConfig struct {
 	} `json:"quote"`
 }
 
+// ConfigHelp is a map of help strings for the configuration options above
 var ConfigHelp map[string]string = map[string]string{
 	"basic.ignoreinvalidcommands": "If true, Sweetie Bot won't display an error if a nonsensical command is used. This helps her co-exist with other bots that also use the `!` prefix.",
 	"basic.importable":            "If true, the collections on this server will be importable into another server where sweetie is.",
@@ -202,23 +180,7 @@ var ConfigHelp map[string]string = map[string]string{
 	"quote.quotes":                "This is a map of quotes, which should be managed via `!addquote` and `!removequote`.",
 }
 
-type GuildInfo struct {
-	ID           string // Cache the ID because it doesn't change
-	Name         string // Cache the name to reduce locking
-	OwnerID      string
-	log          *Log
-	commandLock  sync.RWMutex
-	command_last map[string]map[string]int64
-	commandlimit *SaturationLimit
-	config       BotConfig
-	emotemodule  *EmoteModule
-	hooks        ModuleHooks
-	modules      []Module
-	commands     map[string]Command
-	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
-	lastlockdown time.Time
-}
-
+// Version represents an app version using four sections
 type Version struct {
 	major    byte
 	minor    byte
@@ -236,14 +198,17 @@ func (v *Version) String() string {
 	return fmt.Sprintf("%v.%v", v.major, v.minor)
 }
 
+// Integer gets the integer representation of the version
 func (v *Version) Integer() int {
 	return AssembleVersion(v.major, v.minor, v.revision, v.build)
 }
 
+// AssembleVersion creates a version integer out of four bytes
 func AssembleVersion(major byte, minor byte, revision byte, build byte) int {
 	return int(build) | (int(revision) << 8) | (int(minor) << 16) | (int(major) << 24)
 }
 
+// SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
@@ -279,15 +244,22 @@ var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 var locUTC = time.FixedZone("UTC", 0)
-var DISCORD_EPOCH uint64 = 1420070400000
 
+// DiscordEpoch is used to figure out snowflake creation times
+var DiscordEpoch uint64 = 1420070400000
+
+// IsMainGuild returns true if that guild is considered the main (default) guild
 func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
 	return SBatoi(info.ID) == sbot.MainGuildID
 }
+
+// IsDBGuild returns true if that guild is allowed to use the database
 func (sbot *SweetieBot) IsDBGuild(info *GuildInfo) bool {
 	_, ok := sbot.DBGuilds[SBatoi(info.ID)]
 	return ok
 }
+
+// BulkDelete Performs a bulk deletion in groups of 100
 func (sbot *SweetieBot) BulkDelete(channelID string, messages []string) (err error) {
 	i := 0
 	n := len(messages)
@@ -300,379 +272,35 @@ func (sbot *SweetieBot) BulkDelete(channelID string, messages []string) (err err
 	return sbot.dg.ChannelMessagesBulkDelete(channelID, messages[i:])
 }
 
-func (info *GuildInfo) AddCommand(c Command) {
-	info.commands[strings.ToLower(c.Name())] = c
-}
-
-func (info *GuildInfo) SaveConfig() {
-	data, err := json.Marshal(info.config)
-	if err == nil {
-		if len(data) > sb.MaxConfigSize {
-			info.log.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(sb.MaxConfigSize) + " bytes.")
-		} else {
-			err = ioutil.WriteFile(info.ID+".json", data, 0664)
-			if err != nil {
-				info.log.Log("Error saving config file: ", err.Error())
-			}
-		}
-	} else {
-		info.log.Log("Error writing json: ", err.Error())
-	}
-}
-
-func DeleteFromMapReflect(f reflect.Value, k string) string {
-	f.SetMapIndex(reflect.ValueOf(k), reflect.Value{})
-	return "Deleted " + k
-}
-
-func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (string, bool) {
-	names := strings.SplitN(strings.ToLower(name), ".", 3)
-	t := reflect.ValueOf(&info.config).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		if strings.ToLower(t.Type().Field(i).Name) == names[0] {
-			if len(names) < 2 {
-				return "Can't set a configuration category! Use \"Category.Option\" to set a specific option.", false
-			}
-			switch t.Field(i).Kind() {
-			case reflect.Struct:
-				for j := 0; j < t.Field(i).NumField(); j++ {
-					if strings.ToLower(t.Field(i).Type().Field(j).Name) == names[1] {
-						f := t.Field(i).Field(j)
-						switch f.Interface().(type) {
-						case string:
-							f.SetString(value)
-						case int, int8, int16, int32, int64:
-							k, _ := strconv.ParseInt(value, 10, 64)
-							f.SetInt(k)
-						case uint, uint8, uint16, uint32:
-							k, _ := strconv.ParseUint(value, 10, 64)
-							f.SetUint(k)
-						case float32, float64:
-							k, _ := strconv.ParseFloat(value, 32)
-							f.SetFloat(k)
-						case uint64:
-							f.SetUint(PingAtoi(value))
-						case []uint64:
-							f.Set(reflect.MakeSlice(reflect.TypeOf(f.Interface()), 0, 1+len(extra)))
-							if len(value) > 0 {
-								f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(value))))
-								for _, k := range extra {
-									f.Set(reflect.Append(f, reflect.ValueOf(PingAtoi(k))))
-								}
-							}
-						case bool:
-							f.SetBool(value == "true")
-						case map[string]string:
-							value = strings.ToLower(value)
-							if len(extra) == 0 {
-								return "No extra parameter given for " + name, false
-							}
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra[0]) == 0 {
-								return DeleteFromMapReflect(f, value), false
-							}
-
-							f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(extra[0]))
-							return value + ": " + extra[0], true
-						case map[string]int64:
-							value = strings.ToLower(value)
-							if len(extra) == 0 {
-								return "No extra parameter given for " + name, false
-							}
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra[0]) == 0 {
-								return DeleteFromMapReflect(f, value), false
-							}
-
-							k, _ := strconv.ParseInt(extra[0], 10, 64)
-							f.SetMapIndex(reflect.ValueOf(value), reflect.ValueOf(k))
-							return value + ": " + strconv.FormatInt(k, 10), true
-						case map[int64]int:
-							ivalue, err := strconv.ParseInt(value, 10, 64)
-							if err != nil {
-								return value + " is not an integer.", false
-							}
-							if len(extra) == 0 {
-								return "No extra parameter given for " + name, false
-							}
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra[0]) == 0 {
-								f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
-								return "Deleted " + value, false
-							}
-
-							k, _ := strconv.Atoi(extra[0])
-							f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(k))
-							return value + ": " + strconv.Itoa(k), true
-						case map[uint64]float32:
-							ivalue := PingAtoi(value)
-							if ivalue == 0 {
-								return value + " is not an integer.", false
-							}
-							if len(extra) == 0 {
-								return "No extra parameter given for " + name, false
-							}
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra[0]) == 0 {
-								f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
-								return "Deleted " + value, false
-							}
-
-							k, _ := strconv.ParseFloat(extra[0], 32)
-							f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(float32(k)))
-							return fmt.Sprintf("%s: %f", value, k), true
-						case map[int]string:
-							ivalue, err := strconv.Atoi(value)
-							if err != nil {
-								return value + " is not an integer.", false
-							}
-							if len(extra) == 0 {
-								return "No extra parameter given for " + name, false
-							}
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra[0]) == 0 {
-								f.SetMapIndex(reflect.ValueOf(ivalue), reflect.Value{})
-								return "Deleted " + value, false
-							}
-
-							e := strings.Join(extra, " ")
-							f.SetMapIndex(reflect.ValueOf(ivalue), reflect.ValueOf(e))
-							return value + ": " + e, true
-						case map[string]bool:
-							f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							f.SetMapIndex(reflect.ValueOf(StripPing(value)), reflect.ValueOf(true))
-							stripped := []string{StripPing(value)}
-							for _, k := range extra {
-								f.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
-								stripped = append(stripped, StripPing(k))
-							}
-							return "[" + strings.Join(stripped, ", ") + "]", true
-						case map[string]map[string]bool:
-							value = strings.ToLower(value)
-							if f.IsNil() {
-								f.Set(reflect.MakeMap(reflect.TypeOf(f.Interface())))
-							}
-							if len(extra) == 0 {
-								return DeleteFromMapReflect(f, value), false
-							}
-
-							m := reflect.MakeMap(reflect.TypeOf(f.Interface()).Elem())
-							stripped := []string{}
-							for _, k := range extra {
-								m.SetMapIndex(reflect.ValueOf(StripPing(k)), reflect.ValueOf(true))
-								stripped = append(stripped, StripPing(k))
-							}
-							f.SetMapIndex(reflect.ValueOf(value), m)
-							return value + ": [" + strings.Join(stripped, ", ") + "]", true
-						default:
-							info.log.Log(name + " is an unknown type " + f.Type().Name())
-							return "That config option has an unknown type!", false
-						}
-						return fmt.Sprint(f.Interface()), true
-					}
-				}
-			default:
-				return "Not a configuration category!", false
-			}
-		}
-	}
-	return "Could not find configuration parameter " + name + "!", false
-}
-
-func sbemotereplace(s string) string {
-	return strings.Replace(s, "[](/", "[\u200B](/", -1)
-}
-
-func (info *GuildInfo) SanitizeOutput(message string) string {
-	if info.emotemodule != nil {
-		message = info.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
-	}
-	return message
-}
-
+// PartialSanitize escapes ``` and emotes`
 func PartialSanitize(s string) string {
 	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	return strings.Replace(s, "[](/", "[\u200B](/", -1)
 }
 
+// ExtraSanitize calls PartialSanitize and also sanitizes links
 func ExtraSanitize(s string) string {
 	s = strings.Replace(s, "http://", "http\u200B://", -1)
 	s = strings.Replace(s, "https://", "https\u200B://", -1)
 	return PartialSanitize(ReplaceAllMentions(s))
 }
 
-func TypeIsPrivate(ty discordgo.ChannelType) bool {
+func typeIsPrivate(ty discordgo.ChannelType) bool {
 	return ty != discordgo.ChannelTypeGuildText && ty != discordgo.ChannelTypeGuildCategory && ty != discordgo.ChannelTypeGuildVoice
 }
-func ChannelIsPrivate(channelID string) (*discordgo.Channel, bool) {
+func channelIsPrivate(channelID string) (*discordgo.Channel, bool) {
 	if channelID == "heartbeat" {
 		return nil, true
 	}
 	ch, err := sb.dg.State.Channel(channelID)
 	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
-		return ch, TypeIsPrivate(ch.Type)
+		return ch, typeIsPrivate(ch.Type)
 	}
 	// Bots aren't supposed to be in Group DMs but can be grandfathered into them, and these channels will always fail to exist, so we simply ignore this error as harmless.
 	return nil, true
 }
 
-func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) bool {
-	ch, private := ChannelIsPrivate(channelID)
-	if !private && ch.GuildID != info.ID {
-		if SBatoi(channelID) != info.config.Log.Channel {
-			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
-		}
-		return false
-	}
-	if channelID == "heartbeat" {
-		atomic.AddUint32(&sb.heartbeat, 1)
-	} else {
-		fields := embed.Fields
-		for len(fields) > 25 {
-			embed.Fields = fields[:25]
-			fields = fields[25:]
-			sb.dg.ChannelMessageSendEmbed(channelID, embed)
-		}
-		embed.Fields = fields
-		sb.dg.ChannelMessageSendEmbed(channelID, embed)
-	}
-	return true
-}
-
-type SBRequestBuffer struct {
-	buffer []*discordgo.MessageSend
-	count  int
-}
-
-func CreateRequestBuffer() discordgo.RequestBuffer {
-	return &SBRequestBuffer{nil, 0}
-}
-
-func (b *SBRequestBuffer) Append(obj interface{}) int {
-	m := obj.(*discordgo.MessageSend)
-	b.buffer = append(b.buffer, m)
-	b.count += len(m.Content)
-	if b.count+len(b.buffer) >= 1999 { // add one for each message in the buffer for added newlines
-		return len(b.buffer)
-	}
-	return 0
-}
-func (b *SBRequestBuffer) Process() (interface{}, int) {
-	if len(b.buffer) < 1 {
-		return nil, 0
-	}
-
-	if len(b.buffer) == 1 {
-		msg := b.buffer[0]
-		b.buffer = nil
-		b.count = 0
-		return msg, 0
-	}
-
-	count := len(b.buffer[0].Content)
-	msg := make([]string, 1, len(b.buffer))
-	msg[0] = b.buffer[0].Content
-	i := 1
-
-	for i < len(b.buffer) && (count+i+len(b.buffer[i].Content)) < 2000 {
-		msg = append(msg, b.buffer[i].Content)
-		count += len(b.buffer[i].Content)
-		i++
-	}
-
-	b.count -= count
-	if i >= len(b.buffer) {
-		b.buffer = nil
-	} else {
-		b.buffer = b.buffer[i:]
-	}
-
-	return &discordgo.MessageSend{
-		Content: strings.Join(msg, "\n"),
-	}, len(b.buffer)
-}
-
-func (info *GuildInfo) sendContent(channelID string, message string, minRequest int) {
-	_, err := sb.dg.RequestPostWithBuffer(discordgo.EndpointChannelMessages(channelID), &discordgo.MessageSend{
-		Content: info.SanitizeOutput(message),
-	}, CreateRequestBuffer, minRequest)
-	if err != nil {
-		fmt.Println("Failed to send message: ", err.Error())
-	}
-}
-
-func (info *GuildInfo) SendMessage(channelID string, message string) bool {
-	ch, private := ChannelIsPrivate(channelID)
-	if !private && ch.GuildID != info.ID {
-		if SBatoi(channelID) != info.config.Log.Channel {
-			info.log.Log("Attempted to send message to ", channelID, ", which isn't on this server.")
-		}
-		return false
-	}
-
-	for len(message) > 1999 { // discord has a 2000 character limit
-		if message[0:3] == "```" && message[len(message)-3:len(message)] == "```" {
-			index := strings.LastIndex(message[:1995], "\n")
-			if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
-				index = 1995
-			}
-			info.sendContent(channelID, message[:index]+"```", 1)
-			message = "```\n" + message[index:]
-		} else {
-			index := strings.LastIndex(message[:1999], "\n")
-			if index < 10 {
-				index = 1999
-			}
-			info.sendContent(channelID, message[:index], 1)
-			message = message[index:]
-		}
-	}
-	go info.sendContent(channelID, message, 2)
-
-	//sb.dg.ChannelMessageSend(channelID, info.SanitizeOutput(message))
-	return true
-}
-
-func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
-	_, disabled := info.config.Modules.Disabled[strings.ToLower(m.Name())]
-	if disabled {
-		return false
-	}
-
-	c := info.config.Modules.Channels[strings.ToLower(m.Name())]
-	if len(channelID) > 0 && len(c) > 0 { // Only check for channels if we have a channel to check for, and the module actually has specific channels
-		_, reverse := c["!"]
-		_, ok := c[channelID]
-		return ok != reverse
-	}
-	return true
-}
-
-func (info *GuildInfo) SwapStatusLoop() {
-	if sb.IsMainGuild(info) {
-		for !sb.quit.get() {
-			d := info.config.Status.Cooldown
-			if d < 1 {
-				d = 1
-			}
-			time.Sleep(time.Duration(d) * time.Second) // Prevent you from setting this to 0 because that's bad
-			if len(info.config.Basic.Collections["status"]) > 0 {
-				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Basic.Collections["status"]))
-			}
-		}
-	}
-}
-
+// ChangeBotName changes the username and avatar of the bot
 func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
 	binary, _ := ioutil.ReadFile(avatarfile)
 	avatar := base64.StdEncoding.EncodeToString(binary)
@@ -685,8 +313,8 @@ func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
 	}
 }
 
-//func SBEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
-func SBReady(s *discordgo.Session, r *discordgo.Ready) {
+//func sbEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
+func sbReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = r.User.ID
 	sb.SelfAvatar = r.User.Avatar
@@ -701,6 +329,7 @@ func SBReady(s *discordgo.Session, r *discordgo.Ready) {
 	//ChangeBotName(s, "Sweetie", "avatar.png")
 }
 
+// AttachToGuild adds a guild to sweetiebot's state tracking
 func AttachToGuild(g *discordgo.Guild) {
 	sb.guildsLock.RLock()
 	guild, exists := sb.guilds[SBatoi(g.ID)]
@@ -742,8 +371,8 @@ func AttachToGuild(g *discordgo.Guild) {
 		commands:     make(map[string]Command),
 		emotemodule:  nil,
 		lockdown:     -1,
+		lastlogerr:   0,
 	}
-	guild.log = &Log{0, guild}
 	config, err := ioutil.ReadFile(g.ID + ".json")
 	disableall := false
 	if err != nil {
@@ -831,7 +460,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	}
 
 	if sb.IsMainGuild(guild) {
-		sb.db.log = guild.log
+		sb.db.log = guild
 	}
 
 	sb.guildsLock.Lock()
@@ -841,7 +470,9 @@ func AttachToGuild(g *discordgo.Guild) {
 
 	episodegencommand := &EpisodeGenCommand{}
 	guild.emotemodule = &EmoteModule{}
+	guild.emotemodule.UpdateRegex(guild)
 	spoilermodule := &SpoilerModule{}
+	spoilermodule.UpdateRegex(guild)
 
 	addfuncmap := map[string]func(string) string{
 		"emote": func(arg string) string {
@@ -874,6 +505,9 @@ func AttachToGuild(g *discordgo.Guild) {
 		},
 	}
 
+	wittymodule := &WittyModule{lastcomment: 0, lastdelete: 0}
+	wittymodule.UpdateRegex(guild)
+
 	guild.modules = make([]Module, 0, 6)
 	guild.modules = append(guild.modules, &DebugModule{})
 	guild.modules = append(guild.modules, &UsersModule{})
@@ -887,15 +521,15 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.modules = append(guild.modules, &BucketModule{})
 	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule})
 	guild.modules = append(guild.modules, &ConfigModule{})
-	guild.modules = append(guild.modules, &SpamModule{})
-	guild.modules = append(guild.modules, &WittyModule{})
+	guild.modules = append(guild.modules, &SpamModule{tracker: make(map[uint64]*UserPressure), lastraid: 0})
+	guild.modules = append(guild.modules, wittymodule)
 	guild.modules = append(guild.modules, &StatusModule{})
-	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand})
+	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand, lastmessage: 0})
 	guild.modules = append(guild.modules, guild.emotemodule)
 	guild.modules = append(guild.modules, spoilermodule)
 
 	for _, v := range guild.modules {
-		v.Register(guild)
+		guild.RegisterModule(v)
 		cmds := v.Commands()
 		for _, command := range cmds {
 			guild.AddCommand(command)
@@ -954,9 +588,9 @@ func AttachToGuild(g *discordgo.Guild) {
 			changes = "\nChangelog:\n" + changes + "\n\nPlease consider donating to help pay for hosting costs: https://www.patreon.com/erikmcclure"
 		}
 	}
-	guild.log.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
+	guild.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
-func GetChannelGuild(id string) *GuildInfo {
+func getChannelGuild(id string) *GuildInfo {
 	c, err := sb.dg.State.Channel(id)
 	if err != nil {
 		fmt.Println("Failed to get channel " + id)
@@ -970,7 +604,7 @@ func GetChannelGuild(id string) *GuildInfo {
 	}
 	return g
 }
-func GetGuildFromID(id string) *GuildInfo {
+func getGuildFromID(id string) *GuildInfo {
 	sb.guildsLock.RLock()
 	g, ok := sb.guilds[SBatoi(id)]
 	sb.guildsLock.RUnlock()
@@ -979,25 +613,7 @@ func GetGuildFromID(id string) *GuildInfo {
 	}
 	return g
 }
-func (info *GuildInfo) IsDebug(channel string) bool {
-	debugchannel, isdebug := sb.DebugChannels[info.ID]
-	if isdebug {
-		return channel == debugchannel
-	}
-	return false
-}
-func SBTypingStart(s *discordgo.Session, t *discordgo.TypingStart) {
-	info := GetChannelGuild(t.ChannelID)
-	if info == nil {
-		return
-	}
-	ApplyFuncRange(len(info.hooks.OnTypingStart), func(i int) {
-		if info.ProcessModule("", info.hooks.OnTypingStart[i]) {
-			info.hooks.OnTypingStart[i].OnTypingStart(info, t)
-		}
-	})
-}
-func GetAddMsg(info *GuildInfo) string {
+func getAddMsg(info *GuildInfo) string {
 	if info.config.Basic.BotChannel != 0 {
 		addch, adderr := sb.dg.State.Channel(SBitoa(info.config.Basic.BotChannel))
 		if adderr == nil {
@@ -1007,6 +623,7 @@ func GetAddMsg(info *GuildInfo) string {
 	return ""
 }
 
+// SBProcessCommand processes a command given to sweetiebot in the form "!command"
 func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool) {
 	var prefix byte = '!'
 	if info != nil && len(info.config.Basic.CommandPrefix) == 1 {
@@ -1026,11 +643,11 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 
 		if !isSelf && info != nil {
 			ignore := false
-			ApplyFuncRange(len(info.hooks.OnCommand), func(i int) {
-				if info.ProcessModule(m.ChannelID, info.hooks.OnCommand[i]) {
-					ignore = ignore || info.hooks.OnCommand[i].OnCommand(info, m)
+			for _, h := range info.hooks.OnCommand {
+				if info.ProcessModule(m.ChannelID, h) {
+					ignore = ignore || h.OnCommand(info, m)
 				}
-			})
+			}
 			if ignore && !isOwner && m.Author.ID != info.OwnerID { // if true, a module wants us to ignore this command
 				return
 			}
@@ -1104,13 +721,13 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 					info.commandlimit.times = make([]int64, info.config.Modules.CommandPerDuration*2, info.config.Modules.CommandPerDuration*2)
 				}
 				if info.commandlimit.check(info.config.Modules.CommandPerDuration, info.config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.log.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), GetAddMsg(info)))
+					info.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), getAddMsg(info)))
 					return
 				}
 				info.commandlimit.append(t)
 			}
 			if !isOwner && !isSelf && !info.UserHasAnyRole(m.Author.ID, info.config.Modules.CommandRoles[cmdname]) {
-				info.log.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
+				info.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
 				return
 			}
 
@@ -1120,7 +737,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				lastcmd := info.command_last[m.ChannelID][cmdname]
 				info.commandLock.RUnlock()
 				if !RateLimit(&lastcmd, cmdlimit) {
-					info.log.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), GetAddMsg(info)))
+					info.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), getAddMsg(info)))
 					return
 				}
 				info.commandLock.Lock()
@@ -1136,7 +753,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 				targetchannel := m.ChannelID
 				if usepm && !private {
 					channel, err := s.UserChannelCreate(m.Author.ID)
-					info.log.LogError("Error opening private channel: ", err)
+					info.LogError("Error opening private channel: ", err)
 					if err == nil {
 						targetchannel = channel.ID
 						private = true
@@ -1156,45 +773,35 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			}
 		} else {
 			if !info.config.Basic.IgnoreInvalidCommands {
-				info.log.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
+				info.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
 			}
 		}
 	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
-		ApplyFuncRange(len(info.hooks.OnMessageCreate), func(i int) {
-			if info.ProcessModule(m.ChannelID, info.hooks.OnMessageCreate[i]) {
-				info.hooks.OnMessageCreate[i].OnMessageCreate(info, m)
+		for _, h := range info.hooks.OnMessageCreate {
+			if info.ProcessModule(m.ChannelID, h) {
+				h.OnMessageCreate(info, m)
 			}
-		})
+		}
 	}
 }
 
-func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+func sbMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	atomic.AddUint32(&sb.MessageCount, 1)
 	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
 		return
 	}
-
-	/*if m.Content == "DO_DEADLOCK" && sb.Debug {
-		//sb.LastMessagesLock.Lock() // DEBUG: DELIBERATELY DEADLOCK
-		sb.dg.Lock()
-		fmt.Println("Deadlocking")
-	} else if m.Content == "UNDO_DEADLOCK" {
-		//sb.LastMessagesLock.Unlock()
-		sb.dg.Unlock()
-		fmt.Println("Undeadlocking")
-	}*/
 
 	t := time.Now().UTC().Unix()
 	sb.LastMessagesLock.Lock()
 	sb.LastMessages[m.ChannelID] = t
 	sb.LastMessagesLock.Unlock()
 
-	ch, private := ChannelIsPrivate(m.ChannelID)
-	var info *GuildInfo = nil
+	ch, private := channelIsPrivate(m.ChannelID)
+	var info *GuildInfo
 	isdbguild := true
 	isdebug := false
 	if !private {
-		info = GetChannelGuild(m.ChannelID)
+		info = getChannelGuild(m.ChannelID)
 		if info == nil {
 			return
 		}
@@ -1202,11 +809,6 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		isdebug = info.IsDebug(m.ChannelID)
 	}
 
-	if m.Content == "DO_SPAM" && sb.Debug && info != nil {
-		for i := 0; i < 100; i++ {
-			go info.SendMessage(m.ChannelID, fmt.Sprintf("example message joining notification #%v", i+1))
-		}
-	}
 	if isdebug && !sb.Debug {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
@@ -1241,8 +843,8 @@ func SBMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug)
 }
 
-func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	info := GetChannelGuild(m.ChannelID)
+func sbMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	info := getChannelGuild(m.ChannelID)
 	if info == nil {
 		return
 	}
@@ -1252,17 +854,17 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
 		original, err := s.ChannelMessage(m.ChannelID, m.ID)
 		if err != nil {
-			info.log.LogError("Error processing MessageUpdate: ", err)
+			info.LogError("Error processing MessageUpdate: ", err)
 			return // Fuck it, we can't process this
 		}
 		m.Author = original.Author
 	}
 
 	ch, err := sb.dg.State.Channel(m.ChannelID)
-	info.log.LogError("Error retrieving channel ID "+m.ChannelID+": ", err)
+	info.LogError("Error retrieving channel ID "+m.ChannelID+": ", err)
 	private := true
 	if err == nil {
-		private = TypeIsPrivate(ch.Type)
+		private = typeIsPrivate(ch.Type)
 	}
 	cid := SBatoi(m.ChannelID)
 	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.db.CheckStatus() { // Always ignore messages from the log channel
@@ -1271,100 +873,82 @@ func SBMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	if m.Author.ID == sb.SelfID {
 		return
 	}
-	ApplyFuncRange(len(info.hooks.OnMessageUpdate), func(i int) {
-		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageUpdate[i]) {
-			info.hooks.OnMessageUpdate[i].OnMessageUpdate(info, m.Message)
+	for _, h := range info.hooks.OnMessageUpdate {
+		if info.ProcessModule(m.ChannelID, h) {
+			h.OnMessageUpdate(info, m.Message)
 		}
-	})
+	}
 }
-func SBMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
-	info := GetChannelGuild(m.ChannelID)
+func sbMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
+	info := getChannelGuild(m.ChannelID)
 	if info == nil {
 		return
 	}
 	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
 		return
 	}
-	ApplyFuncRange(len(info.hooks.OnMessageDelete), func(i int) {
-		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageDelete[i]) {
-			info.hooks.OnMessageDelete[i].OnMessageDelete(info, m.Message)
+	for _, h := range info.hooks.OnMessageDelete {
+		if info.ProcessModule(m.ChannelID, h) {
+			h.OnMessageDelete(info, m.Message)
 		}
-	})
-}
-func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
-	info := GetChannelGuild(m.ChannelID)
-	if info == nil {
-		return
 	}
-	ApplyFuncRange(len(info.hooks.OnMessageAck), func(i int) {
-		if info.ProcessModule(m.ChannelID, info.hooks.OnMessageAck[i]) {
-			info.hooks.OnMessageAck[i].OnMessageAck(info, m)
-		}
-	})
 }
-func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
+func sbUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
 	ProcessUser(m.User, nil)
 }
-func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
-	info := GetGuildFromID(m.GuildID)
+func sbPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
 	ProcessUser(m.User, &m.Presence)
 
-	ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) {
-		if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) {
-			info.hooks.OnPresenceUpdate[i].OnPresenceUpdate(info, m)
+	for _, h := range info.hooks.OnPresenceUpdate {
+		if info.ProcessModule("", h) {
+			h.OnPresenceUpdate(info, m)
 		}
-	})
-}
-func SBVoiceStateUpdate(s *discordgo.Session, m *discordgo.VoiceStateUpdate) {
-	info := GetGuildFromID(m.GuildID)
-	if info == nil {
-		return
 	}
-	ApplyFuncRange(len(info.hooks.OnVoiceStateUpdate), func(i int) {
-		if info.ProcessModule("", info.hooks.OnVoiceStateUpdate[i]) {
-			info.hooks.OnVoiceStateUpdate[i].OnVoiceStateUpdate(info, m.VoiceState)
-		}
-	})
 }
-func SBGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
-	info := GetChannelGuild(m.ID)
+func sbGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
+	info := getChannelGuild(m.ID)
 	if info == nil {
 		return
 	}
 	fmt.Println("Guild update detected, updating", m.Name)
 	info.ProcessGuild(m.Guild)
-	ApplyFuncRange(len(info.hooks.OnGuildUpdate), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildUpdate[i]) {
-			info.hooks.OnGuildUpdate[i].OnGuildUpdate(info, m.Guild)
+
+	for _, h := range info.hooks.OnGuildUpdate {
+		if info.ProcessModule("", h) {
+			h.OnGuildUpdate(info, m.Guild)
 		}
-	})
+	}
 }
-func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	info := GetGuildFromID(m.GuildID)
+func sbGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
 	info.ProcessMember(m.Member)
-	ApplyFuncRange(len(info.hooks.OnGuildMemberAdd), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildMemberAdd[i]) {
-			info.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(info, m.Member)
+
+	for _, h := range info.hooks.OnGuildMemberAdd {
+		if info.ProcessModule("", h) {
+			h.OnGuildMemberAdd(info, m.Member)
 		}
-	})
+	}
 }
-func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	info := GetGuildFromID(m.GuildID)
+func sbGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
 	sb.db.RemoveMember(SBatoi(m.User.ID), SBatoi(info.ID))
-	ApplyFuncRange(len(info.hooks.OnGuildMemberRemove), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildMemberRemove[i]) {
-			info.hooks.OnGuildMemberRemove[i].OnGuildMemberRemove(info, m.Member)
+
+	for _, h := range info.hooks.OnGuildMemberRemove {
+		if info.ProcessModule("", h) {
+			h.OnGuildMemberRemove(info, m.Member)
 		}
-	})
+	}
+
 	if m.User.ID == sb.SelfID {
 		fmt.Println("Sweetie was removed from", info.Name)
 		sb.guildsLock.Lock()
@@ -1372,59 +956,63 @@ func SBGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		sb.guildsLock.Unlock()
 	}
 }
-func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	info := GetGuildFromID(m.GuildID)
+func sbGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
 	info.ProcessMember(m.Member)
-	ApplyFuncRange(len(info.hooks.OnGuildMemberUpdate), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildMemberUpdate[i]) {
-			info.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(info, m.Member)
+
+	for _, h := range info.hooks.OnGuildMemberUpdate {
+		if info.ProcessModule("", h) {
+			h.OnGuildMemberUpdate(info, m.Member)
 		}
-	})
+	}
 }
-func SBGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
-	info := GetGuildFromID(m.GuildID) // We don't actually need to resolve this to get the guildID for SawBan, but we want to ignore any guilds we get messages from that we aren't currently attached to.
+func sbGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
+	info := getGuildFromID(m.GuildID) // We don't actually need to resolve this to get the guildID for SawBan, but we want to ignore any guilds we get messages from that we aren't currently attached to.
 	if info == nil {
 		return
 	}
-	ApplyFuncRange(len(info.hooks.OnGuildBanAdd), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildBanAdd[i]) {
-			info.hooks.OnGuildBanAdd[i].OnGuildBanAdd(info, m)
+
+	for _, h := range info.hooks.OnGuildBanAdd {
+		if info.ProcessModule("", h) {
+			h.OnGuildBanAdd(info, m)
 		}
-	})
+	}
 }
-func SBGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
-	info := GetGuildFromID(m.GuildID)
+func sbGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	ApplyFuncRange(len(info.hooks.OnGuildBanRemove), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildBanRemove[i]) {
-			info.hooks.OnGuildBanRemove[i].OnGuildBanRemove(info, m)
+
+	for _, h := range info.hooks.OnGuildBanRemove {
+		if info.ProcessModule("", h) {
+			h.OnGuildBanRemove(info, m)
 		}
-	})
+	}
 }
-func SBGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
-	info := GetGuildFromID(m.GuildID)
+func sbGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
+	info := getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	ApplyFuncRange(len(info.hooks.OnGuildRoleDelete), func(i int) {
-		if info.ProcessModule("", info.hooks.OnGuildRoleDelete[i]) {
-			info.hooks.OnGuildRoleDelete[i].OnGuildRoleDelete(info, m)
+
+	for _, h := range info.hooks.OnGuildRoleDelete {
+		if info.ProcessModule("", h) {
+			h.OnGuildRoleDelete(info, m)
 		}
-	})
+	}
 }
-func SBGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { ProcessGuildCreate(m.Guild) }
-func SBGuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+func sbGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { AttachToGuild(m.Guild) }
+func sbGuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
 	fmt.Println("Sweetie was deleted from", m.Guild.Name)
 	sb.guildsLock.Lock()
 	delete(sb.guilds, SBatoi(m.Guild.ID))
 	sb.guildsLock.Unlock()
 }
-func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
+func sbChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 	sb.guildsLock.RLock()
 	guild, ok := sb.guilds[SBatoi(c.GuildID)]
 	sb.guildsLock.RUnlock()
@@ -1432,9 +1020,11 @@ func SBChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
 		setupSilenceRole(guild)
 	}
 }
-func SBChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
+func sbChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
 
 }
+
+// ProcessUser adds a user to the database
 func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	isonline := (p != nil && p.Status != "Offline")
 	id := SBatoi(u.ID)
@@ -1445,115 +1035,7 @@ func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	return id
 }
 
-func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
-	ProcessUser(u.User, nil)
-
-	t := time.Now().UTC()
-	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
-		t, _ = time.Parse(time.RFC3339, u.JoinedAt)
-	}
-	if sb.db.CheckStatus() {
-		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), t, u.Nick)
-	}
-}
-
-func ProcessGuildCreate(g *discordgo.Guild) {
-	AttachToGuild(g)
-}
-
-func (info *GuildInfo) UserBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
-	valueArgs := make([]interface{}, 0, len(members)*6)
-	valueStrings := make([]string, 0, len(members))
-
-	for _, m := range members {
-		valueStrings = append(valueStrings, "(?,?,?,?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
-		discriminator, _ := strconv.Atoi(m.User.Discriminator)
-		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Email, m.User.Username, discriminator, m.User.Avatar, m.User.Verified)
-	}
-
-	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := tx.Exec(stmt, valueArgs...)
-	info.log.LogError("Error in UserBulkUpdate", err)
-}
-
-func (info *GuildInfo) MemberBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
-	valueArgs := make([]interface{}, 0, len(members)*4)
-	valueStrings := make([]string, 0, len(members))
-
-	for _, m := range members {
-		valueStrings = append(valueStrings, "(?,?,?,?,UTC_TIMESTAMP())")
-		t := time.Now().UTC()
-		if len(m.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
-			t, _ = time.Parse(time.RFC3339, m.JoinedAt)
-		}
-		valueArgs = append(valueArgs, SBatoi(m.User.ID), SBatoi(info.ID), t, m.Nick)
-	}
-	stmt := fmt.Sprintf("INSERT IGNORE INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := tx.Exec(stmt, valueArgs...)
-	info.log.LogError("Error in MemberBulkUpdate", err)
-}
-
-func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	info.Name = g.Name
-	info.OwnerID = g.OwnerID
-	const chunksize int = 1000
-
-	if len(g.Members) > 0 && sb.db.CheckStatus() {
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-		defer cancel()
-		tx, err := sb.db.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
-		info.log.LogError("Error in ProcessGuild", err)
-
-		// First process userdata
-		i := chunksize
-		for i < len(g.Members) {
-			info.UserBulkUpdate(tx, g.Members[i-chunksize:i])
-			i += chunksize
-		}
-		info.UserBulkUpdate(tx, g.Members[i-chunksize:])
-
-		// Then process member data
-		i = chunksize
-		for i < len(g.Members) {
-			info.MemberBulkUpdate(tx, g.Members[i-chunksize:i])
-			i += chunksize
-		}
-		info.MemberBulkUpdate(tx, g.Members[i-chunksize:])
-		tx.Commit()
-	}
-}
-
-func (info *GuildInfo) FindChannelID(name string) string {
-	guild, err := sb.dg.State.Guild(info.ID)
-	if err != nil {
-		return ""
-	}
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
-	for _, v := range guild.Channels {
-		if v.Name == name {
-			return v.ID
-		}
-	}
-
-	return ""
-}
-
-func ApplyFuncRange(length int, fn func(i int)) {
-	for i := 0; i < length; i++ {
-		fn(i)
-	}
-}
-
-func (info *GuildInfo) HasChannel(id string) bool {
-	c, err := sb.dg.State.Channel(id)
-	if err != nil {
-		return false
-	}
-	return c.GuildID == info.ID
-}
-
-func IdleCheckLoop() {
+func idleCheckLoop() {
 	for !sb.quit.get() {
 		sb.guildsLock.RLock()
 		infos := make([]*GuildInfo, 0, len(sb.guilds))
@@ -1583,19 +1065,20 @@ func IdleCheckLoop() {
 				sb.LastMessagesLock.RUnlock()
 				if exists {
 					diff := time.Now().UTC().Sub(time.Unix(t, 0))
-					ApplyFuncRange(len(info.hooks.OnIdle), func(i int) {
-						if info.ProcessModule(ch.ID, info.hooks.OnIdle[i]) && diff >= (time.Duration(info.hooks.OnIdle[i].IdlePeriod(info))*time.Second) {
-							info.hooks.OnIdle[i].OnIdle(info, ch)
+
+					for _, h := range info.hooks.OnIdle {
+						if info.ProcessModule(ch.ID, h) && diff >= (time.Duration(h.IdlePeriod(info))*time.Second) {
+							h.OnIdle(info, ch)
 						}
-					})
+					}
 				}
 			}
 
-			ApplyFuncRange(len(info.hooks.OnTick), func(i int) {
-				if info.ProcessModule("", info.hooks.OnTick[i]) {
-					info.hooks.OnTick[i].OnTick(info)
+			for _, h := range info.hooks.OnTick {
+				if info.ProcessModule("", h) {
+					h.OnTick(info)
 				}
-			})
+			}
 
 			if info.lockdown != -1 && time.Now().UTC().Sub(info.lastlockdown) > (time.Duration(info.config.Spam.LockdownDuration)*time.Second) {
 				DisableLockdown(info)
@@ -1607,22 +1090,22 @@ func IdleCheckLoop() {
 	}
 }
 
-func DeadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
+func deadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
 	sb.dg.State.RLock()
 	sb.dg.State.RUnlock()
 	sb.locknumber++
 	sb.dg.RLock()
 	sb.dg.RUnlock()
 	sb.locknumber++
-	SBMessageCreate(sb.dg, m)
+	sbMessageCreate(sb.dg, m)
 }
 
-const HEARTBEAT_INTERVAL = 20
+const heartbeatInterval time.Duration = 20 * time.Second
 
-func DeadlockDetector() {
-	var counter uint32 = sb.heartbeat
-	var missed uint32 = 0
-	time.Sleep(HEARTBEAT_INTERVAL * time.Second) // Give sweetie time to load everything first before initiating heartbeats
+func deadlockDetector() {
+	var counter = sb.heartbeat
+	var missed = 0
+	time.Sleep(heartbeatInterval) // Give sweetie time to load everything first before initiating heartbeats
 	for !sb.quit.get() {
 		sb.guildsLock.RLock()
 		info, ok := sb.guilds[sb.MainGuildID]
@@ -1630,7 +1113,7 @@ func DeadlockDetector() {
 
 		if !ok {
 			fmt.Println(sb.MainGuildID, "MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
-			time.Sleep(HEARTBEAT_INTERVAL * time.Second)
+			time.Sleep(heartbeatInterval)
 			continue
 		}
 		m := discordgo.MessageCreate{
@@ -1644,8 +1127,8 @@ func DeadlockDetector() {
 			},
 		}
 		sb.locknumber = 0
-		go DeadlockTestFunc(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
-		time.Sleep(HEARTBEAT_INTERVAL * time.Second)
+		go deadlockTestFunc(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
+		time.Sleep(heartbeatInterval)
 		if atomic.LoadUint32(&sb.heartbeat) == counter+1 {
 			counter++
 			missed = 0
@@ -1661,13 +1144,21 @@ func DeadlockDetector() {
 	}
 }
 
-func WaitForInput() {
-	var input string
-	fmt.Scanln(&input)
-	sb.quit.set(true)
+type emptyLog struct{}
+
+func (log *emptyLog) Log(args ...interface{}) {
+	s := fmt.Sprint(args...)
+	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
 }
 
-func Initialize(Token string) {
+func (log *emptyLog) LogError(msg string, err error) {
+	if err != nil {
+		log.Log(msg, err.Error())
+	}
+}
+
+// New creates and initializes a new instance of Sweetiebot that's ready to connect. Returns nil on error.
+func New(token string) *SweetieBot {
 	dbauth, dberr := ioutil.ReadFile("db.auth")
 	if dberr != nil {
 		fmt.Println("db.auth cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
@@ -1823,7 +1314,7 @@ func Initialize(Token string) {
 		rand.Intn(50)
 	}
 
-	db, err := DB_Load(&Log{0, nil}, "mysql", strings.TrimSpace(string(dbauth)))
+	db, err := DB_Load(&emptyLog{}, "mysql", strings.TrimSpace(string(dbauth)))
 	sb.db = db
 	if !db.status.get() {
 		fmt.Println("Database connection failure - running in No Database mode: ", err.Error())
@@ -1834,56 +1325,61 @@ func Initialize(Token string) {
 		} else {
 			fmt.Println("Loading database statements failed: ", err)
 			fmt.Println("DATABASE IS BADLY FORMATTED OR CORRUPT - TERMINATING SWEETIE BOT!")
-			return
+			return nil
 		}
 	}
 
 	isuser, _ := ioutil.ReadFile("isuser") // DO NOT CREATE THIS FILE UNLESS YOU KNOW *EXACTLY* WHAT YOU ARE DOING. This is for crazy people who want to run sweetiebot in user mode. If you don't know what user mode is, you don't want it. If you create this file anyway and the bot breaks, it's your own fault.
 	if isuser == nil {
-		sb.dg, err = discordgo.New("Bot " + Token)
+		sb.dg, err = discordgo.New("Bot " + token)
 	} else {
-		sb.dg, err = discordgo.New(Token)
+		sb.dg, err = discordgo.New(token)
 		fmt.Println("Started SweetieBot on a user account.")
 	}
 	if err != nil {
 		fmt.Println("Error creating discord session", err.Error())
-		return
+		return nil
 	}
+	sb.dg.LogLevel = discordgo.LogWarning
 
-	sb.dg.AddHandler(SBReady)
-	sb.dg.AddHandler(SBTypingStart)
-	sb.dg.AddHandler(SBMessageCreate)
-	sb.dg.AddHandler(SBMessageUpdate)
-	sb.dg.AddHandler(SBMessageDelete)
-	sb.dg.AddHandler(SBMessageAck)
-	sb.dg.AddHandler(SBUserUpdate)
-	sb.dg.AddHandler(SBPresenceUpdate)
-	sb.dg.AddHandler(SBVoiceStateUpdate)
-	sb.dg.AddHandler(SBGuildUpdate)
-	sb.dg.AddHandler(SBGuildMemberAdd)
-	sb.dg.AddHandler(SBGuildMemberRemove)
-	sb.dg.AddHandler(SBGuildMemberUpdate)
-	sb.dg.AddHandler(SBGuildBanAdd)
-	sb.dg.AddHandler(SBGuildBanRemove)
-	sb.dg.AddHandler(SBGuildRoleDelete)
-	sb.dg.AddHandler(SBGuildCreate)
-	sb.dg.AddHandler(SBChannelCreate)
-	sb.dg.AddHandler(SBChannelDelete)
+	sb.dg.AddHandler(sbReady)
+	sb.dg.AddHandler(sbMessageCreate)
+	sb.dg.AddHandler(sbMessageUpdate)
+	sb.dg.AddHandler(sbMessageDelete)
+	sb.dg.AddHandler(sbUserUpdate)
+	sb.dg.AddHandler(sbPresenceUpdate)
+	sb.dg.AddHandler(sbGuildUpdate)
+	sb.dg.AddHandler(sbGuildMemberAdd)
+	sb.dg.AddHandler(sbGuildMemberRemove)
+	sb.dg.AddHandler(sbGuildMemberUpdate)
+	sb.dg.AddHandler(sbGuildBanAdd)
+	sb.dg.AddHandler(sbGuildBanRemove)
+	sb.dg.AddHandler(sbGuildRoleDelete)
+	sb.dg.AddHandler(sbGuildCreate)
+	sb.dg.AddHandler(sbChannelCreate)
+	sb.dg.AddHandler(sbChannelDelete)
 
 	if sb.Debug { // The server does not necessarily tie a standard input to the program
-		go WaitForInput()
+		go func() {
+			var input string
+			fmt.Scanln(&input)
+			sb.quit.set(true)
+		}()
 	}
 
-	go IdleCheckLoop()
-	go DeadlockDetector()
+	go idleCheckLoop()
+	go deadlockDetector()
 
 	//BuildMarkov(1, 1)
-	//return
-	sb.dg.LogLevel = discordgo.LogWarning
-	err = sb.dg.Open()
+	return sb
+}
+
+// Connect opens a websocket connection to discord. Only returns after disconnecting.
+func (sbot *SweetieBot) Connect() {
+	err := sbot.dg.Open()
 	if err == nil {
 		fmt.Println("Connection established")
-		for !sb.quit.get() {
+		for !sbot.quit.get() {
 			time.Sleep(400 * time.Millisecond)
 		}
 	} else {
@@ -1891,6 +1387,6 @@ func Initialize(Token string) {
 	}
 
 	fmt.Println("Sweetiebot quitting")
-	sb.dg.Close()
-	sb.db.Close()
+	sbot.dg.Close()
+	sbot.db.Close()
 }

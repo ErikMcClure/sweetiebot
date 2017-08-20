@@ -15,11 +15,6 @@ type ModuleOnEvent interface {
 	OnEvent(*GuildInfo, *discordgo.Event)
 }
 
-type ModuleOnTypingStart interface {
-	Module
-	OnTypingStart(*GuildInfo, *discordgo.TypingStart)
-}
-
 type ModuleOnMessageCreate interface {
 	Module
 	OnMessageCreate(*GuildInfo, *discordgo.Message)
@@ -33,11 +28,6 @@ type ModuleOnMessageUpdate interface {
 type ModuleOnMessageDelete interface {
 	Module
 	OnMessageDelete(*GuildInfo, *discordgo.Message)
-}
-
-type ModuleOnMessageAck interface {
-	Module
-	OnMessageAck(*GuildInfo, *discordgo.MessageAck)
 }
 
 type ModuleOnPresenceUpdate interface {
@@ -104,7 +94,6 @@ type ModuleOnTick interface {
 // Modules monitor all incoming messages and users that have joined a given channel.
 type Module interface {
 	Name() string
-	Register(*GuildInfo)
 	Commands() []Command
 	Description() string
 }
@@ -230,4 +219,71 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 		embed.Footer = &discordgo.MessageEmbedFooter{Text: "Only usable by: " + r}
 	}
 	return embed
+}
+
+type ModuleHooks struct {
+	OnEvent             []ModuleOnEvent
+	OnMessageCreate     []ModuleOnMessageCreate
+	OnMessageUpdate     []ModuleOnMessageUpdate
+	OnMessageDelete     []ModuleOnMessageDelete
+	OnPresenceUpdate    []ModuleOnPresenceUpdate
+	OnGuildUpdate       []ModuleOnGuildUpdate
+	OnGuildMemberAdd    []ModuleOnGuildMemberAdd
+	OnGuildMemberRemove []ModuleOnGuildMemberRemove
+	OnGuildMemberUpdate []ModuleOnGuildMemberUpdate
+	OnGuildBanAdd       []ModuleOnGuildBanAdd
+	OnGuildBanRemove    []ModuleOnGuildBanRemove
+	OnGuildRoleDelete   []ModuleOnGuildRoleDelete
+	OnCommand           []ModuleOnCommand
+	OnIdle              []ModuleOnIdle
+	OnTick              []ModuleOnTick
+}
+
+func (info *GuildInfo) RegisterModule(m Module) {
+	if h, ok := m.(ModuleOnEvent); ok {
+		info.hooks.OnEvent = append(info.hooks.OnEvent, h)
+	}
+	if h, ok := m.(ModuleOnMessageCreate); ok {
+		info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, h)
+	}
+	if h, ok := m.(ModuleOnMessageUpdate); ok {
+		info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, h)
+	}
+	if h, ok := m.(ModuleOnMessageDelete); ok {
+		info.hooks.OnMessageDelete = append(info.hooks.OnMessageDelete, h)
+	}
+	if h, ok := m.(ModuleOnPresenceUpdate); ok {
+		info.hooks.OnPresenceUpdate = append(info.hooks.OnPresenceUpdate, h)
+	}
+	if h, ok := m.(ModuleOnGuildUpdate); ok {
+		info.hooks.OnGuildUpdate = append(info.hooks.OnGuildUpdate, h)
+	}
+	if h, ok := m.(ModuleOnGuildMemberAdd); ok {
+		info.hooks.OnGuildMemberAdd = append(info.hooks.OnGuildMemberAdd, h)
+	}
+	if h, ok := m.(ModuleOnGuildMemberRemove); ok {
+		info.hooks.OnGuildMemberRemove = append(info.hooks.OnGuildMemberRemove, h)
+	}
+	if h, ok := m.(ModuleOnGuildMemberUpdate); ok {
+		info.hooks.OnGuildMemberUpdate = append(info.hooks.OnGuildMemberUpdate, h)
+	}
+	if h, ok := m.(ModuleOnGuildBanAdd); ok {
+		info.hooks.OnGuildBanAdd = append(info.hooks.OnGuildBanAdd, h)
+	}
+	if h, ok := m.(ModuleOnGuildBanRemove); ok {
+		info.hooks.OnGuildBanRemove = append(info.hooks.OnGuildBanRemove, h)
+	}
+	if h, ok := m.(ModuleOnGuildRoleDelete); ok {
+		info.hooks.OnGuildRoleDelete = append(info.hooks.OnGuildRoleDelete, h)
+	}
+	if h, ok := m.(ModuleOnCommand); ok {
+		info.hooks.OnCommand = append(info.hooks.OnCommand, h)
+	}
+	if h, ok := m.(ModuleOnIdle); ok {
+		fmt.Println("OnIdle")
+		info.hooks.OnIdle = append(info.hooks.OnIdle, h)
+	}
+	if h, ok := m.(ModuleOnTick); ok {
+		info.hooks.OnTick = append(info.hooks.OnTick, h)
+	}
 }

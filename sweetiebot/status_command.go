@@ -13,8 +13,6 @@ func (w *StatusModule) Name() string {
 	return "Status"
 }
 
-func (w *StatusModule) Register(info *GuildInfo) {}
-
 func (w *StatusModule) Commands() []Command {
 	return []Command{
 		&SetStatusCommand{},
