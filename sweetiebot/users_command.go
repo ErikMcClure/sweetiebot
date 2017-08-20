@@ -566,7 +566,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	code := SilenceMemberSimple(SBitoa(IDs[0]), info)
 	if code < 0 {
-		return "```Error occured trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
+		return "```Error occurred trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 	} else if code == 1 {
 		var t *time.Time
 		if sb.db.status.get() {
