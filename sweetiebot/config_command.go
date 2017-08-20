@@ -19,8 +19,6 @@ func (w *ConfigModule) Name() string {
 	return "Configuration"
 }
 
-func (w *ConfigModule) Register(info *GuildInfo) {}
-
 func (w *ConfigModule) Commands() []Command {
 	return []Command{
 		&SetConfigCommand{},
@@ -171,7 +169,7 @@ func (c *GetConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect
 	default:
 		data, err := json.Marshal(f.Interface())
 		if err != nil {
-			info.log.Log("JSON error: ", err.Error())
+			info.Log("JSON error: ", err.Error())
 			s = append(s, "[JSON Error]")
 		} else {
 			s = append(s, ExtraSanitize(string(data)))

@@ -15,8 +15,6 @@ func (w *QuoteModule) Name() string {
 	return "Quotes"
 }
 
-func (w *QuoteModule) Register(info *GuildInfo) {}
-
 func (w *QuoteModule) Commands() []Command {
 	return []Command{
 		&QuoteCommand{},

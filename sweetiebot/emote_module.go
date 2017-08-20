@@ -17,14 +17,6 @@ func (w *EmoteModule) Name() string {
 	return "Emote"
 }
 
-func (w *EmoteModule) Register(info *GuildInfo) {
-	w.lastmsg = 0
-	w.UpdateRegex(info)
-	info.hooks.OnMessageCreate = append(info.hooks.OnMessageCreate, w)
-	info.hooks.OnMessageUpdate = append(info.hooks.OnMessageUpdate, w)
-	info.hooks.OnCommand = append(info.hooks.OnCommand, w)
-}
-
 func (w *EmoteModule) Commands() []Command { return []Command{} }
 
 func (w *EmoteModule) Description() string {

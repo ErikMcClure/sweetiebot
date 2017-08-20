@@ -1020,14 +1020,14 @@ func getDefaultServer(user uint64) *GuildInfo {
 }
 
 func snowflakeTime(id uint64) time.Time {
-	return time.Unix(int64(((id>>22)+DISCORD_EPOCH)/1000), 0)
+	return time.Unix(int64(((id>>22)+DiscordEpoch)/1000), 0)
 }
 
 func setupSilenceRole(info *GuildInfo) {
 	if info.config.Spam.SilentRole > 0 {
 		guild, err := sb.dg.State.Guild(info.ID)
 		if err != nil {
-			info.log.Log("Failed to setup silence roles!")
+			info.Log("Failed to setup silence roles!")
 			return
 		}
 		for _, ch := range guild.Channels {

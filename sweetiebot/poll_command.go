@@ -15,8 +15,6 @@ func (w *PollModule) Name() string {
 	return "Polls"
 }
 
-func (w *PollModule) Register(info *GuildInfo) {}
-
 func (w *PollModule) Commands() []Command {
 	return []Command{
 		&PollCommand{},

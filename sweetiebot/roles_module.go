@@ -11,10 +11,6 @@ func (w *RolesModule) Name() string {
 	return "Roles"
 }
 
-func (w *RolesModule) Register(info *GuildInfo) {
-	info.hooks.OnGuildRoleDelete = append(info.hooks.OnGuildRoleDelete, w)
-}
-
 func (w *RolesModule) Commands() []Command {
 	return []Command{
 		&AddRoleCommand{},
@@ -39,7 +35,7 @@ func GetRoleByName(role string, info *GuildInfo) (*discordgo.Role, error) {
 	roles, err := sb.dg.GuildRoles(info.ID)
 	role = strings.ToLower(role)
 	if err != nil {
-		info.log.LogError("GuildRoles(): ", err)
+		info.LogError("GuildRoles(): ", err)
 		return nil, err
 	}
 	for _, v := range roles {

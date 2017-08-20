@@ -16,8 +16,6 @@ func (w *UsersModule) Name() string {
 	return "Users"
 }
 
-func (w *UsersModule) Register(info *GuildInfo) {}
-
 func (w *UsersModule) Commands() []Command {
 	return []Command{
 		&NewUsersCommand{},
@@ -259,7 +257,7 @@ func (c *BanNewcomersCommand) Process(args []string, msg *discordgo.Message, ind
 		//var err error = nil
 		err := sb.dg.GuildBanCreate(info.ID, SBitoa(id), 1)
 		//sb.dg.ChannelMessageSend(msg.ChannelID, fmt.Sprintf("Pretending to ban <@%v>", id))
-		info.log.LogError("Error banning user: ", err)
+		info.LogError("Error banning user: ", err)
 	}
 
 	return fmt.Sprintf("```Banned %v people from the server. Use discord's audit log if you need to reverse a ban.```", len(IDs)), false, nil

@@ -17,8 +17,6 @@ func (w *BucketModule) Name() string {
 	return "Bucket"
 }
 
-func (w *BucketModule) Register(info *GuildInfo) {}
-
 func (w *BucketModule) Commands() []Command {
 	return []Command{
 		&GiveCommand{},

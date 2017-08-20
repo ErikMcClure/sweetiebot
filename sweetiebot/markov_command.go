@@ -17,8 +17,6 @@ func (w *MarkovModule) Name() string {
 	return "Markov"
 }
 
-func (w *MarkovModule) Register(info *GuildInfo) {}
-
 func (w *MarkovModule) Commands() []Command {
 	return []Command{
 		&EpisodeGenCommand{},
@@ -124,7 +122,7 @@ func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, ind
 				n, err := fmt.Sscanf(arg, "s%de%d:%d-%d", &S, &E, &L, &diff)
 				if err != nil {
 					if n < 3 {
-						info.log.Log("quote scan error: ", err.Error())
+						info.Log("quote scan error: ", err.Error())
 						return "```Error: Could not parse your request. Be sure it is in the format S0E00:000-000. Example: S4E22:7-14```", false, nil
 					}
 					if n < 4 {
