@@ -1,6 +1,8 @@
 package sweetiebot
 
 import (
+	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -242,11 +244,6 @@ func AssembleVersion(major byte, minor byte, revision byte, build byte) int {
 	return int(build) | (int(revision) << 8) | (int(minor) << 16) | (int(major) << 24)
 }
 
-type UserBuffer struct {
-	user     *discordgo.User
-	presence *discordgo.Presence
-}
-
 type SweetieBot struct {
 	db                 *BotDB
 	dg                 *discordgo.Session
@@ -269,8 +266,6 @@ type SweetieBot struct {
 	MaxConfigSize      int
 	StartTime          int64
 	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
-	UserAddBuffer      chan UserBuffer
-	MemberAddBuffer    chan []*discordgo.Member
 	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
 	locknumber         uint32
 }
@@ -718,16 +713,20 @@ func AttachToGuild(g *discordgo.Guild) {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
 			/*guild = &GuildInfo{
-				Guild:        g,
+				ID:           g.ID,
+				Name:         g.Name,
+				OwnerID:      g.OwnerID,
 				command_last: make(map[string]map[string]int64),
 				commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 				commands:     make(map[string]Command),
 				emotemodule:  nil,
+				lockdown:     -1,
 			}
 			sb.guildsLock.Lock()
 			sb.guilds[SBatoi(g.ID)] = guild
 			sb.guildsLock.Unlock()
-			guild.ProcessGuild(g)*/
+			guild.ProcessGuild(g)
+			fmt.Println("Processed", g.Name)*/
 			return
 		}
 	}
@@ -1304,14 +1303,14 @@ func SBMessageAck(s *discordgo.Session, m *discordgo.MessageAck) {
 	})
 }
 func SBUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
-	sb.UserAddBuffer <- UserBuffer{m.User, nil}
+	ProcessUser(m.User, nil)
 }
 func SBPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 	info := GetGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	sb.UserAddBuffer <- UserBuffer{m.User, &m.Presence}
+	ProcessUser(m.User, &m.Presence)
 
 	ApplyFuncRange(len(info.hooks.OnPresenceUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnPresenceUpdate[i]) {
@@ -1348,7 +1347,7 @@ func SBGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	if info == nil {
 		return
 	}
-	sb.MemberAddBuffer <- []*discordgo.Member{m.Member}
+	info.ProcessMember(m.Member)
 	ApplyFuncRange(len(info.hooks.OnGuildMemberAdd), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberAdd[i]) {
 			info.hooks.OnGuildMemberAdd[i].OnGuildMemberAdd(info, m.Member)
@@ -1378,7 +1377,7 @@ func SBGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 	if info == nil {
 		return
 	}
-	sb.MemberAddBuffer <- []*discordgo.Member{m.Member}
+	info.ProcessMember(m.Member)
 	ApplyFuncRange(len(info.hooks.OnGuildMemberUpdate), func(i int) {
 		if info.ProcessModule("", info.hooks.OnGuildMemberUpdate[i]) {
 			info.hooks.OnGuildMemberUpdate[i].OnGuildMemberUpdate(info, m.Member)
@@ -1451,12 +1450,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 
 	t := time.Now().UTC()
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
-		var err error
-		t, err = time.Parse(time.RFC3339, u.JoinedAt)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
+		t, _ = time.Parse(time.RFC3339, u.JoinedAt)
 	}
 	if sb.db.CheckStatus() {
 		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), t, u.Nick)
@@ -1467,12 +1461,65 @@ func ProcessGuildCreate(g *discordgo.Guild) {
 	AttachToGuild(g)
 }
 
+func (info *GuildInfo) UserBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
+	valueArgs := make([]interface{}, 0, len(members)*6)
+	valueStrings := make([]string, 0, len(members))
+
+	for _, m := range members {
+		valueStrings = append(valueStrings, "(?,?,?,?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
+		discriminator, _ := strconv.Atoi(m.User.Discriminator)
+		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Email, m.User.Username, discriminator, m.User.Avatar, m.User.Verified)
+	}
+
+	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := tx.Exec(stmt, valueArgs...)
+	info.log.LogError("Error in UserBulkUpdate", err)
+}
+
+func (info *GuildInfo) MemberBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
+	valueArgs := make([]interface{}, 0, len(members)*4)
+	valueStrings := make([]string, 0, len(members))
+
+	for _, m := range members {
+		valueStrings = append(valueStrings, "(?,?,?,?,UTC_TIMESTAMP())")
+		t := time.Now().UTC()
+		if len(m.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
+			t, _ = time.Parse(time.RFC3339, m.JoinedAt)
+		}
+		valueArgs = append(valueArgs, SBatoi(m.User.ID), SBatoi(info.ID), t, m.Nick)
+	}
+	stmt := fmt.Sprintf("INSERT IGNORE INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := tx.Exec(stmt, valueArgs...)
+	info.log.LogError("Error in MemberBulkUpdate", err)
+}
+
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 	info.Name = g.Name
 	info.OwnerID = g.OwnerID
+	const chunksize int = 1000
 
-	if len(g.Members) > 0 {
-		sb.MemberAddBuffer <- g.Members
+	if len(g.Members) > 0 && sb.db.CheckStatus() {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		defer cancel()
+		tx, err := sb.db.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
+		info.log.LogError("Error in ProcessGuild", err)
+
+		// First process userdata
+		i := chunksize
+		for i < len(g.Members) {
+			info.UserBulkUpdate(tx, g.Members[i-chunksize:i])
+			i += chunksize
+		}
+		info.UserBulkUpdate(tx, g.Members[i-chunksize:])
+
+		// Then process member data
+		i = chunksize
+		for i < len(g.Members) {
+			info.MemberBulkUpdate(tx, g.Members[i-chunksize:i])
+			i += chunksize
+		}
+		info.MemberBulkUpdate(tx, g.Members[i-chunksize:])
+		tx.Commit()
 	}
 }
 
@@ -1557,24 +1604,6 @@ func IdleCheckLoop() {
 
 		fmt.Println("Idle Check: ", time.Now())
 		time.Sleep(20 * time.Second)
-	}
-}
-
-func UserProcessLoop() {
-	for !sb.quit.get() {
-		v := <-sb.UserAddBuffer
-		ProcessUser(v.user, v.presence)
-	}
-}
-func MemberProcessLoop() {
-	for !sb.quit.get() {
-		m := <-sb.MemberAddBuffer
-		if len(m) > 0 {
-			info := GetGuildFromID(m[0].GuildID)
-			for _, v := range m {
-				info.ProcessMember(v)
-			}
-		}
 	}
 }
 
@@ -1667,9 +1696,8 @@ func Initialize(Token string) {
 		StartTime:          time.Now().UTC().Unix(),
 		heartbeat:          4294967290,
 		MessageCount:       0,
-		UserAddBuffer:      make(chan UserBuffer, 1000),
-		MemberAddBuffer:    make(chan []*discordgo.Member, 1000),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 12): "- Do bulk member insertions in single batch to reduce database pressure.\n- Removed bestpony command",
 			AssembleVersion(0, 9, 8, 11): "- User left now lists username+discriminator instead of pinging them to avoid @invalid-user problems.\n- Add ToS to !about\n- Bot now detects when it's about to be rate limited and combines short messages into a single large message. Helps keep bot responsive during huge raids.\n- Fixed race condition in spam module.",
 			AssembleVersion(0, 9, 8, 10): "- !setup can now be run by any user with the administrator role.\n- Sweetie splits up embed messages if they have more than 25 fields.\n- Added !getraid and !banraid commands\n- Replaced !wipewelcome with generic !wipe command\n- Added LinePressure, which adds pressure for each newline in a message\n- Added TrackUserLeft, which will send a message when a user leaves in addition to when they join.",
 			AssembleVersion(0, 9, 8, 9):  "- Moved several options to outside files to make self-hosting simpler to set up",
@@ -1846,8 +1874,6 @@ func Initialize(Token string) {
 		go WaitForInput()
 	}
 
-	go MemberProcessLoop()
-	go UserProcessLoop()
 	go IdleCheckLoop()
 	go DeadlockDetector()
 
