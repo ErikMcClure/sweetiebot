@@ -266,12 +266,7 @@ type sbRequestBuffer struct {
 	count  int
 }
 
-func createRequestBuffer() discordgo.RequestBuffer {
-	return &sbRequestBuffer{nil, 0}
-}
-
-func (b *sbRequestBuffer) Append(obj interface{}) int {
-	m := obj.(*discordgo.MessageSend)
+func (b *sbRequestBuffer) Append(m *discordgo.MessageSend) int {
 	b.buffer = append(b.buffer, m)
 	b.count += len(m.Content)
 	if b.count+len(b.buffer) >= 1999 { // add one for each message in the buffer for added newlines
@@ -280,7 +275,7 @@ func (b *sbRequestBuffer) Append(obj interface{}) int {
 	return 0
 }
 
-func (b *sbRequestBuffer) Process() (interface{}, int) {
+func (b *sbRequestBuffer) Process() (*discordgo.MessageSend, int) {
 	if len(b.buffer) < 1 {
 		return nil, 0
 	}
@@ -315,10 +310,68 @@ func (b *sbRequestBuffer) Process() (interface{}, int) {
 	}, len(b.buffer)
 }
 
+// RequestPostWithBuffer uses a buffer and a buffer combination function to combine multiple messages if there are fewer than minRequests requests left in the current bucket
+func (info *GuildInfo) RequestPostWithBuffer(urlStr string, data *discordgo.MessageSend, minRemaining int) (response []byte, err error) {
+	b := sb.dg.Ratelimiter.GetBucket(urlStr)
+	b.Lock()
+	if b.Userdata == nil {
+		b.Userdata = &sbRequestBuffer{nil, 0}
+	}
+	buffer := b.Userdata.(*sbRequestBuffer)
+
+	// data can be nil here, which tells the buffer to check if it's full
+	remain := buffer.Append(data)
+	softwait := sb.dg.Ratelimiter.GetWaitTime(b, minRemaining)
+
+	if remain == 0 && softwait > 0 {
+		b.Release(nil)
+		time.Sleep(softwait)
+		b.Lock()
+	}
+
+	for {
+		data, remain = buffer.Process()
+
+		if data != nil {
+			if wait := sb.dg.Ratelimiter.GetWaitTime(b, 1); wait > 0 {
+				fmt.Printf("Hit rate limit in buffered request, sleeping for %v (%v remaining)\n", wait, remain)
+				time.Sleep(wait)
+			}
+
+			b.Remaining--
+			softwait = sb.dg.Ratelimiter.GetWaitTime(b, minRemaining)
+			var body []byte
+			body, err = json.Marshal(data)
+			if err == nil {
+				response, err = sb.dg.RequestWithLockedBucket("POST", urlStr, "application/json", body, b, 0)
+			} else {
+				b.Release(nil)
+				break
+			}
+		} else {
+			b.Release(nil)
+			break
+		}
+
+		// If we have nothing left to do, bail out early to avoid extra work
+		if remain == 0 {
+			break
+		}
+
+		// If we ran out of breathing room on our bucket, sleep until the end of the soft limit
+		if softwait > 0 {
+			time.Sleep(softwait)
+		}
+		b.Lock() // Re-lock the bucket
+	}
+
+	return
+}
+
 func (info *GuildInfo) sendContent(channelID string, message string, minRequest int) {
-	_, err := sb.dg.RequestPostWithBuffer(discordgo.EndpointChannelMessages(channelID), &discordgo.MessageSend{
+	_, err := info.RequestPostWithBuffer(discordgo.EndpointChannelMessages(channelID), &discordgo.MessageSend{
 		Content: info.sanitizeOutput(message),
-	}, createRequestBuffer, minRequest)
+	}, minRequest)
 	if err != nil {
 		fmt.Println("Failed to send message: ", err.Error())
 	}
