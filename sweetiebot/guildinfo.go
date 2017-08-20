@@ -1,8 +1,6 @@
 package sweetiebot
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -232,7 +230,7 @@ func sbemotereplace(s string) string {
 }
 
 func (info *GuildInfo) sanitizeOutput(message string) string {
-	if info.emotemodule != nil {
+	if info.emotemodule != nil && info.emotemodule.emoteban != nil {
 		message = info.emotemodule.emoteban.ReplaceAllStringFunc(message, sbemotereplace)
 	}
 	return message
@@ -459,7 +457,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	}
 }
 
-func (info *GuildInfo) UserBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
+func (info *GuildInfo) UserBulkUpdate(members []*discordgo.Member) {
 	valueArgs := make([]interface{}, 0, len(members)*6)
 	valueStrings := make([]string, 0, len(members))
 
@@ -470,11 +468,11 @@ func (info *GuildInfo) UserBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
 	}
 
 	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := tx.Exec(stmt, valueArgs...)
+	_, err := sb.db.db.Exec(stmt, valueArgs...)
 	info.LogError("Error in UserBulkUpdate", err)
 }
 
-func (info *GuildInfo) MemberBulkUpdate(tx *sql.Tx, members []*discordgo.Member) {
+func (info *GuildInfo) MemberBulkUpdate(members []*discordgo.Member) {
 	valueArgs := make([]interface{}, 0, len(members)*4)
 	valueStrings := make([]string, 0, len(members))
 
@@ -487,7 +485,7 @@ func (info *GuildInfo) MemberBulkUpdate(tx *sql.Tx, members []*discordgo.Member)
 		valueArgs = append(valueArgs, SBatoi(m.User.ID), SBatoi(info.ID), t, m.Nick)
 	}
 	stmt := fmt.Sprintf("INSERT IGNORE INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := tx.Exec(stmt, valueArgs...)
+	_, err := sb.db.db.Exec(stmt, valueArgs...)
 	info.LogError("Error in MemberBulkUpdate", err)
 }
 
@@ -497,27 +495,21 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 	const chunksize int = 1000
 
 	if len(g.Members) > 0 && sb.db.CheckStatus() {
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-		defer cancel()
-		tx, err := sb.db.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: false})
-		info.LogError("Error in ProcessGuild", err)
-
 		// First process userdata
 		i := chunksize
 		for i < len(g.Members) {
-			info.UserBulkUpdate(tx, g.Members[i-chunksize:i])
+			info.UserBulkUpdate(g.Members[i-chunksize : i])
 			i += chunksize
 		}
-		info.UserBulkUpdate(tx, g.Members[i-chunksize:])
+		info.UserBulkUpdate(g.Members[i-chunksize:])
 
 		// Then process member data
 		i = chunksize
 		for i < len(g.Members) {
-			info.MemberBulkUpdate(tx, g.Members[i-chunksize:i])
+			info.MemberBulkUpdate(g.Members[i-chunksize : i])
 			i += chunksize
 		}
-		info.MemberBulkUpdate(tx, g.Members[i-chunksize:])
-		tx.Commit()
+		info.MemberBulkUpdate(g.Members[i-chunksize:])
 	}
 }
 

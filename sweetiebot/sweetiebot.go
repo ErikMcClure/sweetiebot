@@ -459,10 +459,6 @@ func AttachToGuild(g *discordgo.Guild) {
 		}
 	}
 
-	if sb.IsMainGuild(guild) {
-		sb.db.log = guild
-	}
-
 	sb.guildsLock.Lock()
 	sb.guilds[SBatoi(g.ID)] = guild
 	sb.guildsLock.Unlock()
@@ -553,6 +549,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		guild.SaveConfig()
 	}
 	if sb.IsMainGuild(guild) {
+		sb.db.log = guild
 		go guild.SwapStatusLoop()
 	}
 
