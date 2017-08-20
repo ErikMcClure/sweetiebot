@@ -518,7 +518,7 @@ func (c *GetRaidCommand) Name() string {
 }
 func (c *GetRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !c.s.IsRecentRaid(info) {
-		return fmt.Sprintf("```No raid has occured within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
+		return fmt.Sprintf("```No raid has occurred within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
 	}
 	s := []string{"Users in latest raid: "}
 	for _, v := range c.s.GetRaidUsers(info) {
@@ -540,7 +540,7 @@ func (c *BanRaidCommand) Name() string {
 }
 func (c *BanRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !c.s.IsRecentRaid(info) {
-		return fmt.Sprintf("```No raid has occured within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
+		return fmt.Sprintf("```No raid has occurred within the past %s.```", TimeDiff(time.Duration(info.config.Spam.RaidTime*2)*time.Second)), false, nil
 	}
 	reason := fmt.Sprintf("Banned by %s#%s via the !banraid command.", msg.Author.Username, msg.Author.Discriminator)
 	users := c.s.GetRaidUsers(info)

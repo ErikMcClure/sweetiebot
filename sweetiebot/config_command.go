@@ -461,8 +461,8 @@ func (c *SetupCommand) Usage(info *GuildInfo) *CommandUsage {
 		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`.",
 		Params: []CommandUsageParam{
 			CommandUsageParam{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
-			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
-			CommandUsageParam{Name: "Log Channel", Desc: "An optional channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
+			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
+			CommandUsageParam{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
 		},
 	}
 }

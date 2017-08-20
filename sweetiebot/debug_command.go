@@ -108,7 +108,7 @@ func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 	for i < len(args) {
 		s := strings.SplitN(args[i], ":", 2)
 		if len(s) < 2 {
-			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in paranthesis!```", false, nil
+			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
 		}
 		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
 		i++

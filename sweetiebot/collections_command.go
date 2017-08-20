@@ -229,7 +229,7 @@ func (c *PickCommand) Process(args []string, msg *discordgo.Message, indices []i
 				return ReplaceAllMentions(MapGetRandomItem(info.config.Basic.Collections[s[k]])), false, nil
 			}
 		}
-		return "An impossible event occured.", false, nil
+		return "An impossible event occurred.", false, nil
 	}
 	if len(s) == 1 {
 		return "```That collection is empty.```", false, nil
