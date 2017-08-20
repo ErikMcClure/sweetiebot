@@ -81,8 +81,8 @@ func (c *EpisodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of `lines`. Will be sent via PM if the line count exceeds 5.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "lines", Desc: "Number of dialogue lines to generate", Optional: false},
-			CommandUsageParam{Name: "single", Desc: "The markov chain uses double-lookback by default, if this is specified, will revert to single-lookback, which produces much more chaotic results.", Optional: false},
+			{Name: "lines", Desc: "Number of dialogue lines to generate", Optional: false},
+			{Name: "single", Desc: "The markov chain uses double-lookback by default, if this is specified, will revert to single-lookback, which produces much more chaotic results.", Optional: false},
 		},
 	}
 }
@@ -164,7 +164,7 @@ func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of " + strconv.Itoa(info.config.Markov.MaxLines) + " lines, but a line count above 5 will be sent in a private message. \n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "S0E00:000-000|action|speech|\"Character Name\"", Desc: "Example: `" + info.config.Basic.CommandPrefix + "quote S4E22:7-14`", Optional: true},
+			{Name: "S0E00:000-000|action|speech|\"Character Name\"", Desc: "Example: `" + info.config.Basic.CommandPrefix + "quote S4E22:7-14`", Optional: true},
 		},
 	}
 }
@@ -236,8 +236,8 @@ func (c *ShipCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Generates a random pairing of ponies. If a first or second argument is supplied, uses those names instead.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "first", Desc: "The first name in the ship.", Optional: true},
-			CommandUsageParam{Name: "second", Desc: "The second name in the ship.", Optional: true},
+			{Name: "first", Desc: "The first name in the ship.", Optional: true},
+			{Name: "second", Desc: "The second name in the ship.", Optional: true},
 		},
 	}
 }

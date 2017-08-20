@@ -60,8 +60,8 @@ func (c *EchoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Makes Sweetie Bot say the given sentence in `#channel`, or in the current channel if no channel is provided.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
-			CommandUsageParam{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
+			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
+			{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
 		},
 	}
 }
@@ -130,10 +130,10 @@ func (c *EchoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
-			CommandUsageParam{Name: "URL", Desc: "URL for the author to link to.", Optional: false},
-			CommandUsageParam{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: true},
-			CommandUsageParam{Name: "key:value", Desc: "A key:value pair of fields to display in the embed. Remember to use quotes around the *entire* key:value pair if either the key or the value have spaces.", Optional: true, Variadic: true},
+			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
+			{Name: "URL", Desc: "URL for the author to link to.", Optional: false},
+			{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: true},
+			{Name: "key:value", Desc: "A key:value pair of fields to display in the embed. Remember to use quotes around the *entire* key:value pair if either the key or the value have spaces.", Optional: true, Variadic: true},
 		},
 	}
 }
@@ -198,7 +198,7 @@ func (c *DisableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Disables the given module or command, if possible. If the module/command is already disabled, does nothing.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "module|command", Desc: "The module or command to disable. You do not need to specify the parent module of a command, only the command name itself.", Optional: false},
+			{Name: "module|command", Desc: "The module or command to disable. You do not need to specify the parent module of a command, only the command name itself.", Optional: false},
 		},
 	}
 }
@@ -217,7 +217,7 @@ func (c *EnableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Enables the given module or command, if possible. If the module/command is already enabled, does nothing.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "module|command", Desc: "The module or command to enable. You do not need to specify the parent module of a command, only the command name itself.", Optional: false},
+			{Name: "module|command", Desc: "The module or command to enable. You do not need to specify the parent module of a command, only the command name itself.", Optional: false},
 		},
 	}
 }
@@ -370,7 +370,7 @@ func (c *AnnounceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that announces a message to all the log channels of all servers.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
+			{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
 		},
 	}
 }
@@ -403,8 +403,8 @@ func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that removes the alias for a given user. The user must be pinged, and the alias must match precisely.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "A ping to a specific user in the format @User.", Optional: false},
-			CommandUsageParam{Name: "alias", Desc: "The *exact* name of the alias to remove.", Optional: false},
+			{Name: "user", Desc: "A ping to a specific user in the format @User.", Optional: false},
+			{Name: "alias", Desc: "The *exact* name of the alias to remove.", Optional: false},
 		},
 	}
 }
@@ -482,9 +482,9 @@ func (c *GetAuditCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Allows admins to inspect the audit log.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "range", Desc: "If this is a single number, the number of results to return. If it's a range in the form 999-9999, returns the given range of audit log entries, up to a maximum of 50 in one call. Defaults to displaying 1-10.", Optional: true},
-			CommandUsageParam{Name: "user", Desc: "Must be in the form of @user, either as an actual ping or just part of the users name. If included, filters results to just that user. If there are spaces in the username, you must use quotes.", Optional: true},
-			CommandUsageParam{Name: "arbitrary string", Desc: "An arbitrary string starting with either `!` or `$`. `!` will search for an exact command (regardless of what your command prefix has been set to), whereas `$` will simply search for the string anywhere in the audit log. This will eat up all remaining arguments, so put the user and the range BEFORE specifying the search string, and don't use quotes!", Optional: true},
+			{Name: "range", Desc: "If this is a single number, the number of results to return. If it's a range in the form 999-9999, returns the given range of audit log entries, up to a maximum of 50 in one call. Defaults to displaying 1-10.", Optional: true},
+			{Name: "user", Desc: "Must be in the form of @user, either as an actual ping or just part of the users name. If included, filters results to just that user. If there are spaces in the username, you must use quotes.", Optional: true},
+			{Name: "arbitrary string", Desc: "An arbitrary string starting with either `!` or `$`. `!` will search for an exact command (regardless of what your command prefix has been set to), whereas `$` will simply search for the string anywhere in the audit log. This will eat up all remaining arguments, so put the user and the range BEFORE specifying the search string, and don't use quotes!", Optional: true},
 		},
 	}
 }

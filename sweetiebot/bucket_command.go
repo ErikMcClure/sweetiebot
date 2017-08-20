@@ -67,7 +67,7 @@ func (c *GiveCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long. Quotes are not required, but cannot be empty.", info.config.Bucket.MaxItemLength), Optional: false},
+			{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long. Quotes are not required, but cannot be empty.", info.config.Bucket.MaxItemLength), Optional: false},
 		},
 	}
 }
@@ -76,7 +76,7 @@ func (c *GiveCommand) UsageShort() string { return "Gives something to sweetie."
 func BucketDropRandom(info *GuildInfo) string {
 	index := rand.Intn(len(info.config.Basic.Collections["bucket"]))
 	i := 0
-	for k, _ := range info.config.Basic.Collections["bucket"] {
+	for k := range info.config.Basic.Collections["bucket"] {
 		if i == index {
 			delete(info.config.Basic.Collections["bucket"], k)
 			info.SaveConfig()
@@ -114,7 +114,7 @@ func (c *DropCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Drops the specified object from sweetie. If no object is given, makes sweetie throw something at random.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long.", info.config.Bucket.MaxItemLength), Optional: true},
+			{Name: "arbitrary string", Desc: fmt.Sprintf("An arbitrary string up to %v letters long.", info.config.Bucket.MaxItemLength), Optional: true},
 		},
 	}
 }
@@ -212,7 +212,7 @@ func (c *FightCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Fights a random user, generated character or [name] if it is provided.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "An arbitrary name for sweetie to fight.", Optional: true},
+			{Name: "name", Desc: "An arbitrary name for sweetie to fight.", Optional: true},
 		},
 	}
 }

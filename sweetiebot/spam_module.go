@@ -389,7 +389,7 @@ func (c *AutoSilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Toggles the auto silence level for anti-spam.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "all/raid/alert/log/off", Desc: "`all` will autosilence all new members. `raid` will turn on autosilence if a raid is detected (not recommended). `alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `log` sends the alerts to the log channel instead. `off` disables auto-silence and unsilences everyone.", Optional: false},
+			{Name: "all/raid/alert/log/off", Desc: "`all` will autosilence all new members. `raid` will turn on autosilence if a raid is detected (not recommended). `alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `log` sends the alerts to the log channel instead. `off` disables auto-silence and unsilences everyone.", Optional: false},
 		},
 	}
 }
@@ -458,9 +458,9 @@ func (c *WipeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes all messages in a channel sent within the last N seconds, or simply removes the last N messages if \"messages\" is appended.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work.", Optional: false},
-			CommandUsageParam{Name: "seconds", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago.", Optional: false},
-			CommandUsageParam{Name: "MESSAGES", Desc: "If you append \"MESSAGES\" to the end of the command, it will remove that many messages, instead of looking back that many seconds.", Optional: true},
+			{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work.", Optional: false},
+			{Name: "seconds", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago.", Optional: false},
+			{Name: "MESSAGES", Desc: "If you append \"MESSAGES\" to the end of the command, it will remove that many messages, instead of looking back that many seconds.", Optional: true},
 		},
 	}
 }
@@ -503,7 +503,7 @@ func (c *GetPressureCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that gets the current spam pressure of a user.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "user", Desc: "User to retrieve pressure from.", Optional: false},
+			{Name: "user", Desc: "User to retrieve pressure from.", Optional: false},
 		},
 	}
 }
