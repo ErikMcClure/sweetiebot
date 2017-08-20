@@ -172,7 +172,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 			err = err2
 		}
 		if err != nil {
-			info.log.Log(err.Error())
+			info.Log(err.Error())
 			return "```Error: Failed to prepare statement!```", false, nil
 		}
 		stmt = []*sql.Stmt{stmt1, stmt2}

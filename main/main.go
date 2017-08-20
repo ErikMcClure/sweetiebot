@@ -9,5 +9,8 @@ import (
 
 func main() {
 	token, _ := ioutil.ReadFile("token")
-	sweetiebot.Initialize(strings.TrimSpace(string(token)))
+	bot := sweetiebot.New(strings.TrimSpace(string(token)))
+	if bot != nil {
+		bot.Connect()
+	}
 }

@@ -48,7 +48,7 @@ func (c *RollCommand) eatSymbols(args []string, index *int, s ...string) int {
 	return -1
 }
 func (c *RollCommand) eval(args []string, index *int, info *GuildInfo) float64 {
-	//info.log.Log(strings.Join(args, "\u00B7"))
+	//info.Log(strings.Join(args, "\u00B7"))
 	var r float64
 	if c.eatSymbols(args, index, "+", "-") == 1 {
 		r = -c.factor(args, index, info)

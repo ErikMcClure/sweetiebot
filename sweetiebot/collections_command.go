@@ -19,8 +19,6 @@ func (w *CollectionsModule) Name() string {
 	return "Collection"
 }
 
-func (w *CollectionsModule) Register(info *GuildInfo) {}
-
 func (w *CollectionsModule) Commands() []Command {
 	return []Command{
 		&AddCommand{w.AddFuncMap},
