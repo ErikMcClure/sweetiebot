@@ -200,8 +200,8 @@ func (c *ScheduleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists up to `maxresults` upcoming events from the schedule. If the first argument is specified, lists only events of that type. Some event types can only be viewed by moderators. Max results: 20",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, roles, reminders.", Optional: true},
-			CommandUsageParam{Name: "maxresults", Desc: "Defaults to 5.", Optional: true},
+			{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, roles, reminders.", Optional: true},
+			{Name: "maxresults", Desc: "Defaults to 5.", Optional: true},
 		},
 	}
 }
@@ -274,7 +274,7 @@ func (c *NextCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gets the time until the next event of the given type.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, reminders.", Optional: true},
+			{Name: "type", Desc: "Can be one of: bans, birthdays, messages, episodes, events, reminders.", Optional: true},
 		},
 	}
 }
@@ -379,10 +379,10 @@ func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds an arbitrary event to the schedule table. For example: `" + info.config.Basic.CommandPrefix + "addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!`, or `" + info.config.Basic.CommandPrefix + "addevent episode \"9 Dec 15\" Slice of Life`. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, role. You shouldn't add birthday or reminder events manually, though.", Optional: false},
-			CommandUsageParam{Name: "role/user", Desc: "The target role or user to ping. Only include this if the type is role or reminder. If the type is \"role\", it must be an actual ping for the role, not just the name.", Optional: true},
-			CommandUsageParam{Name: "date", Desc: "A date in the format 12 Jun 16 2:10pm, in quotes. The time, year, and timezone are all optional.", Optional: false},
-			CommandUsageParam{Name: "REPEAT N INTERVAL", Desc: "INTERVAL can be one of SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS. This parameter MUST be surrounded by quotes!", Optional: true},
+			{Name: "type", Desc: "Can be one of: ban, birthday, message, episode, event, reminder, role. You shouldn't add birthday or reminder events manually, though.", Optional: false},
+			{Name: "role/user", Desc: "The target role or user to ping. Only include this if the type is role or reminder. If the type is \"role\", it must be an actual ping for the role, not just the name.", Optional: true},
+			{Name: "date", Desc: "A date in the format 12 Jun 16 2:10pm, in quotes. The time, year, and timezone are all optional.", Optional: false},
+			{Name: "REPEAT N INTERVAL", Desc: "INTERVAL can be one of SECONDS/MINUTES/HOURS/DAYS/WEEKS/MONTHS/YEARS. This parameter MUST be surrounded by quotes!", Optional: true},
 		},
 	}
 }
@@ -432,7 +432,7 @@ func (c *RemoveEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes an event with the given ID from the schedule. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "ID", Desc: "The event ID as gotten from a `" + info.config.Basic.CommandPrefix + "schedule` command.", Optional: false},
+			{Name: "ID", Desc: "The event ID as gotten from a `" + info.config.Basic.CommandPrefix + "schedule` command.", Optional: false},
 		},
 	}
 }
@@ -511,9 +511,9 @@ func (c *RemindMeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Tells sweetiebot to remind you about something in the future. ",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "in N seconds/minutes/hours/etc.", Desc: "represents a time `N` units from the current time. The available units are: seconds, minutes, hours, days, weeks, months, years.", Optional: true},
-			CommandUsageParam{Name: "on \"2 January 2006 3:04pm -0700\"", Desc: "represents an absolute date and time, which must be in quotes. You must choose the `in` syntax OR the `on` syntax to specify your time, not both.", Optional: true},
-			CommandUsageParam{Name: "message", Desc: "An arbitrary string that will be sent to you at the appropriate time.", Optional: false},
+			{Name: "in N seconds/minutes/hours/etc.", Desc: "represents a time `N` units from the current time. The available units are: seconds, minutes, hours, days, weeks, months, years.", Optional: true},
+			{Name: "on \"2 January 2006 3:04pm -0700\"", Desc: "represents an absolute date and time, which must be in quotes. You must choose the `in` syntax OR the `on` syntax to specify your time, not both.", Optional: true},
+			{Name: "message", Desc: "An arbitrary string that will be sent to you at the appropriate time.", Optional: false},
 		},
 	}
 }
@@ -568,8 +568,8 @@ func (c *AddBirthdayCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds member's birthday to the schedule.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "member", Desc: "A user ping in the form @User.", Optional: false},
-			CommandUsageParam{Name: "date", Desc: "The date in the form `Jan 2` or `2 Jan` - **do not** include the year!", Optional: false},
+			{Name: "member", Desc: "A user ping in the form @User.", Optional: false},
+			{Name: "date", Desc: "The date in the form `Jan 2` or `2 Jan` - **do not** include the year!", Optional: false},
 		},
 	}
 }

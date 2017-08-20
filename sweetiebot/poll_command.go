@@ -69,7 +69,7 @@ func (c *PollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays currently active polls or possible options for a given poll.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "poll", Desc: "Name of a specific poll to display.", Optional: true},
+			{Name: "poll", Desc: "Name of a specific poll to display.", Optional: true},
 		},
 	}
 }
@@ -112,9 +112,9 @@ func (c *CreatePollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Creates a new poll with the given name, description, and options. All arguments MUST use quotes if they have spaces. \n\nExample usage: `" + info.config.Basic.CommandPrefix + "createpoll pollname \"Description With Space\" \"Option 1\" NoSpaceOption`",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name of the new poll. It's suggested to not use spaces because this makes things difficult for other commands. ", Optional: false},
-			CommandUsageParam{Name: "description", Desc: "Poll description that appears when displaying it.", Optional: false},
-			CommandUsageParam{Name: "options", Desc: "Name of the new poll. It's suggested to not use spaces because this makes things difficult for other commands. ", Optional: true, Variadic: true},
+			{Name: "name", Desc: "Name of the new poll. It's suggested to not use spaces because this makes things difficult for other commands. ", Optional: false},
+			{Name: "description", Desc: "Poll description that appears when displaying it.", Optional: false},
+			{Name: "options", Desc: "Name of the new poll. It's suggested to not use spaces because this makes things difficult for other commands. ", Optional: true, Variadic: true},
 		},
 	}
 }
@@ -149,7 +149,7 @@ func (c *DeletePollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes the poll with the given poll name.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "poll", Desc: "Name of the poll to delete.", Optional: false},
+			{Name: "poll", Desc: "Name of the poll to delete.", Optional: false},
 		},
 	}
 }
@@ -202,8 +202,8 @@ func (c *VoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds your vote to a given poll. If you have already voted in the poll, it changes your vote instead.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "poll", Desc: "Name of the poll you want to vote in.", Optional: false},
-			CommandUsageParam{Name: "option", Desc: "The numeric index of the option you want to vote for, or the precise text of the option instead.", Optional: false},
+			{Name: "poll", Desc: "Name of the poll you want to vote in.", Optional: false},
+			{Name: "option", Desc: "The numeric index of the option you want to vote for, or the precise text of the option instead.", Optional: false},
 		},
 	}
 }
@@ -276,7 +276,7 @@ func (c *ResultsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays the results of the given poll, if it exists.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "poll", Desc: "Name of the poll to view.", Optional: false},
+			{Name: "poll", Desc: "Name of the poll to view.", Optional: false},
 		},
 	}
 }
@@ -314,8 +314,8 @@ func (c *AddOptionCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Appends an option to a poll.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "poll", Desc: "Name of the poll to modify.", Optional: false},
-			CommandUsageParam{Name: "option", Desc: "The option to append to the end of the poll.", Optional: false},
+			{Name: "poll", Desc: "Name of the poll to modify.", Optional: false},
+			{Name: "option", Desc: "The option to append to the end of the poll.", Optional: false},
 		},
 	}
 }

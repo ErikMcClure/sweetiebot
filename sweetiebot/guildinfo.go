@@ -385,7 +385,7 @@ func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	}
 
 	for len(message) > 1999 { // discord has a 2000 character limit
-		if message[0:3] == "```" && message[len(message)-3:len(message)] == "```" {
+		if message[0:3] == "```" && message[len(message)-3:] == "```" {
 			index := strings.LastIndex(message[:1995], "\n")
 			if index < 10 { // Ensure we process at least 10 characters to prevent an infinite loop
 				index = 1995

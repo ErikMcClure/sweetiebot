@@ -324,7 +324,7 @@ func BuildMarkov(season_start int, episode_start int) {
 						fmt.Println("EMPTY SPEAKER GENERATED FROM \""+lines[i].Speaker+"\" ON LINE: ", lines[i].Text)
 						fmt.Println(speakers)
 					}
-					for j, _ := range words {
+					for j := range words {
 						l := len(words[j])
 						ch := words[j][l-1]
 						switch ch {
@@ -396,7 +396,7 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 
 func GetCommandsInOrder(m map[string]Command) []string {
 	s := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		s = append(s, k)
 	}
 	sort.Strings(s)
@@ -405,7 +405,7 @@ func GetCommandsInOrder(m map[string]Command) []string {
 
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
-	for k, _ := range m {
+	for k := range m {
 		if index == 0 {
 			return k
 		}
@@ -417,7 +417,7 @@ func MapGetRandomItem(m map[string]bool) string {
 
 func MapToSlice(m map[string]bool) []string {
 	s := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		s = append(s, k)
 	}
 	return s
@@ -425,7 +425,7 @@ func MapToSlice(m map[string]bool) []string {
 
 func MapIntToSlice(m map[int]string) []int {
 	s := make([]int, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		s = append(s, k)
 	}
 	return s
@@ -433,7 +433,7 @@ func MapIntToSlice(m map[int]string) []int {
 
 func MapStringToSlice(m map[string]string) []string {
 	s := make([]string, 0, len(m))
-	for k, _ := range m {
+	for k := range m {
 		s = append(s, k)
 	}
 	return s

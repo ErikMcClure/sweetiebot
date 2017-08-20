@@ -276,7 +276,7 @@ func (c *RollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of `n` random numbers from 1 to **X**, inclusive. For example, `" + info.config.Basic.CommandPrefix + "roll d10` will return 1-10, whereas `" + info.config.Basic.CommandPrefix + "roll 2d10 + 2` will return a number between 4 and 22.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "expression", Desc: "The mathematical expression to parse.", Optional: false},
+			{Name: "expression", Desc: "The mathematical expression to parse.", Optional: false},
 		},
 	}
 }

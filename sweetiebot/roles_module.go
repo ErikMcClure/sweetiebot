@@ -151,7 +151,7 @@ func (c *AddRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Either creates a new role, or adds an existing role to Sweetie's list of user-assignable roles. To create a new role, simply put in the name of the new role. To set an existing role as user-assignable, ping the role instead, via @role.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name/id", Desc: "Name of the new role, or a ping of an existing role.", Optional: false},
+			{Name: "name/id", Desc: "Name of the new role, or a ping of an existing role.", Optional: false},
 		},
 	}
 }
@@ -191,7 +191,7 @@ func (c *JoinRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds you to a role, provided it is user-assignable. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name of the role you want to join.", Optional: false},
+			{Name: "name", Desc: "Name of the role you want to join.", Optional: false},
 		},
 	}
 }
@@ -251,7 +251,7 @@ func (c *ListRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists everyone that has the given role, provided it is user-assignable. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name of the role.", Optional: false},
+			{Name: "name", Desc: "Name of the role.", Optional: false},
 		},
 	}
 }
@@ -287,7 +287,7 @@ func (c *LeaveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes you from a role, provided it is user-assignable and you are in it. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name of the role you want to leave.", Optional: false},
+			{Name: "name", Desc: "Name of the role you want to leave.", Optional: false},
 		},
 	}
 }
@@ -317,7 +317,7 @@ func (c *RemoveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes a role from the list of user-assignable roles, but DOES NOT DELETE IT. If you want to also delete the role, use " + info.config.Basic.CommandPrefix + "deleterole.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name or ping of the role you no longer want user-assignable.", Optional: false},
+			{Name: "name", Desc: "Name or ping of the role you no longer want user-assignable.", Optional: false},
 		},
 	}
 }
@@ -351,7 +351,7 @@ func (c *DeleteRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Completely deletes a user-assignable role. Cannot be used to delete roles that aren't user-assignable to prevent accidents.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "name", Desc: "Name or ping of the role you want to delete.", Optional: false},
+			{Name: "name", Desc: "Name or ping of the role you want to delete.", Optional: false},
 		},
 	}
 }

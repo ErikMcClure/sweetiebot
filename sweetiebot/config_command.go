@@ -92,10 +92,10 @@ func (c *SetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets a configuration value of the format `Collection.Parameter`, possibly involving a key or multiple values, depending on the type of configuration parameter. Will only save the new configuration if it succeeds, and returns the new value upon success.  To set a value with a space in it, surround it with quotes, \"like so\".",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "[parameter] [value]", Desc: "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]", Optional: true},
-			CommandUsageParam{Name: "[list parameter] [value]", Desc: "If the parameter is a list, it will accept multiple new values.", Optional: true, Variadic: true},
-			CommandUsageParam{Name: "[map parameter] [key] [value]", Desc: "If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key.", Optional: true},
-			CommandUsageParam{Name: "[maplist parameter] [key] [value]", Desc: " If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to.", Optional: true, Variadic: true},
+			{Name: "[parameter] [value]", Desc: "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]", Optional: true},
+			{Name: "[list parameter] [value]", Desc: "If the parameter is a list, it will accept multiple new values.", Optional: true, Variadic: true},
+			{Name: "[map parameter] [key] [value]", Desc: "If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key.", Optional: true},
+			{Name: "[maplist parameter] [key] [value]", Desc: " If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to.", Optional: true, Variadic: true},
 		},
 	}
 }
@@ -308,8 +308,8 @@ func (c *GetConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays a list of available configuration options or their values.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category. If this is just a category, like `Basic`, lists help information for all config options in that category.", Optional: true},
-			CommandUsageParam{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `" + info.config.Basic.CommandPrefix + "getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
+			{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category. If this is just a category, like `Basic`, lists help information for all config options in that category.", Optional: true},
+			{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `" + info.config.Basic.CommandPrefix + "getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
 		},
 	}
 }
@@ -460,9 +460,9 @@ func (c *SetupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
-			CommandUsageParam{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
-			CommandUsageParam{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
+			{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
+			{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
+			{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
 		},
 	}
 }

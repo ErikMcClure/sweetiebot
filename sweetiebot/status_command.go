@@ -41,7 +41,7 @@ func (c *SetStatusCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets Sweetie Bot's status message to the given string, at least until she automatically changes it again.",
 		Params: []CommandUsageParam{
-			CommandUsageParam{Name: "arbitrary string", Desc: "String to set the status to. Be careful that it's a valid Discord status.", Optional: false},
+			{Name: "arbitrary string", Desc: "String to set the status to. Be careful that it's a valid Discord status.", Optional: false},
 		},
 	}
 }
