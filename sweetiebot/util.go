@@ -293,7 +293,7 @@ func SplitSpeaker(speaker string) []string {
 func BuildMarkov(season_start int, episode_start int) {
 	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
 
-	sb.db.sql_ResetMarkov.Exec()
+	sb.db.sqlResetMarkov.Exec()
 
 	var cur uint64
 	var prev uint64
@@ -1047,4 +1047,16 @@ func setupSilenceRole(info *GuildInfo) {
 			}
 		}
 	}
+}
+
+// UnsilenceMember unsilences the member, if they are silenced
+func UnsilenceMember(user uint64, info *GuildInfo) error {
+	m, err := info.GetMember(SBitoa(user))
+	if err == nil {
+		sb.dg.State.Lock()
+		RemoveSliceString(&m.Roles, SBitoa(info.config.Spam.SilentRole))
+		sb.dg.State.Unlock()
+	}
+
+	return sb.dg.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }

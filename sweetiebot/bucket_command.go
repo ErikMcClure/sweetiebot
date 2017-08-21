@@ -10,31 +10,35 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// BucketModule manages Sweetie's bucket
 type BucketModule struct {
 }
 
+// Name of the module
 func (w *BucketModule) Name() string {
 	return "Bucket"
 }
 
+// Commands in the module
 func (w *BucketModule) Commands() []Command {
 	return []Command{
-		&GiveCommand{},
-		&DropCommand{},
-		&ListCommand{},
-		&FightCommand{"", 0},
+		&giveCommand{},
+		&dropCommand{},
+		&listCommand{},
+		&fightCommand{"", 0},
 	}
 }
 
+// Description of the module
 func (w *BucketModule) Description() string { return "Manages Sweetie's bucket functionality." }
 
-type GiveCommand struct {
+type giveCommand struct {
 }
 
-func (c *GiveCommand) Name() string {
+func (c *giveCommand) Name() string {
 	return "Give"
 }
-func (c *GiveCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *giveCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "[](/sadbot) `You didn't give me anything!`", false, nil
 	}
@@ -63,7 +67,7 @@ func (c *GiveCommand) Process(args []string, msg *discordgo.Message, indices []i
 	info.SaveConfig()
 	return "```I picked up " + arg + ".```", false, nil
 }
-func (c *GiveCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *giveCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gives sweetie an object. If sweetie is carrying too many things, she will drop one of them at random.",
 		Params: []CommandUsageParam{
@@ -71,8 +75,9 @@ func (c *GiveCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *GiveCommand) UsageShort() string { return "Gives something to sweetie." }
+func (c *giveCommand) UsageShort() string { return "Gives something to sweetie." }
 
+// BucketDropRandom removes a random item from the bucket and returns it
 func BucketDropRandom(info *GuildInfo) string {
 	index := rand.Intn(len(info.config.Basic.Collections["bucket"]))
 	i := 0
@@ -87,14 +92,14 @@ func BucketDropRandom(info *GuildInfo) string {
 	return ""
 }
 
-type DropCommand struct {
+type dropCommand struct {
 }
 
-func (c *DropCommand) Name() string {
+func (c *dropCommand) Name() string {
 	return "Drop"
 }
 
-func (c *DropCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *dropCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(info.config.Basic.Collections["bucket"]) == 0 {
 		return "[Realizes her bucket is empty]", false, nil
 	}
@@ -110,7 +115,7 @@ func (c *DropCommand) Process(args []string, msg *discordgo.Message, indices []i
 	info.SaveConfig()
 	return "```Dropped " + arg + ".```", false, nil
 }
-func (c *DropCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *dropCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Drops the specified object from sweetie. If no object is given, makes sweetie throw something at random.",
 		Params: []CommandUsageParam{
@@ -118,15 +123,15 @@ func (c *DropCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DropCommand) UsageShort() string { return "Drops something from sweetie's bucket." }
+func (c *dropCommand) UsageShort() string { return "Drops something from sweetie's bucket." }
 
-type ListCommand struct {
+type listCommand struct {
 }
 
-func (c *ListCommand) Name() string {
+func (c *listCommand) Name() string {
 	return "List"
 }
-func (c *ListCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *listCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	things := MapToSlice(info.config.Basic.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I'm not carrying anything.```", false, nil
@@ -137,22 +142,22 @@ func (c *ListCommand) Process(args []string, msg *discordgo.Message, indices []i
 
 	return "```I'm carrying " + strings.Join(things[:len(things)-1], ", ") + " and " + things[len(things)-1] + ".```", false, nil
 }
-func (c *ListCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *listCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists everything in Sweetie's bucket.",
 	}
 }
-func (c *ListCommand) UsageShort() string { return "Lists everything in Sweetie's bucket." }
+func (c *listCommand) UsageShort() string { return "Lists everything in Sweetie's bucket." }
 
-type FightCommand struct {
+type fightCommand struct {
 	monster string
 	hp      int
 }
 
-func (c *FightCommand) Name() string {
+func (c *fightCommand) Name() string {
 	return "Fight"
 }
-func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *fightCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	things := MapToSlice(info.config.Basic.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I have nothing to fight with!```", false, nil
@@ -208,7 +213,7 @@ func (c *FightCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	return "```Stuff happens" + end, false, nil
 }
-func (c *FightCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *fightCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Fights a random user, generated character or [name] if it is provided.",
 		Params: []CommandUsageParam{
@@ -216,4 +221,4 @@ func (c *FightCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *FightCommand) UsageShort() string { return "Fights a random user or keyword." }
+func (c *fightCommand) UsageShort() string { return "Fights a random user or keyword." }
