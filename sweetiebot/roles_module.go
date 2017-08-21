@@ -7,30 +7,35 @@ import "strings"
 type RolesModule struct {
 }
 
+// Name of the module
 func (w *RolesModule) Name() string {
 	return "Roles"
 }
 
+// Commands in the module
 func (w *RolesModule) Commands() []Command {
 	return []Command{
-		&AddRoleCommand{},
-		&JoinRoleCommand{},
-		&ListRoleCommand{},
-		&LeaveRoleCommand{},
-		&RemoveRoleCommand{},
-		&DeleteRoleCommand{},
+		&addRoleCommand{},
+		&joinRoleCommand{},
+		&listRoleCommand{},
+		&leaveRoleCommand{},
+		&removeRoleCommand{},
+		&deleteRoleCommand{},
 	}
 }
 
+// Description of the module
 func (w *RolesModule) Description() string {
 	return "Contains commands for manipulating user-assignable roles."
 }
 
+// OnGuildRoleDelete keeps things tidy by making sure no deleted roles are user-assignable
 func (w *RolesModule) OnGuildRoleDelete(info *GuildInfo, r *discordgo.GuildRoleDelete) {
-	delete(info.config.Users.Roles, SBatoi(r.RoleID)) // keep things tidy by making sure no deleted roles are user-assignable
+	delete(info.config.Users.Roles, SBatoi(r.RoleID))
 	info.SaveConfig()
 }
 
+// GetRoleByName gets a role by its name
 func GetRoleByName(role string, info *GuildInfo) (*discordgo.Role, error) {
 	roles, err := sb.dg.GuildRoles(info.ID)
 	role = strings.ToLower(role)
@@ -46,6 +51,7 @@ func GetRoleByName(role string, info *GuildInfo) (*discordgo.Role, error) {
 	return nil, nil
 }
 
+// GetUserAssignableRole gets a role by it's name, but only if it's user-assignable
 func GetUserAssignableRole(role string, info *GuildInfo) (*discordgo.Role, uint64, string) {
 	r, err := GetRoleByName(role, info)
 	if err != nil {
@@ -62,6 +68,7 @@ func GetUserAssignableRole(role string, info *GuildInfo) (*discordgo.Role, uint6
 	return r, id, ""
 }
 
+// GetRoleByNameOrPing gets a role by its name or by pinging it
 func GetRoleByNameOrPing(role string, info *GuildInfo) (*discordgo.Role, uint64, string) {
 	if mentionregex.MatchString(role) {
 		role = StripPing(role)
@@ -87,14 +94,14 @@ func GetRoleByNameOrPing(role string, info *GuildInfo) (*discordgo.Role, uint64,
 	return GetUserAssignableRole(role, info)
 }
 
-type AddRoleCommand struct {
+type addRoleCommand struct {
 }
 
-func (c *AddRoleCommand) Name() string {
+func (c *addRoleCommand) Name() string {
 	return "AddRole"
 }
 
-func (c *AddRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide either a new role name, or a ping of an existing role!```", false, nil
 	}
@@ -147,7 +154,7 @@ func (c *AddRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	info.SaveConfig()
 	return fmt.Sprintf("```Created the %s role. By default, it has no permissions and can be pinged by users, but you can change these settings if you like. Use "+info.config.Basic.CommandPrefix+"deleterole to delete it.```", r.Name), false, nil
 }
-func (c *AddRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Either creates a new role, or adds an existing role to Sweetie's list of user-assignable roles. To create a new role, simply put in the name of the new role. To set an existing role as user-assignable, ping the role instead, via @role.",
 		Params: []CommandUsageParam{
@@ -155,16 +162,16 @@ func (c *AddRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddRoleCommand) UsageShort() string { return "Creates or sets a role as user-assignable." }
+func (c *addRoleCommand) UsageShort() string { return "Creates or sets a role as user-assignable." }
 
-type JoinRoleCommand struct {
+type joinRoleCommand struct {
 }
 
-func (c *JoinRoleCommand) Name() string {
+func (c *joinRoleCommand) Name() string {
 	return "JoinRole"
 }
 
-func (c *JoinRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a role name!```", false, nil
 	}
@@ -187,7 +194,7 @@ func (c *JoinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via "+info.config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.config.Basic.CommandPrefix+"listrole %s.%s```", r.Name, r.Name, r.Name, pingable), false, nil
 }
-func (c *JoinRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *joinRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds you to a role, provided it is user-assignable. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
@@ -195,16 +202,16 @@ func (c *JoinRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *JoinRoleCommand) UsageShort() string { return "Add yourself to a user-assignable role." }
+func (c *joinRoleCommand) UsageShort() string { return "Add yourself to a user-assignable role." }
 
-type ListRoleCommand struct {
+type listRoleCommand struct {
 }
 
-func (c *ListRoleCommand) Name() string {
+func (c *listRoleCommand) Name() string {
 	return "ListRole"
 }
 
-func (c *ListRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *listRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		roles, err := sb.dg.GuildRoles(info.ID)
 		if err != nil {
@@ -247,7 +254,7 @@ func (c *ListRoleCommand) Process(args []string, msg *discordgo.Message, indices
 
 	return fmt.Sprintf("```Members of %s: %s```", r.Name, strings.Join(out, ", ")), false, nil
 }
-func (c *ListRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *listRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists everyone that has the given role, provided it is user-assignable. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
@@ -255,16 +262,16 @@ func (c *ListRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ListRoleCommand) UsageShort() string { return "Lists everyone in a user-assignable role." }
+func (c *listRoleCommand) UsageShort() string { return "Lists everyone in a user-assignable role." }
 
-type LeaveRoleCommand struct {
+type leaveRoleCommand struct {
 }
 
-func (c *LeaveRoleCommand) Name() string {
+func (c *leaveRoleCommand) Name() string {
 	return "LeaveRole"
 }
 
-func (c *LeaveRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *leaveRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a role name!```", false, nil
 	}
@@ -283,7 +290,7 @@ func (c *LeaveRoleCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	return fmt.Sprintf("```You no longer have the %s role.```", r.Name), false, nil
 }
-func (c *LeaveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *leaveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes you from a role, provided it is user-assignable and you are in it. You should use the name of the role, not a ping, so you don't piss everyone off.",
 		Params: []CommandUsageParam{
@@ -291,16 +298,16 @@ func (c *LeaveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *LeaveRoleCommand) UsageShort() string { return "Remove yourself from a user-assignable role." }
+func (c *leaveRoleCommand) UsageShort() string { return "Remove yourself from a user-assignable role." }
 
-type RemoveRoleCommand struct {
+type removeRoleCommand struct {
 }
 
-func (c *RemoveRoleCommand) Name() string {
+func (c *removeRoleCommand) Name() string {
 	return "RemoveRole"
 }
 
-func (c *RemoveRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removeRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide either a role name, or a role ping.```", false, nil
 	}
@@ -313,7 +320,7 @@ func (c *RemoveRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	info.SaveConfig()
 	return fmt.Sprintf("```The %s role is no longer user-assignable, but it has NOT been deleted! Use "+info.config.Basic.CommandPrefix+"deleterole to delete a user-assignable role.```", r.Name), false, nil
 }
-func (c *RemoveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removeRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes a role from the list of user-assignable roles, but DOES NOT DELETE IT. If you want to also delete the role, use " + info.config.Basic.CommandPrefix + "deleterole.",
 		Params: []CommandUsageParam{
@@ -321,18 +328,18 @@ func (c *RemoveRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveRoleCommand) UsageShort() string {
+func (c *removeRoleCommand) UsageShort() string {
 	return "Remove a role from list of user-assignable roles."
 }
 
-type DeleteRoleCommand struct {
+type deleteRoleCommand struct {
 }
 
-func (c *DeleteRoleCommand) Name() string {
+func (c *deleteRoleCommand) Name() string {
 	return "DeleteRole"
 }
 
-func (c *DeleteRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *deleteRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide either a role name, or a role ping.```", false, nil
 	}
@@ -347,7 +354,7 @@ func (c *DeleteRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	return fmt.Sprintf("```The %s role has been deleted from the server.```", r.Name), false, nil
 }
-func (c *DeleteRoleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *deleteRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Completely deletes a user-assignable role. Cannot be used to delete roles that aren't user-assignable to prevent accidents.",
 		Params: []CommandUsageParam{
@@ -355,4 +362,4 @@ func (c *DeleteRoleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DeleteRoleCommand) UsageShort() string { return "Deletes a user-assignable role." }
+func (c *deleteRoleCommand) UsageShort() string { return "Deletes a user-assignable role." }

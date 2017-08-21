@@ -15,35 +15,38 @@ type CollectionsModule struct {
 	RemoveFuncMap map[string]func(string) string
 }
 
+// Name of the module
 func (w *CollectionsModule) Name() string {
 	return "Collection"
 }
 
+// Commands in the module
 func (w *CollectionsModule) Commands() []Command {
 	return []Command{
-		&AddCommand{w.AddFuncMap},
-		&RemoveCommand{w.RemoveFuncMap},
-		&CollectionsCommand{},
-		&PickCommand{},
-		&NewCommand{},
-		&DeleteCommand{},
-		&SearchCollectionCommand{},
-		&ImportCommand{},
+		&addCommand{w.AddFuncMap},
+		&removeCommand{w.RemoveFuncMap},
+		&collectionsCommand{},
+		&pickCommand{},
+		&newCommand{},
+		&deleteCommand{},
+		&searchCollectionCommand{},
+		&importCommand{},
 	}
 }
 
+// Description of the module
 func (w *CollectionsModule) Description() string {
 	return "Contains commands for manipulating Sweetie Bot's collections."
 }
 
-type AddCommand struct {
+type addCommand struct {
 	funcmap map[string]func(string) string
 }
 
-func (c *AddCommand) Name() string {
+func (c *addCommand) Name() string {
 	return "Add"
 }
-func (c *AddCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No collection given```", false, nil
 	}
@@ -73,7 +76,7 @@ func (c *AddCommand) Process(args []string, msg *discordgo.Message, indices []in
 	info.SaveConfig()
 	return fmt.Sprintf("```Added %s to %s%s. \n%s```", PartialSanitize(arg), PartialSanitize(strings.Join(collections, ", ")), add, strings.Join(length, "\n")), false, nil
 }
-func (c *AddCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds [arbitrary string] to [collection], then calls a handler function for that specific collection.",
 		Params: []CommandUsageParam{
@@ -82,16 +85,16 @@ func (c *AddCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddCommand) UsageShort() string { return "Adds a line to a collection." }
+func (c *addCommand) UsageShort() string { return "Adds a line to a collection." }
 
-type RemoveCommand struct {
+type removeCommand struct {
 	funcmap map[string]func(string) string
 }
 
-func (c *RemoveCommand) Name() string {
+func (c *removeCommand) Name() string {
 	return "Remove"
 }
-func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No collection given```", false, nil
 	}
@@ -120,7 +123,7 @@ func (c *RemoveCommand) Process(args []string, msg *discordgo.Message, indices [
 	info.SaveConfig()
 	return retval, false, nil
 }
-func (c *RemoveCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes [arbitrary string] from [collection], then calls a handler function for that specific collection.",
 		Params: []CommandUsageParam{
@@ -129,30 +132,32 @@ func (c *RemoveCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveCommand) UsageShort() string { return "Removes a line from a collection." }
+func (c *removeCommand) UsageShort() string { return "Removes a line from a collection." }
 
-type MemberFields []*discordgo.MessageEmbedField
+type memberFields []*discordgo.MessageEmbedField
 
-func (f MemberFields) Len() int {
+func (f memberFields) Len() int {
 	return len(f)
 }
 
-func (f MemberFields) Less(i, j int) bool {
+func (f memberFields) Less(i, j int) bool {
 	return strings.Compare(f[i].Name, f[j].Name) < 0
 }
 
-func (f MemberFields) Swap(i, j int) {
+func (f memberFields) Swap(i, j int) {
 	f[i], f[j] = f[j], f[i]
 }
 
-type CollectionsCommand struct {
+type collectionsCommand struct {
 }
 
-func (c *CollectionsCommand) Name() string {
+func (c *collectionsCommand) Name() string {
 	return "Collections"
 }
+
+// ShowAllCollections builds an embed message containing all collections
 func ShowAllCollections(message string, info *GuildInfo) *discordgo.MessageEmbed {
-	fields := make(MemberFields, 0, len(info.modules))
+	fields := make(memberFields, 0, len(info.modules))
 
 	for k, v := range info.config.Basic.Collections {
 		fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: fmt.Sprintf("%v items", len(v)), Inline: true})
@@ -170,7 +175,7 @@ func ShowAllCollections(message string, info *GuildInfo) *discordgo.MessageEmbed
 		Fields:      fields,
 	}
 }
-func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *collectionsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	const LINES int = 3
 	const MAXLENGTH int = 24
 	if len(args) < 1 {
@@ -187,7 +192,7 @@ func (c *CollectionsCommand) Process(args []string, msg *discordgo.Message, indi
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
 	return fmt.Sprintf("```\n%s contains:\n%s```", arg, s), false, nil
 }
-func (c *CollectionsCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *collectionsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all the collections that sweetiebot is using, or the contents of a specific collection.",
 		Params: []CommandUsageParam{
@@ -195,15 +200,15 @@ func (c *CollectionsCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *CollectionsCommand) UsageShort() string { return "Lists all collections." }
+func (c *collectionsCommand) UsageShort() string { return "Lists all collections." }
 
-type PickCommand struct {
+type pickCommand struct {
 }
 
-func (c *PickCommand) Name() string {
+func (c *pickCommand) Name() string {
 	return "Pick"
 }
-func (c *PickCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "", false, ShowAllCollections("No collection specified.", info)
 	}
@@ -236,7 +241,7 @@ func (c *PickCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 	return "```Those collections are all empty.```", false, nil
 }
-func (c *PickCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *pickCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Picks a random item from the given collection and displays it.",
 		Params: []CommandUsageParam{
@@ -244,15 +249,15 @@ func (c *PickCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *PickCommand) UsageShort() string { return "Picks a random item." }
+func (c *pickCommand) UsageShort() string { return "Picks a random item." }
 
-type NewCommand struct {
+type newCommand struct {
 }
 
-func (c *NewCommand) Name() string {
+func (c *newCommand) Name() string {
 	return "New"
 }
-func (c *NewCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *newCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a new collection name.```", false, nil
 	}
@@ -270,7 +275,7 @@ func (c *NewCommand) Process(args []string, msg *discordgo.Message, indices []in
 
 	return "```Created the " + collection + " collection.```", false, nil
 }
-func (c *NewCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *newCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Creates a new collection with the given name, provided the collection does not already exist.",
 		Params: []CommandUsageParam{
@@ -278,15 +283,15 @@ func (c *NewCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *NewCommand) UsageShort() string { return "Creates a new collection." }
+func (c *newCommand) UsageShort() string { return "Creates a new collection." }
 
-type DeleteCommand struct {
+type deleteCommand struct {
 }
 
-func (c *DeleteCommand) Name() string {
+func (c *deleteCommand) Name() string {
 	return "Delete"
 }
-func (c *DeleteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *deleteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a collection name.```", false, nil
 	}
@@ -305,7 +310,7 @@ func (c *DeleteCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	return "```Deleted the " + collection + " collection.```", false, nil
 }
-func (c *DeleteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *deleteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Deletes a collection with the given name, provided the collection is not protected.",
 		Params: []CommandUsageParam{
@@ -313,15 +318,15 @@ func (c *DeleteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DeleteCommand) UsageShort() string { return "Deletes a collection." }
+func (c *deleteCommand) UsageShort() string { return "Deletes a collection." }
 
-type SearchCollectionCommand struct {
+type searchCollectionCommand struct {
 }
 
-func (c *SearchCollectionCommand) Name() string {
+func (c *searchCollectionCommand) Name() string {
 	return "SearchCollection"
 }
-func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *searchCollectionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a new collection name.```", false, nil
 	}
@@ -350,7 +355,7 @@ func (c *SearchCollectionCommand) Process(args []string, msg *discordgo.Message,
 	}
 	return "```No results found in the " + collection + " collection.```", false, nil
 }
-func (c *SearchCollectionCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *searchCollectionCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns all members of the given collection that contain the given string.",
 		Params: []CommandUsageParam{
@@ -359,15 +364,15 @@ func (c *SearchCollectionCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SearchCollectionCommand) UsageShort() string { return "Searches a collection." }
+func (c *searchCollectionCommand) UsageShort() string { return "Searches a collection." }
 
-type ImportCommand struct {
+type importCommand struct {
 }
 
-func (c *ImportCommand) Name() string {
+func (c *importCommand) Name() string {
 	return "Import"
 }
-func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *importCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```No source server provided.```", false, nil
 	}
@@ -433,7 +438,7 @@ func (c *ImportCommand) Process(args []string, msg *discordgo.Message, indices [
 	info.SaveConfig()
 	return fmt.Sprintf("```Successfully merged \"%s\" from %s into \"%s\" on this server. New size: %v```", source, other[0].Name, target, len(targetCollection)), false, nil
 }
-func (c *ImportCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *importCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds all elements from the source collection on the source server to the target collection on this server. If no target is specified, attempts to copy all items into a collection of the same name as the source. Example: ```" + info.config.Basic.CommandPrefix + "import Manechat cool notcool```",
 		Params: []CommandUsageParam{
@@ -443,4 +448,4 @@ func (c *ImportCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ImportCommand) UsageShort() string { return "Imports a collection from another server." }
+func (c *importCommand) UsageShort() string { return "Imports a collection from another server." }

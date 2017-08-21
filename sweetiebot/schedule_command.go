@@ -9,28 +9,33 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// ScheduleModule manages the scheduling system
 type ScheduleModule struct {
 }
 
+// Name of the module
 func (w *ScheduleModule) Name() string {
 	return "Scheduler"
 }
 
+// Commands in the module
 func (w *ScheduleModule) Commands() []Command {
 	return []Command{
-		&ScheduleCommand{},
-		&NextCommand{},
-		&AddEventCommand{},
-		&RemoveEventCommand{},
-		&RemindMeCommand{},
-		&AddBirthdayCommand{},
+		&scheduleCommand{},
+		&nextCommand{},
+		&addEventCommand{},
+		&removeEventCommand{},
+		&remindMeCommand{},
+		&addBirthdayCommand{},
 	}
 }
 
+// Description of the module
 func (w *ScheduleModule) Description() string {
 	return "Manages the scheduling system, and periodically checks for events that need to be processed."
 }
 
+// OnTick discord hook
 func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	if !sb.db.CheckStatus() {
 		return
@@ -109,13 +114,13 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	}
 }
 
-type ScheduleCommand struct {
+type scheduleCommand struct {
 }
 
-func (c *ScheduleCommand) Name() string {
+func (c *scheduleCommand) Name() string {
 	return "Schedule"
 }
-func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *scheduleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -196,7 +201,7 @@ func (c *ScheduleCommand) Process(args []string, msg *discordgo.Message, indices
 
 	return strings.Join(lines, "\n"), len(lines) > 6, nil
 }
-func (c *ScheduleCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *scheduleCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists up to `maxresults` upcoming events from the schedule. If the first argument is specified, lists only events of that type. Some event types can only be viewed by moderators. Max results: 20",
 		Params: []CommandUsageParam{
@@ -205,7 +210,7 @@ func (c *ScheduleCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ScheduleCommand) UsageShort() string { return "Gets a list of upcoming scheduled events." }
+func (c *scheduleCommand) UsageShort() string { return "Gets a list of upcoming scheduled events." }
 
 func getScheduleType(s string) uint8 {
 	switch strings.ToLower(s) {
@@ -229,13 +234,13 @@ func getScheduleType(s string) uint8 {
 	return 255
 }
 
-type NextCommand struct {
+type nextCommand struct {
 }
 
-func (c *NextCommand) Name() string {
+func (c *nextCommand) Name() string {
 	return "Next"
 }
-func (c *NextCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *nextCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -270,7 +275,7 @@ func (c *NextCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```There are no upcoming events of that type (or you aren't allowed to view them).```", false, nil
 	}
 }
-func (c *NextCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *nextCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gets the time until the next event of the given type.",
 		Params: []CommandUsageParam{
@@ -278,9 +283,9 @@ func (c *NextCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *NextCommand) UsageShort() string { return "Gets time until next event." }
+func (c *nextCommand) UsageShort() string { return "Gets time until next event." }
 
-type AddEventCommand struct {
+type addEventCommand struct {
 }
 
 func parseRepeatInterval(s string) uint8 {
@@ -305,10 +310,10 @@ func parseRepeatInterval(s string) uint8 {
 	return 255
 }
 
-func (c *AddEventCommand) Name() string {
+func (c *addEventCommand) Name() string {
 	return "AddEvent"
 }
-func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -375,7 +380,7 @@ func (c *AddEventCommand) Process(args []string, msg *discordgo.Message, indices
 
 	return "```Added event to schedule.```", false, nil
 }
-func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds an arbitrary event to the schedule table. For example: `" + info.config.Basic.CommandPrefix + "addevent message \"12 Jun 16\" \"REPEAT 1 YEAR\" happy birthday!`, or `" + info.config.Basic.CommandPrefix + "addevent episode \"9 Dec 15\" Slice of Life`. ",
 		Params: []CommandUsageParam{
@@ -386,7 +391,7 @@ func (c *AddEventCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddEventCommand) UsageShort() string { return "Adds an event to the schedule." }
+func (c *addEventCommand) UsageShort() string { return "Adds an event to the schedule." }
 
 func userOwnsEvent(e *ScheduleEvent, u *discordgo.User) bool {
 	if e.Type == 6 {
@@ -398,13 +403,13 @@ func userOwnsEvent(e *ScheduleEvent, u *discordgo.User) bool {
 	return false
 }
 
-type RemoveEventCommand struct {
+type removeEventCommand struct {
 }
 
-func (c *RemoveEventCommand) Name() string {
+func (c *removeEventCommand) Name() string {
 	return "RemoveEvent"
 }
-func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removeEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -428,7 +433,7 @@ func (c *RemoveEventCommand) Process(args []string, msg *discordgo.Message, indi
 	sb.db.RemoveSchedule(id)
 	return "```Removed Event #" + SBitoa(id) + " from schedule.```", false, nil
 }
-func (c *RemoveEventCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removeEventCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes an event with the given ID from the schedule. ",
 		Params: []CommandUsageParam{
@@ -436,15 +441,15 @@ func (c *RemoveEventCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveEventCommand) UsageShort() string { return "Removes an event." }
+func (c *removeEventCommand) UsageShort() string { return "Removes an event." }
 
-type RemindMeCommand struct {
+type remindMeCommand struct {
 }
 
-func (c *RemindMeCommand) Name() string {
+func (c *remindMeCommand) Name() string {
 	return "RemindMe"
 }
-func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *remindMeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -507,7 +512,7 @@ func (c *RemindMeCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	return "Reminder set for " + TimeDiff(t.Sub(time.Now().UTC())) + " from now.", false, nil
 }
-func (c *RemindMeCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *remindMeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Tells sweetiebot to remind you about something in the future. ",
 		Params: []CommandUsageParam{
@@ -517,17 +522,17 @@ func (c *RemindMeCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemindMeCommand) UsageShort() string {
+func (c *remindMeCommand) UsageShort() string {
 	return "Tells sweetiebot to remind you about something."
 }
 
-type AddBirthdayCommand struct {
+type addBirthdayCommand struct {
 }
 
-func (c *AddBirthdayCommand) Name() string {
+func (c *addBirthdayCommand) Name() string {
 	return "AddBirthday"
 }
-func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addBirthdayCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -564,7 +569,7 @@ func (c *AddBirthdayCommand) Process(args []string, msg *discordgo.Message, indi
 	}
 	return ReplaceAllMentions("```Added a birthday for <@" + ping + ">```"), false, nil
 }
-func (c *AddBirthdayCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addBirthdayCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds member's birthday to the schedule.",
 		Params: []CommandUsageParam{
@@ -573,4 +578,4 @@ func (c *AddBirthdayCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddBirthdayCommand) UsageShort() string { return "Adds a birthday to the schedule." }
+func (c *addBirthdayCommand) UsageShort() string { return "Adds a birthday to the schedule." }
