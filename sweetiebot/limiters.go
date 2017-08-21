@@ -5,10 +5,12 @@ import (
 	"time"
 )
 
+// AtomicFlag represents an atomic bit that can be set or cleared
 type AtomicFlag struct {
 	flag uint32
 }
 
+// SaturationLimit tracks when events occured and implements a saturation limit on them
 type SaturationLimit struct {
 	times []int64
 	index int
@@ -68,10 +70,12 @@ func (s *SaturationLimit) resize(size int) {
 	s.lock.clear()
 }
 
+// CheckRateLimit performs a check on the rate limit without updating it
 func CheckRateLimit(prevtime *int64, interval int64) bool {
 	return time.Now().UTC().Unix()-(*prevtime) > interval
 }
 
+// RateLimit checks the rate limit, returns false if it was violated, and updates the rate limit
 func RateLimit(prevtime *int64, interval int64) bool {
 	t := time.Now().UTC().Unix()
 	d := (*prevtime) // perform a read so it doesn't change on us
@@ -83,10 +87,7 @@ func RateLimit(prevtime *int64, interval int64) bool {
 	return false
 }
 
-func CheckShutup(channel string) bool {
-	return true
-}
-
+// AtomicBool represents an atomic boolean that can be set to true or false
 type AtomicBool struct {
 	flag uint32
 }

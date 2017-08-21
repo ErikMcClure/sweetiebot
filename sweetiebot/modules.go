@@ -10,106 +10,125 @@ import (
 // Giving each possible hook function its own interface ensures each module
 // only has to define functions for the hooks it actually cares about
 
+// ModuleOnEvent hook interface
 type ModuleOnEvent interface {
 	Module
 	OnEvent(*GuildInfo, *discordgo.Event)
 }
 
+// ModuleOnMessageCreate hook interface
 type ModuleOnMessageCreate interface {
 	Module
 	OnMessageCreate(*GuildInfo, *discordgo.Message)
 }
 
+// ModuleOnMessageUpdate hook interface
 type ModuleOnMessageUpdate interface {
 	Module
 	OnMessageUpdate(*GuildInfo, *discordgo.Message)
 }
 
+// ModuleOnMessageDelete hook interface
 type ModuleOnMessageDelete interface {
 	Module
 	OnMessageDelete(*GuildInfo, *discordgo.Message)
 }
 
+// ModuleOnPresenceUpdate hook interface
 type ModuleOnPresenceUpdate interface {
 	Module
 	OnPresenceUpdate(*GuildInfo, *discordgo.PresenceUpdate)
 }
 
+// ModuleOnVoiceStateUpdate hook interface
 type ModuleOnVoiceStateUpdate interface {
 	Module
 	OnVoiceStateUpdate(*GuildInfo, *discordgo.VoiceState)
 }
 
+// ModuleOnGuildUpdate hook interface
 type ModuleOnGuildUpdate interface {
 	Module
 	OnGuildUpdate(*GuildInfo, *discordgo.Guild)
 }
 
+// ModuleOnGuildMemberAdd hook interface
 type ModuleOnGuildMemberAdd interface {
 	Module
 	OnGuildMemberAdd(*GuildInfo, *discordgo.Member)
 }
 
+// ModuleOnGuildMemberRemove hook interface
 type ModuleOnGuildMemberRemove interface {
 	Module
 	OnGuildMemberRemove(*GuildInfo, *discordgo.Member)
 }
 
+// ModuleOnGuildMemberUpdate hook interface
 type ModuleOnGuildMemberUpdate interface {
 	Module
 	OnGuildMemberUpdate(*GuildInfo, *discordgo.Member)
 }
 
+// ModuleOnGuildBanAdd hook interface
 type ModuleOnGuildBanAdd interface {
 	Module
 	OnGuildBanAdd(*GuildInfo, *discordgo.GuildBanAdd)
 }
 
+// ModuleOnGuildBanRemove hook interface
 type ModuleOnGuildBanRemove interface {
 	Module
 	OnGuildBanRemove(*GuildInfo, *discordgo.GuildBanRemove)
 }
 
+// ModuleOnGuildRoleDelete hook interface
 type ModuleOnGuildRoleDelete interface {
 	Module
 	OnGuildRoleDelete(*GuildInfo, *discordgo.GuildRoleDelete)
 }
 
+// ModuleOnCommand hook interface
 type ModuleOnCommand interface {
 	Module
 	OnCommand(*GuildInfo, *discordgo.Message) bool
 }
 
+// ModuleOnIdle hook interface, also defines an IdlePeriod() that returns how long a period of inactivity is needed to count as "idle"
 type ModuleOnIdle interface {
 	Module
 	OnIdle(*GuildInfo, *discordgo.Channel)
 	IdlePeriod(*GuildInfo) int64
 }
 
+// ModuleOnTick hook interface
 type ModuleOnTick interface {
 	Module
 	OnTick(*GuildInfo)
 }
 
-// Modules monitor all incoming messages and users that have joined a given channel.
+// Module monitors all incoming requests depending on what module interfaces they implement
 type Module interface {
 	Name() string
 	Commands() []Command
 	Description() string
 }
 
+// CommandUsageParam describes a single parameter to a command
 type CommandUsageParam struct {
 	Name     string
 	Desc     string
 	Optional bool
 	Variadic bool
 }
+
+// CommandUsage defines the help parameters for a command
 type CommandUsage struct {
 	Desc   string
 	Params []CommandUsageParam
 }
 
-// Commands are any command that is addressed to the bot, optionally restricted by role.
+// Command is any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
 	Name() string
 	Process([]string, *discordgo.Message, []int, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
@@ -117,6 +136,7 @@ type Command interface {
 	UsageShort() string
 }
 
+// IsModuleDisabled returns a string if a module is disabled
 func (info *GuildInfo) IsModuleDisabled(name string) string {
 	_, ok := info.config.Modules.Disabled[strings.ToLower(name)]
 	if ok {
@@ -125,6 +145,7 @@ func (info *GuildInfo) IsModuleDisabled(name string) string {
 	return ""
 }
 
+// IsCommandDisabled returns a string if a command is disabled
 func (info *GuildInfo) IsCommandDisabled(name string) string {
 	str := ""
 	_, disabled := info.config.Modules.CommandDisabled[strings.ToLower(name)]
@@ -137,6 +158,7 @@ func (info *GuildInfo) IsCommandDisabled(name string) string {
 	return str
 }
 
+// GetRoles constructs a string describing the allowed roles for a command
 func (info *GuildInfo) GetRoles(c Command) string {
 	m, ok := info.config.Modules.CommandRoles[strings.ToLower(c.Name())]
 	if !ok {
@@ -156,11 +178,11 @@ func (info *GuildInfo) GetRoles(c Command) string {
 
 	if reverse {
 		return "Any role except " + strings.Join(s, ", ")
-	} else {
-		return strings.Join(s, ", ")
 	}
+	return strings.Join(s, ", ")
 }
 
+// GetChannels constructs a string describing the allowed channels a command can run on
 func (info *GuildInfo) GetChannels(c Command) string {
 	m, ok := info.config.Modules.CommandChannels[strings.ToLower(c.Name())]
 	if !ok {
@@ -180,6 +202,7 @@ func (info *GuildInfo) GetChannels(c Command) string {
 	return strings.Join(s, ", ")
 }
 
+// FormatUsage constructs a help string for the given command based on it's usage
 func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.MessageEmbed {
 	r := info.GetRoles(c)
 	ch := info.GetChannels(c)
@@ -221,7 +244,7 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 	return embed
 }
 
-type ModuleHooks struct {
+type moduleHooks struct {
 	OnEvent             []ModuleOnEvent
 	OnMessageCreate     []ModuleOnMessageCreate
 	OnMessageUpdate     []ModuleOnMessageUpdate

@@ -11,33 +11,38 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// HelpModule contains help and about commands
 type HelpModule struct {
 }
 
+// Name of the module
 func (w *HelpModule) Name() string {
 	return "Help/About"
 }
 
+// Commands in the module
 func (w *HelpModule) Commands() []Command {
 	return []Command{
-		&HelpCommand{},
-		&AboutCommand{},
-		&RulesCommand{},
-		&ChangelogCommand{},
+		&helpCommand{},
+		&aboutCommand{},
+		&rulesCommand{},
+		&changelogCommand{},
 	}
 }
 
+// Description of the module
 func (w *HelpModule) Description() string {
 	return "Contains commands for getting information about Sweetie Bot, her commands, or the server she is in."
 }
 
-type HelpCommand struct {
+type helpCommand struct {
 }
 
-func (c *HelpCommand) Name() string {
+func (c *helpCommand) Name() string {
 	return "Help"
 }
 
+// DumpCommandsModules dumps information about all commands and modules
 func DumpCommandsModules(channelID string, info *GuildInfo, footer string, description string) *discordgo.MessageEmbed {
 	fields := make([]*discordgo.MessageEmbedField, 0, len(info.modules))
 	for _, v := range info.modules {
@@ -68,7 +73,7 @@ func DumpCommandsModules(channelID string, info *GuildInfo, footer string, descr
 	}
 }
 
-func (c *HelpCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "", true, DumpCommandsModules(msg.ChannelID, info, "For more information on a specific command, type !help [command].", "")
 	}
@@ -108,7 +113,7 @@ func (c *HelpCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 	return "", true, info.FormatUsage(v, v.Usage(info))
 }
-func (c *HelpCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *helpCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all available commands Sweetie Bot knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed !help help for some reason.",
 		Params: []CommandUsageParam{
@@ -116,17 +121,17 @@ func (c *HelpCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *HelpCommand) UsageShort() string {
+func (c *helpCommand) UsageShort() string {
 	return "[PM Only] Generates the list you are looking at right now."
 }
 
-type AboutCommand struct {
+type aboutCommand struct {
 }
 
-func (c *AboutCommand) Name() string {
+func (c *aboutCommand) Name() string {
 	return "About"
 }
-func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	tag := " [release]"
 	if sb.Debug {
 		tag = " [debug]"
@@ -158,20 +163,20 @@ func (c *AboutCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	return "", false, embed
 }
-func (c *AboutCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *aboutCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays information about Sweetie Bot. What, did you think it would do something else?",
 	}
 }
-func (c *AboutCommand) UsageShort() string { return "Displays information about Sweetie Bot." }
+func (c *aboutCommand) UsageShort() string { return "Displays information about Sweetie Bot." }
 
-type RulesCommand struct {
+type rulesCommand struct {
 }
 
-func (c *RulesCommand) Name() string {
+func (c *rulesCommand) Name() string {
 	return "Rules"
 }
-func (c *RulesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *rulesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(info.config.Help.Rules) == 0 {
 		return "```I don't know what the rules are in this server... ¯\\_(ツ)_/¯```", false, nil
 	}
@@ -199,7 +204,7 @@ func (c *RulesCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	return fmt.Sprintf("%v. %s", arg, rule), false, nil
 }
-func (c *RulesCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *rulesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all the rules in this server, or displays the specific rule requested, if it exists. Rules can be set using `" + info.config.Basic.CommandPrefix + "setconfig rules 1 this is a rule`",
 		Params: []CommandUsageParam{
@@ -207,15 +212,15 @@ func (c *RulesCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RulesCommand) UsageShort() string { return "Lists the rules of the server." }
+func (c *rulesCommand) UsageShort() string { return "Lists the rules of the server." }
 
-type ChangelogCommand struct {
+type changelogCommand struct {
 }
 
-func (c *ChangelogCommand) Name() string {
+func (c *changelogCommand) Name() string {
 	return "Changelog"
 }
-func (c *ChangelogCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *changelogCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	v := Version{0, 0, 0, 0}
 	if len(args) == 0 {
 		versions := make([]string, 0, len(sb.changelog)+1)
@@ -256,7 +261,7 @@ func (c *ChangelogCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	return fmt.Sprintf("```\n%s\n--------\n%s```", v.String(), log), false, nil
 }
-func (c *ChangelogCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *changelogCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays the given changelog for Sweetie Bot. If no version is given, lists all versions with a changelog. ",
 		Params: []CommandUsageParam{
@@ -264,4 +269,4 @@ func (c *ChangelogCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ChangelogCommand) UsageShort() string { return "Retrieves the changelog for Sweetie Bot." }
+func (c *changelogCommand) UsageShort() string { return "Retrieves the changelog for Sweetie Bot." }

@@ -12,19 +12,22 @@ type MiscModule struct {
 	emotes *EmoteModule
 }
 
+// Name of the module
 func (w *MiscModule) Name() string {
 	return "Miscellaneous"
 }
 
+// Commands in the module
 func (w *MiscModule) Commands() []Command {
 	return []Command{
 		&LastSeenCommand{},
-		&SearchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
-		&RollCommand{},
+		&searchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
+		&rollCommand{},
 		&SnowflakeTimeCommand{},
 	}
 }
 
+// Description of the module
 func (w *MiscModule) Description() string {
 	return "A collection of miscellaneous commands that don't belong to a module."
 }

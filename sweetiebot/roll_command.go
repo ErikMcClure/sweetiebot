@@ -12,13 +12,13 @@ import (
 
 var diceregex = regexp.MustCompile("[0-9]*d[0-9]+")
 
-type RollCommand struct {
+type rollCommand struct {
 }
 
-func (c *RollCommand) Name() string {
+func (c *rollCommand) Name() string {
 	return "Roll"
 }
-func (c *RollCommand) opSplit(s string) []string {
+func (c *rollCommand) opSplit(s string) []string {
 	r := []string{}
 	last := 0
 	for i, v := range s {
@@ -35,7 +35,7 @@ func (c *RollCommand) opSplit(s string) []string {
 	r = append(r, s[last:])
 	return r
 }
-func (c *RollCommand) eatSymbols(args []string, index *int, s ...string) int {
+func (c *rollCommand) eatSymbols(args []string, index *int, s ...string) int {
 	if *index >= len(args) {
 		return -1
 	}
@@ -47,7 +47,7 @@ func (c *RollCommand) eatSymbols(args []string, index *int, s ...string) int {
 	}
 	return -1
 }
-func (c *RollCommand) eval(args []string, index *int, info *GuildInfo) float64 {
+func (c *rollCommand) eval(args []string, index *int, info *GuildInfo) float64 {
 	//info.Log(strings.Join(args, "\u00B7"))
 	var r float64
 	if c.eatSymbols(args, index, "+", "-") == 1 {
@@ -69,7 +69,7 @@ func (c *RollCommand) eval(args []string, index *int, info *GuildInfo) float64 {
 
 	return r
 }
-func (c *RollCommand) factor(args []string, index *int, info *GuildInfo) float64 {
+func (c *rollCommand) factor(args []string, index *int, info *GuildInfo) float64 {
 	r := c.term(args, index, info)
 	for *index < len(args) {
 		switch c.eatSymbols(args, index, "*", "/") {
@@ -83,7 +83,7 @@ func (c *RollCommand) factor(args []string, index *int, info *GuildInfo) float64
 	}
 	return r
 }
-func (c *RollCommand) term(args []string, index *int, info *GuildInfo) float64 {
+func (c *rollCommand) term(args []string, index *int, info *GuildInfo) float64 {
 	r := c.bitwise(args, index, info)
 	for *index < len(args) {
 		switch c.eatSymbols(args, index, "^") {
@@ -95,7 +95,7 @@ func (c *RollCommand) term(args []string, index *int, info *GuildInfo) float64 {
 	}
 	return r
 }
-func (c *RollCommand) bitwise(args []string, index *int, info *GuildInfo) float64 {
+func (c *rollCommand) bitwise(args []string, index *int, info *GuildInfo) float64 {
 	r := c.value(args, index, info)
 	for *index < len(args) {
 		switch c.eatSymbols(args, index, "&", "|") {
@@ -109,7 +109,7 @@ func (c *RollCommand) bitwise(args []string, index *int, info *GuildInfo) float6
 	}
 	return r
 }
-func (c *RollCommand) eval1ArgFunc(args []string, index *int, fn func(float64) float64, info *GuildInfo) float64 {
+func (c *rollCommand) eval1ArgFunc(args []string, index *int, fn func(float64) float64, info *GuildInfo) float64 {
 	*index++
 	if c.eatSymbols(args, index, "(") == 0 {
 		r := c.eval(args, index, info)
@@ -120,7 +120,7 @@ func (c *RollCommand) eval1ArgFunc(args []string, index *int, fn func(float64) f
 	}
 	panic("Function has no parameters??? " + strings.Join(args, ""))
 }
-func (c *RollCommand) eval2ArgFunc(args []string, index *int, fn func(float64, float64) float64, info *GuildInfo) float64 {
+func (c *rollCommand) eval2ArgFunc(args []string, index *int, fn func(float64, float64) float64, info *GuildInfo) float64 {
 	*index++
 	if c.eatSymbols(args, index, "(") == 0 {
 		r := c.eval(args, index, info)
@@ -136,7 +136,7 @@ func (c *RollCommand) eval2ArgFunc(args []string, index *int, fn func(float64, f
 	}
 	panic("Function has no parameters??? " + strings.Join(args, ""))
 }
-func (c *RollCommand) value(args []string, index *int, info *GuildInfo) float64 {
+func (c *rollCommand) value(args []string, index *int, info *GuildInfo) float64 {
 	if c.eatSymbols(args, index, "(") == 0 {
 		r := c.eval(args, index, info)
 		if c.eatSymbols(args, index, ")") != 0 {
@@ -258,7 +258,7 @@ func (c *RollCommand) value(args []string, index *int, info *GuildInfo) float64 
 
 	return r
 }
-func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
+func (c *rollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Nothing to roll or calculate!```", false, nil
 	}
@@ -272,7 +272,7 @@ func (c *RollCommand) Process(args []string, msg *discordgo.Message, indices []i
 	s := strconv.FormatFloat(r, 'f', -1, 64)
 	return "```\n" + s + "```", false, nil
 }
-func (c *RollCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *rollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Evaluates an arbitrary mathematical expression, replacing all **N**d**X** values with the sum of `n` random numbers from 1 to **X**, inclusive. For example, `" + info.config.Basic.CommandPrefix + "roll d10` will return 1-10, whereas `" + info.config.Basic.CommandPrefix + "roll 2d10 + 2` will return a number between 4 and 22.",
 		Params: []CommandUsageParam{
@@ -280,4 +280,4 @@ func (c *RollCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RollCommand) UsageShort() string { return "Evaluates a dice expression." }
+func (c *rollCommand) UsageShort() string { return "Evaluates a dice expression." }

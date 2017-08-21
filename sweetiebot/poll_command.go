@@ -8,33 +8,37 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// PollModule manages the polling system
 type PollModule struct {
 }
 
+// Name of the module
 func (w *PollModule) Name() string {
 	return "Polls"
 }
 
+// Commands in the module
 func (w *PollModule) Commands() []Command {
 	return []Command{
-		&PollCommand{},
-		&CreatePollCommand{},
-		&DeletePollCommand{},
-		&VoteCommand{},
-		&ResultsCommand{},
-		&AddOptionCommand{},
+		&pollCommand{},
+		&createPollCommand{},
+		&deletePollCommand{},
+		&voteCommand{},
+		&resultsCommand{},
+		&addOptionCommand{},
 	}
 }
 
-func (w *PollModule) Description() string { return "" }
+// Description of the module
+func (w *PollModule) Description() string { return "Manages the polling system." }
 
-type PollCommand struct {
+type pollCommand struct {
 }
 
-func (c *PollCommand) Name() string {
+func (c *pollCommand) Name() string {
 	return "Poll"
 }
-func (c *PollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *pollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -65,7 +69,7 @@ func (c *PollCommand) Process(args []string, msg *discordgo.Message, indices []i
 
 	return strings.Join(str, "\n"), len(str) > 11, nil
 }
-func (c *PollCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *pollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays currently active polls or possible options for a given poll.",
 		Params: []CommandUsageParam{
@@ -73,15 +77,15 @@ func (c *PollCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *PollCommand) UsageShort() string { return "Displays poll description and options." }
+func (c *pollCommand) UsageShort() string { return "Displays poll description and options." }
 
-type CreatePollCommand struct {
+type createPollCommand struct {
 }
 
-func (c *CreatePollCommand) Name() string {
+func (c *createPollCommand) Name() string {
 	return "CreatePoll"
 }
-func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *createPollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -108,7 +112,7 @@ func (c *CreatePollCommand) Process(args []string, msg *discordgo.Message, indic
 
 	return fmt.Sprintf("```Successfully created %s poll.```", name), false, nil
 }
-func (c *CreatePollCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *createPollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Creates a new poll with the given name, description, and options. All arguments MUST use quotes if they have spaces. \n\nExample usage: `" + info.config.Basic.CommandPrefix + "createpoll pollname \"Description With Space\" \"Option 1\" NoSpaceOption`",
 		Params: []CommandUsageParam{
@@ -118,15 +122,15 @@ func (c *CreatePollCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *CreatePollCommand) UsageShort() string { return "Creates a poll." }
+func (c *createPollCommand) UsageShort() string { return "Creates a poll." }
 
-type DeletePollCommand struct {
+type deletePollCommand struct {
 }
 
-func (c *DeletePollCommand) Name() string {
+func (c *deletePollCommand) Name() string {
 	return "DeletePoll"
 }
-func (c *DeletePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *deletePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -145,7 +149,7 @@ func (c *DeletePollCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	return fmt.Sprintf("```Successfully removed %s.```", arg), false, nil
 }
-func (c *DeletePollCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *deletePollCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes the poll with the given poll name.",
 		Params: []CommandUsageParam{
@@ -153,15 +157,15 @@ func (c *DeletePollCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DeletePollCommand) UsageShort() string { return "Deletes a poll." }
+func (c *deletePollCommand) UsageShort() string { return "Deletes a poll." }
 
-type VoteCommand struct {
+type voteCommand struct {
 }
 
-func (c *VoteCommand) Name() string {
+func (c *voteCommand) Name() string {
 	return "Vote"
 }
-func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *voteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -198,7 +202,7 @@ func (c *VoteCommand) Process(args []string, msg *discordgo.Message, indices []i
 
 	return "```Voted! Use " + info.config.Basic.CommandPrefix + "results to check the results.```", false, nil
 }
-func (c *VoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *voteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds your vote to a given poll. If you have already voted in the poll, it changes your vote instead.",
 		Params: []CommandUsageParam{
@@ -207,15 +211,15 @@ func (c *VoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *VoteCommand) UsageShort() string { return "Votes in a poll." }
+func (c *voteCommand) UsageShort() string { return "Votes in a poll." }
 
-type ResultsCommand struct {
+type resultsCommand struct {
 }
 
-func (c *ResultsCommand) Name() string {
+func (c *resultsCommand) Name() string {
 	return "Results"
 }
-func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *resultsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -272,7 +276,7 @@ func (c *ResultsCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	return strings.Join(str, "\n"), len(str) > 11, nil
 }
-func (c *ResultsCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *resultsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays the results of the given poll, if it exists.",
 		Params: []CommandUsageParam{
@@ -280,15 +284,15 @@ func (c *ResultsCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ResultsCommand) UsageShort() string { return "Displays results of a poll." }
+func (c *resultsCommand) UsageShort() string { return "Displays results of a poll." }
 
-type AddOptionCommand struct {
+type addOptionCommand struct {
 }
 
-func (c *AddOptionCommand) Name() string {
+func (c *addOptionCommand) Name() string {
 	return "AddOption"
 }
-func (c *AddOptionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addOptionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -310,7 +314,7 @@ func (c *AddOptionCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	return fmt.Sprintf("```Successfully added %s to %s.```", arg, args[0]), false, nil
 }
-func (c *AddOptionCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addOptionCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Appends an option to a poll.",
 		Params: []CommandUsageParam{
@@ -319,4 +323,4 @@ func (c *AddOptionCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddOptionCommand) UsageShort() string { return "Appends an option to a poll." }
+func (c *addOptionCommand) UsageShort() string { return "Appends an option to a poll." }

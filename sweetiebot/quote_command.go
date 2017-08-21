@@ -8,31 +8,35 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// QuoteModule manages the quoting system
 type QuoteModule struct {
 }
 
+// Name of the module
 func (w *QuoteModule) Name() string {
 	return "Quotes"
 }
 
+// Commands in the module
 func (w *QuoteModule) Commands() []Command {
 	return []Command{
-		&QuoteCommand{},
-		&AddQuoteCommand{},
-		&RemoveQuoteCommand{},
-		&SearchQuoteCommand{},
+		&quoteCommand{},
+		&addquoteCommand{},
+		&removequoteCommand{},
+		&searchQuoteCommand{},
 	}
 }
 
+// Description of the module
 func (w *QuoteModule) Description() string { return "Manages the quoting system." }
 
-type QuoteCommand struct {
+type quoteCommand struct {
 }
 
-func (c *QuoteCommand) Name() string {
+func (c *quoteCommand) Name() string {
 	return "Quote"
 }
-func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *quoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		l := 0
 		for _, v := range info.config.Quote.Quotes {
@@ -80,7 +84,7 @@ func (c *QuoteCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	return "**" + IDsToUsernames(IDs, info, false)[0] + "**: " + q[i], false, nil
 }
-func (c *QuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *quoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "If no arguments are specified, returns a random quote. If a user is specified, returns a random quote from that user. If a quote index is specified, returns that specific quote.",
 		Params: []CommandUsageParam{
@@ -89,15 +93,15 @@ func (c *QuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *QuoteCommand) UsageShort() string { return "Quotes a user." }
+func (c *quoteCommand) UsageShort() string { return "Quotes a user." }
 
-type AddQuoteCommand struct {
+type addquoteCommand struct {
 }
 
-func (c *AddQuoteCommand) Name() string {
+func (c *addquoteCommand) Name() string {
 	return "AddQuote"
 }
-func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addquoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Must specify username.```", false, nil
 	}
@@ -121,7 +125,7 @@ func (c *AddQuoteCommand) Process(args []string, msg *discordgo.Message, indices
 	info.SaveConfig()
 	return "```Quote added to " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 }
-func (c *AddQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addquoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds a quote to the quote database for the given user. If the user is ambiguous, sweetiebot will return all possible matches.",
 		Params: []CommandUsageParam{
@@ -130,15 +134,15 @@ func (c *AddQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddQuoteCommand) UsageShort() string { return "Adds a quote." }
+func (c *addquoteCommand) UsageShort() string { return "Adds a quote." }
 
-type RemoveQuoteCommand struct {
+type removequoteCommand struct {
 }
 
-func (c *RemoveQuoteCommand) Name() string {
+func (c *removequoteCommand) Name() string {
 	return "RemoveQuote"
 }
-func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removequoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```Must specify username.```", false, nil
 	}
@@ -168,7 +172,7 @@ func (c *RemoveQuoteCommand) Process(args []string, msg *discordgo.Message, indi
 	info.SaveConfig()
 	return "```Deleted quote #" + strconv.Itoa(index+1) + " from " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 }
-func (c *RemoveQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removequoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes the quote with the given quote index from the user's set of quotes. If the user is ambiguous, sweetiebot will return all possible matches.",
 		Params: []CommandUsageParam{
@@ -177,15 +181,15 @@ func (c *RemoveQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveQuoteCommand) UsageShort() string { return "Removes a quote." }
+func (c *removequoteCommand) UsageShort() string { return "Removes a quote." }
 
-type SearchQuoteCommand struct {
+type searchQuoteCommand struct {
 }
 
-func (c *SearchQuoteCommand) Name() string {
+func (c *searchQuoteCommand) Name() string {
 	return "SearchQuote"
 }
-func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *searchQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		s := make([]uint64, 0, len(info.config.Quote.Quotes))
 		for k, v := range info.config.Quote.Quotes {
@@ -214,7 +218,7 @@ func (c *SearchQuoteCommand) Process(args []string, msg *discordgo.Message, indi
 	}
 	return "All quotes for " + IDsToUsernames(IDs, info, false)[0] + ":\n" + strings.Join(quotes, "\n"), l > 6, nil
 }
-func (c *SearchQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *searchQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all quotes for the given user.",
 		Params: []CommandUsageParam{
@@ -222,4 +226,4 @@ func (c *SearchQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SearchQuoteCommand) UsageShort() string { return "Finds a quote." }
+func (c *searchQuoteCommand) UsageShort() string { return "Finds a quote." }

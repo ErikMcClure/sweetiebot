@@ -13,17 +13,20 @@ type SpoilerModule struct {
 	lastmsg    int64 // Sanity rate limiter
 }
 
+// Name of the module
 func (w *SpoilerModule) Name() string {
 	return "Spoiler"
 }
 
+// Commands in the module
 func (w *SpoilerModule) Commands() []Command { return []Command{} }
 
+// Description of the module
 func (w *SpoilerModule) Description() string {
 	return "Deletes any messages that match a regex created by the spoiler collection on all channels this module is active in, unless a message is in `spoilchannels`."
 }
 
-func (w *SpoilerModule) HasSpoiler(info *GuildInfo, m *discordgo.Message) bool {
+func (w *SpoilerModule) hasSpoiler(info *GuildInfo, m *discordgo.Message) bool {
 	cid := SBatoi(m.ChannelID)
 	for _, v := range info.config.Spoiler.Channels {
 		if cid == v {
@@ -40,21 +43,25 @@ func (w *SpoilerModule) HasSpoiler(info *GuildInfo, m *discordgo.Message) bool {
 	return false
 }
 
+// OnMessageCreate discord hook
 func (w *SpoilerModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
-	w.HasSpoiler(info, m)
+	w.hasSpoiler(info, m)
 }
 
+// OnMessageUpdate discord hook
 func (w *SpoilerModule) OnMessageUpdate(info *GuildInfo, m *discordgo.Message) {
-	w.HasSpoiler(info, m)
+	w.hasSpoiler(info, m)
 }
 
+// OnCommand discord hook
 func (w *SpoilerModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 	if info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole)) {
 		return false
-	} // If we are a princess, always allow us to run this command, otherwise we can't unspoil things
-	return w.HasSpoiler(info, m)
+	} // If we are a mod, always allow us to run this command, otherwise we can't unspoil things
+	return w.hasSpoiler(info, m)
 }
 
+// UpdateRegex updates spoiler module regex
 func (w *SpoilerModule) UpdateRegex(info *GuildInfo) bool {
 	if len(info.config.Basic.Collections["spoiler"]) < 1 {
 		w.spoilerban = nil

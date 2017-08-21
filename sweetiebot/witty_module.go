@@ -8,7 +8,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-// This module is intended for any witty comments sweetie bot makes in response to what users say or do.
+// WittyModule is intended for any witty comments sweetie bot makes in response to what users say or do.
 type WittyModule struct {
 	lastdelete   int64
 	lastcomment  int64
@@ -17,21 +17,25 @@ type WittyModule struct {
 	remarks      [][]string
 }
 
+// Name of the module
 func (w *WittyModule) Name() string {
 	return "Witty"
 }
 
+// Commands in the module
 func (w *WittyModule) Commands() []Command {
 	return []Command{
-		&AddWitCommand{w},
-		&RemoveWitCommand{w},
+		&addWitCommand{w},
+		&removeWitCommand{w},
 	}
 }
 
+// Description of the module
 func (w *WittyModule) Description() string {
 	return "In response to certain patterns (determined by a regex) will post a response picked randomly from a list of them associated with that trigger. Rate limits itself to make sure it isn't too annoying."
 }
 
+// UpdateRegex updates the witty module regex
 func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 	l := len(info.config.Witty.Responses)
 	w.triggerregex = make([]*regexp.Regexp, 0, l)
@@ -63,18 +67,20 @@ func (w *WittyModule) UpdateRegex(info *GuildInfo) bool {
 	return err == nil
 }
 
-func (w *WittyModule) SendWittyComment(channel string, comment string, info *GuildInfo) {
+func (w *WittyModule) sendWittyComment(channel string, comment string, info *GuildInfo) {
 	if RateLimit(&w.lastcomment, info.config.Witty.Cooldown) {
 		info.SendMessage(channel, comment)
 	}
 }
+
+// OnMessageCreate discord hook
 func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	str := strings.ToLower(m.Content)
-	if CheckRateLimit(&w.lastcomment, info.config.Witty.Cooldown) && CheckShutup(m.ChannelID) {
+	if CheckRateLimit(&w.lastcomment, info.config.Witty.Cooldown) {
 		if w.wittyregex != nil && w.wittyregex.MatchString(str) {
 			for i := 0; i < len(w.triggerregex); i++ {
 				if w.triggerregex[i].MatchString(str) {
-					w.SendWittyComment(m.ChannelID, w.remarks[i][rand.Intn(len(w.remarks[i]))], info)
+					w.sendWittyComment(m.ChannelID, w.remarks[i][rand.Intn(len(w.remarks[i]))], info)
 					break
 				}
 			}
@@ -82,11 +88,11 @@ func (w *WittyModule) OnMessageCreate(info *GuildInfo, m *discordgo.Message) {
 	}
 }
 
-type AddWitCommand struct {
+type addWitCommand struct {
 	wit *WittyModule
 }
 
-func (c *AddWitCommand) Name() string {
+func (c *addWitCommand) Name() string {
 	return "AddWit"
 }
 func WitRemove(wit string, info *GuildInfo) bool {
@@ -98,7 +104,7 @@ func WitRemove(wit string, info *GuildInfo) bool {
 	return ok
 }
 
-func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *addWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 2 {
 		return "```You must provide both a trigger and a remark (both must be in quotes if they have spaces).```", false, nil
 	}
@@ -117,7 +123,7 @@ func (c *AddWitCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 	return "```Adding " + trigger + " and recompiled the wittyremarks regex.```", false, nil
 }
-func (c *AddWitCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *addWitCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds a `response` that is triggered by `trigger`.",
 		Params: []CommandUsageParam{
@@ -126,17 +132,17 @@ func (c *AddWitCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AddWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
+func (c *addWitCommand) UsageShort() string { return "Adds a line to wittyremarks." }
 
-type RemoveWitCommand struct {
+type removeWitCommand struct {
 	wit *WittyModule
 }
 
-func (c *RemoveWitCommand) Name() string {
+func (c *removeWitCommand) Name() string {
 	return "RemoveWit"
 }
 
-func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removeWitCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide both a trigger to remove!```", false, nil
 	}
@@ -149,7 +155,7 @@ func (c *RemoveWitCommand) Process(args []string, msg *discordgo.Message, indice
 	c.wit.UpdateRegex(info)
 	return "```Removed " + arg + " and recompiled the wittyremarks regex.```", false, nil
 }
-func (c *RemoveWitCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removeWitCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Removes `trigger` from wittyremarks, provided it exists.",
 		Params: []CommandUsageParam{
@@ -157,4 +163,4 @@ func (c *RemoveWitCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveWitCommand) UsageShort() string { return "Removes a remark from wittyremarks." }
+func (c *removeWitCommand) UsageShort() string { return "Removes a remark from wittyremarks." }

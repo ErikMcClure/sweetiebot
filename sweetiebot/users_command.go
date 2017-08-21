@@ -9,39 +9,43 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// UsersModule contains commands for getting and setting user information
 type UsersModule struct {
 }
 
+// Name of the module
 func (w *UsersModule) Name() string {
 	return "Users"
 }
 
+// Commands in the module
 func (w *UsersModule) Commands() []Command {
 	return []Command{
-		&NewUsersCommand{},
-		&AKACommand{},
-		&BanCommand{},
-		&BanNewcomersCommand{},
-		&TimeCommand{},
-		&SetTimeZoneCommand{},
-		&UserInfoCommand{},
-		&DefaultServerCommand{},
-		&SilenceCommand{},
-		&UnsilenceCommand{},
+		&newUsersCommand{},
+		&akaCommand{},
+		&banCommand{},
+		&banNewcomersCommand{},
+		&timeCommand{},
+		&setTimeZoneCommand{},
+		&userInfoCommand{},
+		&defaultServerCommand{},
+		&silenceCommand{},
+		&unsilenceCommand{},
 	}
 }
 
+// Description of the module
 func (w *UsersModule) Description() string {
 	return "Contains commands for getting and setting user information."
 }
 
-type NewUsersCommand struct {
+type newUsersCommand struct {
 }
 
-func (c *NewUsersCommand) Name() string {
+func (c *newUsersCommand) Name() string {
 	return "newusers"
 }
-func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *newUsersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -63,7 +67,7 @@ func (c *NewUsersCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	return "```\n" + strings.Join(s, "\n") + "```", true, nil
 }
-func (c *NewUsersCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *newUsersCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists up to maxresults users, starting with the newest user to join the server.",
 		Params: []CommandUsageParam{
@@ -71,17 +75,17 @@ func (c *NewUsersCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *NewUsersCommand) UsageShort() string {
+func (c *newUsersCommand) UsageShort() string {
 	return "[PM Only] Gets a list of the most recent users to join the server."
 }
 
-type AKACommand struct {
+type akaCommand struct {
 }
 
-func (c *AKACommand) Name() string {
+func (c *akaCommand) Name() string {
 	return "aka"
 }
-func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *akaCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -111,7 +115,7 @@ func (c *AKACommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 	return fmt.Sprintf("```All known aliases for %s [%s]\n  %s```", nick, u.User.ID, PartialSanitize(strings.Join(r, "\n  "))), false, nil
 }
-func (c *AKACommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *akaCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists all known aliases of the user in question, up to a maximum of 10, with the names used the longest first.",
 		Params: []CommandUsageParam{
@@ -119,7 +123,7 @@ func (c *AKACommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AKACommand) UsageShort() string { return "Lists all known aliases of a user." }
+func (c *akaCommand) UsageShort() string { return "Lists all known aliases of a user." }
 
 func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, uID string, gID uint64) (string, string) {
 	reason := ""
@@ -173,14 +177,14 @@ func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []i
 }
 
 // Ban command that tracks who banned someone, why, and optionally make the ban temporary
-type BanCommand struct {
+type banCommand struct {
 }
 
-func (c *BanCommand) Name() string {
+func (c *banCommand) Name() string {
 	return "ban"
 }
 
-func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -216,7 +220,7 @@ func (c *BanCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 	return "```Banned " + u.Username + " from the server. Harmony restored.```", false, nil
 }
-func (c *BanCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *banCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Bans the given user. Examples: `'" + info.config.Basic.CommandPrefix + "ban @CrystalFlash for: 5 MINUTES because he's a dunce` or `" + info.config.Basic.CommandPrefix + "ban \"Name With Spaces\" caught stealing cookies`",
 		Params: []CommandUsageParam{
@@ -226,17 +230,17 @@ func (c *BanCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *BanCommand) UsageShort() string { return "Bans a user." }
+func (c *banCommand) UsageShort() string { return "Bans a user." }
 
 // Bans everyone who has spoken their first message in the past N seconds, defaulting to 120
-type BanNewcomersCommand struct {
+type banNewcomersCommand struct {
 }
 
-func (c *BanNewcomersCommand) Name() string {
+func (c *banNewcomersCommand) Name() string {
 	return "bannewcomers"
 }
 
-func (c *BanNewcomersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *banNewcomersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -262,7 +266,7 @@ func (c *BanNewcomersCommand) Process(args []string, msg *discordgo.Message, ind
 
 	return fmt.Sprintf("```Banned %v people from the server. Use discord's audit log if you need to reverse a ban.```", len(IDs)), false, nil
 }
-func (c *BanNewcomersCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *banNewcomersCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Bans all users who have sent their first message in the past `duration` seconds.",
 		Params: []CommandUsageParam{
@@ -270,18 +274,18 @@ func (c *BanNewcomersCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *BanNewcomersCommand) UsageShort() string {
+func (c *banNewcomersCommand) UsageShort() string {
 	return "Bans everyone who's recently spoken for the first time."
 }
 
-type TimeCommand struct {
+type timeCommand struct {
 }
 
-func (c *TimeCommand) Name() string {
+func (c *timeCommand) Name() string {
 	return "time"
 }
 
-func (c *TimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *timeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -304,7 +308,7 @@ func (c *TimeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 	return "```That user's local time is: " + time.Now().In(tz).Format("Jan 2, 3:04pm```"), false, nil
 }
-func (c *TimeCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *timeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Gets the local time for the specified user, or simply gets the local time for this server.",
 		Params: []CommandUsageParam{
@@ -312,16 +316,16 @@ func (c *TimeCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *TimeCommand) UsageShort() string { return "Gets a user's local time." }
+func (c *timeCommand) UsageShort() string { return "Gets a user's local time." }
 
-type SetTimeZoneCommand struct {
+type setTimeZoneCommand struct {
 }
 
-func (c *SetTimeZoneCommand) Name() string {
+func (c *setTimeZoneCommand) Name() string {
 	return "settimezone"
 }
 
-func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -360,7 +364,7 @@ func (c *SetTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 	}
 	return "```Set your timezone to " + loc.String() + "```", false, nil
 }
-func (c *SetTimeZoneCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *setTimeZoneCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets your timezone to the given location. Providing a partial timezone name, like \"America\", will return a list of all possible timezones that contain that string.",
 		Params: []CommandUsageParam{
@@ -369,15 +373,15 @@ func (c *SetTimeZoneCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SetTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
+func (c *setTimeZoneCommand) UsageShort() string { return "Set your local timezone." }
 
-type UserInfoCommand struct {
+type userInfoCommand struct {
 }
 
-func (c *UserInfoCommand) Name() string {
+func (c *userInfoCommand) Name() string {
 	return "UserInfo"
 }
-func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -468,7 +472,7 @@ func (c *UserInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	//s := fmt.Sprintf("**ID:** %v\n**Username:** %s\n**Nickname:** %v\n**Timezone:** %v\n**Local Time:** %v\n**Created:** %s ago (%v)\n **Joined:** %s\n**Roles:** %v\n**Last Seen:** %s ago (%v)\n**Aliases:** %v\n**Avatar:** %s", m.User.ID, fullusername, m.Nick, tz, localtime, TimeDiff(time.Now().UTC().Sub(created)), created.Format(time.RFC822), joined, strings.Join(roles, ", "), TimeDiff(time.Now().UTC().Sub(lastseen.In(authortz))), lastseen.In(authortz).Format(time.RFC822), strings.Join(aliases, ", "), discordgo.EndpointUserAvatar(m.User.ID, m.User.Avatar))
 	//return SanitizeMentions(PartialSanitize(s)), false, nil
 }
-func (c *UserInfoCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *userInfoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Lists the ID, username, nickname, timezone, roles, avatar, join date, and other information about a given user.",
 		Params: []CommandUsageParam{
@@ -476,15 +480,15 @@ func (c *UserInfoCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *UserInfoCommand) UsageShort() string { return "Lists information about a user." }
+func (c *userInfoCommand) UsageShort() string { return "Lists information about a user." }
 
-type DefaultServerCommand struct {
+type defaultServerCommand struct {
 }
 
-func (c *DefaultServerCommand) Name() string {
+func (c *defaultServerCommand) Name() string {
 	return "DefaultServer"
 }
-func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -521,7 +525,7 @@ func (c *DefaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
 	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Name), false, nil
 }
-func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *defaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets the default server SB will run commands on that you PM to her.",
 		Params: []CommandUsageParam{
@@ -529,15 +533,15 @@ func (c *DefaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DefaultServerCommand) UsageShort() string { return "Sets your default server." }
+func (c *defaultServerCommand) UsageShort() string { return "Sets your default server." }
 
-type SilenceCommand struct {
+type silenceCommand struct {
 }
 
-func (c *SilenceCommand) Name() string {
+func (c *silenceCommand) Name() string {
 	return "Silence"
 }
-func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to silence.```", false, nil
 	}
@@ -585,7 +589,7 @@ func (c *SilenceCommand) Process(args []string, msg *discordgo.Message, indices 
 	}
 	return fmt.Sprintf("```Silenced %s%s.```", IDsToUsernames(IDs, info, false)[0], reason), false, nil
 }
-func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *silenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Silences the given user.",
 		Params: []CommandUsageParam{
@@ -594,26 +598,15 @@ func (c *SilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SilenceCommand) UsageShort() string { return "Silences a user." }
+func (c *silenceCommand) UsageShort() string { return "Silences a user." }
 
-func UnsilenceMember(user uint64, info *GuildInfo) error {
-	m, err := info.GetMember(SBitoa(user))
-	if err == nil {
-		sb.dg.State.Lock()
-		RemoveSliceString(&m.Roles, SBitoa(info.config.Spam.SilentRole))
-		sb.dg.State.Unlock()
-	}
-
-	return sb.dg.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
+type unsilenceCommand struct {
 }
 
-type UnsilenceCommand struct {
-}
-
-func (c *UnsilenceCommand) Name() string {
+func (c *unsilenceCommand) Name() string {
 	return "Unsilence"
 }
-func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You must provide a user to unsilence.```", false, nil
 	}
@@ -632,7 +625,7 @@ func (c *UnsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	return "```Unsilenced " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 }
-func (c *UnsilenceCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *unsilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Unsilences the given user.",
 		Params: []CommandUsageParam{
@@ -640,4 +633,4 @@ func (c *UnsilenceCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *UnsilenceCommand) UsageShort() string { return "Unsilences a user." }
+func (c *unsilenceCommand) UsageShort() string { return "Unsilences a user." }

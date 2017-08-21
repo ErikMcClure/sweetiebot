@@ -13,36 +13,39 @@ import (
 type DebugModule struct {
 }
 
+// Name of the module
 func (w *DebugModule) Name() string {
 	return "Debug"
 }
 
+// Commands in the module
 func (w *DebugModule) Commands() []Command {
 	return []Command{
-		&EchoCommand{},
-		&EchoEmbedCommand{},
-		&DisableCommand{},
-		&EnableCommand{},
-		&UpdateCommand{},
-		&DumpTablesCommand{},
-		&ListGuildsCommand{},
-		&AnnounceCommand{},
-		&RemoveAliasCommand{},
-		&GetAuditCommand{},
+		&echoCommand{},
+		&echoEmbedCommand{},
+		&disableCommand{},
+		&enableCommand{},
+		&updateCommand{},
+		&dumpTablesCommand{},
+		&listGuildsCommand{},
+		&announceCommand{},
+		&removeAliasCommand{},
+		&getAuditCommand{},
 	}
 }
 
+// Description of the module
 func (w *DebugModule) Description() string {
 	return "Contains various debugging commands. Some of these commands can only be run by the bot owner."
 }
 
-type EchoCommand struct {
+type echoCommand struct {
 }
 
-func (c *EchoCommand) Name() string {
+func (c *echoCommand) Name() string {
 	return "Echo"
 }
-func (c *EchoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *echoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "```You have to tell me to say something, silly!```", false, nil
 	}
@@ -56,7 +59,7 @@ func (c *EchoCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 	return msg.Content[indices[0]:], false, nil
 }
-func (c *EchoCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *echoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Makes Sweetie Bot say the given sentence in `#channel`, or in the current channel if no channel is provided.",
 		Params: []CommandUsageParam{
@@ -65,17 +68,17 @@ func (c *EchoCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *EchoCommand) UsageShort() string {
+func (c *echoCommand) UsageShort() string {
 	return "Makes Sweetie Bot say something in the given channel."
 }
 
-type EchoEmbedCommand struct {
+type echoEmbedCommand struct {
 }
 
-func (c *EchoEmbedCommand) Name() string {
+func (c *echoEmbedCommand) Name() string {
 	return "EchoEmbed"
 }
-func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "```You have to tell me to say something, silly!```", false, nil
 	}
@@ -126,7 +129,7 @@ func (c *EchoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 	info.SendEmbed(channel, embed)
 	return "", false, nil
 }
-func (c *EchoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *echoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel",
 		Params: []CommandUsageParam{
@@ -137,7 +140,7 @@ func (c *EchoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *EchoEmbedCommand) UsageShort() string {
+func (c *echoEmbedCommand) UsageShort() string {
 	return "Makes Sweetie Bot echo a rich text embed in a given channel."
 }
 
@@ -185,16 +188,16 @@ func SetCommandEnable(args []string, enable bool, success string, info *GuildInf
 	return "```The " + args[0] + " module/command does not exist. Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 }
 
-type DisableCommand struct {
+type disableCommand struct {
 }
 
-func (c *DisableCommand) Name() string {
+func (c *disableCommand) Name() string {
 	return "Disable"
 }
-func (c *DisableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *disableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return SetCommandEnable(args, false, " was disabled.", info, msg.ChannelID)
 }
-func (c *DisableCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *disableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Disables the given module or command, if possible. If the module/command is already disabled, does nothing.",
 		Params: []CommandUsageParam{
@@ -202,18 +205,18 @@ func (c *DisableCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *DisableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
+func (c *disableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
 
-type EnableCommand struct {
+type enableCommand struct {
 }
 
-func (c *EnableCommand) Name() string {
+func (c *enableCommand) Name() string {
 	return "Enable"
 }
-func (c *EnableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *enableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return SetCommandEnable(args, true, " was enabled.", info, msg.ChannelID)
 }
-func (c *EnableCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *enableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Enables the given module or command, if possible. If the module/command is already enabled, does nothing.",
 		Params: []CommandUsageParam{
@@ -221,17 +224,17 @@ func (c *EnableCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *EnableCommand) UsageShort() string { return "Enables the given module/command." }
-func (c *EnableCommand) Roles() []string    { return []string{"Princesses", "Royal Guard"} }
-func (c *EnableCommand) Channels() []string { return []string{} }
+func (c *enableCommand) UsageShort() string { return "Enables the given module/command." }
+func (c *enableCommand) Roles() []string    { return []string{"Princesses", "Royal Guard"} }
+func (c *enableCommand) Channels() []string { return []string{} }
 
-type UpdateCommand struct {
+type updateCommand struct {
 }
 
-func (c *UpdateCommand) Name() string {
+func (c *updateCommand) Name() string {
 	return "Update"
 }
-func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
@@ -254,36 +257,36 @@ func (c *UpdateCommand) Process(args []string, msg *discordgo.Message, indices [
 	sb.quit.set(true) // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
 	return "```Shutting down for update...```", false, nil
 }
-func (c *UpdateCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *updateCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Tells sweetiebot to shut down, calls an update script, rebuilds the code, and then restarts."}
 }
-func (c *UpdateCommand) UsageShort() string { return "[RESTRICTED] Updates sweetiebot." }
-func (c *UpdateCommand) Roles() []string    { return []string{"Princesses"} }
-func (c *UpdateCommand) Channels() []string { return []string{} }
+func (c *updateCommand) UsageShort() string { return "[RESTRICTED] Updates sweetiebot." }
+func (c *updateCommand) Roles() []string    { return []string{"Princesses"} }
+func (c *updateCommand) Channels() []string { return []string{} }
 
-type DumpTablesCommand struct {
+type dumpTablesCommand struct {
 }
 
-func (c *DumpTablesCommand) Name() string {
+func (c *dumpTablesCommand) Name() string {
 	return "DumpTables"
 }
-func (c *DumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *dumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	return "```\n" + sb.db.GetTableCounts() + "```", false, nil
 }
-func (c *DumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *dumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Dumps table row counts."}
 }
-func (c *DumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
+func (c *dumpTablesCommand) UsageShort() string { return "Dumps table row counts." }
 
-type GuildSlice []*discordgo.Guild
+type guildSlice []*discordgo.Guild
 
-func (s GuildSlice) Len() int {
+func (s guildSlice) Len() int {
 	return len(s)
 }
-func (s GuildSlice) Swap(i, j int) {
+func (s guildSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
-func (s GuildSlice) Less(i, j int) bool {
+func (s guildSlice) Less(i, j int) bool {
 	if s[i].MemberCount > len(s[i].Members) {
 		i = s[i].MemberCount
 	} else {
@@ -297,18 +300,18 @@ func (s GuildSlice) Less(i, j int) bool {
 	return i > j
 }
 
-type ListGuildsCommand struct {
+type listGuildsCommand struct {
 }
 
-func (c *ListGuildsCommand) Name() string {
+func (c *listGuildsCommand) Name() string {
 	return "ListGuilds"
 }
-func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *listGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	sb.dg.State.RLock()
 	guilds := append([]*discordgo.Guild{}, sb.dg.State.Guilds...)
 	sb.dg.State.RUnlock()
-	sort.Sort(GuildSlice(guilds))
+	sort.Sort(guildSlice(guilds))
 	s := make([]string, 0, len(guilds))
 	private := 0
 	for _, v := range guilds {
@@ -338,18 +341,18 @@ func (c *ListGuildsCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
 }
-func (c *ListGuildsCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *listGuildsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Lists the servers that sweetiebot has joined."}
 }
-func (c *ListGuildsCommand) UsageShort() string { return "Lists servers." }
+func (c *listGuildsCommand) UsageShort() string { return "Lists servers." }
 
-type AnnounceCommand struct {
+type announceCommand struct {
 }
 
-func (c *AnnounceCommand) Name() string {
+func (c *announceCommand) Name() string {
 	return "Announce"
 }
-func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *announceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
@@ -366,7 +369,7 @@ func (c *AnnounceCommand) Process(args []string, msg *discordgo.Message, indices
 
 	return "", false, nil
 }
-func (c *AnnounceCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *announceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that announces a message to all the log channels of all servers.",
 		Params: []CommandUsageParam{
@@ -374,15 +377,15 @@ func (c *AnnounceCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *AnnounceCommand) UsageShort() string { return "[RESTRICTED] Announcement command." }
+func (c *announceCommand) UsageShort() string { return "[RESTRICTED] Announcement command." }
 
-type RemoveAliasCommand struct {
+type removeAliasCommand struct {
 }
 
-func (c *RemoveAliasCommand) Name() string {
+func (c *removeAliasCommand) Name() string {
 	return "RemoveAlias"
 }
-func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *removeAliasCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
 	if !isOwner {
 		return "```Only the owner of the bot itself can call this!```", false, nil
@@ -399,7 +402,7 @@ func (c *RemoveAliasCommand) Process(args []string, msg *discordgo.Message, indi
 	sb.db.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
 	return "```Attempted to remove the alias. Use " + info.config.Basic.CommandPrefix + "aka to check if it worked.```", false, nil
 }
-func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *removeAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that removes the alias for a given user. The user must be pinged, and the alias must match precisely.",
 		Params: []CommandUsageParam{
@@ -408,19 +411,19 @@ func (c *RemoveAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *RemoveAliasCommand) UsageShort() string { return "[RESTRICTED] Removes an alias." }
+func (c *removeAliasCommand) UsageShort() string { return "[RESTRICTED] Removes an alias." }
 
-type GetAuditCommand struct {
+type getAuditCommand struct {
 }
 
-func (c *GetAuditCommand) Name() string {
+func (c *getAuditCommand) Name() string {
 	return "GetAudit"
 }
-func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	var low uint64 = 0
+func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	var low uint64
 	var high uint64 = 10
-	var user *uint64 = nil
-	var search string = ""
+	var user *uint64
+	var search string
 
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
@@ -478,7 +481,7 @@ func (c *GetAuditCommand) Process(args []string, msg *discordgo.Message, indices
 
 	return strings.Join(ret, "\n"), len(ret) > 12, nil
 }
-func (c *GetAuditCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *getAuditCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Allows admins to inspect the audit log.",
 		Params: []CommandUsageParam{
@@ -488,4 +491,4 @@ func (c *GetAuditCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *GetAuditCommand) UsageShort() string { return "Inspects the audit log." }
+func (c *getAuditCommand) UsageShort() string { return "Inspects the audit log." }

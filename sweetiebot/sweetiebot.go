@@ -464,7 +464,6 @@ func AttachToGuild(g *discordgo.Guild) {
 	sb.guildsLock.Unlock()
 	guild.ProcessGuild(g)
 
-	episodegencommand := &EpisodeGenCommand{}
 	guild.emotemodule = &EmoteModule{}
 	guild.emotemodule.UpdateRegex(guild)
 	spoilermodule := &SpoilerModule{}
@@ -517,10 +516,10 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.modules = append(guild.modules, &BucketModule{})
 	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule})
 	guild.modules = append(guild.modules, &ConfigModule{})
-	guild.modules = append(guild.modules, &SpamModule{tracker: make(map[uint64]*UserPressure), lastraid: 0})
+	guild.modules = append(guild.modules, &SpamModule{tracker: make(map[uint64]*userPressure), lastraid: 0})
 	guild.modules = append(guild.modules, wittymodule)
 	guild.modules = append(guild.modules, &StatusModule{})
-	guild.modules = append(guild.modules, &BoredModule{Episodegen: episodegencommand, lastmessage: 0})
+	guild.modules = append(guild.modules, &BoredModule{lastmessage: 0})
 	guild.modules = append(guild.modules, guild.emotemodule)
 	guild.modules = append(guild.modules, spoilermodule)
 
@@ -585,7 +584,7 @@ func AttachToGuild(g *discordgo.Guild) {
 			changes = "\nChangelog:\n" + changes + "\n\nPlease consider donating to help pay for hosting costs: https://www.patreon.com/erikmcclure"
 		}
 	}
-	guild.Log("[](/sbload)\n Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
+	guild.Log("Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
 func getChannelGuild(id string) *GuildInfo {
 	c, err := sb.dg.State.Channel(id)
@@ -1169,7 +1168,7 @@ func New(token string) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 12},
+		version:            Version{0, 9, 8, 13},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1185,6 +1184,7 @@ func New(token string) *SweetieBot {
 		heartbeat:          4294967290,
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 13): "- Fix crash on startup.\n- Did more code refactoring, fixed several spelling errors.",
 			AssembleVersion(0, 9, 8, 12): "- Do bulk member insertions in single batch to reduce database pressure.\n- Removed bestpony command\n- Did large internal code refactor",
 			AssembleVersion(0, 9, 8, 11): "- User left now lists username+discriminator instead of pinging them to avoid @invalid-user problems.\n- Add ToS to !about\n- Bot now detects when it's about to be rate limited and combines short messages into a single large message. Helps keep bot responsive during huge raids.\n- Fixed race condition in spam module.",
 			AssembleVersion(0, 9, 8, 10): "- !setup can now be run by any user with the administrator role.\n- Sweetie splits up embed messages if they have more than 25 fields.\n- Added !getraid and !banraid commands\n- Replaced !wipewelcome with generic !wipe command\n- Added LinePressure, which adds pressure for each newline in a message\n- Added TrackUserLeft, which will send a message when a user leaves in addition to when they join.",

@@ -10,31 +10,35 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// MarkovModule generates content using markov chains
 type MarkovModule struct {
 }
 
+// Name of the module
 func (w *MarkovModule) Name() string {
 	return "Markov"
 }
 
+// Commands in the module
 func (w *MarkovModule) Commands() []Command {
 	return []Command{
-		&EpisodeGenCommand{},
-		&EpisodeQuoteCommand{},
-		&ShipCommand{},
+		&episodeGenCommand{},
+		&episodeQuoteCommand{},
+		&shipCommand{},
 	}
 }
 
+// Description of the module
 func (w *MarkovModule) Description() string { return "Generates content using markov chains." }
 
-type EpisodeGenCommand struct {
+type episodeGenCommand struct {
 	lock AtomicFlag
 }
 
-func (c *EpisodeGenCommand) Name() string {
+func (c *episodeGenCommand) Name() string {
 	return "episodegen"
 }
-func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -75,9 +79,9 @@ func (c *EpisodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 		}
 	}
 
-	return strings.Join(lines, "\n"), len(lines) > 5 || !CheckShutup(msg.ChannelID), nil
+	return strings.Join(lines, "\n"), len(lines) > 5, nil
 }
-func (c *EpisodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *episodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of `lines`. Will be sent via PM if the line count exceeds 5.",
 		Params: []CommandUsageParam{
@@ -86,22 +90,19 @@ func (c *EpisodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *EpisodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
+func (c *episodeGenCommand) UsageShort() string { return "Randomly generates episodes." }
 
-type EpisodeQuoteCommand struct {
+type episodeQuoteCommand struct {
 }
 
 var quoteargregex = regexp.MustCompile("s[0-9]+e[0-9]+")
 
-func (c *EpisodeQuoteCommand) Name() string {
+func (c *episodeQuoteCommand) Name() string {
 	return "EpisodeQuote"
 }
-func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *episodeQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
-	}
-	if !CheckShutup(msg.ChannelID) {
-		return "", false, nil
 	}
 	S := 0
 	E := 0
@@ -160,7 +161,7 @@ func (c *EpisodeQuoteCommand) Process(args []string, msg *discordgo.Message, ind
 	}
 	return strings.Join(process, "\n"), len(process) > info.config.Markov.MaxPMlines, nil
 }
-func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *episodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "If the S0E00:000-000 format is used, returns all the lines from the given season and episode, between the starting and ending line numbers (inclusive). Returns a maximum of " + strconv.Itoa(info.config.Markov.MaxLines) + " lines, but a line count above 5 will be sent in a private message. \n\nIf \"action\" is specified, returns a random action quote from the show.\n\nIf \"speech\" is specified, returns a random quote from one of the characters in the show.\n\nIf a \"Character Name\" is specified, it attempts to quote a random line from the show spoken by that character. If the character can't be found, returns an error. The character name doesn't have to be in quotes unless it has spaces in it, but you must specify the entire name.\n\nIf no arguments are specified, quotes a completely random line from the show.",
 		Params: []CommandUsageParam{
@@ -168,22 +169,19 @@ func (c *EpisodeQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *EpisodeQuoteCommand) UsageShort() string {
+func (c *episodeQuoteCommand) UsageShort() string {
 	return "Quotes random or specific lines from the show."
 }
 
-type ShipCommand struct {
+type shipCommand struct {
 }
 
-func (c *ShipCommand) Name() string {
+func (c *shipCommand) Name() string {
 	return "ship"
 }
-func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *shipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
-	}
-	if !CheckShutup(msg.ChannelID) {
-		return "", false, nil
 	}
 	var a string
 	var b string
@@ -232,7 +230,7 @@ func (c *ShipCommand) Process(args []string, msg *discordgo.Message, indices []i
 
 	return fmt.Sprintf("```\n"+s+"```", a, b), false, nil
 }
-func (c *ShipCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *shipCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Generates a random pairing of ponies. If a first or second argument is supplied, uses those names instead.",
 		Params: []CommandUsageParam{
@@ -241,4 +239,4 @@ func (c *ShipCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *ShipCommand) UsageShort() string { return "Generates a random ship." }
+func (c *shipCommand) UsageShort() string { return "Generates a random ship." }

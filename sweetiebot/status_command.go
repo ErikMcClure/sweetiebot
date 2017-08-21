@@ -6,28 +6,32 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// StatusModule manages Sweetie Bot's status
 type StatusModule struct {
 }
 
+// Name of the module
 func (w *StatusModule) Name() string {
 	return "Status"
 }
 
+// Commands in the module
 func (w *StatusModule) Commands() []Command {
 	return []Command{
-		&SetStatusCommand{},
+		&setStatusCommand{},
 	}
 }
 
+// Description of the module
 func (w *StatusModule) Description() string { return "Manages Sweetie Bot's status." }
 
-type SetStatusCommand struct {
+type setStatusCommand struct {
 }
 
-func (c *SetStatusCommand) Name() string {
+func (c *setStatusCommand) Name() string {
 	return "SetStatus"
 }
-func (c *SetStatusCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *setStatusCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		sb.dg.UpdateStatus(0, "")
 		return "```Removed status```", false, nil
@@ -37,7 +41,7 @@ func (c *SetStatusCommand) Process(args []string, msg *discordgo.Message, indice
 	sb.dg.UpdateStatus(0, arg)
 	return "```Set status to " + arg + "```", false, nil
 }
-func (c *SetStatusCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *setStatusCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Sets Sweetie Bot's status message to the given string, at least until she automatically changes it again.",
 		Params: []CommandUsageParam{
@@ -45,4 +49,4 @@ func (c *SetStatusCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SetStatusCommand) UsageShort() string { return "Sets the status message." }
+func (c *setStatusCommand) UsageShort() string { return "Sets the status message." }
