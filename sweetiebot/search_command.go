@@ -9,13 +9,13 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-type SearchCommand struct {
+type searchCommand struct {
 	emotes     *EmoteModule
 	lock       AtomicFlag
 	statements map[string][]*sql.Stmt
 }
 
-func (c *SearchCommand) Name() string {
+func (c *searchCommand) Name() string {
 	return "Search"
 }
 func MsgHighlightMatch(msg string, match string) string {
@@ -26,7 +26,7 @@ func MsgHighlightMatch(msg string, match string) string {
 	msg = strings.Replace(msg, "**"+match, match, -1)      // helps prevent ** from exploding everywhere because discord is bad at isolation.
 	return strings.Replace(msg, match, "**"+match+"**", -1)
 }
-func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.db.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -246,7 +246,7 @@ func (c *SearchCommand) Process(args []string, msg *discordgo.Message, indices [
 	return ReplaceAllMentions(ret), len(r) > 5, nil
 	//return c.emotes.emoteban.ReplaceAllStringFunc(ret, emotereplace), len(r) > 5
 }
-func (c *SearchCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *searchCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "This is an arbitrary search command run on sweetiebot's 7 day chat log. All parameters are optional and can be input in any order, and will all be combined into a single search as appropriate, but if no searchable parameters are given, the operation will fail.  Remember that if a username has spaces in it, you have to put the entire username parameter in quotes, not just the username itself! \n\n Example: `" + info.config.Basic.CommandPrefix + "search #manechat @cloud|@JamesNotABot *4 \"~Sep 8 12:00pm\"`\n This will return the most recent 4 messages said by any user with \"cloud\" in the name, or the user JamesNotABot, in the #manechat channel, before Sept 8 12:00pm.",
 		Params: []CommandUsageParam{
@@ -258,4 +258,4 @@ func (c *SearchCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SearchCommand) UsageShort() string { return "Performs a complex search on the chat history." }
+func (c *searchCommand) UsageShort() string { return "Performs a complex search on the chat history." }

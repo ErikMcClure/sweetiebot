@@ -14,11 +14,12 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-type Logger interface {
+type logger interface {
 	Log(args ...interface{})
 	LogError(msg string, err error)
 }
 
+// GuildInfo Stores state information about a guild
 type GuildInfo struct {
 	ID           string // Cache the ID because it doesn't change
 	Name         string // Cache the name to reduce locking
@@ -29,17 +30,19 @@ type GuildInfo struct {
 	commandlimit *SaturationLimit
 	config       BotConfig
 	emotemodule  *EmoteModule
-	hooks        ModuleHooks
+	hooks        moduleHooks
 	modules      []Module
 	commands     map[string]Command
 	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
 	lastlockdown time.Time
 }
 
+// AddCommand adds a command to the guild
 func (info *GuildInfo) AddCommand(c Command) {
 	info.commands[strings.ToLower(c.Name())] = c
 }
 
+// SaveConfig saves the config file to disk
 func (info *GuildInfo) SaveConfig() {
 	data, err := json.Marshal(info.config)
 	if err == nil {
@@ -61,6 +64,7 @@ func deleteFromMapReflect(f reflect.Value, k string) string {
 	return "Deleted " + k
 }
 
+// SetConfig sets the given config option with the given value along with any extra parameters
 func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (string, bool) {
 	names := strings.SplitN(strings.ToLower(name), ".", 3)
 	t := reflect.ValueOf(&info.config).Elem()
