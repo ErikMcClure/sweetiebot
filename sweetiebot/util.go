@@ -14,13 +14,15 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-func Pluralize(i int64, s string) string {
+// Pluralize converts i to a string, then appends str to the end, then appends s if it's plural
+func Pluralize(i int64, str string) string {
 	if i == 1 {
-		return strconv.FormatInt(i, 10) + s
+		return strconv.FormatInt(i, 10) + str
 	}
-	return strconv.FormatInt(i, 10) + s + "s"
+	return strconv.FormatInt(i, 10) + str + "s"
 }
 
+// TimeDiff gets the largest nonzero time value and displays it
 func TimeDiff(d time.Duration) string {
 	seconds := int64(d.Seconds())
 	if seconds <= 60 {
@@ -51,12 +53,15 @@ func TimeDiff(d time.Duration) string {
 	return Pluralize(days, " day")
 }
 
+// PingAtoi extracts the internal ping ID and converts it to an integer
 func PingAtoi(s string) uint64 {
 	if len(s) > 2 && (s[:2] == "<#" || s[:2] == "<@") {
 		return SBatoi(s[2 : len(s)-1])
 	}
 	return SBatoi(s)
 }
+
+// StripPing strips the ping or channel information and returns the resulting string
 func StripPing(s string) string {
 	if len(s) > 2 && (s[:2] == "<#" || s[:2] == "<@") {
 		if len(s) >= 3 && (s[2:3] == "!" || s[2:3] == "&") {
@@ -66,6 +71,8 @@ func StripPing(s string) string {
 	}
 	return s
 }
+
+// SBatoi converts a string to a uint64. Returns 0 if there is an error.
 func SBatoi(s string) uint64 {
 	if len(s) < 1 {
 		return 0
@@ -80,18 +87,23 @@ func SBatoi(s string) uint64 {
 	}
 	return i
 }
+
+// SBitoa converts a uint64 to a string
 func SBitoa(i uint64) string {
 	return strconv.FormatUint(i, 10)
 }
+
+// IsSpace returns true if the byte is considered whitespace in ASCII
 func IsSpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\r'
 }
 
+// IDsToUsernames converts an array of integer IDs to an array of username strings
 func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string {
 	s := make([]string, 0, len(IDs))
 	gid := SBatoi(info.ID)
 	for _, v := range IDs {
-		var m *discordgo.Member = nil
+		var m *discordgo.Member
 		if sb.db.status.get() {
 			m, _, _ = sb.db.GetMember(v, gid)
 		}
@@ -115,6 +127,8 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string 
 	}
 	return s
 }
+
+// ParseArguments transforms a command line into an array of distinct arguments, while respecting quotes
 func ParseArguments(s string) ([]string, []int) {
 	r := []string{}
 	indices := []int{}
@@ -150,11 +164,12 @@ func ParseArguments(s string) ([]string, []int) {
 	return r, indices
 }
 
-// This constructs an XOR operator for booleans
+// boolXOR constructs an XOR operator for booleans
 func boolXOR(a bool, b bool) bool {
 	return (a && !b) || (!a && b)
 }
 
+// UserHasRole returns true if the specified user ID has the given role ID (both in strings)
 func (info *GuildInfo) UserHasRole(user string, role string) bool {
 	m, err := info.GetMember(user)
 	if err == nil {
@@ -167,6 +182,7 @@ func (info *GuildInfo) UserHasRole(user string, role string) bool {
 	return false
 }
 
+// UserHasAnyRole returns true if the user ID (as a string) has any of the role IDs given (as a map of strings)
 func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 	if len(roles) == 0 {
 		return true
@@ -184,7 +200,7 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 	return reverse
 }
 
-// Attempts to get a member from the guild by checking the state first before making the REST API call.
+// GetMember attempts to get a member from the guild by checking the state first before making the REST API call.
 func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
 	m, err := sb.dg.State.Member(info.ID, id)
 	if err == nil {
@@ -193,7 +209,7 @@ func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
 	return sb.dg.GuildMember(info.ID, id)
 }
 
-// If a member does not exist, this function creates an entry in the state and returns that.
+// GetMemberCreate creates a member if they don't exist, so it is guaranteed to return a Member
 func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
 	m, err := sb.dg.State.Member(info.ID, u.ID)
 	if err == nil {
@@ -208,6 +224,7 @@ func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
 	return m
 }
 
+// ReadUserPingArg performs common error handling for resolving user pings
 func ReadUserPingArg(args []string) (uint64, string) {
 	if len(args) < 1 {
 		return 0, "```You must provide a user to search for.```"
@@ -218,10 +235,12 @@ func ReadUserPingArg(args []string) (uint64, string) {
 	return SBatoi(args[0][2 : len(args[0])-1]), ""
 }
 
+// SinceUTC returns the difference between now and the given time, in UTC
 func SinceUTC(t time.Time) time.Duration {
 	return time.Now().UTC().Sub(t)
 }
 
+// getTimezone gets the time.Location of the given user, if it exists, otherwise returns time.UTC
 func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
 	if user != nil && sb.db.status.get() {
 		loc := sb.db.GetTimeZone(SBatoi(user.ID))
@@ -235,10 +254,13 @@ func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
 	}
 	return time.UTC
 }
+
+// ApplyTimezone transforms the given UTC time into local time for the given user
 func ApplyTimezone(t time.Time, info *GuildInfo, user *discordgo.User) time.Time {
 	return t.In(getTimezone(info, user))
 }
-func IngestEpisode(file string, season int, episode int) {
+
+func ingestEpisode(file string, season int, episode int) {
 	f, err := ioutil.ReadFile(file)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -281,7 +303,7 @@ func IngestEpisode(file string, season int, episode int) {
 	}
 }
 
-func SplitSpeaker(speaker string) []string {
+func splitSpeaker(speaker string) []string {
 	speakers := strings.Split(strings.Replace(speaker, ", and", " and", -1), " and ")
 	speakers = append(strings.Split(speakers[0], ","), speakers[1:]...)
 	for i, s := range speakers {
@@ -290,7 +312,7 @@ func SplitSpeaker(speaker string) []string {
 	return speakers
 }
 
-func BuildMarkov(season_start int, episode_start int) {
+func buildMarkov(seasonStart int, episodeStart int) {
 	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
 
 	sb.db.sqlResetMarkov.Exec()
@@ -298,8 +320,8 @@ func BuildMarkov(season_start int, episode_start int) {
 	var cur uint64
 	var prev uint64
 	var prev2 uint64
-	for season := season_start; season <= 5; season++ {
-		for episode := episode_start; episode <= 26; episode++ {
+	for season := seasonStart; season <= 5; season++ {
+		for episode := episodeStart; episode <= 26; episode++ {
 			fmt.Println("Begin Episode", episode, "Season", season)
 			prev = 0
 			prev2 = 0
@@ -318,7 +340,7 @@ func BuildMarkov(season_start int, episode_start int) {
 					continue
 				}
 				words := regex.FindAllString(lines[i].Text, -1)
-				speakers := SplitSpeaker(lines[i].Speaker)
+				speakers := splitSpeaker(lines[i].Speaker)
 				for _, speaker := range speakers {
 					if len(speaker) == 0 {
 						fmt.Println("EMPTY SPEAKER GENERATED FROM \""+lines[i].Speaker+"\" ON LINE: ", lines[i].Text)
@@ -354,6 +376,7 @@ func BuildMarkov(season_start int, episode_start int) {
 	}
 }
 
+// FindUsername returns all possible matching IDs for the given username
 func FindUsername(user string, info *GuildInfo) []uint64 {
 	if len(user) <= 0 {
 		return []uint64{}
@@ -394,6 +417,7 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	return r
 }
 
+// GetCommandsInOrder extracts the keys out of a map string and then sorts them alphabetically
 func GetCommandsInOrder(m map[string]Command) []string {
 	s := make([]string, 0, len(m))
 	for k := range m {
@@ -403,6 +427,7 @@ func GetCommandsInOrder(m map[string]Command) []string {
 	return s
 }
 
+// MapGetRandomItem returns a random item from a map without removing it
 func MapGetRandomItem(m map[string]bool) string {
 	index := rand.Intn(len(m))
 	for k := range m {
@@ -415,6 +440,7 @@ func MapGetRandomItem(m map[string]bool) string {
 	return "SOMETHING IMPOSSIBLE HAPPENED IN UTIL.GO MapGetRandomItem()! Somebody drag Cloud Hop out of bed and tell him his bot is broken."
 }
 
+// MapToSlice for map[string]bool
 func MapToSlice(m map[string]bool) []string {
 	s := make([]string, 0, len(m))
 	for k := range m {
@@ -423,6 +449,7 @@ func MapToSlice(m map[string]bool) []string {
 	return s
 }
 
+// MapIntToSlice for map[int]bool
 func MapIntToSlice(m map[int]string) []int {
 	s := make([]int, 0, len(m))
 	for k := range m {
@@ -431,6 +458,7 @@ func MapIntToSlice(m map[int]string) []int {
 	return s
 }
 
+// MapStringToSlice for map[string]string
 func MapStringToSlice(m map[string]string) []string {
 	s := make([]string, 0, len(m))
 	for k := range m {
@@ -439,6 +467,7 @@ func MapStringToSlice(m map[string]string) []string {
 	return s
 }
 
+// RemoveSliceString finds and removes an item from the slice
 func RemoveSliceString(s *[]string, item string) bool {
 	for i := 0; i < len(*s); i++ {
 		if (*s)[i] == item {
@@ -449,6 +478,7 @@ func RemoveSliceString(s *[]string, item string) bool {
 	return false
 }
 
+// RemoveSliceInt finds and removes an item from the slice
 func RemoveSliceInt(s *[]uint64, item uint64) bool {
 	for i := 0; i < len(*s); i++ {
 		if (*s)[i] == item {
@@ -459,18 +489,21 @@ func RemoveSliceInt(s *[]uint64, item uint64) bool {
 	return false
 }
 
+// CheckMapNilBool creates a new map if its nil
 func CheckMapNilBool(m *map[string]bool) {
 	if len(*m) <= 0 {
 		*m = make(map[string]bool)
 	}
 }
 
+// CheckMapNilString creates a new map if its nil
 func CheckMapNilString(m *map[string]string) {
 	if len(*m) <= 0 {
 		*m = make(map[string]string)
 	}
 }
 
+// FindIntSlice returns true if the given int is in the slice
 func FindIntSlice(item uint64, s []uint64) bool {
 	for _, v := range s {
 		if v == item {
@@ -479,8 +512,10 @@ func FindIntSlice(item uint64, s []uint64) bool {
 	}
 	return false
 }
+
+// getUserName returns a string representation of the user's name if possible, otherwise pings them.
 func getUserName(user uint64, info *GuildInfo) string {
-	var m *discordgo.Member = nil
+	var m *discordgo.Member
 	if sb.db.status.get() {
 		m, _, _ = sb.db.GetMember(user, SBatoi(info.ID))
 	}
@@ -492,9 +527,12 @@ func getUserName(user uint64, info *GuildInfo) string {
 	}
 	return m.User.Username
 }
+
 func sanitizementionhelper(s string) string {
 	return "<\\@" + s[2:]
 }
+
+// SanitizeMentions escapes all mentions in a string
 func SanitizeMentions(s string) string {
 	return mentionregex.ReplaceAllStringFunc(s, sanitizementionhelper)
 }
@@ -509,10 +547,13 @@ func replacementionhelper(s string) string {
 	}
 	return u.Username
 }
+
+// ReplaceAllMentions replaces mentions with usernames
 func ReplaceAllMentions(s string) string {
 	return SanitizeMentions(userregex.ReplaceAllStringFunc(s, replacementionhelper))
 }
 
+// ReplaceAllRolePings finds any role pings and replaces them with the role name
 func ReplaceAllRolePings(s string, info *GuildInfo) string {
 	roles, err := sb.dg.GuildRoles(info.ID)
 	if err != nil {
@@ -529,7 +570,8 @@ func ReplaceAllRolePings(s string, info *GuildInfo) string {
 		return s
 	})
 }
-func RestrictCommand(v string, roles map[string]map[string]bool, alertrole uint64) {
+
+func restrictCommand(v string, roles map[string]map[string]bool, alertrole uint64) {
 	_, ok := roles[v]
 	if !ok && alertrole != 0 {
 		roles[v] = make(map[string]bool)
@@ -623,7 +665,7 @@ type legacyBotConfigV13 struct {
 	} `json:"basic"`
 }
 
-// migrate settings from earlier config version
+// MigrateSettings from earlier config version
 func MigrateSettings(config []byte, guild *GuildInfo) error {
 	err := json.Unmarshal(config, &guild.config)
 	if err != nil {
@@ -643,7 +685,7 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 				legacy.Command_roles = make(map[string]map[string]bool)
 			}
 			for _, v := range newcommands {
-				RestrictCommand(v, legacy.Command_roles, legacy.AlertRole)
+				restrictCommand(v, legacy.Command_roles, legacy.AlertRole)
 			}
 			legacy.MaxImageSpam = 3
 			legacy.MaxAttachSpam = 1
@@ -659,13 +701,13 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 				legacy.Aliases = make(map[string]string)
 			}
 			legacy.Aliases["cute"] = "pick cute"
-			RestrictCommand("new", legacy.Command_roles, legacy.AlertRole)
-			RestrictCommand("addquote", legacy.Command_roles, legacy.AlertRole)
-			RestrictCommand("removequote", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("new", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("addquote", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("removequote", legacy.Command_roles, legacy.AlertRole)
 		}
 
 		if legacy.Version <= 2 {
-			RestrictCommand("removealias", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("removealias", legacy.Command_roles, legacy.AlertRole)
 		}
 
 		if legacy.Version <= 3 {
@@ -673,7 +715,7 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		}
 
 		if legacy.Version <= 4 {
-			RestrictCommand("delete", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("delete", legacy.Command_roles, legacy.AlertRole)
 		}
 
 		if legacy.Version <= 5 {
@@ -685,14 +727,14 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		}
 
 		if legacy.Version <= 6 {
-			RestrictCommand("createpoll", legacy.Command_roles, legacy.AlertRole)
-			RestrictCommand("deletepoll", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("createpoll", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("deletepoll", legacy.Command_roles, legacy.AlertRole)
 		}
 		if legacy.Version <= 7 {
-			RestrictCommand("addoption", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("addoption", legacy.Command_roles, legacy.AlertRole)
 		}
 		if legacy.Version <= 8 {
-			RestrictCommand("echoembed", legacy.Command_roles, legacy.AlertRole)
+			restrictCommand("echoembed", legacy.Command_roles, legacy.AlertRole)
 		}
 
 		guild.config.Basic.AlertRole = legacy.AlertRole
@@ -758,7 +800,7 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 	}
 
 	if guild.config.Version <= 11 {
-		RestrictCommand("getaudit", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("getaudit", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 	}
 
 	if guild.config.Version <= 12 {
@@ -856,13 +898,13 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 	}
 
 	if guild.config.Version <= 14 {
-		RestrictCommand("addrole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("removerole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("deleterole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("addrole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("removerole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("deleterole", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 	}
 
 	if guild.config.Version <= 15 {
-		RestrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 		guild.config.Spam.LockdownDuration = 120
 	}
 
@@ -875,11 +917,11 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 	}
 
 	if guild.config.Version <= 18 {
-		RestrictCommand("banraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("getraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("wipe", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
-		RestrictCommand("getpressure", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("banraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("getraid", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("wipe", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("bannewcomers", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("getpressure", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
 		guild.config.Spam.LinePressure = (guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / 70.0
 	}
 
@@ -971,7 +1013,7 @@ func getAllPerms(info *GuildInfo, user string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var perms int64 = 0
+	var perms int64
 	for _, r := range m.Roles {
 		role, err := sb.dg.State.Role(info.ID, r)
 		if err != nil {

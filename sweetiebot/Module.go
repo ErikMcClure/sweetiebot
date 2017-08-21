@@ -7,6 +7,13 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// Module monitors all incoming requests depending on what module interfaces they implement
+type Module interface {
+	Name() string
+	Commands() []Command
+	Description() string
+}
+
 // Giving each possible hook function its own interface ensures each module
 // only has to define functions for the hooks it actually cares about
 
@@ -105,13 +112,6 @@ type ModuleOnIdle interface {
 type ModuleOnTick interface {
 	Module
 	OnTick(*GuildInfo)
-}
-
-// Module monitors all incoming requests depending on what module interfaces they implement
-type Module interface {
-	Name() string
-	Commands() []Command
-	Description() string
 }
 
 // CommandUsageParam describes a single parameter to a command
