@@ -26,7 +26,7 @@ type GuildInfo struct {
 	OwnerID      string
 	lastlogerr   int64
 	commandLock  sync.RWMutex
-	command_last map[string]map[string]int64
+	commandLast  map[string]map[string]int64
 	commandlimit *SaturationLimit
 	config       BotConfig
 	emotemodule  *EmoteModule
@@ -240,6 +240,7 @@ func (info *GuildInfo) sanitizeOutput(message string) string {
 	return message
 }
 
+// SendEmbed sends an embed message to the channel, splitting it into multiple messages if necessary
 func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed) bool {
 	ch, private := channelIsPrivate(channelID)
 	if !private && ch.GuildID != info.ID {
@@ -379,6 +380,7 @@ func (info *GuildInfo) sendContent(channelID string, message string, minRequest 
 	}
 }
 
+// SendMessage sends a message to the given channel, splitting it into multiple messages if necessary, and combining smaller messages if a rate limit is about to be hit
 func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	ch, private := channelIsPrivate(channelID)
 	if !private && ch.GuildID != info.ID {
@@ -411,6 +413,7 @@ func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	return true
 }
 
+// ProcessModule returns true if a module should process events on this channel
 func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 	_, disabled := info.config.Modules.Disabled[strings.ToLower(m.Name())]
 	if disabled {
@@ -426,6 +429,7 @@ func (info *GuildInfo) ProcessModule(channelID string, m Module) bool {
 	return true
 }
 
+// SwapStatusLoop updates the "playing" status every Status.Cooldown seconds
 func (info *GuildInfo) SwapStatusLoop() {
 	if sb.IsMainGuild(info) {
 		for !sb.quit.get() {
@@ -441,6 +445,7 @@ func (info *GuildInfo) SwapStatusLoop() {
 	}
 }
 
+// IsDebug returns true if the channel is a debug channel
 func (info *GuildInfo) IsDebug(channel string) bool {
 	debugchannel, isdebug := sb.DebugChannels[info.ID]
 	if isdebug {
@@ -449,6 +454,7 @@ func (info *GuildInfo) IsDebug(channel string) bool {
 	return false
 }
 
+// ProcessMember called ProcessUser and adds additional member information to the database
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	ProcessUser(u.User, nil)
 
@@ -461,7 +467,7 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	}
 }
 
-func (info *GuildInfo) UserBulkUpdate(members []*discordgo.Member) {
+func (info *GuildInfo) userBulkUpdate(members []*discordgo.Member) {
 	valueArgs := make([]interface{}, 0, len(members)*6)
 	valueStrings := make([]string, 0, len(members))
 
@@ -476,7 +482,7 @@ func (info *GuildInfo) UserBulkUpdate(members []*discordgo.Member) {
 	info.LogError("Error in UserBulkUpdate", err)
 }
 
-func (info *GuildInfo) MemberBulkUpdate(members []*discordgo.Member) {
+func (info *GuildInfo) memberBulkUpdate(members []*discordgo.Member) {
 	valueArgs := make([]interface{}, 0, len(members)*4)
 	valueStrings := make([]string, 0, len(members))
 
@@ -493,6 +499,7 @@ func (info *GuildInfo) MemberBulkUpdate(members []*discordgo.Member) {
 	info.LogError("Error in MemberBulkUpdate", err)
 }
 
+// ProcessGuild updates guild information and adds the initial member list to the database
 func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 	info.Name = g.Name
 	info.OwnerID = g.OwnerID
@@ -502,21 +509,22 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 		// First process userdata
 		i := chunksize
 		for i < len(g.Members) {
-			info.UserBulkUpdate(g.Members[i-chunksize : i])
+			info.userBulkUpdate(g.Members[i-chunksize : i])
 			i += chunksize
 		}
-		info.UserBulkUpdate(g.Members[i-chunksize:])
+		info.userBulkUpdate(g.Members[i-chunksize:])
 
 		// Then process member data
 		i = chunksize
 		for i < len(g.Members) {
-			info.MemberBulkUpdate(g.Members[i-chunksize : i])
+			info.memberBulkUpdate(g.Members[i-chunksize : i])
 			i += chunksize
 		}
-		info.MemberBulkUpdate(g.Members[i-chunksize:])
+		info.memberBulkUpdate(g.Members[i-chunksize:])
 	}
 }
 
+// FindChannelID returns the ID of the first channel in this guild with a matching name
 func (info *GuildInfo) FindChannelID(name string) string {
 	guild, err := sb.dg.State.Guild(info.ID)
 	if err != nil {
@@ -533,6 +541,7 @@ func (info *GuildInfo) FindChannelID(name string) string {
 	return ""
 }
 
+// HasChannel returns true if this guild has a channel with the given ID
 func (info *GuildInfo) HasChannel(id string) bool {
 	c, err := sb.dg.State.Channel(id)
 	if err != nil {
