@@ -345,7 +345,7 @@ func AttachToGuild(g *discordgo.Guild) {
 				ID:           g.ID,
 				Name:         g.Name,
 				OwnerID:      g.OwnerID,
-				command_last: make(map[string]map[string]int64),
+				commandLast:  make(map[string]map[string]int64),
 				commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 				commands:     make(map[string]Command),
 				emotemodule:  nil,
@@ -353,8 +353,8 @@ func AttachToGuild(g *discordgo.Guild) {
 			}
 			sb.guildsLock.Lock()
 			sb.guilds[SBatoi(g.ID)] = guild
-			sb.guildsLock.Unlock()
 			guild.ProcessGuild(g)
+			sb.guildsLock.Unlock()
 			fmt.Println("Processed", g.Name)*/
 			return
 		}
@@ -366,7 +366,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		ID:           g.ID,
 		Name:         g.Name,
 		OwnerID:      g.OwnerID,
-		command_last: make(map[string]map[string]int64),
+		commandLast:  make(map[string]map[string]int64),
 		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 		commands:     make(map[string]Command),
 		emotemodule:  nil,
@@ -461,8 +461,8 @@ func AttachToGuild(g *discordgo.Guild) {
 
 	sb.guildsLock.Lock()
 	sb.guilds[SBatoi(g.ID)] = guild
+	guild.ProcessGuild(g) // This can be done outside of the guild lock, but it puts a lot of pressure on the database
 	sb.guildsLock.Unlock()
-	guild.ProcessGuild(g)
 
 	guild.emotemodule = &EmoteModule{}
 	guild.emotemodule.UpdateRegex(guild)
@@ -730,17 +730,17 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			cmdlimit := info.config.Modules.CommandLimits[cmdname]
 			if !isfree && cmdlimit > 0 && !isSelf {
 				info.commandLock.RLock()
-				lastcmd := info.command_last[m.ChannelID][cmdname]
+				lastcmd := info.commandLast[m.ChannelID][cmdname]
 				info.commandLock.RUnlock()
 				if !RateLimit(&lastcmd, cmdlimit) {
 					info.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), getAddMsg(info)))
 					return
 				}
 				info.commandLock.Lock()
-				if len(info.command_last[m.ChannelID]) == 0 {
-					info.command_last[m.ChannelID] = make(map[string]int64)
+				if len(info.commandLast[m.ChannelID]) == 0 {
+					info.commandLast[m.ChannelID] = make(map[string]int64)
 				}
-				info.command_last[m.ChannelID][cmdname] = t
+				info.commandLast[m.ChannelID][cmdname] = t
 				info.commandLock.Unlock()
 			}
 
@@ -1168,7 +1168,7 @@ func New(token string) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 13},
+		version:            Version{0, 9, 8, 14},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1184,6 +1184,7 @@ func New(token string) *SweetieBot {
 		heartbeat:          4294967290,
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 14): "- Reduce database pressure on startup",
 			AssembleVersion(0, 9, 8, 13): "- Fix crash on startup.\n- Did more code refactoring, fixed several spelling errors.",
 			AssembleVersion(0, 9, 8, 12): "- Do bulk member insertions in single batch to reduce database pressure.\n- Removed bestpony command\n- Did large internal code refactor",
 			AssembleVersion(0, 9, 8, 11): "- User left now lists username+discriminator instead of pinging them to avoid @invalid-user problems.\n- Add ToS to !about\n- Bot now detects when it's about to be rate limited and combines short messages into a single large message. Helps keep bot responsive during huge raids.\n- Fixed race condition in spam module.",
