@@ -63,6 +63,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
 * **ListenToBots:** If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.
 * **TrackUserLeft:** If true, sweetiebot will also track users that leave the server if autosilence is set to alert or log. Defaults to false.
+* **CommandPrefix:** Determines the SINGLE ASCII CHARACTER prefix used to denote sweetiebot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.
 
 ### Modules
 * **Channels [maplist]:** A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If "!" is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.
