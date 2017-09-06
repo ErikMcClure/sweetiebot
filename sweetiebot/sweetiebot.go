@@ -1168,7 +1168,7 @@ func New(token string) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 14},
+		version:            Version{0, 9, 8, 15},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
@@ -1184,6 +1184,7 @@ func New(token string) *SweetieBot {
 		heartbeat:          4294967290,
 		MessageCount:       0,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 15): "- Return all possible !wipe errors",
 			AssembleVersion(0, 9, 8, 14): "- Reduce database pressure on startup",
 			AssembleVersion(0, 9, 8, 13): "- Fix crash on startup.\n- Did more code refactoring, fixed several spelling errors.",
 			AssembleVersion(0, 9, 8, 12): "- Do bulk member insertions in single batch to reduce database pressure.\n- Removed bestpony command\n- Did large internal code refactor",
