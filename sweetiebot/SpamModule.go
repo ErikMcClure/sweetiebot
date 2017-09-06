@@ -455,7 +455,10 @@ func (c *wipeCommand) WipeMessages(ch string, num int, seconds int) (int, error)
 		if len(IDs) == 0 {
 			break
 		}
-		sb.dg.ChannelMessagesBulkDelete(ch, IDs)
+		if err = sb.dg.ChannelMessagesBulkDelete(ch, IDs); err != nil {
+			return ret, err
+		}
+
 		lastid = IDs[len(IDs)-1]
 	}
 	return ret, nil
