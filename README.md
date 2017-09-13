@@ -147,7 +147,7 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 ### Anti-Spam
 Tracks all channels it is active on for spammers. Each message someone sends generates "pressure", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid.
 #### Commands
-* **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and unsilences everyone.
+* **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and disables join alerts.
 * **Wipe:** Deletes up to N seconds worth of messages in the specified channel.
 * **GetPressure:** [RESTRICTED] Gets user's spam pressure.
 * **GetRaid:** Lists users considered part of the current raid, if there is one.
