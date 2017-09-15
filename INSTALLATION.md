@@ -1,4 +1,4 @@
-These instructions are for **self-hosting only**. SELF-HOSTING IS NOT SUPPORTED. If you would simply like to add the public instance of the bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
+These instructions are for **self-hosting only**. SELF-HOSTING IS NOT SUPPORTED. If you don't understand these instructions, **you shouldn't be self-hosting the bot.** To add the public instance of the bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
 
 **1.** Install at least [Go 1.8](https://golang.org/dl/) (required for json serialization). Verify that Go was properly installed to your PATH variable by typing `go version` in your terminal / command prompt. If you aren't prompted with something Go related, restart your computer and try again.
 
