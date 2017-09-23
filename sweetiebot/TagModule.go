@@ -43,8 +43,8 @@ func (w *TagModule) PrepStatement(query string, tags string) (*sql.Stmt, error) 
 		var err error
 		stmt, err = sb.DB.Prepare(query)
 		if err != nil {
-			return nil, fmt.Errorf("```Invalid tag expression: %s```", err.Error())
-			//return nil, fmt.Errorf("```Invalid tag expression: %s```", tags)
+			//return nil, fmt.Errorf("```Invalid tag expression: %s```", err.Error())
+			return nil, fmt.Errorf("```Invalid tag expression: %s```", tags)
 		}
 		w.Cache[query] = stmt
 	}
