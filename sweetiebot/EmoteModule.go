@@ -28,7 +28,7 @@ func (w *EmoteModule) Description() string {
 
 func (w *EmoteModule) hasBigEmote(info *GuildInfo, m *discordgo.Message) bool {
 	if w.emoteban.MatchString(m.Content) {
-		sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
+		sb.DG.ChannelMessageDelete(m.ChannelID, m.ID)
 		if RateLimit(&w.lastmsg, 5) {
 			info.SendMessage(m.ChannelID, "`That emote isn't allowed here! Try to avoid using large or disturbing emotes, as they can be problematic.`")
 		}
@@ -58,6 +58,6 @@ func (w *EmoteModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 // UpdateRegex updates the emote module regex
 func (w *EmoteModule) UpdateRegex(info *GuildInfo) bool {
 	var err error
-	w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(MapToSlice(info.config.Basic.Collections["emote"]), "|") + ")[-) \"]")
+	w.emoteban, err = regexp.Compile("\\[\\]\\(\\/r?(" + strings.Join(MapToSlice(info.config.Collections["emote"]), "|") + ")[-) \"]")
 	return err == nil
 }

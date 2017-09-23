@@ -33,12 +33,12 @@ func (c *setStatusCommand) Name() string {
 }
 func (c *setStatusCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		sb.dg.UpdateStatus(0, "")
+		sb.DG.UpdateStatus(0, "")
 		return "```Removed status```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
 	fmt.Printf(arg)
-	sb.dg.UpdateStatus(0, arg)
+	sb.DG.UpdateStatus(0, arg)
 	return "```Set status to " + arg + "```", false, nil
 }
 func (c *setStatusCommand) Usage(info *GuildInfo) *CommandUsage {

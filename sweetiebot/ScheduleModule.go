@@ -37,10 +37,10 @@ func (w *ScheduleModule) Description() string {
 
 // OnTick discord hook
 func (w *ScheduleModule) OnTick(info *GuildInfo) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return
 	}
-	events := sb.db.GetSchedule(SBatoi(info.ID))
+	events := sb.DB.GetSchedule(SBatoi(info.ID))
 	channel := SBitoa(info.config.Basic.ModChannel)
 	if len(info.config.Modules.Channels[strings.ToLower(w.Name())]) > 0 {
 		for k := range info.config.Modules.Channels[strings.ToLower(w.Name())] {
@@ -66,7 +66,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 	for _, v := range events {
 		switch v.Type {
 		case 0:
-			err := sb.dg.GuildBanDelete(info.ID, v.Data)
+			err := sb.DG.GuildBanDelete(info.ID, v.Data)
 			if err != nil {
 				info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Error unbanning <@"+v.Data+">: "+err.Error())
 			} else {
@@ -76,7 +76,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			if info.config.Schedule.BirthdayRole == 0 {
 				info.Log("No birthday role set!")
 			} else {
-				err := sb.dg.GuildMemberRoleAdd(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
+				err := sb.DG.GuildMemberRoleAdd(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
 				info.LogError("Failed to set birthday role: ", err)
 			}
 			info.SendMessage(channel, "Happy Birthday <@"+v.Data+">!")
@@ -88,12 +88,12 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			if info.config.Schedule.BirthdayRole == 0 {
 				info.Log("No birthday role set!")
 			} else {
-				err := sb.dg.GuildMemberRoleRemove(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
+				err := sb.DG.GuildMemberRoleRemove(info.ID, v.Data, SBitoa(info.config.Schedule.BirthdayRole))
 				info.LogError("Failed to remove birthday role: ", err)
 			}
 		case 6:
 			dat := strings.SplitN(v.Data, "|", 2)
-			ch, err := sb.dg.UserChannelCreate(dat[0])
+			ch, err := sb.DG.UserChannelCreate(dat[0])
 			info.LogError("Error opening private channel: ", err)
 			if err == nil {
 				info.SendMessage(ch.ID, dat[1])
@@ -110,7 +110,7 @@ func (w *ScheduleModule) OnTick(info *GuildInfo) {
 			}
 		}
 
-		sb.db.RemoveSchedule(v.ID)
+		sb.DB.RemoveSchedule(v.ID)
 	}
 }
 
@@ -121,7 +121,7 @@ func (c *scheduleCommand) Name() string {
 	return "Schedule"
 }
 func (c *scheduleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	maxresults := 5
@@ -155,11 +155,11 @@ func (c *scheduleCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	var events []ScheduleEvent
 	if ty == 255 {
-		events = sb.db.GetEvents(SBatoi(info.ID), maxresults)
+		events = sb.DB.GetEvents(SBatoi(info.ID), maxresults)
 	} else if ty == 6 {
-		events = sb.db.GetReminders(SBatoi(info.ID), msg.Author.ID, maxresults)
+		events = sb.DB.GetReminders(SBatoi(info.ID), msg.Author.ID, maxresults)
 	} else {
-		events = sb.db.GetEventsByType(SBatoi(info.ID), ty, maxresults)
+		events = sb.DB.GetEventsByType(SBatoi(info.ID), ty, maxresults)
 	}
 	if len(events) == 0 {
 		return "There are no upcoming events.", false, nil
@@ -241,7 +241,7 @@ func (c *nextCommand) Name() string {
 	return "Next"
 }
 func (c *nextCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -252,7 +252,7 @@ func (c *nextCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```Error: Invalid type specified.```", false, nil
 	}
 
-	event := sb.db.GetNextEvent(SBatoi(info.ID), ty)
+	event := sb.DB.GetNextEvent(SBatoi(info.ID), ty)
 	if event.Type > 0 && event.Date.Before(time.Now().UTC()) {
 		return "```Sweetie will announce this event in just a moment!```", false, nil
 	}
@@ -314,7 +314,7 @@ func (c *addEventCommand) Name() string {
 	return "AddEvent"
 }
 func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 2 {
@@ -333,7 +333,7 @@ func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	if ty == 6 {
 		data = StripPing(args[1])
-		_, err := sb.dg.GuildMember(info.ID, data)
+		_, err := sb.DG.GuildMember(info.ID, data)
 		if err != nil {
 			return "Error: user ID doesn't exist.", false, nil
 		}
@@ -365,7 +365,7 @@ func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices
 		if len(args) > 3 {
 			data += msg.Content[indices[3]:]
 		}
-		if !sb.db.AddScheduleRepeat(SBatoi(info.ID), t, repeatinterval, repeat, ty, data) {
+		if !sb.DB.AddScheduleRepeat(SBatoi(info.ID), t, repeatinterval, repeat, ty, data) {
 			return "```Error: servers can't have more than 5000 events!```", false, nil
 		}
 	} else {
@@ -373,7 +373,7 @@ func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices
 			data += msg.Content[indices[2]:]
 		}
 
-		if !sb.db.AddSchedule(SBatoi(info.ID), t, ty, data) {
+		if !sb.DB.AddSchedule(SBatoi(info.ID), t, ty, data) {
 			return "```Error: servers can't have more than 5000 events!```", false, nil
 		}
 	}
@@ -410,7 +410,7 @@ func (c *removeEventCommand) Name() string {
 	return "RemoveEvent"
 }
 func (c *removeEventCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -421,7 +421,7 @@ func (c *removeEventCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Could not parse event ID. Make sure you only specify the number itself.```", false, nil
 	}
 
-	e := sb.db.GetEvent(id)
+	e := sb.DB.GetEvent(id)
 	if e == nil {
 		return "```Error: Event does not exist.```", false, nil
 	}
@@ -430,7 +430,7 @@ func (c *removeEventCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Error: You do not have permission to delete that event.```", false, nil
 	}
 
-	sb.db.RemoveSchedule(id)
+	sb.DB.RemoveSchedule(id)
 	return "```Removed Event #" + SBitoa(id) + " from schedule.```", false, nil
 }
 func (c *removeEventCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -450,7 +450,7 @@ func (c *remindMeCommand) Name() string {
 	return "RemindMe"
 }
 func (c *remindMeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 3 {
@@ -507,7 +507,7 @@ func (c *remindMeCommand) Process(args []string, msg *discordgo.Message, indices
 	if len(arg) == 0 {
 		return "```What am I reminding you about? I can't send you a blank message!```", false, nil
 	}
-	if !sb.db.AddSchedule(SBatoi(info.ID), t, 6, msg.Author.ID+"|"+arg) {
+	if !sb.DB.AddSchedule(SBatoi(info.ID), t, 6, msg.Author.ID+"|"+arg) {
 		return "```Error: servers can't have more than 5000 events!```", false, nil
 	}
 	return "Reminder set for " + TimeDiff(t.Sub(time.Now().UTC())) + " from now.", false, nil
@@ -533,7 +533,7 @@ func (c *addBirthdayCommand) Name() string {
 	return "AddBirthday"
 }
 func (c *addBirthdayCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 2 {
@@ -563,8 +563,8 @@ func (c *addBirthdayCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Error: Invalid ping for member! Make sure you actually ping them via @MemberName, don't just type the name in.```", false, nil
 	}
 
-	sb.db.AddScheduleRepeat(SBatoi(info.ID), t, 8, 1, 1, ping)                        // Create the normal birthday event at 12 AM on this server's timezone
-	if !sb.db.AddScheduleRepeat(SBatoi(info.ID), t.AddDate(0, 0, 1), 8, 1, 4, ping) { // Create the hidden "remove birthday role" event 24 hours later.
+	sb.DB.AddScheduleRepeat(SBatoi(info.ID), t, 8, 1, 1, ping)                        // Create the normal birthday event at 12 AM on this server's timezone
+	if !sb.DB.AddScheduleRepeat(SBatoi(info.ID), t.AddDate(0, 0, 1), 8, 1, 4, ping) { // Create the hidden "remove birthday role" event 24 hours later.
 		return "```Error: servers can't have more than 5000 events!```", false, nil
 	}
 	return ReplaceAllMentions("```Added a birthday for <@" + ping + ">```"), false, nil

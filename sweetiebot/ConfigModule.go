@@ -343,11 +343,11 @@ func (c *setupCommand) Name() string {
 	return "Setup"
 }
 func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	guild, err := sb.dg.State.Guild(info.ID)
+	guild, err := sb.DG.State.Guild(info.ID)
 	if err != nil || guild == nil {
 		return "```Can't find guild in state object?!?", false, nil
 	}
-	perms, _ := sb.dg.State.UserChannelPermissions(msg.Author.ID, msg.ChannelID)
+	perms, _ := sb.DG.State.UserChannelPermissions(msg.Author.ID, msg.ChannelID)
 	if perms&0x00000008 == 0 {
 		return "```Only administrators can use this command!```", false, nil
 	}
@@ -420,13 +420,13 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 		info.config.Log.Channel = SBatoi(log)
 	}
 
-	silent, err := sb.dg.GuildRoleCreate(info.ID)
+	silent, err := sb.DG.GuildRoleCreate(info.ID)
 	if err != nil {
 		return fmt.Sprintf("```Failed to create the silent role! %s```", err.Error()), false, nil
 	}
-	_, err = sb.dg.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
+	_, err = sb.DG.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
 	if err != nil {
-		sb.dg.GuildRoleDelete(info.ID, silent.ID)
+		sb.DG.GuildRoleDelete(info.ID, silent.ID)
 		return fmt.Sprintf("```Failed to set up the silent role! %s```", err.Error()), false, nil
 	}
 
@@ -437,10 +437,9 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	info.config.Basic.Aliases["calc"] = "roll"
 	info.config.Basic.Aliases["calculate"] = "roll"
 
-	sensitive := []string{"add", "addrole", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "deleterole", "removerole", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "collections", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipe", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed", "getpressure", "getaudit", "getraid", "banraid", "bannewcomers"}
 	modint := SBitoa(info.config.Basic.AlertRole)
 
-	for _, v := range sensitive {
+	for _, v := range sb.ModCommands {
 		info.config.Modules.CommandRoles[v] = make(map[string]bool)
 		info.config.Modules.CommandRoles[v][modint] = true
 	}
