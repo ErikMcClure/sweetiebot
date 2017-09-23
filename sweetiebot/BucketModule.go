@@ -51,19 +51,19 @@ func (c *giveCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```That's too big! Give me something smaller!```", false, nil
 	}
 
-	_, ok := info.config.Basic.Collections["bucket"][arg]
+	_, ok := info.config.Collections["bucket"][arg]
 	if ok {
 		return "```I already have " + arg + "!```", false, nil
 	}
 
-	if len(info.config.Basic.Collections["bucket"]) >= info.config.Bucket.MaxItems {
+	if len(info.config.Collections["bucket"]) >= info.config.Bucket.MaxItems {
 		dropped := BucketDropRandom(info)
-		info.config.Basic.Collections["bucket"][arg] = true
+		info.config.Collections["bucket"][arg] = true
 		info.SaveConfig()
 		return "```I dropped " + dropped + " and picked up " + arg + ".```", false, nil
 	}
 
-	info.config.Basic.Collections["bucket"][arg] = true
+	info.config.Collections["bucket"][arg] = true
 	info.SaveConfig()
 	return "```I picked up " + arg + ".```", false, nil
 }
@@ -79,11 +79,11 @@ func (c *giveCommand) UsageShort() string { return "Gives something to sweetie."
 
 // BucketDropRandom removes a random item from the bucket and returns it
 func BucketDropRandom(info *GuildInfo) string {
-	index := rand.Intn(len(info.config.Basic.Collections["bucket"]))
+	index := rand.Intn(len(info.config.Collections["bucket"]))
 	i := 0
-	for k := range info.config.Basic.Collections["bucket"] {
+	for k := range info.config.Collections["bucket"] {
 		if i == index {
-			delete(info.config.Basic.Collections["bucket"], k)
+			delete(info.config.Collections["bucket"], k)
 			info.SaveConfig()
 			return k
 		}
@@ -100,18 +100,18 @@ func (c *dropCommand) Name() string {
 }
 
 func (c *dropCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if len(info.config.Basic.Collections["bucket"]) == 0 {
+	if len(info.config.Collections["bucket"]) == 0 {
 		return "[Realizes her bucket is empty]", false, nil
 	}
 	if len(args) < 1 {
 		return "Throws " + BucketDropRandom(info), false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	_, ok := info.config.Basic.Collections["bucket"][arg]
+	_, ok := info.config.Collections["bucket"][arg]
 	if !ok {
 		return "```I don't have " + arg + "!```", false, nil
 	}
-	delete(info.config.Basic.Collections["bucket"], arg)
+	delete(info.config.Collections["bucket"], arg)
 	info.SaveConfig()
 	return "```Dropped " + arg + ".```", false, nil
 }
@@ -132,7 +132,7 @@ func (c *listCommand) Name() string {
 	return "List"
 }
 func (c *listCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	things := MapToSlice(info.config.Basic.Collections["bucket"])
+	things := MapToSlice(info.config.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I'm not carrying anything.```", false, nil
 	}
@@ -158,7 +158,7 @@ func (c *fightCommand) Name() string {
 	return "Fight"
 }
 func (c *fightCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	things := MapToSlice(info.config.Basic.Collections["bucket"])
+	things := MapToSlice(info.config.Collections["bucket"])
 	if len(things) == 0 {
 		return "```I have nothing to fight with!```", false, nil
 	}
@@ -172,13 +172,13 @@ func (c *fightCommand) Process(args []string, msg *discordgo.Message, indices []
 		if len(args) > 0 {
 			c.monster = ExtraSanitize(msg.Content[indices[0]:])
 		} else {
-			if !sb.db.CheckStatus() {
+			if !sb.DB.CheckStatus() {
 				return "```A temporary database outage is preventing this command from being executed.```", false, nil
 			}
 			if info.config.Markov.UseMemberNames {
-				c.monster = ExtraSanitize(sb.db.GetRandomMember(SBatoi(info.ID)))
+				c.monster = ExtraSanitize(sb.DB.GetRandomMember(SBatoi(info.ID)))
 			} else {
-				c.monster = sb.db.GetRandomSpeaker()
+				c.monster = sb.DB.GetRandomSpeaker()
 			}
 		}
 		c.hp = 10 + rand.Intn(info.config.Bucket.MaxFightHP)

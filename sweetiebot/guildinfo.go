@@ -35,6 +35,7 @@ type GuildInfo struct {
 	commands     map[string]Command
 	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
 	lastlockdown time.Time
+	Bot          *SweetieBot
 }
 
 // AddCommand adds a command to the guild
@@ -256,10 +257,10 @@ func (info *GuildInfo) SendEmbed(channelID string, embed *discordgo.MessageEmbed
 		for len(fields) > 25 {
 			embed.Fields = fields[:25]
 			fields = fields[25:]
-			sb.dg.ChannelMessageSendEmbed(channelID, embed)
+			sb.DG.ChannelMessageSendEmbed(channelID, embed)
 		}
 		embed.Fields = fields
-		sb.dg.ChannelMessageSendEmbed(channelID, embed)
+		sb.DG.ChannelMessageSendEmbed(channelID, embed)
 	}
 	return true
 }
@@ -315,7 +316,7 @@ func (b *sbRequestBuffer) Process() (*discordgo.MessageSend, int) {
 
 // RequestPostWithBuffer uses a buffer and a buffer combination function to combine multiple messages if there are fewer than minRequests requests left in the current bucket
 func (info *GuildInfo) RequestPostWithBuffer(urlStr string, data *discordgo.MessageSend, minRemaining int) (response []byte, err error) {
-	b := sb.dg.Ratelimiter.GetBucket(urlStr)
+	b := sb.DG.Ratelimiter.GetBucket(urlStr)
 	b.Lock()
 	if b.Userdata == nil {
 		b.Userdata = &sbRequestBuffer{nil, 0}
@@ -324,7 +325,7 @@ func (info *GuildInfo) RequestPostWithBuffer(urlStr string, data *discordgo.Mess
 
 	// data can be nil here, which tells the buffer to check if it's full
 	remain := buffer.Append(data)
-	softwait := sb.dg.Ratelimiter.GetWaitTime(b, minRemaining)
+	softwait := sb.DG.Ratelimiter.GetWaitTime(b, minRemaining)
 
 	if remain == 0 && softwait > 0 {
 		b.Release(nil)
@@ -336,17 +337,17 @@ func (info *GuildInfo) RequestPostWithBuffer(urlStr string, data *discordgo.Mess
 		data, remain = buffer.Process()
 
 		if data != nil {
-			if wait := sb.dg.Ratelimiter.GetWaitTime(b, 1); wait > 0 {
+			if wait := sb.DG.Ratelimiter.GetWaitTime(b, 1); wait > 0 {
 				fmt.Printf("Hit rate limit in buffered request, sleeping for %v (%v remaining)\n", wait, remain)
 				time.Sleep(wait)
 			}
 
 			b.Remaining--
-			softwait = sb.dg.Ratelimiter.GetWaitTime(b, minRemaining)
+			softwait = sb.DG.Ratelimiter.GetWaitTime(b, minRemaining)
 			var body []byte
 			body, err = json.Marshal(data)
 			if err == nil {
-				response, err = sb.dg.RequestWithLockedBucket("POST", urlStr, "application/json", body, b, 0)
+				response, err = sb.DG.RequestWithLockedBucket("POST", urlStr, "application/json", body, b, 0)
 			} else {
 				b.Release(nil)
 				break
@@ -409,7 +410,7 @@ func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 	}
 	go info.sendContent(channelID, message, 2)
 
-	//sb.dg.ChannelMessageSend(channelID, info.sanitizeOutput(message))
+	//sb.DG.ChannelMessageSend(channelID, info.sanitizeOutput(message))
 	return true
 }
 
@@ -438,8 +439,8 @@ func (info *GuildInfo) SwapStatusLoop() {
 				d = 1
 			}
 			time.Sleep(time.Duration(d) * time.Second) // Prevent you from setting this to 0 because that's bad
-			if len(info.config.Basic.Collections["status"]) > 0 {
-				sb.dg.UpdateStatus(0, MapGetRandomItem(info.config.Basic.Collections["status"]))
+			if len(info.config.Collections["status"]) > 0 {
+				sb.DG.UpdateStatus(0, MapGetRandomItem(info.config.Collections["status"]))
 			}
 		}
 	}
@@ -462,8 +463,8 @@ func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
 	if len(u.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
 		t, _ = time.Parse(time.RFC3339, u.JoinedAt)
 	}
-	if sb.db.CheckStatus() {
-		sb.db.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), t, u.Nick)
+	if sb.DB.CheckStatus() {
+		sb.DB.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), t, u.Nick)
 	}
 }
 
@@ -472,13 +473,13 @@ func (info *GuildInfo) userBulkUpdate(members []*discordgo.Member) {
 	valueStrings := make([]string, 0, len(members))
 
 	for _, m := range members {
-		valueStrings = append(valueStrings, "(?,?,?,?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
+		valueStrings = append(valueStrings, "(?,?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
 		discriminator, _ := strconv.Atoi(m.User.Discriminator)
-		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Email, m.User.Username, discriminator, m.User.Avatar, m.User.Verified)
+		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Username, discriminator, m.User.Avatar)
 	}
 
-	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := sb.db.db.Exec(stmt, valueArgs...)
+	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := sb.DB.db.Exec(stmt, valueArgs...)
 	info.LogError("Error in UserBulkUpdate", err)
 }
 
@@ -487,15 +488,15 @@ func (info *GuildInfo) memberBulkUpdate(members []*discordgo.Member) {
 	valueStrings := make([]string, 0, len(members))
 
 	for _, m := range members {
-		valueStrings = append(valueStrings, "(?,?,?,?,UTC_TIMESTAMP())")
+		valueStrings = append(valueStrings, "(?,?,?,?)")
 		t := time.Now().UTC()
 		if len(m.JoinedAt) > 0 { // Parse join date and update user table only if it is less than our current first seen date.
 			t, _ = time.Parse(time.RFC3339, m.JoinedAt)
 		}
 		valueArgs = append(valueArgs, SBatoi(m.User.ID), SBatoi(info.ID), t, m.Nick)
 	}
-	stmt := fmt.Sprintf("INSERT IGNORE INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange) VALUES %s", strings.Join(valueStrings, ","))
-	_, err := sb.db.db.Exec(stmt, valueArgs...)
+	stmt := fmt.Sprintf("INSERT IGNORE INTO members (ID, Guild, FirstSeen, Nickname) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := sb.DB.db.Exec(stmt, valueArgs...)
 	info.LogError("Error in MemberBulkUpdate", err)
 }
 
@@ -505,7 +506,7 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 	info.OwnerID = g.OwnerID
 	const chunksize int = 1000
 
-	if len(g.Members) > 0 && sb.db.CheckStatus() {
+	if len(g.Members) > 0 && sb.DB.CheckStatus() {
 		// First process userdata
 		i := chunksize
 		for i < len(g.Members) {
@@ -526,12 +527,12 @@ func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
 
 // FindChannelID returns the ID of the first channel in this guild with a matching name
 func (info *GuildInfo) FindChannelID(name string) string {
-	guild, err := sb.dg.State.Guild(info.ID)
+	guild, err := sb.DG.State.Guild(info.ID)
 	if err != nil {
 		return ""
 	}
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	defer sb.DG.State.RUnlock()
 	for _, v := range guild.Channels {
 		if v.Name == name {
 			return v.ID
@@ -543,7 +544,7 @@ func (info *GuildInfo) FindChannelID(name string) string {
 
 // HasChannel returns true if this guild has a channel with the given ID
 func (info *GuildInfo) HasChannel(id string) bool {
-	c, err := sb.dg.State.Channel(id)
+	c, err := sb.DG.State.Channel(id)
 	if err != nil {
 		return false
 	}
@@ -553,8 +554,8 @@ func (info *GuildInfo) HasChannel(id string) bool {
 func (info *GuildInfo) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
 	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
-	if sb.db != nil && info != nil && sb.IsMainGuild(info) && sb.db.status.get() {
-		sb.db.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(info.ID))
+	if sb.DB != nil && info != nil && sb.IsMainGuild(info) && sb.DB.status.get() {
+		sb.DB.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(info.ID))
 	}
 	if info != nil && info.config.Log.Channel > 0 {
 		info.SendMessage(SBitoa(info.config.Log.Channel), "```\n"+s+"```")

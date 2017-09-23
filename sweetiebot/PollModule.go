@@ -39,12 +39,12 @@ func (c *pollCommand) Name() string {
 	return "Poll"
 }
 func (c *pollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	gID := SBatoi(info.ID)
 	if len(args) < 1 {
-		polls := sb.db.GetPolls(gID)
+		polls := sb.DB.GetPolls(gID)
 		str := make([]string, 0, len(polls)+1)
 		str = append(str, "All active polls:")
 
@@ -54,11 +54,11 @@ func (c *pollCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return strings.Join(str, "\n"), len(str) > 5, nil
 	}
 	arg := strings.ToLower(msg.Content[indices[0]:])
-	id, desc := sb.db.GetPoll(arg, gID)
+	id, desc := sb.DB.GetPoll(arg, gID)
 	if id == 0 {
 		return "```That poll doesn't exist!```", false, nil
 	}
-	options := sb.db.GetOptions(id)
+	options := sb.DB.GetOptions(id)
 
 	str := make([]string, 0, len(options)+2)
 	str = append(str, desc)
@@ -86,7 +86,7 @@ func (c *createPollCommand) Name() string {
 	return "CreatePoll"
 }
 func (c *createPollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 3 {
@@ -94,17 +94,17 @@ func (c *createPollCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	gID := SBatoi(info.ID)
 	name := strings.ToLower(args[0])
-	err := sb.db.AddPoll(name, args[1], gID)
+	err := sb.DB.AddPoll(name, args[1], gID)
 	if err != nil {
 		return "```Error creating poll, make sure you haven't used this name already.```", false, nil
 	}
-	poll, _ := sb.db.GetPoll(name, gID)
+	poll, _ := sb.DB.GetPoll(name, gID)
 	if poll == 0 {
 		return "```Error: Orphaned poll!```", false, nil
 	}
 
 	for k, v := range args[2:] {
-		err = sb.db.AddOption(poll, uint64(k+1), v)
+		err = sb.DB.AddOption(poll, uint64(k+1), v)
 		if err != nil {
 			return fmt.Sprintf("```Error adding option %v:%s. Did you try to add the same option twice? Each option must be unique!```", k+1, v), false, nil
 		}
@@ -131,7 +131,7 @@ func (c *deletePollCommand) Name() string {
 	return "DeletePoll"
 }
 func (c *deletePollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -139,11 +139,11 @@ func (c *deletePollCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	arg := msg.Content[indices[0]:]
 	gID := SBatoi(info.ID)
-	id, _ := sb.db.GetPoll(arg, gID)
+	id, _ := sb.DB.GetPoll(arg, gID)
 	if id == 0 {
 		return "```That poll doesn't exist!```", false, nil
 	}
-	err := sb.db.RemovePoll(arg, gID)
+	err := sb.DB.RemovePoll(arg, gID)
 	if err != nil {
 		return "```Error removing poll.```", false, nil
 	}
@@ -166,12 +166,12 @@ func (c *voteCommand) Name() string {
 	return "Vote"
 }
 func (c *voteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	gID := SBatoi(info.ID)
 	if len(args) < 2 {
-		polls := sb.db.GetPolls(gID)
+		polls := sb.DB.GetPolls(gID)
 		lastpoll := ""
 		if len(polls) > 0 {
 			lastpoll = fmt.Sprintf(" The most recent poll is \"%s\".", polls[0].name)
@@ -179,23 +179,23 @@ func (c *voteCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return fmt.Sprintf("```You have to provide both a poll name and the option you want to vote for!%s Use "+info.config.Basic.CommandPrefix+"poll without any arguments to list all active polls.```", lastpoll), false, nil
 	}
 	name := strings.ToLower(args[0])
-	id, _ := sb.db.GetPoll(name, gID)
+	id, _ := sb.DB.GetPoll(name, gID)
 	if id == 0 {
 		return "```That poll doesn't exist! Use " + info.config.Basic.CommandPrefix + "poll with no arguments to list all active polls.```", false, nil
 	}
 
 	option, err := strconv.ParseUint(args[1], 10, 64)
 	if err != nil {
-		opt := sb.db.GetOption(id, msg.Content[indices[1]:])
+		opt := sb.DB.GetOption(id, msg.Content[indices[1]:])
 		if opt == nil {
 			return fmt.Sprintf("```That's not one of the poll options! You have to either type in the exact name of the option you want, or provide the numeric index. Use \""+info.config.Basic.CommandPrefix+"poll %s\" to list the available options.```", name), false, nil
 		}
 		option = *opt
-	} else if !sb.db.CheckOption(id, option) {
+	} else if !sb.DB.CheckOption(id, option) {
 		return fmt.Sprintf("```That's not a valid option index! Use \""+info.config.Basic.CommandPrefix+"poll %s\" to get all available options for this poll.```", name), false, nil
 	}
 
-	err = sb.db.AddVote(SBatoi(msg.Author.ID), id, option)
+	err = sb.DB.AddVote(SBatoi(msg.Author.ID), id, option)
 	if err != nil {
 		return "```Error adding vote.```", false, nil
 	}
@@ -220,7 +220,7 @@ func (c *resultsCommand) Name() string {
 	return "Results"
 }
 func (c *resultsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	gID := SBatoi(info.ID)
@@ -228,12 +228,12 @@ func (c *resultsCommand) Process(args []string, msg *discordgo.Message, indices 
 		return "```You have to give me a valid poll name! Use \"" + info.config.Basic.CommandPrefix + "poll\" to list active polls.```", false, nil
 	}
 	arg := strings.ToLower(msg.Content[indices[0]:])
-	id, desc := sb.db.GetPoll(arg, gID)
+	id, desc := sb.DB.GetPoll(arg, gID)
 	if id == 0 {
 		return "```That poll doesn't exist! Use \"" + info.config.Basic.CommandPrefix + "poll\" to list active polls.```", false, nil
 	}
-	results := sb.db.GetResults(id)
-	options := sb.db.GetOptions(id)
+	results := sb.DB.GetResults(id)
+	options := sb.DB.GetOptions(id)
 	max := uint64(0)
 	for _, v := range results {
 		if v.count > max {
@@ -293,7 +293,7 @@ func (c *addOptionCommand) Name() string {
 	return "AddOption"
 }
 func (c *addOptionCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -303,12 +303,12 @@ func (c *addOptionCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```You have to give me an option to add!```", false, nil
 	}
 	gID := SBatoi(info.ID)
-	id, _ := sb.db.GetPoll(args[0], gID)
+	id, _ := sb.DB.GetPoll(args[0], gID)
 	if id == 0 {
 		return "```That poll doesn't exist!```", false, nil
 	}
 	arg := msg.Content[indices[1]:]
-	err := sb.db.AppendOption(id, arg)
+	err := sb.DB.AppendOption(id, arg)
 	if err != nil {
 		return "```Error appending option, make sure no other option has this value!```", false, nil
 	}

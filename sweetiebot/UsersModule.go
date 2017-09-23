@@ -46,7 +46,7 @@ func (c *newUsersCommand) Name() string {
 	return "newusers"
 }
 func (c *newUsersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	maxresults := 5
@@ -59,7 +59,7 @@ func (c *newUsersCommand) Process(args []string, msg *discordgo.Message, indices
 	if maxresults > 30 {
 		maxresults = 30
 	}
-	r := sb.db.GetNewestUsers(maxresults, SBatoi(info.ID))
+	r := sb.DB.GetNewestUsers(maxresults, SBatoi(info.ID))
 	s := make([]string, 0, len(r))
 
 	for _, v := range r {
@@ -86,7 +86,7 @@ func (c *akaCommand) Name() string {
 	return "aka"
 }
 func (c *akaCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -101,8 +101,8 @@ func (c *akaCommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	r := sb.db.GetAliases(IDs[0])
-	u, _, _ := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+	r := sb.DB.GetAliases(IDs[0])
+	u, _, _ := sb.DB.GetMember(IDs[0], SBatoi(info.ID))
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
 	}
@@ -157,11 +157,11 @@ func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []i
 				return "", "```Error: unrecognized interval.```"
 			}
 
-			if !sb.db.AddSchedule(gID, t, ty, uID) {
+			if !sb.DB.AddSchedule(gID, t, ty, uID) {
 				return "", "```Error: servers can't have more than 5000 events!```"
 			}
 
-			scheduleID := sb.db.FindEvent(uID, gID, ty)
+			scheduleID := sb.DB.FindEvent(uID, gID, ty)
 			if scheduleID == nil {
 				return "", "```Error: Could not find inserted event!```"
 			}
@@ -185,7 +185,7 @@ func (c *banCommand) Name() string {
 }
 
 func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	// make sure we passed a valid argument to the command
@@ -203,7 +203,7 @@ func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	gID := SBatoi(info.ID)
-	u, _, _, _ := sb.db.GetUser(IDs[0])
+	u, _, _, _ := sb.DB.GetUser(IDs[0])
 	if u == nil {
 		return "```Error: User does not exist!```", false, nil
 	}
@@ -214,7 +214,7 @@ func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	fmt.Printf("Banned %s because: %s\n", u.Username, reason)
-	err := sb.dg.GuildBanCreate(info.ID, uID, 1) // Note that this will probably generate a SawBan event
+	err := sb.DG.GuildBanCreate(info.ID, uID, 1) // Note that this will probably generate a SawBan event
 	if err != nil {
 		return "```Error: " + err.Error() + "```", false, nil
 	}
@@ -241,7 +241,7 @@ func (c *banNewcomersCommand) Name() string {
 }
 
 func (c *banNewcomersCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	duration := 120
@@ -253,14 +253,14 @@ func (c *banNewcomersCommand) Process(args []string, msg *discordgo.Message, ind
 		}
 	}
 
-	IDs := sb.db.GetNewcomers(duration, SBatoi(info.ID))
+	IDs := sb.DB.GetNewcomers(duration, SBatoi(info.ID))
 	if len(IDs) == 0 {
 		return fmt.Sprintf("```No one has sent their first message in the past %v seconds!```", duration), false, nil
 	}
 	for _, id := range IDs {
 		//var err error = nil
-		err := sb.dg.GuildBanCreate(info.ID, SBitoa(id), 1)
-		//sb.dg.ChannelMessageSend(msg.ChannelID, fmt.Sprintf("Pretending to ban <@%v>", id))
+		err := sb.DG.GuildBanCreate(info.ID, SBitoa(id), 1)
+		//sb.DG.ChannelMessageSend(msg.ChannelID, fmt.Sprintf("Pretending to ban <@%v>", id))
 		info.LogError("Error banning user: ", err)
 	}
 
@@ -286,7 +286,7 @@ func (c *timeCommand) Name() string {
 }
 
 func (c *timeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -302,7 +302,7 @@ func (c *timeCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
 
-	tz := sb.db.GetTimeZone(IDs[0])
+	tz := sb.DB.GetTimeZone(IDs[0])
 	if tz == nil {
 		return "```That user has not specified what their timezone is.```", false, nil
 	}
@@ -326,7 +326,7 @@ func (c *setTimeZoneCommand) Name() string {
 }
 
 func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -334,13 +334,13 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 	}
 	tz := []string{}
 	if len(args) < 2 {
-		tz = sb.db.FindTimeZone("%" + args[0] + "%")
+		tz = sb.DB.FindTimeZone("%" + args[0] + "%")
 	} else {
 		offset, err := strconv.Atoi(args[1])
 		if err != nil {
 			return "```Could not parse offset. Note that timezones do not have spaces - use underscores (_) instead. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you could search for \"America -7\".```", false, nil
 		}
-		tz = sb.db.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
+		tz = sb.DB.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
 	}
 
 	if len(tz) < 1 {
@@ -359,7 +359,7 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Could not load location! Is the timezone data missing or corrupt? Error: " + err.Error() + "```", false, nil
 	}
 
-	if sb.db.SetTimeZone(SBatoi(msg.Author.ID), loc) != nil {
+	if sb.DB.SetTimeZone(SBatoi(msg.Author.ID), loc) != nil {
 		return "```Error: could not set timezone!```", false, nil
 	}
 	return "```Set your timezone to " + loc.String() + "```", false, nil
@@ -382,7 +382,7 @@ func (c *userInfoCommand) Name() string {
 	return "UserInfo"
 }
 func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if len(args) < 1 {
@@ -396,9 +396,9 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 	if len(IDs) > 1 {
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
 	}
-	aliases := sb.db.GetAliases(IDs[0])
-	dbuser, lastseen, tz, _ := sb.db.GetUser(IDs[0])
-	dbmember, _, firstmessage := sb.db.GetMember(IDs[0], SBatoi(info.ID))
+	aliases := sb.DB.GetAliases(IDs[0])
+	dbuser, lastseen, tz, _ := sb.DB.GetUser(IDs[0])
+	dbmember, _, firstmessage := sb.DB.GetMember(IDs[0], SBatoi(info.ID))
 
 	localtime := ""
 	if tz == nil {
@@ -413,7 +413,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		if m == nil {
 			m = &discordgo.Member{Roles: []string{}}
 		}
-		u, err := sb.dg.User(SBitoa(IDs[0]))
+		u, err := sb.DG.User(SBitoa(IDs[0]))
 		if err != nil {
 			if dbuser == nil {
 				return "```Error retrieving user information: " + err.Error() + "```", false, nil
@@ -434,7 +434,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {
-		role, err := sb.dg.State.Role(info.ID, v)
+		role, err := sb.DG.State.Role(info.ID, v)
 		if err == nil {
 			roles = append(roles, role.Name)
 		} else {
@@ -489,10 +489,10 @@ func (c *defaultServerCommand) Name() string {
 	return "DefaultServer"
 }
 func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	gIDs := sb.db.GetUserGuilds(SBatoi(msg.Author.ID))
+	gIDs := sb.DB.GetUserGuilds(SBatoi(msg.Author.ID))
 	find := ""
 	if len(args) > 0 {
 		find = msg.Content[indices[0]:]
@@ -518,11 +518,11 @@ func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	}
 
 	target := SBatoi(guilds[0].ID)
-	_, err := sb.dg.GuildMember(guilds[0].ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
+	_, err := sb.DG.GuildMember(guilds[0].ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
 	if err != nil {
 		return fmt.Sprintf("```You aren't a member of %s (or discord blew up, in which case, try again).```", guilds[0].Name), false, nil
 	}
-	sb.db.SetDefaultServer(SBatoi(msg.Author.ID), target)
+	sb.DB.SetDefaultServer(SBatoi(msg.Author.ID), target)
 	return fmt.Sprintf("```Your default server was set to %s```", guilds[0].Name), false, nil
 }
 func (c *defaultServerCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -573,8 +573,8 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return "```Error occurred trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 	} else if code == 1 {
 		var t *time.Time
-		if sb.db.status.get() {
-			t = sb.db.GetUnsilenceDate(gID, IDs[0])
+		if sb.DB.status.get() {
+			t = sb.DB.GetUnsilenceDate(gID, IDs[0])
 		}
 		if t == nil {
 			return "```" + IDsToUsernames(IDs, info, false)[0] + " is already silenced!```", false, nil
@@ -582,7 +582,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return fmt.Sprintf("```%s is already silenced, and will be unsilenced in %s```", IDsToUsernames(IDs, info, false)[0], TimeDiff(t.Sub(time.Now().UTC()))), false, nil
 	}
 	if len(info.config.Spam.SilenceMessage) > 0 {
-		sb.dg.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)
+		sb.DG.ChannelMessageSend(SBitoa(info.config.Users.WelcomeChannel), "<@"+SBitoa(IDs[0])+"> "+info.config.Spam.SilenceMessage)
 	}
 	if len(reason) > 0 {
 		reason = " because " + reason

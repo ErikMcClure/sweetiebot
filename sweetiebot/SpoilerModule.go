@@ -34,7 +34,7 @@ func (w *SpoilerModule) hasSpoiler(info *GuildInfo, m *discordgo.Message) bool {
 		}
 	}
 	if w.spoilerban != nil && w.spoilerban.MatchString(strings.ToLower(m.Content)) {
-		sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
+		sb.DG.ChannelMessageDelete(m.ChannelID, m.ID)
 		if RateLimit(&w.lastmsg, info.config.Log.Cooldown) {
 			info.SendMessage(m.ChannelID, "[](/nospoilers) ```NO SPOILERS! Posting spoilers is a bannable offense. All discussion about new and future content MUST be in #mylittlespoilers.```")
 		}
@@ -63,11 +63,11 @@ func (w *SpoilerModule) OnCommand(info *GuildInfo, m *discordgo.Message) bool {
 
 // UpdateRegex updates spoiler module regex
 func (w *SpoilerModule) UpdateRegex(info *GuildInfo) bool {
-	if len(info.config.Basic.Collections["spoiler"]) < 1 {
+	if len(info.config.Collections["spoiler"]) < 1 {
 		w.spoilerban = nil
 		return true
 	}
 	var err error
-	w.spoilerban, err = regexp.Compile("(" + strings.Join(MapToSlice(info.config.Basic.Collections["spoiler"]), "|") + ")")
+	w.spoilerban, err = regexp.Compile("(" + strings.Join(MapToSlice(info.config.Collections["spoiler"]), "|") + ")")
 	return err == nil
 }

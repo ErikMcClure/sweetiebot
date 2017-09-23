@@ -18,16 +18,35 @@ USE `sweetiebot`;
 -- Dumping structure for procedure sweetiebot.AddChat
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT, IN `_guild` BIGINT)
-    DETERMINISTIC
+    MODIFIES SQL DATA
 BEGIN
 
-CALL SawUser(_author);
+INSERT INTO users (ID, Username, Avatar, LastSeen, LastNameChange) 
+VALUES (_author, '', '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP();
 
 INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
 VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone, _guild)
 ON DUPLICATE KEY UPDATE /* This prevents a race condition from causing a serious error */
 Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Everyone=_everyone;
 
+END//
+DELIMITER ;
+
+
+-- Dumping structure for function sweetiebot.AddItem
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `AddItem`(`_content` VARCHAR(500)) RETURNS bigint(20)
+    MODIFIES SQL DATA
+BEGIN
+SET @id = (SELECT ID FROM items WHERE Content = _content);
+
+IF @id IS NULL THEN
+	INSERT INTO items (Content) VALUES (_content);
+	RETURN LAST_INSERT_ID();
+END IF;
+
+RETURN @id;
 END//
 DELIMITER ;
 
@@ -64,8 +83,9 @@ DELIMITER ;
 -- Dumping structure for procedure sweetiebot.AddMember
 DELIMITER //
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME, IN `_nickname` VARCHAR(128))
-INSERT INTO members (ID, Guild, FirstSeen, Nickname, LastNickChange)
-VALUES (_id, _guild, _firstseen, _nickname, UTC_TIMESTAMP())
+    MODIFIES SQL DATA
+INSERT INTO members (ID, Guild, FirstSeen, Nickname)
+VALUES (_id, _guild, _firstseen, _nickname)
 ON DUPLICATE KEY UPDATE
 FirstSeen=GetMinDate(_firstseen,FirstSeen), Nickname=_nickname//
 DELIMITER ;
@@ -73,12 +93,12 @@ DELIMITER ;
 
 -- Dumping structure for procedure sweetiebot.AddUser
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_email` VARCHAR(512), IN `_username` VARCHAR(512), IN `_discriminator` INT, IN `_avatar` VARCHAR(512), IN `_verified` BIT, IN `_isonline` BIT)
-    DETERMINISTIC
-INSERT INTO users (ID, Email, Username, Discriminator, Avatar, Verified, LastSeen, LastNameChange) 
-VALUES (_id, _email, _username, _discriminator, _avatar, _verified, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_username` VARCHAR(512), IN `_discriminator` INT, IN `_avatar` VARCHAR(512), IN `_isonline` BIT)
+    MODIFIES SQL DATA
+INSERT INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) 
+VALUES (_id, _username, _discriminator, _avatar, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Discriminator=_discriminator, Avatar=_avatar, Email = _email, Verified=_verified, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
+Username=_username, Discriminator=_discriminator, Avatar=_avatar, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
 DELIMITER ;
 
 
@@ -369,6 +389,30 @@ END//
 DELIMITER ;
 
 
+-- Dumping structure for table sweetiebot.items
+CREATE TABLE IF NOT EXISTS `items` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Content` varchar(500) NOT NULL,
+  PRIMARY KEY (`ID`),
+  KEY `CONTENT_INDEX` (`Content`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.itemtags
+CREATE TABLE IF NOT EXISTS `itemtags` (
+  `Item` bigint(20) unsigned NOT NULL,
+  `Tag` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`Item`,`Tag`),
+  KEY `FK_itemtags_tags` (`Tag`),
+  CONSTRAINT `FK_itemtags_items` FOREIGN KEY (`Item`) REFERENCES `items` (`ID`),
+  CONSTRAINT `FK_itemtags_tags` FOREIGN KEY (`Tag`) REFERENCES `tags` (`ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
 -- Dumping structure for table sweetiebot.markov_transcripts
 CREATE TABLE IF NOT EXISTS `markov_transcripts` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -417,7 +461,6 @@ CREATE TABLE IF NOT EXISTS `members` (
   `Guild` bigint(20) unsigned NOT NULL,
   `FirstSeen` datetime NOT NULL,
   `Nickname` varchar(128) NOT NULL DEFAULT '',
-  `LastNickChange` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `FirstMessage` datetime DEFAULT NULL,
   PRIMARY KEY (`ID`,`Guild`),
   KEY `INDEX_NICKNAME` (`Nickname`),
@@ -506,15 +549,6 @@ END//
 DELIMITER ;
 
 
--- Dumping structure for procedure sweetiebot.SawUser
-DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `SawUser`(IN `_id` BIGINT)
-INSERT INTO users (ID, Email, Username, Avatar, Verified, LastSeen, LastNameChange) 
-VALUES (_id, '', '', '', 0, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
-ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP()//
-DELIMITER ;
-
-
 -- Dumping structure for table sweetiebot.schedule
 CREATE TABLE IF NOT EXISTS `schedule` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -527,6 +561,18 @@ CREATE TABLE IF NOT EXISTS `schedule` (
   PRIMARY KEY (`ID`),
   KEY `INDEX_GUILD_DATE_TYPE` (`Date`,`Guild`,`Type`),
   KEY `INDEX_GUILD` (`Guild`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Data exporting was unselected.
+
+
+-- Dumping structure for table sweetiebot.tags
+CREATE TABLE IF NOT EXISTS `tags` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Name` varchar(50) NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UNIQUE_NAME` (`Name`,`Guild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Data exporting was unselected.
@@ -559,11 +605,9 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
 -- Dumping structure for table sweetiebot.users
 CREATE TABLE IF NOT EXISTS `users` (
   `ID` bigint(20) unsigned NOT NULL,
-  `Email` varchar(512) NOT NULL DEFAULT '',
   `Username` varchar(128) NOT NULL DEFAULT '',
   `Discriminator` int(10) unsigned NOT NULL DEFAULT '0',
   `Avatar` varchar(512) NOT NULL DEFAULT '',
-  `Verified` bit(1) NOT NULL DEFAULT b'0',
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
   `Location` varchar(40) DEFAULT NULL,
@@ -595,9 +639,7 @@ CREATE TABLE IF NOT EXISTS `votes` (
 -- Dumping structure for trigger sweetiebot.chatlog_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
-CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW BEGIN
-DELETE FROM editlog WHERE ID = OLD.ID;
-END//
+CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW DELETE FROM editlog WHERE ID = OLD.ID//
 DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
 
@@ -605,11 +647,21 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
-CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW BEGIN
-
-INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
+CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
 VALUES (OLD.ID, OLD.Author, OLD.Message, OLD.Timestamp, OLD.Channel, OLD.Everyone, OLD.Guild)
-ON DUPLICATE KEY UPDATE ID = OLD.ID;
+ON DUPLICATE KEY UPDATE ID = OLD.ID//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+
+-- Dumping structure for trigger sweetiebot.itemtags_after_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `itemtags_after_delete` AFTER DELETE ON `itemtags` FOR EACH ROW BEGIN
+
+IF (SELECT COUNT(*) FROM itemtags WHERE Item = OLD.Item) = 0 THEN
+	DELETE FROM items WHERE ID = OLD.Item;
+END IF;
 
 END//
 DELIMITER ;
@@ -619,9 +671,7 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 -- Dumping structure for trigger sweetiebot.polloptions_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
-CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW BEGIN
-DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`;
-END//
+CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`//
 DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
 
@@ -629,9 +679,15 @@ SET SQL_MODE=@OLDTMP_SQL_MODE;
 -- Dumping structure for trigger sweetiebot.polls_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
 DELIMITER //
-CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW BEGIN
-DELETE FROM polloptions WHERE Poll = OLD.ID;
-END//
+CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW DELETE FROM polloptions WHERE Poll = OLD.ID//
+DELIMITER ;
+SET SQL_MODE=@OLDTMP_SQL_MODE;
+
+
+-- Dumping structure for trigger sweetiebot.tags_before_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+DELIMITER //
+CREATE TRIGGER `tags_before_delete` BEFORE DELETE ON `tags` FOR EACH ROW DELETE FROM itemtags WHERE Tag = OLD.ID//
 DELIMITER ;
 SET SQL_MODE=@OLDTMP_SQL_MODE;
 
@@ -651,10 +707,6 @@ END IF;
 
 IF NEW.Avatar = '' THEN
 SET NEW.Avatar = OLD.Avatar;
-END IF;
-
-IF NEW.Email = '' THEN
-SET NEW.Email = OLD.Email;
 END IF;
 
 IF NEW.Username != OLD.Username THEN

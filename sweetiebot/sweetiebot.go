@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,21 +20,21 @@ import (
 
 // BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
-	Version     int  `json:"version"`
-	LastVersion int  `json:"lastversion"`
-	SetupDone   bool `json:"setupdone"`
+	Version     int                        `json:"version"`
+	LastVersion int                        `json:"lastversion"`
+	SetupDone   bool                       `json:"setupdone"`
+	Collections map[string]map[string]bool `json:"collections"`
 	Basic       struct {
-		IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
-		Importable            bool                       `json:"importable"`
-		AlertRole             uint64                     `json:"alertrole"`
-		ModChannel            uint64                     `json:"modchannel"`
-		FreeChannels          map[string]bool            `json:"freechannels"`
-		BotChannel            uint64                     `json:"botchannel"`
-		Aliases               map[string]string          `json:"aliases"`
-		Collections           map[string]map[string]bool `json:"collections"`
-		ListenToBots          bool                       `json:"listentobots"`
-		CommandPrefix         string                     `json:"commandprefix"`
-		TrackUserLeft         bool                       `json:"trackuserleft"`
+		IgnoreInvalidCommands bool              `json:"ignoreinvalidcommands"`
+		Importable            bool              `json:"importable"`
+		AlertRole             uint64            `json:"alertrole"`
+		ModChannel            uint64            `json:"modchannel"`
+		FreeChannels          map[string]bool   `json:"freechannels"`
+		BotChannel            uint64            `json:"botchannel"`
+		Aliases               map[string]string `json:"aliases"`
+		ListenToBots          bool              `json:"listentobots"`
+		CommandPrefix         string            `json:"commandprefix"`
+		TrackUserLeft         bool              `json:"trackuserleft"`
 	} `json:"basic"`
 	Modules struct {
 		Channels           map[string]map[string]bool `json:"modulechannels"`
@@ -210,8 +211,8 @@ func AssembleVersion(major byte, minor byte, revision byte, build byte) int {
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
-	db                 *BotDB
-	dg                 *discordgo.Session
+	DB                 *BotDB
+	DG                 *discordgo.Session
 	Debug              bool `json:"debug"`
 	version            Version
 	changelog          map[int]string
@@ -220,6 +221,7 @@ type SweetieBot struct {
 	Owners             map[uint64]bool
 	RestrictedCommands map[string]bool
 	NonServerCommands  map[string]bool
+	ModCommands        []string
 	MainGuildID        uint64
 	DBGuilds           map[uint64]bool   `json:"dbguilds"`
 	DebugChannels      map[string]string `json:"debugchannels"`
@@ -233,6 +235,7 @@ type SweetieBot struct {
 	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
 	locknumber         uint32
+	loader             func() []Module
 }
 
 var sb *SweetieBot
@@ -243,6 +246,7 @@ var mentionregex = regexp.MustCompile("<@(!|&)?[0-9]+>")
 var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
 var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
+var tagargregex = regexp.MustCompile("[^-+()| ][^-+()|]*")
 var locUTC = time.FixedZone("UTC", 0)
 
 // DiscordEpoch is used to figure out snowflake creation times
@@ -264,12 +268,12 @@ func (sbot *SweetieBot) BulkDelete(channelID string, messages []string) (err err
 	i := 0
 	n := len(messages)
 	for (n - i) > 99 {
-		err := sbot.dg.ChannelMessagesBulkDelete(channelID, messages[i:i+99])
+		err := sbot.DG.ChannelMessagesBulkDelete(channelID, messages[i:i+99])
 		if err != nil {
 			return err
 		}
 	}
-	return sbot.dg.ChannelMessagesBulkDelete(channelID, messages[i:])
+	return sbot.DG.ChannelMessagesBulkDelete(channelID, messages[i:])
 }
 
 // PartialSanitize escapes ``` and emotes`
@@ -292,7 +296,7 @@ func channelIsPrivate(channelID string) (*discordgo.Channel, bool) {
 	if channelID == "heartbeat" {
 		return nil, true
 	}
-	ch, err := sb.dg.State.Channel(channelID)
+	ch, err := sb.DG.State.Channel(channelID)
 	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
 		return ch, typeIsPrivate(ch.Type)
 	}
@@ -329,6 +333,20 @@ func sbReady(s *discordgo.Session, r *discordgo.Ready) {
 	//ChangeBotName(s, "Sweetie", "avatar.png")
 }
 
+type moduleArray []Module
+
+func (f moduleArray) Len() int {
+	return len(f)
+}
+
+func (f moduleArray) Less(i, j int) bool {
+	return len(f[i].Commands()) > len(f[j].Commands())
+}
+
+func (f moduleArray) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
+}
+
 // AttachToGuild adds a guild to sweetiebot's state tracking
 func AttachToGuild(g *discordgo.Guild) {
 	sb.guildsLock.RLock()
@@ -341,7 +359,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
-			/*guild = &GuildInfo{
+			guild = &GuildInfo{
 				ID:           g.ID,
 				Name:         g.Name,
 				OwnerID:      g.OwnerID,
@@ -350,12 +368,17 @@ func AttachToGuild(g *discordgo.Guild) {
 				commands:     make(map[string]Command),
 				emotemodule:  nil,
 				lockdown:     -1,
+				Bot:          sb,
+			}
+			config, err := ioutil.ReadFile(g.ID + ".json")
+			if err == nil {
+				MigrateSettings(config, guild)
 			}
 			sb.guildsLock.Lock()
 			sb.guilds[SBatoi(g.ID)] = guild
 			guild.ProcessGuild(g)
 			sb.guildsLock.Unlock()
-			fmt.Println("Processed", g.Name)*/
+			fmt.Println("Processed", g.Name)
 			return
 		}
 	}
@@ -372,15 +395,16 @@ func AttachToGuild(g *discordgo.Guild) {
 		emotemodule:  nil,
 		lockdown:     -1,
 		lastlogerr:   0,
+		Bot:          sb,
 	}
 	config, err := ioutil.ReadFile(g.ID + ".json")
 	disableall := false
 	if err != nil {
 		fmt.Println("New Guild Detected: " + g.Name)
 		config, _ = ioutil.ReadFile("default.json")
-		ch, e := sb.dg.UserChannelCreate(g.OwnerID)
+		ch, e := sb.DG.UserChannelCreate(g.OwnerID)
 		if e == nil {
-			sb.db.SetDefaultServer(SBatoi(g.OwnerID), SBatoi(g.ID)) // This ensures no one blows up another server by accident
+			sb.DB.SetDefaultServer(SBatoi(g.OwnerID), SBatoi(g.ID)) // This ensures no one blows up another server by accident
 			perms, _ := getAllPerms(guild, sb.SelfID)
 			warning := ""
 			if perms&0x00000008 != 0 {
@@ -401,9 +425,9 @@ func AttachToGuild(g *discordgo.Guild) {
 			if perms&0x00000020 == 0 {
 				warning = "\nWARNING: Sweetiebot cannot engage lockdown mode without the Manage Server role!" + warning
 			}
-			sb.dg.ChannelMessageSend(ch.ID, "You've successfully added Sweetie Bot to your server! To finish setting her up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. Sweetie Bot will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. This ensures that you can always fix a broken configuration. Before running `!setup`, make sure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.\n\n**> Mod Channel**\nThis is the channel Sweetie Bot will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nThis is an optional channel where sweetiebot will post errors and update notifications. Usually, this is only visible to server admins and the bot. Remember to give the bot permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often Sweetie Bot's last resort for notifying you about potential errors.\n\nThat's it! Here is an example of the command: ```!setup @Mods #staff-chat #bot-log```\n\nNote: **Do not run `!setup` in this PM!** It won't work because Discord won't autocomplete `#channel` for you. Run `!setup` directly on your server.")
+			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added Sweetie Bot to your server! To finish setting her up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. Sweetie Bot will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. This ensures that you can always fix a broken configuration. Before running `!setup`, make sure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.\n\n**> Mod Channel**\nThis is the channel Sweetie Bot will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nThis is an optional channel where sweetiebot will post errors and update notifications. Usually, this is only visible to server admins and the bot. Remember to give the bot permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often Sweetie Bot's last resort for notifying you about potential errors.\n\nThat's it! Here is an example of the command: ```!setup @Mods #staff-chat #bot-log```\n\nNote: **Do not run `!setup` in this PM!** It won't work because Discord won't autocomplete `#channel` for you. Run `!setup` directly on your server.")
 			if len(warning) > 0 {
-				sb.dg.ChannelMessageSend(ch.ID, warning)
+				sb.DG.ChannelMessageSend(ch.ID, warning)
 			}
 		} else {
 			fmt.Println("Error sending introductory PM: ", e)
@@ -447,15 +471,15 @@ func AttachToGuild(g *discordgo.Guild) {
 	if len(guild.config.Users.Roles) == 0 {
 		guild.config.Users.Roles = make(map[uint64]bool)
 	}
-	if len(guild.config.Basic.Collections) == 0 {
-		guild.config.Basic.Collections = make(map[string]map[string]bool)
+	if len(guild.config.Collections) == 0 {
+		guild.config.Collections = make(map[string]map[string]bool)
 	}
 
-	collections := []string{"emote", "bored", "status", "spoiler", "bucket", "cute"}
+	collections := []string{"emote", "status", "spoiler", "bucket"}
 	for _, v := range collections {
-		_, ok := guild.config.Basic.Collections[v]
+		_, ok := guild.config.Collections[v]
 		if !ok {
-			guild.config.Basic.Collections[v] = make(map[string]bool)
+			guild.config.Collections[v] = make(map[string]bool)
 		}
 	}
 
@@ -469,59 +493,17 @@ func AttachToGuild(g *discordgo.Guild) {
 	spoilermodule := &SpoilerModule{}
 	spoilermodule.UpdateRegex(guild)
 
-	addfuncmap := map[string]func(string) string{
-		"emote": func(arg string) string {
-			r := guild.emotemodule.UpdateRegex(guild)
-			if !r {
-				delete(guild.config.Basic.Collections["emote"], arg)
-				guild.emotemodule.UpdateRegex(guild)
-				return ". Failed to ban " + arg + " because regex compilation failed"
-			}
-			return "and recompiled the emote regex"
-		},
-		"spoiler": func(arg string) string {
-			r := spoilermodule.UpdateRegex(guild)
-			if !r {
-				delete(guild.config.Basic.Collections["spoiler"], arg)
-				spoilermodule.UpdateRegex(guild)
-				return ". Failed to ban " + arg + " because regex compilation failed"
-			}
-			return "and recompiled the spoiler regex"
-		},
-	}
-	removefuncmap := map[string]func(string) string{
-		"emote": func(arg string) string {
-			guild.emotemodule.UpdateRegex(guild)
-			return "```Unbanned " + arg + " and recompiled the emote regex.```"
-		},
-		"spoiler": func(arg string) string {
-			spoilermodule.UpdateRegex(guild)
-			return "```Unbanned " + arg + " and recompiled the spoiler regex.```"
-		},
-	}
-
 	wittymodule := &WittyModule{lastcomment: 0, lastdelete: 0}
 	wittymodule.UpdateRegex(guild)
 
-	guild.modules = make([]Module, 0, 6)
-	guild.modules = append(guild.modules, &DebugModule{})
-	guild.modules = append(guild.modules, &UsersModule{})
-	guild.modules = append(guild.modules, &CollectionsModule{AddFuncMap: addfuncmap, RemoveFuncMap: removefuncmap})
-	guild.modules = append(guild.modules, &ScheduleModule{})
-	guild.modules = append(guild.modules, &RolesModule{})
-	guild.modules = append(guild.modules, &PollModule{})
-	guild.modules = append(guild.modules, &HelpModule{})
-	guild.modules = append(guild.modules, &MarkovModule{})
-	guild.modules = append(guild.modules, &QuoteModule{})
-	guild.modules = append(guild.modules, &BucketModule{})
-	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule})
-	guild.modules = append(guild.modules, &ConfigModule{})
+	guild.modules = sb.loader()
 	guild.modules = append(guild.modules, &SpamModule{tracker: make(map[uint64]*userPressure), lastraid: 0})
-	guild.modules = append(guild.modules, wittymodule)
-	guild.modules = append(guild.modules, &StatusModule{})
 	guild.modules = append(guild.modules, &BoredModule{lastmessage: 0})
+	guild.modules = append(guild.modules, wittymodule)
+	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule, spoilermodule})
 	guild.modules = append(guild.modules, guild.emotemodule)
 	guild.modules = append(guild.modules, spoilermodule)
+	sort.Sort(moduleArray(guild.modules))
 
 	for _, v := range guild.modules {
 		guild.RegisterModule(v)
@@ -548,7 +530,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		guild.SaveConfig()
 	}
 	if sb.IsMainGuild(guild) {
-		sb.db.log = guild
+		sb.DB.log = guild
 		go guild.SwapStatusLoop()
 	}
 
@@ -557,7 +539,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		members := []*discordgo.Member{}
 		lastid := ""
 		for {
-			m, err := sb.dg.GuildMembers(guild.ID, lastid, 999)
+			m, err := sb.DG.GuildMembers(guild.ID, lastid, 999)
 			if err != nil || len(m) == 0 {
 				break
 			}
@@ -566,9 +548,25 @@ func AttachToGuild(g *discordgo.Guild) {
 		}
 		for i := range members { // Put the guildID back in because discord is stupid
 			members[i].GuildID = guild.ID
-			sb.dg.State.MemberAdd(members[i])
+			sb.DG.State.MemberAdd(members[i])
 		}
 	}()
+
+	for _, v := range sb.ModCommands {
+		if _, ok := guild.commands[v]; !ok {
+			fmt.Println("Nonexistant command ", v, " in sb.ModCommands")
+		}
+	}
+	for k := range sb.RestrictedCommands {
+		if _, ok := guild.commands[k]; !ok {
+			fmt.Println("Nonexistant command ", k, " in sb.RestrictedCommands")
+		}
+	}
+	for k := range sb.NonServerCommands {
+		if _, ok := guild.commands[k]; !ok {
+			fmt.Println("Nonexistant command ", k, " in sb.NonServerCommands")
+		}
+	}
 
 	debug := "."
 	if sb.Debug {
@@ -587,7 +585,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	guild.Log("Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
 }
 func getChannelGuild(id string) *GuildInfo {
-	c, err := sb.dg.State.Channel(id)
+	c, err := sb.DG.State.Channel(id)
 	if err != nil {
 		fmt.Println("Failed to get channel " + id)
 		return nil
@@ -611,7 +609,7 @@ func getGuildFromID(id string) *GuildInfo {
 }
 func getAddMsg(info *GuildInfo) string {
 	if info.config.Basic.BotChannel != 0 {
-		addch, adderr := sb.dg.State.Channel(SBitoa(info.config.Basic.BotChannel))
+		addch, adderr := sb.DG.State.Channel(SBitoa(info.config.Basic.BotChannel))
 		if adderr == nil {
 			return fmt.Sprintf(" Try going to #%s instead.", addch.Name)
 		}
@@ -650,7 +648,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 		}
 		args, indices := ParseArguments(m.Content[1:])
 		arg := strings.ToLower(args[0])
-		if info == nil && !sb.db.status.get() {
+		if info == nil && !sb.DB.status.get() {
 			s.ChannelMessageSend(m.ChannelID, "```A temporary database error means I can't process any private message commands right now.```")
 			return
 		}
@@ -658,7 +656,7 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			info = getDefaultServer(authorid)
 		}
 		if info == nil {
-			gIDs := sb.db.GetUserGuilds(authorid)
+			gIDs := sb.DB.GetUserGuilds(authorid)
 			_, independent := sb.NonServerCommands[arg]
 			if !independent && len(gIDs) != 1 {
 				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
@@ -691,8 +689,8 @@ func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInf
 			}
 		}
 		if ok {
-			if isdbguild && sb.db.status.get() && m.Author.ID != sb.SelfID {
-				sb.db.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.ID))
+			if sb.DB.status.get() && m.Author.ID != sb.SelfID {
+				sb.DB.Audit(AUDIT_TYPE_COMMAND, m.Author, m.Content, SBatoi(info.ID))
 			}
 			isOwner = isOwner || m.Author.ID == info.OwnerID
 			cmdname := strings.ToLower(c.Name())
@@ -809,14 +807,14 @@ func sbMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 	if m.ChannelID != "heartbeat" {
-		if info != nil && isdbguild && sb.db.CheckStatus() { // Log this message if it was sent to the main guild only.
+		if info != nil && isdbguild && sb.DB.CheckStatus() { // Log this message if it was sent to the main guild only.
 			cid := SBatoi(m.ChannelID)
 			if cid != info.config.Log.Channel {
-				sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+				sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 			}
 		}
 		if info != nil {
-			sb.db.SentMessage(SBatoi(m.Author.ID), SBatoi(info.ID))
+			sb.DB.SentMessage(SBatoi(m.Author.ID), SBatoi(info.ID))
 		}
 		if m.Author.ID == sb.SelfID { // discard all our own messages (unless this is a heartbeat message)
 			return
@@ -856,15 +854,15 @@ func sbMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 		m.Author = original.Author
 	}
 
-	ch, err := sb.dg.State.Channel(m.ChannelID)
+	ch, err := sb.DG.State.Channel(m.ChannelID)
 	info.LogError("Error retrieving channel ID "+m.ChannelID+": ", err)
 	private := true
 	if err == nil {
 		private = typeIsPrivate(ch.Type)
 	}
 	cid := SBatoi(m.ChannelID)
-	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.db.CheckStatus() { // Always ignore messages from the log channel
-		sb.db.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.DB.CheckStatus() { // Always ignore messages from the log channel
+		sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
 	}
 	if m.Author.ID == sb.SelfID {
 		return
@@ -937,7 +935,7 @@ func sbGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	if info == nil {
 		return
 	}
-	sb.db.RemoveMember(SBatoi(m.User.ID), SBatoi(info.ID))
+	sb.DB.RemoveMember(SBatoi(m.User.ID), SBatoi(info.ID))
 
 	for _, h := range info.hooks.OnGuildMemberRemove {
 		if info.ProcessModule("", h) {
@@ -1025,8 +1023,8 @@ func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	isonline := (p != nil && p.Status != "Offline")
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
-	if sb.db.CheckStatus() {
-		sb.db.AddUser(id, u.Email, u.Username, discriminator, u.Avatar, u.Verified, isonline)
+	if sb.DB.CheckStatus() {
+		sb.DB.AddUser(id, u.Username, discriminator, u.Avatar, isonline)
 	}
 	return id
 }
@@ -1040,15 +1038,15 @@ func idleCheckLoop() {
 		}
 		sb.guildsLock.RUnlock()
 		for _, info := range infos {
-			guild, err := sb.dg.State.Guild(info.ID)
+			guild, err := sb.DG.State.Guild(info.ID)
 			if err != nil {
 				continue
 			}
-			sb.dg.State.RLock()
+			sb.DG.State.RLock()
 			channels := guild.Channels
-			sb.dg.State.RUnlock()
+			sb.DG.State.RUnlock()
 			if sb.Debug { // override this in debug mode
-				c, err := sb.dg.State.Channel(sb.DebugChannels[info.ID])
+				c, err := sb.DG.State.Channel(sb.DebugChannels[info.ID])
 				if err == nil {
 					channels = []*discordgo.Channel{c}
 				} else {
@@ -1087,13 +1085,13 @@ func idleCheckLoop() {
 }
 
 func deadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
-	sb.dg.State.RLock()
-	sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	sb.DG.State.RUnlock()
 	sb.locknumber++
-	sb.dg.RLock()
-	sb.dg.RUnlock()
+	sb.DG.RLock()
+	sb.DG.RUnlock()
 	sb.locknumber++
-	sbMessageCreate(sb.dg, m)
+	sbMessageCreate(sb.DG, m)
 }
 
 const heartbeatInterval time.Duration = 20 * time.Second
@@ -1123,7 +1121,7 @@ func deadlockDetector() {
 			},
 		}
 		sb.locknumber = 0
-		go deadlockTestFunc(sb.dg, &m) // Do this in another thread so the deadlock detector doesn't deadlock
+		go deadlockTestFunc(sb.DG, &m) // Do this in another thread so the deadlock detector doesn't deadlock
 		time.Sleep(heartbeatInterval)
 		if atomic.LoadUint32(&sb.heartbeat) == counter+1 {
 			counter++
@@ -1154,7 +1152,7 @@ func (log *emptyLog) LogError(msg string, err error) {
 }
 
 // New creates and initializes a new instance of Sweetiebot that's ready to connect. Returns nil on error.
-func New(token string) *SweetieBot {
+func New(token string, loader func() []Module) *SweetieBot {
 	dbauth, dberr := ioutil.ReadFile("db.auth")
 	if dberr != nil {
 		fmt.Println("db.auth cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
@@ -1168,11 +1166,12 @@ func New(token string) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 15},
+		version:            Version{0, 9, 9, 0},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
-		RestrictedCommands: map[string]bool{"search": true, "lastping": true, "setstatus": true},
-		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "bestpony": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
+		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
+		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
+		ModCommands:        []string{"add", "addrole", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "deleterole", "removerole", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipe", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed", "getpressure", "getaudit", "getraid", "banraid", "bannewcomers", "addset", "removeset", "searchset"},
 		MainGuildID:        mainguildid,
 		DBGuilds:           make(map[uint64]bool),
 		DebugChannels:      make(map[string]string),
@@ -1183,7 +1182,9 @@ func New(token string) *SweetieBot {
 		StartTime:          time.Now().UTC().Unix(),
 		heartbeat:          4294967290,
 		MessageCount:       0,
+		loader:             loader,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 0):  "- All servers now have audit logs.\n- Collections are now tags in the database, supporting complex tag searching. Built-in collections are now managed through !addset, !removeset, etc.\n- Ignore LockWaitTimeout errors",
 			AssembleVersion(0, 9, 8, 15): "- Return all possible !wipe errors",
 			AssembleVersion(0, 9, 8, 14): "- Reduce database pressure on startup",
 			AssembleVersion(0, 9, 8, 13): "- Fix crash on startup.\n- Did more code refactoring, fixed several spelling errors.",
@@ -1314,11 +1315,11 @@ func New(token string) *SweetieBot {
 	}
 
 	db, err := DB_Load(&emptyLog{}, "mysql", strings.TrimSpace(string(dbauth)))
-	sb.db = db
+	sb.DB = db
 	if !db.status.get() {
 		fmt.Println("Database connection failure - running in No Database mode: ", err.Error())
 	} else {
-		err = sb.db.LoadStatements()
+		err = sb.DB.LoadStatements()
 		if err == nil {
 			fmt.Println("Finished loading database statements")
 		} else {
@@ -1330,33 +1331,33 @@ func New(token string) *SweetieBot {
 
 	isuser, _ := ioutil.ReadFile("isuser") // DO NOT CREATE THIS FILE UNLESS YOU KNOW *EXACTLY* WHAT YOU ARE DOING. This is for crazy people who want to run sweetiebot in user mode. If you don't know what user mode is, you don't want it. If you create this file anyway and the bot breaks, it's your own fault.
 	if isuser == nil {
-		sb.dg, err = discordgo.New("Bot " + token)
+		sb.DG, err = discordgo.New("Bot " + token)
 	} else {
-		sb.dg, err = discordgo.New(token)
+		sb.DG, err = discordgo.New(token)
 		fmt.Println("Started SweetieBot on a user account.")
 	}
 	if err != nil {
 		fmt.Println("Error creating discord session", err.Error())
 		return nil
 	}
-	sb.dg.LogLevel = discordgo.LogWarning
+	sb.DG.LogLevel = discordgo.LogWarning
 
-	sb.dg.AddHandler(sbReady)
-	sb.dg.AddHandler(sbMessageCreate)
-	sb.dg.AddHandler(sbMessageUpdate)
-	sb.dg.AddHandler(sbMessageDelete)
-	sb.dg.AddHandler(sbUserUpdate)
-	sb.dg.AddHandler(sbPresenceUpdate)
-	sb.dg.AddHandler(sbGuildUpdate)
-	sb.dg.AddHandler(sbGuildMemberAdd)
-	sb.dg.AddHandler(sbGuildMemberRemove)
-	sb.dg.AddHandler(sbGuildMemberUpdate)
-	sb.dg.AddHandler(sbGuildBanAdd)
-	sb.dg.AddHandler(sbGuildBanRemove)
-	sb.dg.AddHandler(sbGuildRoleDelete)
-	sb.dg.AddHandler(sbGuildCreate)
-	sb.dg.AddHandler(sbChannelCreate)
-	sb.dg.AddHandler(sbChannelDelete)
+	sb.DG.AddHandler(sbReady)
+	sb.DG.AddHandler(sbMessageCreate)
+	sb.DG.AddHandler(sbMessageUpdate)
+	sb.DG.AddHandler(sbMessageDelete)
+	sb.DG.AddHandler(sbUserUpdate)
+	sb.DG.AddHandler(sbPresenceUpdate)
+	sb.DG.AddHandler(sbGuildUpdate)
+	sb.DG.AddHandler(sbGuildMemberAdd)
+	sb.DG.AddHandler(sbGuildMemberRemove)
+	sb.DG.AddHandler(sbGuildMemberUpdate)
+	sb.DG.AddHandler(sbGuildBanAdd)
+	sb.DG.AddHandler(sbGuildBanRemove)
+	sb.DG.AddHandler(sbGuildRoleDelete)
+	sb.DG.AddHandler(sbGuildCreate)
+	sb.DG.AddHandler(sbChannelCreate)
+	sb.DG.AddHandler(sbChannelDelete)
 
 	if sb.Debug { // The server does not necessarily tie a standard input to the program
 		go func() {
@@ -1374,8 +1375,8 @@ func New(token string) *SweetieBot {
 }
 
 // Connect opens a websocket connection to discord. Only returns after disconnecting.
-func (sbot *SweetieBot) Connect() {
-	err := sbot.dg.Open()
+func (sbot *SweetieBot) Connect() int {
+	err := sbot.DG.Open()
 	if err == nil {
 		fmt.Println("Connection established")
 		for !sbot.quit.get() {
@@ -1386,6 +1387,7 @@ func (sbot *SweetieBot) Connect() {
 	}
 
 	fmt.Println("Sweetiebot quitting")
-	sbot.dg.Close()
-	sbot.db.Close()
+	sbot.DG.Close()
+	sbot.DB.Close()
+	return sbot.version.Integer()
 }

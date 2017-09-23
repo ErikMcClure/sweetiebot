@@ -271,7 +271,7 @@ func (c *dumpTablesCommand) Name() string {
 	return "DumpTables"
 }
 func (c *dumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return "```\n" + sb.db.GetTableCounts() + "```", false, nil
+	return "```\n" + sb.DB.GetTableCounts() + "```", false, nil
 }
 func (c *dumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Dumps table row counts."}
@@ -308,9 +308,9 @@ func (c *listGuildsCommand) Name() string {
 }
 func (c *listGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	sb.dg.State.RLock()
-	guilds := append([]*discordgo.Guild{}, sb.dg.State.Guilds...)
-	sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	guilds := append([]*discordgo.Guild{}, sb.DG.State.Guilds...)
+	sb.DG.State.RUnlock()
 	sort.Sort(guildSlice(guilds))
 	s := make([]string, 0, len(guilds))
 	private := 0
@@ -326,8 +326,8 @@ func (c *listGuildsCommand) Process(args []string, msg *discordgo.Message, indic
 			}
 		} else {
 			username := "<@" + v.OwnerID + ">"
-			if sb.db.status.get() {
-				m, _, _, _ := sb.db.GetUser(SBatoi(v.OwnerID))
+			if sb.DB.status.get() {
+				m, _, _, _ := sb.DB.GetUser(SBatoi(v.OwnerID))
 				if m != nil {
 					username = m.Username + "#" + m.Discriminator
 				}
@@ -396,10 +396,10 @@ func (c *removeAliasCommand) Process(args []string, msg *discordgo.Message, indi
 	if len(args) < 2 {
 		return "```You must provide an alias to remove.```", false, nil
 	}
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	sb.db.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
+	sb.DB.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
 	return "```Attempted to remove the alias. Use " + info.config.Basic.CommandPrefix + "aka to check if it worked.```", false, nil
 }
 func (c *removeAliasCommand) Usage(info *GuildInfo) *CommandUsage {
@@ -425,7 +425,7 @@ func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices
 	var user *uint64
 	var search string
 
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 
@@ -472,7 +472,7 @@ func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 	}
 
-	r := sb.db.GetAuditRows(low, high, user, search, SBatoi(info.ID))
+	r := sb.DB.GetAuditRows(low, high, user, search, SBatoi(info.ID))
 	ret := []string{"```Matching Audit Log entries:```"}
 
 	for _, v := range r {

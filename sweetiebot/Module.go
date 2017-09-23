@@ -165,12 +165,12 @@ func (info *GuildInfo) GetRoles(c Command) string {
 		return ""
 	}
 
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	defer sb.DG.State.RUnlock()
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k := range m {
-		r, err := sb.dg.State.Role(info.ID, k)
+		r, err := sb.DG.State.Role(info.ID, k)
 		if err == nil {
 			s = append(s, r.Name)
 		}
@@ -189,11 +189,11 @@ func (info *GuildInfo) GetChannels(c Command) string {
 		return ""
 	}
 
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	defer sb.DG.State.RUnlock()
 	s := make([]string, 0, len(m))
 	for k := range m {
-		c, err := sb.dg.State.Channel(k)
+		c, err := sb.DG.State.Channel(k)
 		if err == nil {
 			s = append(s, "#"+c.Name)
 		}

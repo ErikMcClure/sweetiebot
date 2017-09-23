@@ -41,7 +41,7 @@ func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 		}
 		fmt.Println("Sending bored command ", m.Content, " on ", id)
 
-		SBProcessCommand(sb.dg, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID))
+		SBProcessCommand(sb.DG, m, info, time.Now().UTC().Unix(), sb.IsDBGuild(info), info.IsDebug(m.ChannelID))
 	}
 }
 
