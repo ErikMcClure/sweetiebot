@@ -12,3 +12,4 @@ main/token
 *.png
 main/email
 sweetiebot_data.sql
+transcripts/
