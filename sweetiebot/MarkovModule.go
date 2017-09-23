@@ -39,7 +39,7 @@ func (c *episodeGenCommand) Name() string {
 	return "episodegen"
 }
 func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if c.lock.test_and_set() {
@@ -66,11 +66,11 @@ func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 	prev2 = 0
 	lines := make([]string, 0, maxlines)
 	line := ""
-	for i := 0; i < maxlines && sb.db.status.get(); i++ {
+	for i := 0; i < maxlines && sb.DB.status.get(); i++ {
 		if double {
-			line, prev, prev2 = sb.db.GetMarkovLine2(prev, prev2)
+			line, prev, prev2 = sb.DB.GetMarkovLine2(prev, prev2)
 		} else {
-			line, prev = sb.db.GetMarkovLine(prev)
+			line, prev = sb.DB.GetMarkovLine(prev)
 		}
 		if len(line) > 0 {
 			lines = append(lines, line)
@@ -101,7 +101,7 @@ func (c *episodeQuoteCommand) Name() string {
 	return "EpisodeQuote"
 }
 func (c *episodeQuoteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	S := 0
@@ -110,14 +110,14 @@ func (c *episodeQuoteCommand) Process(args []string, msg *discordgo.Message, ind
 	diff := 0
 	var lines []Transcript
 	if len(args) < 1 {
-		lines = []Transcript{sb.db.GetRandomQuote()}
+		lines = []Transcript{sb.DB.GetRandomQuote()}
 	} else {
 		arg := strings.ToLower(args[0])
 		switch arg {
 		case "action":
-			lines = []Transcript{sb.db.GetCharacterQuote("ACTION")}
+			lines = []Transcript{sb.DB.GetCharacterQuote("ACTION")}
 		case "speech":
-			lines = []Transcript{sb.db.GetSpeechQuote()}
+			lines = []Transcript{sb.DB.GetSpeechQuote()}
 		default:
 			if quoteargregex.MatchString(arg) {
 				n, err := fmt.Sscanf(arg, "s%de%d:%d-%d", &S, &E, &L, &diff)
@@ -137,9 +137,9 @@ func (c *episodeQuoteCommand) Process(args []string, msg *discordgo.Message, ind
 				if diff >= info.config.Markov.MaxLines {
 					diff = info.config.Markov.MaxLines - 1
 				}
-				lines = sb.db.GetTranscript(S, E, L, L+diff)
+				lines = sb.DB.GetTranscript(S, E, L, L+diff)
 			} else { // Otherwise this is a character quote request
-				lines = []Transcript{sb.db.GetCharacterQuote(arg)}
+				lines = []Transcript{sb.DB.GetCharacterQuote(arg)}
 				if lines[0].Season == 0 {
 					return "```Error: Could not find character " + arg + " in the transcripts. Make sure you specify the entire name and spelled it correctly!```", false, nil
 				}
@@ -180,17 +180,17 @@ func (c *shipCommand) Name() string {
 	return "ship"
 }
 func (c *shipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	var a string
 	var b string
 	if info.config.Markov.UseMemberNames {
-		a = sb.db.GetRandomMember(SBatoi(info.ID))
-		b = sb.db.GetRandomMember(SBatoi(info.ID))
+		a = sb.DB.GetRandomMember(SBatoi(info.ID))
+		b = sb.DB.GetRandomMember(SBatoi(info.ID))
 	} else {
-		a = sb.db.GetRandomSpeaker()
-		b = sb.db.GetRandomSpeaker()
+		a = sb.DB.GetRandomSpeaker()
+		b = sb.DB.GetRandomSpeaker()
 	}
 	s := ""
 	if len(args) > 0 {
