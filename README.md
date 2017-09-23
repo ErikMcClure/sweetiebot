@@ -60,7 +60,6 @@ However, to delete a value from a maplist, you simply call `!setconfig modules.c
 * **FreeChannels [list]:** This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.
 * **BotChannel:** Allows you to designate a particular channel for Sweetie Bot to point users to if they try to send too many commands at once. This channel is usually also included in `Basic.FreeChannels`.
 * **Aliases [map]:** Can be used to redirect commands, such as making `!listroles` call the `!listrole` command. Useful for making shortcuts. Example: `!setconfig Basic.Aliases kawaii "pick cute"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.
-* **Collections [maplist]:** All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`
 * **ListenToBots:** If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.
 * **TrackUserLeft:** If true, sweetiebot will also track users that leave the server if autosilence is set to alert or log. Defaults to false.
 * **CommandPrefix:** Determines the SINGLE ASCII CHARACTER prefix used to denote sweetiebot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.
@@ -164,17 +163,18 @@ Manages Sweetie's bucket functionality.
 * **List:** Lists everything sweetie has.
 * **Fight:** Fights a random user or keyword.
 
-### Collection
-Contains commands for manipulating Sweetie Bot's collections.
+### Tag
+Contains commands for manipulating Sweetie Bot's tags.
 #### Commands
-* **Add:** Adds a line to a collection.
-* **Remove:** Removes a line from a collection.
-* **Collections:** Lists all collections.
-* **Pick:** Picks a random item.
-* **New:** Creates a new collection.
-* **Delete:** Deletes a collection.
-* **SearchCollection:** Searches a collection.
-* **Import:** Imports a collection from another server.
+* **Add:** Adds a tag to an item.
+* **GetTag:** Gets all tags for an item, if it has any.
+* **Remove:** Removes a tag from an item.
+* **Tags:** Lists all tags or those matching a tag query.
+* **Pick:** Picks a random item from a tag query.
+* **New:** Creates a new tag.
+* **Delete:** Deletes a tag.
+* **SearchTag:** Searches a tag query for a given string.
+* **Import:** Imports a tag from another server.
 
 ### Configuration
 Manages Sweetie Bot's configuration file.
@@ -231,6 +231,9 @@ A collection of miscellaneous commands that don't belong to a module.
 * **LastSeen:** Returns when a user was last seen.
 * **Search:** [Self-Hosted Only] Performs a complex search on the chat history.
 * **Roll:** Evaluates a dice expression.
+* **AddSet:** Adds an item to an internal set
+* **RemoveSet:** Removes an item to an internal set
+* **SearchSet:** Searches an internal set for a given string, or just lists the contents of that set.
 
 ### Polls
 Manages polls.

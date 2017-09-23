@@ -38,7 +38,6 @@ func (w *TagModule) Description() string {
 	return "Contains commands for manipulating Sweetie Bot's tags."
 }
 func (w *TagModule) PrepStatement(query string, tags string) (*sql.Stmt, error) {
-	fmt.Println(query)
 	stmt, ok := w.Cache[query]
 	if !ok {
 		var err error
@@ -57,8 +56,6 @@ func (w *TagModule) ExecStatement(query string, tags string, args ...interface{}
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(stmt)
-	fmt.Println(len(args))
 
 	q, err := stmt.Query(args...)
 	if sb.DB.CheckError("Query: "+query, err) {
@@ -277,10 +274,6 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if err != nil {
 		return err.Error(), false, nil
 	}
-	fmt.Println(arg)
-	fmt.Println(clause)
-	fmt.Println(strings.Join(tags, ", "))
-	fmt.Println(len(tagIDs))
 
 	params := make([]interface{}, len(tagIDs), len(tagIDs))
 	for k, v := range tagIDs {
