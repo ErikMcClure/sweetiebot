@@ -27,7 +27,7 @@ func MsgHighlightMatch(msg string, match string) string {
 	return strings.Replace(msg, match, "**"+match+"**", -1)
 }
 func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
 	if c.lock.test_and_set() {
@@ -166,8 +166,8 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	// if not cached, prepare the statement and store it in a map.
 	stmt, ok := c.statements[querylimit]
 	if !ok {
-		stmt1, err := sb.db.Prepare("SELECT COUNT(*) FROM chatlog C WHERE C.Guild = ? AND " + query)
-		stmt2, err2 := sb.db.Prepare("SELECT U.Username, C.Message, C.Timestamp, U.ID FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.Guild = ? AND " + querylimit)
+		stmt1, err := sb.DB.Prepare("SELECT COUNT(*) FROM chatlog C WHERE C.Guild = ? AND " + query)
+		stmt2, err2 := sb.DB.Prepare("SELECT U.Username, C.Message, C.Timestamp, U.ID FROM chatlog C INNER JOIN users U ON C.Author = U.ID WHERE C.Guild = ? AND " + querylimit)
 		if err == nil {
 			err = err2
 		}
@@ -219,7 +219,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	q, err := stmt[1].Query(params...)
-	if sb.db.CheckError("Search Command", err) {
+	if sb.DB.CheckError("Search Command", err) {
 		return "```Error getting search results.```", false, nil
 	}
 	defer q.Close()

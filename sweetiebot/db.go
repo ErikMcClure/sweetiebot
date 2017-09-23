@@ -2,6 +2,7 @@ package sweetiebot
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,6 +11,9 @@ import (
 	"github.com/blackhole12/discordgo"
 	_ "github.com/go-sql-driver/mysql"
 )
+
+var ErrDuplicateEntry = errors.New("Error 1062: Duplicate entry for unique key.")
+var ErrLockWaitTimeout = errors.New("Error 1205: Lock wait timeout exceeded.")
 
 type BotDB struct {
 	db                        *sql.DB
@@ -91,6 +95,17 @@ type BotDB struct {
 	sqlCheckOption            *sql.Stmt
 	sqlSentMessage            *sql.Stmt
 	sqlGetNewcomers           *sql.Stmt
+	sqlAddItem                *sql.Stmt
+	sqlGetItem                *sql.Stmt
+	sqlRemoveItem             *sql.Stmt
+	sqlAddTag                 *sql.Stmt
+	sqlRemoveTag              *sql.Stmt
+	sqlCreateTag              *sql.Stmt
+	sqlDeleteTag              *sql.Stmt
+	sqlGetTag                 *sql.Stmt
+	sqlGetItemTags            *sql.Stmt
+	sqlGetTags                *sql.Stmt
+	sqlImportTag              *sql.Stmt
 }
 
 func DB_Load(log logger, driver string, conn string) (*BotDB, error) {
@@ -119,6 +134,20 @@ func (db *BotDB) Close() {
 	}
 }
 
+func (db *BotDB) StandardErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	const err1062 string = "Error 1062"
+	const err1205 string = "Error 1205"
+	if len(err.Error()) >= len(err1062) && err.Error()[:len(err1062)] == err1062 {
+		return ErrDuplicateEntry
+	}
+	if len(err.Error()) >= len(err1062) && err.Error()[:len(err1062)] == err1062 {
+		return ErrLockWaitTimeout
+	}
+	return err
+}
 func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 	statement, err := db.db.Prepare(s)
 	if err != nil {
@@ -164,16 +193,16 @@ func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sqlAddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sqlGetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
-	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?,?,?)")
+	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sqlAddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sqlRemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
-	db.sqlGetUser, err = db.Prepare("SELECT ID, Email, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
-	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
+	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
+	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sqlFindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sqlFindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
 	db.sqlGetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
-	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
-	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Email, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
+	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
+	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sqlGetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
 	db.sqlAddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
 	db.sqlGetTranscript, err = db.Prepare("SELECT Season, Episode, Line, Speaker, Text FROM transcripts WHERE Season = ? AND Episode = ? AND Line >= ? AND LINE <= ?")
@@ -234,6 +263,17 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlCheckOption, err = db.Prepare("SELECT `Option` FROM polloptions WHERE poll = ? AND `Index` = ?")
 	db.sqlSentMessage, err = db.Prepare("UPDATE `members` SET `FirstMessage` = UTC_TIMESTAMP() WHERE ID = ? AND Guild = ? AND `FirstMessage` IS NULL")
 	db.sqlGetNewcomers, err = db.Prepare("SELECT ID FROM `members` WHERE `Guild` = ? AND `FirstMessage` > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
+	db.sqlAddItem, err = db.Prepare("SELECT AddItem(?)")
+	db.sqlGetItem, err = db.Prepare("SELECT ID FROM items WHERE Content = ?")
+	db.sqlRemoveItem, err = db.Prepare("DELETE M FROM itemtags M INNER JOIN items I ON M.Item = I.ID INNER JOIN tags T ON M.Tag = T.ID WHERE I.Content = ? AND T.Guild = ?")
+	db.sqlAddTag, err = db.Prepare("INSERT INTO itemtags (Item, Tag) VALUES (?, ?)")
+	db.sqlRemoveTag, err = db.Prepare("DELETE FROM itemtags WHERE Item = ? AND Tag = ?")
+	db.sqlCreateTag, err = db.Prepare("INSERT INTO tags (Name, Guild) VALUES (?, ?)")
+	db.sqlDeleteTag, err = db.Prepare("DELETE FROM tags WHERE Name = ? AND Guild = ?")
+	db.sqlGetTag, err = db.Prepare("SELECT ID FROM tags WHERE Name = ? AND Guild = ?")
+	db.sqlGetItemTags, err = db.Prepare("SELECT T.Name FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID WHERE M.Item = ? AND T.Guild = ?")
+	db.sqlGetTags, err = db.Prepare("SELECT T.Name, COUNT(M.Item) FROM tags T LEFT OUTER JOIN itemtags M ON T.ID = M.Tag WHERE T.Guild = ? GROUP BY T.Name")
+	db.sqlImportTag, err = db.Prepare("INSERT IGNORE INTO itemtags (Item, Tag) SELECT Item, ? FROM itemtags WHERE Tag = ?")
 	return err
 }
 
@@ -257,10 +297,10 @@ func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 }
 func (db *BotDB) CheckError(name string, err error) bool {
 	if err != nil {
-		if db.status.get() {
-			db.log.LogError(name+" error: ", err)
-		}
-		if err != sql.ErrNoRows && err != sql.ErrTxDone {
+		if err != sql.ErrNoRows && err != sql.ErrTxDone && err != ErrDuplicateEntry && err != ErrLockWaitTimeout {
+			if db.status.get() {
+				db.log.LogError(name+" error: ", err)
+			}
 			if db.db.Ping() != nil {
 				db.status.set(false)
 			}
@@ -293,8 +333,8 @@ type PingContext struct {
 	Timestamp time.Time
 }
 
-func (db *BotDB) AddUser(id uint64, email string, username string, discriminator int, avatar string, verified bool, isonline bool) {
-	_, err := db.sqlAddUser.Exec(id, email, username, discriminator, avatar, verified, isonline)
+func (db *BotDB) AddUser(id uint64, username string, discriminator int, avatar string, isonline bool) {
+	_, err := db.sqlAddUser.Exec(id, username, discriminator, avatar, isonline)
 	db.CheckError("AddUser", err)
 }
 
@@ -314,7 +354,7 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	var loc sql.NullString
 	var guild sql.NullInt64
 	var discriminator int = 0
-	err := db.sqlGetUser.QueryRow(id).Scan(&u.ID, &u.Email, &u.Username, &discriminator, &u.Avatar, &lastseen, &loc, &guild)
+	err := db.sqlGetUser.QueryRow(id).Scan(&u.ID, &u.Username, &discriminator, &u.Avatar, &lastseen, &loc, &guild)
 	if discriminator > 0 {
 		u.Discriminator = strconv.Itoa(discriminator)
 	}
@@ -335,7 +375,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	var firstmessage *time.Time
 	var joinedat time.Time
 	var discriminator int = 0
-	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Email, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat, &firstmessage)
+	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat, &firstmessage)
 	if !joinedat.IsZero() {
 		m.JoinedAt = joinedat.Format(time.RFC3339)
 	}
@@ -434,7 +474,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 			User      *discordgo.User
 			FirstSeen time.Time
 		}{&discordgo.User{}, time.Now()}
-		if err := q.Scan(&p.User.ID, &p.User.Email, &p.User.Username, &p.User.Avatar, &p.FirstSeen); err == nil {
+		if err := q.Scan(&p.User.ID, &p.User.Username, &p.User.Avatar, &p.FirstSeen); err == nil {
 			r = append(r, p)
 		}
 	}
@@ -450,7 +490,7 @@ func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User
 	r := make([]*discordgo.User, 0, 2)
 	for q.Next() {
 		p := &discordgo.User{}
-		if err := q.Scan(&p.ID, &p.Email, &p.Username, &p.Avatar); err == nil {
+		if err := q.Scan(&p.ID, &p.Username, &p.Avatar); err == nil {
 			r = append(r, p)
 		}
 	}
@@ -474,7 +514,7 @@ func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uin
 		_, err = db.sqlAudit.Exec(ty, SBatoi(user.ID), message, guild)
 	}
 
-	if err != nil && sb.db.status.get() {
+	if err != nil && sb.DB.status.get() {
 		fmt.Println("Logger failed to log to database! ", err.Error())
 	}
 }
@@ -984,12 +1024,14 @@ func (db *BotDB) AddPoll(name string, description string, server uint64) error {
 
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 	_, err := db.sqlAddOption.Exec(poll, index, option)
+	err = db.StandardErr(err)
 	db.CheckError("AddOption", err)
 	return err
 }
 
 func (db *BotDB) AppendOption(poll uint64, option string) error {
 	_, err := db.sqlAppendOption.Exec(option, poll)
+	err = db.StandardErr(err)
 	db.CheckError("AppendOption", err)
 	return err
 }
@@ -1035,4 +1077,113 @@ func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
 		}
 	}
 	return r
+}
+
+func (db *BotDB) AddItem(item string) (uint64, error) {
+	var id uint64
+	err := db.StandardErr(db.sqlAddItem.QueryRow(item).Scan(&id))
+	if db.CheckError("AddItem", err) {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (db *BotDB) GetItem(item string) (uint64, error) {
+	var id uint64
+	err := db.sqlGetItem.QueryRow(item).Scan(&id)
+	if err == sql.ErrNoRows || db.CheckError("GetItem", err) {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (db *BotDB) RemoveItem(item string, guild uint64) error {
+	_, err := db.sqlRemoveItem.Exec(item, guild)
+
+	db.CheckError("RemoveItem", err)
+	return err
+}
+
+func (db *BotDB) AddTag(item uint64, tag uint64) error {
+	_, err := db.sqlAddTag.Exec(item, tag)
+	err = db.StandardErr(err)
+	db.CheckError("AddTag", err)
+	return err
+}
+
+func (db *BotDB) RemoveTag(item uint64, tag uint64) error {
+	_, err := db.sqlRemoveTag.Exec(item, tag)
+	db.CheckError("RemoveTag", err)
+	return err
+}
+
+func (db *BotDB) CreateTag(tag string, guild uint64) error {
+	_, err := db.sqlCreateTag.Exec(tag, guild)
+	err = db.StandardErr(err)
+	db.CheckError("CreateTag", err)
+	return err
+}
+
+func (db *BotDB) DeleteTag(tag string, guild uint64) error {
+	_, err := db.sqlDeleteTag.Exec(tag, guild)
+	db.CheckError("DeleteTag", err)
+	return err
+}
+func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
+	var id uint64
+	err := db.sqlGetTag.QueryRow(tag, guild).Scan(&id)
+	if err == sql.ErrNoRows || db.CheckError("GetTag", err) {
+		return 0, err
+	}
+	return id, nil
+}
+
+func (db *BotDB) GetItemTags(item uint64, guild uint64) []string {
+	q, err := db.sqlGetItemTags.Query(item, guild)
+	if db.CheckError("GetItemTags", err) {
+		return []string{}
+	}
+	defer q.Close()
+	r := make([]string, 0, 3)
+	for q.Next() {
+		var p string
+		if err := q.Scan(&p); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) GetTags(guild uint64) []struct {
+	Name  string
+	Count int
+} {
+	q, err := db.sqlGetTags.Query(guild)
+	if db.CheckError("GetTags", err) {
+		return []struct {
+			Name  string
+			Count int
+		}{}
+	}
+	defer q.Close()
+	r := make([]struct {
+		Name  string
+		Count int
+	}, 0, 10)
+	for q.Next() {
+		p := struct {
+			Name  string
+			Count int
+		}{}
+		if err := q.Scan(&p.Name, &p.Count); err == nil {
+			r = append(r, p)
+		}
+	}
+	return r
+}
+
+func (db *BotDB) ImportTag(srcTag uint64, destTag uint64) error {
+	_, err := db.sqlImportTag.Exec(destTag, srcTag)
+	db.CheckError("ImportTag", err)
+	return err
 }

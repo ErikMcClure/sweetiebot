@@ -104,8 +104,8 @@ func IDsToUsernames(IDs []uint64, info *GuildInfo, discriminator bool) []string 
 	gid := SBatoi(info.ID)
 	for _, v := range IDs {
 		var m *discordgo.Member
-		if sb.db.status.get() {
-			m, _, _ = sb.db.GetMember(v, gid)
+		if sb.DB.status.get() {
+			m, _, _ = sb.DB.GetMember(v, gid)
 		}
 		if m != nil {
 			if len(m.Nick) > 0 {
@@ -202,25 +202,25 @@ func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
 
 // GetMember attempts to get a member from the guild by checking the state first before making the REST API call.
 func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
-	m, err := sb.dg.State.Member(info.ID, id)
+	m, err := sb.DG.State.Member(info.ID, id)
 	if err == nil {
 		return m, nil
 	}
-	return sb.dg.GuildMember(info.ID, id)
+	return sb.DG.GuildMember(info.ID, id)
 }
 
 // GetMemberCreate creates a member if they don't exist, so it is guaranteed to return a Member
 func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
-	m, err := sb.dg.State.Member(info.ID, u.ID)
+	m, err := sb.DG.State.Member(info.ID, u.ID)
 	if err == nil {
 		return m
 	}
 
-	m, err = sb.dg.GuildMember(info.ID, u.ID)
+	m, err = sb.DG.GuildMember(info.ID, u.ID)
 	if err != nil || m == nil {
 		m = &discordgo.Member{info.ID, "", "", false, false, u, []string{}}
 	}
-	sb.dg.State.MemberAdd(m)
+	sb.DG.State.MemberAdd(m)
 	return m
 }
 
@@ -242,8 +242,8 @@ func SinceUTC(t time.Time) time.Duration {
 
 // getTimezone gets the time.Location of the given user, if it exists, otherwise returns time.UTC
 func getTimezone(info *GuildInfo, user *discordgo.User) *time.Location {
-	if user != nil && sb.db.status.get() {
-		loc := sb.db.GetTimeZone(SBatoi(user.ID))
+	if user != nil && sb.DB.status.get() {
+		loc := sb.DB.GetTimeZone(SBatoi(user.ID))
 		if loc != nil {
 			return loc
 		}
@@ -274,7 +274,7 @@ func ingestEpisode(file string, season int, episode int) {
 		if len(s[i]) > 0 {
 			if s[i][0] == '[' {
 				action := s[i][1 : len(s[i])-1]
-				sb.db.AddTranscript(season, episode, i-adjust, "ACTION", action)
+				sb.DB.AddTranscript(season, episode, i-adjust, "ACTION", action)
 				if !songmode {
 					lastcharacter = action
 				}
@@ -282,23 +282,23 @@ func ingestEpisode(file string, season int, episode int) {
 				split := strings.SplitN(s[i], ":", 2)
 				songmode = (len(split) < 2)
 				if songmode {
-					prev := sb.db.GetTranscript(season, episode, i-1-adjust, i-1-adjust)
+					prev := sb.DB.GetTranscript(season, episode, i-1-adjust, i-1-adjust)
 					if len(prev) != 1 {
 						fmt.Println(season, " ", episode, " ", i-adjust)
 						return
 					}
 					if prev[0].Speaker == "ACTION" && prev[0].Text == lastcharacter {
 						adjust++
-						sb.db.RemoveTranscript(season, episode, i-adjust)
+						sb.DB.RemoveTranscript(season, episode, i-adjust)
 					}
-					sb.db.AddTranscript(season, episode, i-adjust, lastcharacter, strings.TrimSpace(split[0]))
+					sb.DB.AddTranscript(season, episode, i-adjust, lastcharacter, strings.TrimSpace(split[0]))
 				} else {
 					lastcharacter = strings.TrimSpace(split[0])
-					sb.db.AddTranscript(season, episode, i-adjust, lastcharacter, strings.TrimSpace(split[1]))
+					sb.DB.AddTranscript(season, episode, i-adjust, lastcharacter, strings.TrimSpace(split[1]))
 				}
 			}
 		} else {
-			sb.db.AddTranscript(season, episode, i-adjust, "ACTION", "")
+			sb.DB.AddTranscript(season, episode, i-adjust, "ACTION", "")
 		}
 	}
 }
@@ -315,7 +315,7 @@ func splitSpeaker(speaker string) []string {
 func buildMarkov(seasonStart int, episodeStart int) {
 	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
 
-	sb.db.sqlResetMarkov.Exec()
+	sb.DB.sqlResetMarkov.Exec()
 
 	var cur uint64
 	var prev uint64
@@ -325,7 +325,7 @@ func buildMarkov(seasonStart int, episodeStart int) {
 			fmt.Println("Begin Episode", episode, "Season", season)
 			prev = 0
 			prev2 = 0
-			lines := sb.db.GetTranscript(season, episode, 0, 999999)
+			lines := sb.DB.GetTranscript(season, episode, 0, 999999)
 			//lines := []Transcript{ {1, 1, 1, "Twilight", "Twilight went to the bakery to buy some cakes."}, {1, 1, 1, "Twilight", "Twilight went to the library to buy some books"} }
 			fmt.Println("Got", len(lines), "lines")
 
@@ -334,7 +334,7 @@ func buildMarkov(seasonStart int, episodeStart int) {
 					if lines[i].Speaker != "ACTION" {
 						fmt.Println("UNKNOWN SPEAKER: ", lines[i].Speaker)
 					}
-					cur = sb.db.AddMarkov(prev, prev2, lines[i].Speaker, "")
+					cur = sb.DB.AddMarkov(prev, prev2, lines[i].Speaker, "")
 					prev2 = 0
 					prev = cur // Cur will always be 0 here.
 					continue
@@ -353,21 +353,21 @@ func buildMarkov(seasonStart int, episodeStart int) {
 						case '.', '!', '?':
 							words[j] = words[j][:l-1]
 						}
-						if sb.db.GetMarkovWord(speaker, words[j]) != words[j] {
+						if sb.DB.GetMarkovWord(speaker, words[j]) != words[j] {
 							words[j] = strings.ToLower(words[j])
 						}
 						//fmt.Println("AddMarkov: ", prev, prev2, speaker, words[j])
-						cur = sb.db.AddMarkov(prev, prev2, speaker, words[j])
+						cur = sb.DB.AddMarkov(prev, prev2, speaker, words[j])
 						prev2 = prev
 						prev = cur
 
 						switch ch {
 						case '.', '!', '?':
 							//fmt.Println("AddMarkov: ", prev, prev2, speaker, string(ch))
-							cur = sb.db.AddMarkov(prev, prev2, speaker, string(ch))
+							cur = sb.DB.AddMarkov(prev, prev2, speaker, string(ch))
 							prev2 = 0
 							prev = 0
-							//prev = sb.db.AddMarkov(prev, "ACTION", "")
+							//prev = sb.DB.AddMarkov(prev, "ACTION", "")
 						}
 					}
 				}
@@ -384,7 +384,7 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}
-	if !sb.db.status.get() {
+	if !sb.DB.status.get() {
 		return []uint64{}
 	}
 	discriminant := ""
@@ -397,13 +397,13 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 			username = strings.ToLower(user)
 		}
 	}
-	r := sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
+	r := sb.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	if len(r) == 0 {
 		user = "%" + user + "%"
-		r = sb.db.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
+		r = sb.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	}
 	if len(r) == 0 {
-		r = sb.db.FindUsers(user, 20, 0)
+		r = sb.DB.FindUsers(user, 20, 0)
 	}
 	if len(discriminant) > 0 {
 		for _, v := range r {
@@ -516,8 +516,8 @@ func FindIntSlice(item uint64, s []uint64) bool {
 // getUserName returns a string representation of the user's name if possible, otherwise pings them.
 func getUserName(user uint64, info *GuildInfo) string {
 	var m *discordgo.Member
-	if sb.db.status.get() {
-		m, _, _ = sb.db.GetMember(user, SBatoi(info.ID))
+	if sb.DB.status.get() {
+		m, _, _ = sb.DB.GetMember(user, SBatoi(info.ID))
 	}
 	if m == nil {
 		return "<@" + SBitoa(user) + ">"
@@ -538,10 +538,10 @@ func SanitizeMentions(s string) string {
 }
 
 func replacementionhelper(s string) string {
-	if !sb.db.status.get() {
+	if !sb.DB.status.get() {
 		return s
 	}
-	u, _, _, _ := sb.db.GetUser(SBatoi(StripPing(s)))
+	u, _, _, _ := sb.DB.GetUser(SBatoi(StripPing(s)))
 	if u == nil {
 		return s
 	}
@@ -555,7 +555,7 @@ func ReplaceAllMentions(s string) string {
 
 // ReplaceAllRolePings finds any role pings and replaces them with the role name
 func ReplaceAllRolePings(s string, info *GuildInfo) string {
-	roles, err := sb.dg.GuildRoles(info.ID)
+	roles, err := sb.DG.GuildRoles(info.ID)
 	if err != nil {
 		return s
 	}
@@ -665,6 +665,12 @@ type legacyBotConfigV13 struct {
 	} `json:"basic"`
 }
 
+type legacyBotConfigV19 struct {
+	Basic struct {
+		Collections map[string]map[string]bool `json:"collections"`
+	} `json:"basic"`
+}
+
 // MigrateSettings from earlier config version
 func MigrateSettings(config []byte, guild *GuildInfo) error {
 	err := json.Unmarshal(config, &guild.config)
@@ -739,7 +745,7 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 
 		guild.config.Basic.AlertRole = legacy.AlertRole
 		guild.config.Basic.Aliases = legacy.Aliases
-		guild.config.Basic.Collections = legacy.Collections
+		guild.config.Collections = legacy.Collections
 		guild.config.Basic.FreeChannels = legacy.FreeChannels
 		guild.config.Basic.IgnoreInvalidCommands = legacy.IgnoreInvalidCommands
 		guild.config.Basic.Importable = legacy.Importable
@@ -843,16 +849,16 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 				if check != nil {
 					role = "sb-" + role
 				}
-				r, err := sb.dg.GuildRoleCreate(guild.ID)
+				r, err := sb.DG.GuildRoleCreate(guild.ID)
 				if err == nil {
-					r, err = sb.dg.GuildRoleEdit(guild.ID, r.ID, role, 0, false, 0, true)
+					r, err = sb.DG.GuildRoleEdit(guild.ID, r.ID, role, 0, false, 0, true)
 				}
 				if err == nil {
 					idmap[strings.ToLower(k)] = r.ID
 					guild.config.Users.Roles[SBatoi(r.ID)] = true
 
 					for u := range v {
-						err = sb.dg.GuildMemberRoleAdd(guild.ID, u, r.ID)
+						err = sb.DG.GuildMemberRoleAdd(guild.ID, u, r.ID)
 						if err != nil {
 							fmt.Println(err)
 						}
@@ -862,8 +868,8 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 				}
 			}
 
-			stmt, err := sb.db.Prepare("SELECT ID, Data FROM schedule WHERE Guild = ? AND Type = 7")
-			stmt2, err := sb.db.Prepare("UPDATE schedule SET Data = ? WHERE ID = ?")
+			stmt, err := sb.DB.Prepare("SELECT ID, Data FROM schedule WHERE Guild = ? AND Type = 7")
+			stmt2, err := sb.DB.Prepare("UPDATE schedule SET Data = ? WHERE ID = ?")
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -925,8 +931,52 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 		guild.config.Spam.LinePressure = (guild.config.Spam.MaxPressure - guild.config.Spam.BasePressure) / 70.0
 	}
 
-	if guild.config.Version != 19 {
-		guild.config.Version = 19 // set version to most recent config version
+	if guild.config.Version <= 19 {
+		sb.guildsLock.Lock()
+		if len(guild.config.Collections) == 0 {
+			guild.config.Collections = make(map[string]map[string]bool)
+		}
+		legacy := legacyBotConfigV19{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			guild.config.Collections["bucket"] = legacy.Basic.Collections["bucket"]
+			guild.config.Collections["emote"] = legacy.Basic.Collections["emote"]
+			guild.config.Collections["status"] = legacy.Basic.Collections["status"]
+			guild.config.Collections["spoiler"] = legacy.Basic.Collections["spoiler"]
+			delete(legacy.Basic.Collections, "bucket")
+			delete(legacy.Basic.Collections, "emote")
+			delete(legacy.Basic.Collections, "status")
+			delete(legacy.Basic.Collections, "spoiler")
+
+			gID := SBatoi(guild.ID)
+			for k, v := range legacy.Basic.Collections {
+				if len(v) > 0 {
+					fmt.Println("Importing:", k)
+					sb.DB.CreateTag(k, gID)
+					tag, err := sb.DB.GetTag(k, gID)
+					if err == nil {
+						for item := range v {
+							id, err := sb.DB.AddItem(item)
+							if err == nil || err != ErrDuplicateEntry {
+								sb.DB.AddTag(id, tag)
+							}
+						}
+					}
+				} else {
+					fmt.Println("Skipping empty collection:", k)
+				}
+			}
+		} else {
+			fmt.Println(err.Error())
+		}
+		sb.guildsLock.Unlock()
+		restrictCommand("addset", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("removeset", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+		restrictCommand("searchset", guild.config.Modules.CommandRoles, guild.config.Basic.AlertRole)
+	}
+
+	if guild.config.Version != 20 {
+		guild.config.Version = 20 // set version to most recent config version
 		guild.SaveConfig()
 	}
 	return nil
@@ -1009,13 +1059,13 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 }
 
 func getAllPerms(info *GuildInfo, user string) (int64, error) {
-	m, err := sb.dg.State.Member(info.ID, user)
+	m, err := sb.DG.State.Member(info.ID, user)
 	if err != nil {
 		return 0, err
 	}
 	var perms int64
 	for _, r := range m.Roles {
-		role, err := sb.dg.State.Role(info.ID, r)
+		role, err := sb.DG.State.Role(info.ID, r)
 		if err != nil {
 			perms |= int64(role.Permissions)
 		}
@@ -1048,7 +1098,7 @@ func findServers(name string, guilds []uint64) []*GuildInfo {
 }
 
 func getDefaultServer(user uint64) *GuildInfo {
-	_, _, _, server := sb.db.GetUser(user)
+	_, _, _, server := sb.DB.GetUser(user)
 	if server == nil {
 		return nil
 	}
@@ -1067,7 +1117,7 @@ func snowflakeTime(id uint64) time.Time {
 
 func setupSilenceRole(info *GuildInfo) {
 	if info.config.Spam.SilentRole > 0 {
-		guild, err := sb.dg.State.Guild(info.ID)
+		guild, err := sb.DG.State.Guild(info.ID)
 		if err != nil {
 			info.Log("Failed to setup silence roles!")
 			return
@@ -1085,7 +1135,7 @@ func setupSilenceRole(info *GuildInfo) {
 				}
 				allow &= (^0x00000800)
 				deny |= 0x00000800
-				sb.dg.ChannelPermissionSet(ch.ID, SBitoa(info.config.Spam.SilentRole), "role", allow, deny)
+				sb.DG.ChannelPermissionSet(ch.ID, SBitoa(info.config.Spam.SilentRole), "role", allow, deny)
 			}
 		}
 	}
@@ -1095,10 +1145,10 @@ func setupSilenceRole(info *GuildInfo) {
 func UnsilenceMember(user uint64, info *GuildInfo) error {
 	m, err := info.GetMember(SBitoa(user))
 	if err == nil {
-		sb.dg.State.Lock()
+		sb.DG.State.Lock()
 		RemoveSliceString(&m.Roles, SBitoa(info.config.Spam.SilentRole))
-		sb.dg.State.Unlock()
+		sb.DG.State.Unlock()
 	}
 
-	return sb.dg.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
+	return sb.DG.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }

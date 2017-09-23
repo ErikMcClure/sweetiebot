@@ -37,7 +37,7 @@ func (w *RolesModule) OnGuildRoleDelete(info *GuildInfo, r *discordgo.GuildRoleD
 
 // GetRoleByName gets a role by its name
 func GetRoleByName(role string, info *GuildInfo) (*discordgo.Role, error) {
-	roles, err := sb.dg.GuildRoles(info.ID)
+	roles, err := sb.DG.GuildRoles(info.ID)
 	role = strings.ToLower(role)
 	if err != nil {
 		info.LogError("GuildRoles(): ", err)
@@ -80,7 +80,7 @@ func GetRoleByNameOrPing(role string, info *GuildInfo) (*discordgo.Role, uint64,
 		if !ok || id == info.config.Spam.SilentRole || id == info.config.Basic.AlertRole {
 			return nil, 0, "```That's not a user-assignable role!```"
 		}
-		roles, err := sb.dg.GuildRoles(info.ID)
+		roles, err := sb.DG.GuildRoles(info.ID)
 		if err != nil {
 			return nil, 0, "```Couldn't get roles! + " + err.Error() + "```"
 		}
@@ -121,7 +121,7 @@ func (c *addRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 		if ok {
 			return "```That role is already user-assignable!```", false, nil
 		}
-		roles, err := sb.dg.GuildRoles(info.ID)
+		roles, err := sb.DG.GuildRoles(info.ID)
 		if err != nil {
 			return "```Could not get roles! + " + err.Error() + "```", false, nil
 		}
@@ -143,9 +143,9 @@ func (c *addRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	if check != nil {
 		return "```That's already a role name in this server. If you want to set an existing role as user-assignable, you must ping the role.```", false, nil
 	}
-	r, err := sb.dg.GuildRoleCreate(info.ID)
+	r, err := sb.DG.GuildRoleCreate(info.ID)
 	if err == nil {
-		r, err = sb.dg.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
+		r, err = sb.DG.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
 	}
 	if err != nil {
 		return "```Could not create role! " + err.Error() + "```", false, nil
@@ -181,7 +181,7 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		return e, false, nil
 	}
 	hasrole := info.UserHasRole(msg.Author.ID, r.ID)
-	err := sb.dg.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID) // Try adding the role no matter what, just in case discord screwed up
+	err := sb.DG.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID) // Try adding the role no matter what, just in case discord screwed up
 	if hasrole {
 		return "```You already have that role.```", false, nil
 	}
@@ -213,7 +213,7 @@ func (c *listRoleCommand) Name() string {
 
 func (c *listRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		roles, err := sb.dg.GuildRoles(info.ID)
+		roles, err := sb.DG.GuildRoles(info.ID)
 		if err != nil {
 			return fmt.Sprintf("```Error getting roles: %s```", err.Error()), false, nil
 		}
@@ -232,12 +232,12 @@ func (c *listRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		return e, false, nil
 	}
 
-	guild, err := sb.dg.State.Guild(info.ID)
+	guild, err := sb.DG.State.Guild(info.ID)
 	if err != nil {
 		return "```Guild not in state?!```", false, nil
 	}
-	sb.dg.State.RLock()
-	defer sb.dg.State.RUnlock()
+	sb.DG.State.RLock()
+	defer sb.DG.State.RUnlock()
 	out := []string{}
 	for _, v := range guild.Members {
 		if info.UserHasRole(v.User.ID, r.ID) {
@@ -281,7 +281,7 @@ func (c *leaveRoleCommand) Process(args []string, msg *discordgo.Message, indice
 		return e, false, nil
 	}
 	hasrole := info.UserHasRole(msg.Author.ID, r.ID)
-	err := sb.dg.GuildMemberRoleRemove(info.ID, msg.Author.ID, r.ID) // Try removing it no matter what in case discord screwed up
+	err := sb.DG.GuildMemberRoleRemove(info.ID, msg.Author.ID, r.ID) // Try removing it no matter what in case discord screwed up
 	if !hasrole {
 		return "```You don't have that role.```", false, nil
 	}
@@ -348,7 +348,7 @@ func (c *deleteRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	if len(e) > 0 {
 		return e, false, nil
 	}
-	err := sb.dg.GuildRoleDelete(info.ID, r.ID)
+	err := sb.DG.GuildRoleDelete(info.ID, r.ID)
 	if err != nil {
 		return "```Error deleting role! " + err.Error() + "```", false, nil
 	}

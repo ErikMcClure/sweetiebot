@@ -57,14 +57,14 @@ func isSilenced(m *discordgo.Member, info *GuildInfo) bool {
 }
 
 func doDiscordSilence(userID string, info *GuildInfo) {
-	err := sb.dg.GuildMemberRoleAdd(info.ID, userID, SBitoa(info.config.Spam.SilentRole))
+	err := sb.DG.GuildMemberRoleAdd(info.ID, userID, SBitoa(info.config.Spam.SilentRole))
 	info.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.ID, userID, info.config.Spam.SilentRole), err)
 }
 func silenceMember(user *discordgo.User, info *GuildInfo) int8 {
 	defer doDiscordSilence(user.ID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
 	m := info.GetMemberCreate(user)
-	sb.dg.State.Lock()         // Manually set our internal state to say this spammer is silent to prevent race conditions
-	defer sb.dg.State.Unlock() // this defer will execute BEFORE our doDiscordSilence defer, minimizing lock time
+	sb.DG.State.Lock()         // Manually set our internal state to say this spammer is silent to prevent race conditions
+	defer sb.DG.State.Unlock() // this defer will execute BEFORE our doDiscordSilence defer, minimizing lock time
 	if isSilenced(m, info) {
 		return 1
 	}
@@ -78,8 +78,8 @@ func SilenceMemberSimple(userID string, info *GuildInfo) int8 {
 	defer doDiscordSilence(userID, info)
 	m, merr := info.GetMember(userID)
 	if merr == nil { // Manually set our internal state to say this spammer is silent to prevent race conditions
-		sb.dg.State.Lock()
-		defer sb.dg.State.Unlock()
+		sb.DG.State.Lock()
+		defer sb.DG.State.Unlock()
 		if isSilenced(m, info) {
 			return 1
 		}
@@ -92,7 +92,7 @@ func SilenceMemberSimple(userID string, info *GuildInfo) int8 {
 func killSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
 	// Before anything else happens, we delete this message. This ensures that even if we get rate-limited, we can still delete any new messages
 	if info.config.Spam.MaxRemoveLookback >= 0 {
-		sb.dg.ChannelMessageDelete(msg.ChannelID, msg.ID)
+		sb.DG.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	}
 
 	msgembeds := ""
@@ -104,7 +104,7 @@ func killSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 
 	chname := msg.ChannelID
-	ch, err := sb.dg.Channel(msg.ChannelID)
+	ch, err := sb.DG.Channel(msg.ChannelID)
 	if err == nil {
 		chname = ch.Name
 	}
@@ -114,7 +114,7 @@ func killSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 	}
 	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
 	if SBatoi(msg.ChannelID) == info.config.Users.WelcomeChannel {
-		sb.dg.GuildBanCreateWithReason(info.ID, u.ID, "Autobanned for "+reason+" in the welcome channel.", 1)
+		sb.DG.GuildBanCreateWithReason(info.ID, u.ID, "Autobanned for "+reason+" in the welcome channel.", 1)
 		info.SendMessage(SBitoa(info.config.Basic.ModChannel), "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
 		info.Log(logmsg)
 		return
@@ -128,7 +128,7 @@ func killSpammer(u *discordgo.User, info *GuildInfo, msg *discordgo.Message, rea
 
 	EndLoop: // Even though this label is defined above the for loop, breaking to this label will actually skip the for loop entirely. Don't ask.
 		for {
-			messages, err := sb.dg.ChannelMessages(msg.ChannelID, 99, lastid, "", "")
+			messages, err := sb.DG.ChannelMessages(msg.ChannelID, 99, lastid, "", "")
 			info.LogError("Error encountered while attempting to retrieve messages: ", err)
 			if len(messages) == 0 || err != nil {
 				break
@@ -174,7 +174,7 @@ func getPressure(info *GuildInfo, m *discordgo.Message, edited bool) float32 {
 func (w *SpamModule) checkSpam(info *GuildInfo, m *discordgo.Message, edited bool) bool {
 	if m.Author != nil {
 		if info.UserHasRole(m.Author.ID, SBitoa(info.config.Spam.SilentRole)) && SBatoi(m.ChannelID) != info.config.Users.WelcomeChannel {
-			sb.dg.ChannelMessageDelete(m.ChannelID, m.ID)
+			sb.DG.ChannelMessageDelete(m.ChannelID, m.ID)
 			return true
 		}
 		if (info.config.Basic.AlertRole != 0 && info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole))) ||
@@ -247,7 +247,7 @@ func DisableLockdown(info *GuildInfo) {
 		if sb.Debug {
 			modchan, _ = sb.DebugChannels[info.ID]
 		}
-		guild, err := sb.dg.State.Guild(info.ID)
+		guild, err := sb.DG.State.Guild(info.ID)
 		if err != nil {
 			info.SendMessage(modchan, "Guild cannot be found in state?!")
 		} else if guild.VerificationLevel != discordgo.VerificationLevelHigh {
@@ -264,7 +264,7 @@ func DisableLockdown(info *GuildInfo) {
 				OwnerID:                     "",
 				Splash:                      "",
 			}
-			_, err = sb.dg.GuildEdit(info.ID, g)
+			_, err = sb.DG.GuildEdit(info.ID, g)
 		}
 		if err != nil {
 			info.SendMessage(modchan, "Could not disengage lockdown! Make sure you've given the Sweetie Bot role the Manage Server permission, you'll have to manually restore it yourself this time.")
@@ -276,12 +276,12 @@ func DisableLockdown(info *GuildInfo) {
 }
 
 func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
-	if !sb.db.CheckStatus() {
+	if !sb.DB.CheckStatus() {
 		return
 	}
-	raidsize := sb.db.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.ID))
+	raidsize := sb.DB.CountNewUsers(info.config.Spam.RaidTime, SBatoi(info.ID))
 	if info.config.Spam.RaidSize > 0 && raidsize >= info.config.Spam.RaidSize && RateLimit(&w.lastraid, info.config.Spam.RaidTime*2) {
-		r := sb.db.GetNewestUsers(raidsize, SBatoi(info.ID))
+		r := sb.DB.GetNewestUsers(raidsize, SBatoi(info.ID))
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
@@ -297,7 +297,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `"+info.config.Basic.CommandPrefix+"autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
 		if info.config.Spam.LockdownDuration > 0 {
 			if info.lockdown == -1 { // Only engage lockdown if it wasn't already engaged
-				guild, err := sb.dg.State.Guild(info.ID)
+				guild, err := sb.DG.State.Guild(info.ID)
 				if err != nil {
 					info.lockdown = discordgo.VerificationLevelHigh
 				} else {
@@ -305,7 +305,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 				}
 				level := discordgo.VerificationLevelHigh
 				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", ""}
-				_, err = sb.dg.GuildEdit(info.ID, g)
+				_, err = sb.DG.GuildEdit(info.ID, g)
 				if err != nil {
 					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given Sweetie Bot the Manage Server permission, or disable the lockdown entirely via `"+info.config.Basic.CommandPrefix+"setconfig spam.lockdownduration 0`.")
 				} else {
@@ -354,7 +354,7 @@ func (w *SpamModule) OnGuildMemberRemove(info *GuildInfo, m *discordgo.Member) {
 	}
 }
 func (w *SpamModule) getRaidUsers(info *GuildInfo) []*discordgo.User {
-	return sb.db.GetRecentUsers(time.Unix(w.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
+	return sb.DB.GetRecentUsers(time.Unix(w.lastraid-info.config.Spam.RaidTime, 0).UTC(), SBatoi(info.ID))
 }
 func (w *SpamModule) isRecentRaid(info *GuildInfo) bool {
 	return w.lastraid+info.config.Spam.RaidTime*2 > time.Now().UTC().Unix()
@@ -395,7 +395,7 @@ func (c *autoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		DisableLockdown(info)
 	} else if c.s.isRecentRaid(info) { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		info.lastlockdown = time.Now().UTC() // Reset lockdown timer just in case
-		if !sb.db.CheckStatus() {
+		if !sb.DB.CheckStatus() {
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
 		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
@@ -437,7 +437,7 @@ func (c *wipeCommand) WipeMessages(ch string, num int, seconds int) (int, error)
 		if n > 99 {
 			n = 99
 		}
-		list, err := sb.dg.ChannelMessages(ch, n, lastid, "", "")
+		list, err := sb.DG.ChannelMessages(ch, n, lastid, "", "")
 		if err != nil || len(list) == 0 {
 			return ret, err
 		}
@@ -455,7 +455,7 @@ func (c *wipeCommand) WipeMessages(ch string, num int, seconds int) (int, error)
 		if len(IDs) == 0 {
 			break
 		}
-		if err = sb.dg.ChannelMessagesBulkDelete(ch, IDs); err != nil {
+		if err = sb.DG.ChannelMessagesBulkDelete(ch, IDs); err != nil {
 			return ret, err
 		}
 
@@ -574,7 +574,7 @@ func (c *banRaidCommand) Process(args []string, msg *discordgo.Message, indices 
 	reason := fmt.Sprintf("Banned by %s#%s via the !banraid command.", msg.Author.Username, msg.Author.Discriminator)
 	users := c.s.getRaidUsers(info)
 	for _, v := range users {
-		sb.dg.GuildBanCreateWithReason(info.ID, v.ID, reason, 1)
+		sb.DG.GuildBanCreateWithReason(info.ID, v.ID, reason, 1)
 	}
 	return fmt.Sprintf("```Banned %v users. The ban log will reflect who ran this command.```", len(users)), false, nil
 }
