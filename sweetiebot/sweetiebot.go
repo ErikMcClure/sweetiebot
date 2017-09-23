@@ -125,7 +125,6 @@ var ConfigHelp map[string]string = map[string]string{
 	"basic.freechannels":          "This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.",
 	"basic.botchannel":            "This allows you to designate a particular channel for sweetie bot to point users to if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
 	"basic.aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
-	"basic.collections":           "All the collections used by sweetiebot. Manipulate it via `!add` and `!remove`",
 	"basic.listentobots":          "If true, sweetiebot will process bot messages and allow them to run commands. Bots can never trigger anti-spam. Defaults to false.",
 	"basic.commandprefix":         "Determines the SINGLE ASCII CHARACTER prefix used to denote sweetiebot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, Sweetiebot will default to using `!`.",
 	"basic.trackuserleft":         "If true, sweetiebot will also track users that leave the server if autosilence is set to alert or log. Defaults to false.",
@@ -1166,7 +1165,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 9, 0},
+		version:            Version{0, 9, 8, 16},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
@@ -1184,7 +1183,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		MessageCount:       0,
 		loader:             loader,
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 9, 0):  "- All servers now have audit logs.\n- Collections are now tags in the database, supporting complex tag searching. Built-in collections are now managed through !addset, !removeset, etc.\n- Ignore LockWaitTimeout errors",
+			AssembleVersion(0, 9, 8, 16): "- All servers now have audit logs.\n- Collections are now tags in the database, supporting complex tag searching. Use !tags and !searchtags to explore tags. Built-in collections are now managed through !addset, !removeset, and !searchset.\n- Ignore LockWaitTimeout errors",
 			AssembleVersion(0, 9, 8, 15): "- Return all possible !wipe errors",
 			AssembleVersion(0, 9, 8, 14): "- Reduce database pressure on startup",
 			AssembleVersion(0, 9, 8, 13): "- Fix crash on startup.\n- Did more code refactoring, fixed several spelling errors.",
