@@ -295,7 +295,8 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	for k, v := range tagIDs {
 		params[k] = v
 	}
-	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content", arg, params...)
+	params = append(params, gID)
+	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" AND T.Guild = ? GROUP BY I.Content", arg, params...)
 	if err != nil {
 		return err.Error(), false, nil
 	}
@@ -318,7 +319,7 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 		s = strings.Join(r[:maxTagResults], "\n")
 		arg += " (truncated)"
 	} else {
-		s = strings.Join(r[:maxTagResults], "\n")
+		s = strings.Join(r, "\n")
 	}
 	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
@@ -362,12 +363,13 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 			return err.Error(), false, nil
 		}
 
-		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content ORDER BY RAND() LIMIT 1", arg)
+		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" AND T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", arg)
 		if err != nil {
 			return err.Error(), false, nil
 		}
 
 		params = make([]interface{}, len(tagIDs), len(tagIDs))
+		params = append(params, gID)
 		for k, v := range tagIDs {
 			params[k] = v
 		}
@@ -482,12 +484,14 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 		return err.Error(), false, nil
 	}
 
-	params := make([]interface{}, len(tagIDs)+1, len(tagIDs)+1)
+	params := make([]interface{}, len(tagIDs), len(tagIDs))
 	for k, v := range tagIDs {
 		params[k] = v
 	}
-	params[len(tagIDs)] = search
-	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND I.Content LIKE ? GROUP BY I.Content", arg, params...)
+	params = append(params, search)
+	params = append(params, gID)
+
+	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND I.Content LIKE ? AND T.Guild = ? GROUP BY I.Content", arg, params...)
 	if err != nil {
 		return err.Error(), false, nil
 	}
