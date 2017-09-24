@@ -982,7 +982,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 18},
+		version:            Version{0, 9, 8, 19},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
@@ -1000,6 +1000,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		MessageCount:       0,
 		loader:             loader,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 19): "- Change how !remove works, use !remove * <item> to remove something with spaces from all tags.\n- !pick now requires tags to be one argument, but supports * to pick from all tags.\n-!searchtag can now take * in the tag argument to search all tags",
 			AssembleVersion(0, 9, 8, 18): "- Fix specific tag search allowing tags from other servers to leak",
 			AssembleVersion(0, 9, 8, 17): "- !tags now truncates output to 50 items unless user is a moderator\n- More information added to !add and !tags\n- Fixed bug with !remove\n- Allow more lines to be returned before switching to private message",
 			AssembleVersion(0, 9, 8, 16): "- All servers now have audit logs.\n- Collections are now tags in the database, supporting complex tag searching. Use !tags and !searchtags to explore tags. Built-in collections are now managed through !addset, !removeset, and !searchset.\n- Ignore LockWaitTimeout errors",
