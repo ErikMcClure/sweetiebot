@@ -95,7 +95,7 @@ type addWitCommand struct {
 func (c *addWitCommand) Name() string {
 	return "AddWit"
 }
-func WitRemove(wit string, info *GuildInfo) bool {
+func witRemove(wit string, info *GuildInfo) bool {
 	wit = strings.ToLower(wit)
 	_, ok := info.config.Witty.Responses[wit]
 	if ok {
@@ -117,7 +117,7 @@ func (c *addWitCommand) Process(args []string, msg *discordgo.Message, indices [
 	info.SaveConfig()
 	r := c.wit.UpdateRegex(info)
 	if !r {
-		WitRemove(trigger, info)
+		witRemove(trigger, info)
 		c.wit.UpdateRegex(info)
 		return "```Failed to add " + trigger + " because regex compilation failed.```", false, nil
 	}
@@ -148,7 +148,7 @@ func (c *removeWitCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 
 	arg := strings.Join(args, " ")
-	if !WitRemove(arg, info) {
+	if !witRemove(arg, info) {
 		return "```Could not find " + arg + "!```", false, nil
 	}
 	info.SaveConfig()

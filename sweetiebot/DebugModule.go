@@ -10,6 +10,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// DebugModule contains various debugging commands
 type DebugModule struct {
 }
 
@@ -144,7 +145,7 @@ func (c *echoEmbedCommand) UsageShort() string {
 	return "Makes Sweetie Bot echo a rich text embed in a given channel."
 }
 
-func SetCommandEnable(args []string, enable bool, success string, info *GuildInfo, channelID string) (string, bool, *discordgo.MessageEmbed) {
+func setCommandEnable(args []string, enable bool, success string, info *GuildInfo, channelID string) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
 		return "```No module or command specified.Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 	}
@@ -195,7 +196,7 @@ func (c *disableCommand) Name() string {
 	return "Disable"
 }
 func (c *disableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return SetCommandEnable(args, false, " was disabled.", info, msg.ChannelID)
+	return setCommandEnable(args, false, " was disabled.", info, msg.ChannelID)
 }
 func (c *disableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -214,7 +215,7 @@ func (c *enableCommand) Name() string {
 	return "Enable"
 }
 func (c *enableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return SetCommandEnable(args, true, " was enabled.", info, msg.ChannelID)
+	return setCommandEnable(args, true, " was enabled.", info, msg.ChannelID)
 }
 func (c *enableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
