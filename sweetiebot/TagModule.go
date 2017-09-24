@@ -102,6 +102,10 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	gID := SBatoi(info.ID)
+	if count, _ := sb.DB.CountItems(gID); count >= 25000 {
+		return "```Can't have more than 25000 unique items in a server!```", false, nil
+	}
+
 	tags := strings.Split(args[0], "+")
 	tagIDs, err := getTagIDs(tags, gID)
 	if err != nil {
@@ -117,8 +121,14 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 		sb.DB.AddTag(id, v)
 	}
 
-	tags = sb.DB.GetItemTags(id, gID)
-	return fmt.Sprintf("```%s: %s```", PartialSanitize(item), PartialSanitize(strings.Join(tags, ", "))), false, nil
+	for k := range tags {
+		count, err := sb.DB.CountTag(tagIDs[k])
+		if err == nil {
+			tags[k] = fmt.Sprintf("%s: %v items", tags[k], count)
+		}
+	}
+	itemtags := sb.DB.GetItemTags(id, gID)
+	return fmt.Sprintf("```\n%s: %s\n---\n%s```", PartialSanitize(item), PartialSanitize(strings.Join(itemtags, ", ")), PartialSanitize(strings.Join(tags, "\n"))), false, nil
 }
 func (c *addCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -180,9 +190,13 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 	gID := SBatoi(info.ID)
 	if len(args) < 2 {
 		item := msg.Content[indices[0]:]
-		err := sb.DB.RemoveItem(item, gID)
+		id, err := sb.DB.GetItem(item)
 		if err != nil {
 			return fmt.Sprintf("```%s doesn't exist! Error: %s```", item, err.Error()), false, nil
+		}
+		err = sb.DB.RemoveItem(id, gID)
+		if err != nil {
+			return fmt.Sprintf("```Error removing %s: %s```", item, err.Error()), false, nil
 		}
 		return fmt.Sprintf("```Removed %s from all tags.```", PartialSanitize(item)), false, nil
 	}
@@ -244,6 +258,7 @@ func (c *tagsCommand) Name() string {
 // ShowAllTags builds an embed message containing all tags
 func ShowAllTags(message string, info *GuildInfo) *discordgo.MessageEmbed {
 	tags := sb.DB.GetTags(SBatoi(info.ID))
+	items, _ := sb.DB.CountItems(SBatoi(info.ID))
 	fields := make(memberFields, len(tags), len(tags))
 
 	for k, v := range tags {
@@ -257,7 +272,7 @@ func ShowAllTags(message string, info *GuildInfo) *discordgo.MessageEmbed {
 			Name:    "Sweetie Bot Tags",
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
 		},
-		Description: message + fmt.Sprintf(" Tags: %v", len(tags)),
+		Description: message + fmt.Sprintf(" Tags: %v. Unique Items: %v", len(tags), items),
 		Color:       0x3e92e5,
 		Fields:      fields,
 	}
@@ -297,10 +312,16 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return fmt.Sprintf("```\nNo items match %s!```", arg), false, nil
 	}
 
-	s := strings.Join(r, "\n")
+	var s string
+	if len(r) > 50 && !info.UserHasRole(msg.Author.ID, SBitoa(info.config.Basic.AlertRole)) {
+		s = strings.Join(r[:50], "\n")
+		arg += " (truncated)"
+	} else {
+		s = strings.Join(r[:50], "\n")
+	}
 	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
-	return fmt.Sprintf("```\nAll items satisfying %s:\n%s```", arg, s), len(r) > 15, nil
+	return fmt.Sprintf("```\n%v items satisfy %s:\n%s```", len(r), arg, s), len(r) > 15, nil
 }
 func (c *tagsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

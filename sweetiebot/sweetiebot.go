@@ -358,7 +358,7 @@ func AttachToGuild(g *discordgo.Guild) {
 	if sb.Debug {
 		_, ok := sb.DebugChannels[g.ID]
 		if !ok {
-			guild = &GuildInfo{
+			/*guild = &GuildInfo{
 				ID:           g.ID,
 				Name:         g.Name,
 				OwnerID:      g.OwnerID,
@@ -377,7 +377,7 @@ func AttachToGuild(g *discordgo.Guild) {
 			sb.guilds[SBatoi(g.ID)] = guild
 			guild.ProcessGuild(g)
 			sb.guildsLock.Unlock()
-			fmt.Println("Processed", g.Name)
+			fmt.Println("Processed", g.Name)*/
 			return
 		}
 	}
@@ -1165,7 +1165,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 16},
+		version:            Version{0, 9, 8, 17},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
@@ -1183,6 +1183,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		MessageCount:       0,
 		loader:             loader,
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 17): "- !tags now truncates output to 50 items unless user is a moderator\n- More information added to !add and !tags\n- Fixed bug with !remove",
 			AssembleVersion(0, 9, 8, 16): "- All servers now have audit logs.\n- Collections are now tags in the database, supporting complex tag searching. Use !tags and !searchtags to explore tags. Built-in collections are now managed through !addset, !removeset, and !searchset.\n- Ignore LockWaitTimeout errors",
 			AssembleVersion(0, 9, 8, 15): "- Return all possible !wipe errors",
 			AssembleVersion(0, 9, 8, 14): "- Reduce database pressure on startup",
