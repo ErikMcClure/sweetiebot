@@ -103,6 +103,8 @@ type BotDB struct {
 	sqlCreateTag              *sql.Stmt
 	sqlDeleteTag              *sql.Stmt
 	sqlGetTag                 *sql.Stmt
+	sqlCountTag               *sql.Stmt
+	sqlCountItems             *sql.Stmt
 	sqlGetItemTags            *sql.Stmt
 	sqlGetTags                *sql.Stmt
 	sqlImportTag              *sql.Stmt
@@ -223,7 +225,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sqlGetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sqlGetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
-	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows');")
+	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nPolls: ', (SELECT COUNT(*) FROM polls), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
 	db.sqlCountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sqlAudit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
 	db.sqlGetAuditRows, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
@@ -265,12 +267,14 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetNewcomers, err = db.Prepare("SELECT ID FROM `members` WHERE `Guild` = ? AND `FirstMessage` > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sqlAddItem, err = db.Prepare("SELECT AddItem(?)")
 	db.sqlGetItem, err = db.Prepare("SELECT ID FROM items WHERE Content = ?")
-	db.sqlRemoveItem, err = db.Prepare("DELETE M FROM itemtags M INNER JOIN items I ON M.Item = I.ID INNER JOIN tags T ON M.Tag = T.ID WHERE I.Content = ? AND T.Guild = ?")
+	db.sqlRemoveItem, err = db.Prepare("DELETE M FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID WHERE M.Item = ? AND T.Guild = ?")
 	db.sqlAddTag, err = db.Prepare("INSERT INTO itemtags (Item, Tag) VALUES (?, ?)")
 	db.sqlRemoveTag, err = db.Prepare("DELETE FROM itemtags WHERE Item = ? AND Tag = ?")
 	db.sqlCreateTag, err = db.Prepare("INSERT INTO tags (Name, Guild) VALUES (?, ?)")
 	db.sqlDeleteTag, err = db.Prepare("DELETE FROM tags WHERE Name = ? AND Guild = ?")
 	db.sqlGetTag, err = db.Prepare("SELECT ID FROM tags WHERE Name = ? AND Guild = ?")
+	db.sqlCountTag, err = db.Prepare("SELECT COUNT(*) FROM itemtags WHERE Tag = ?")
+	db.sqlCountItems, err = db.Prepare("SELECT COUNT(DISTINCT M.Item) FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID WHERE T.Guild = ?")
 	db.sqlGetItemTags, err = db.Prepare("SELECT T.Name FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID WHERE M.Item = ? AND T.Guild = ?")
 	db.sqlGetTags, err = db.Prepare("SELECT T.Name, COUNT(M.Item) FROM tags T LEFT OUTER JOIN itemtags M ON T.ID = M.Tag WHERE T.Guild = ? GROUP BY T.Name")
 	db.sqlImportTag, err = db.Prepare("INSERT IGNORE INTO itemtags (Item, Tag) SELECT Item, ? FROM itemtags WHERE Tag = ?")
@@ -1097,9 +1101,8 @@ func (db *BotDB) GetItem(item string) (uint64, error) {
 	return id, nil
 }
 
-func (db *BotDB) RemoveItem(item string, guild uint64) error {
+func (db *BotDB) RemoveItem(item uint64, guild uint64) error {
 	_, err := db.sqlRemoveItem.Exec(item, guild)
-
 	db.CheckError("RemoveItem", err)
 	return err
 }
@@ -1137,7 +1140,22 @@ func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
 	}
 	return id, nil
 }
-
+func (db *BotDB) CountTag(tag uint64) (uint64, error) {
+	var n uint64
+	err := db.sqlCountTag.QueryRow(tag).Scan(&n)
+	if err == sql.ErrNoRows || db.CheckError("CountTag", err) {
+		return 0, err
+	}
+	return n, nil
+}
+func (db *BotDB) CountItems(guild uint64) (uint64, error) {
+	var n uint64
+	err := db.sqlCountItems.QueryRow(guild).Scan(&n)
+	if db.CheckError("CountItems", err) {
+		return 0, err
+	}
+	return n, nil
+}
 func (db *BotDB) GetItemTags(item uint64, guild uint64) []string {
 	q, err := db.sqlGetItemTags.Query(item, guild)
 	if db.CheckError("GetItemTags", err) {
