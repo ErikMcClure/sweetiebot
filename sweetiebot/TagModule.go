@@ -135,7 +135,7 @@ func (c *addCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Adds [arbitrary string] to [tags]. If the item already exists, simply adds the tags to the existing item.",
 		Params: []CommandUsageParam{
-			{Name: "tag(s)", Desc: "The name of a tag. Specify multiple tags with \"tag1+tag2\"", Optional: false},
+			{Name: "tag(s)", Desc: "The name of a tag. Specify multiple tags with \"tag1+tag2\" (with quotes if there are spaces).", Optional: false},
 			{Name: "arbitrary string", Desc: "Arbitrary string to add tags to. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
@@ -189,13 +189,18 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	gID := SBatoi(info.ID)
-	if len(args) < 2 {
+	if len(args) < 2 || args[0] == "*" {
 		item := msg.Content[indices[0]:]
-		id, err := sb.DB.GetItem(item)
-		if err != nil {
-			return fmt.Sprintf("```%s doesn't exist! Error: %s```", item, err.Error()), false, nil
+		if args[0] == "*" && len(args) > 1 {
+			item = msg.Content[indices[1]:]
 		}
-		err = sb.DB.RemoveItem(id, gID)
+		id, err := sb.DB.GetItem(item)
+		if err == sql.ErrNoRows {
+			return fmt.Sprintf("```%s doesn't exist!```", item), false, nil
+		}
+		if err == nil {
+			err = sb.DB.RemoveItem(id, gID)
+		}
 		if err != nil {
 			return fmt.Sprintf("```Error removing %s: %s```", item, err.Error()), false, nil
 		}
@@ -217,18 +222,25 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 		sb.DB.RemoveTag(id, v)
 	}
 
-	tags = sb.DB.GetItemTags(id, gID)
-	if len(tags) == 0 {
+	itemtags := sb.DB.GetItemTags(id, gID)
+	if len(itemtags) == 0 {
 		return fmt.Sprintf("```Removed %s (item has no tags).```", PartialSanitize(item)), false, nil
 	}
-	return fmt.Sprintf("```%s: %s```", PartialSanitize(item), PartialSanitize(strings.Join(tags, ", "))), false, nil
+
+	for k := range tags {
+		count, err := sb.DB.CountTag(tagIDs[k])
+		if err == nil {
+			tags[k] = fmt.Sprintf("%s: %v items", tags[k], count)
+		}
+	}
+	return fmt.Sprintf("```%s: %s\n---\n%s```", PartialSanitize(item), PartialSanitize(strings.Join(itemtags, ", ")), PartialSanitize(strings.Join(tags, "\n"))), false, nil
 }
 func (c *removeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Removes [arbitrary string] from [tags], or if no tags are given, removes it from all tags.",
+		Desc: "Removes [arbitrary string] from [tags], unless [tags] is *, in which case it removes it from all tags.",
 		Params: []CommandUsageParam{
-			{Name: "tag(s)", Desc: "The name of a tag. Specify multiple tags with \"tag1+tag2\". If you omit this argument, be sure to put the arbitrary string in quotes if it has spaces.", Optional: true},
-			{Name: "arbitrary string", Desc: "Arbitrary string to remove from the given tags. Quotes are necessary if you don't specify any tags, because otherwise the command is ambiguous.", Optional: false},
+			{Name: "tag(s)", Desc: "The name of a tag. Specify multiple tags with \"tag1+tag2\" (with quotes if there are spaces), or use * to remove it from all tags.", Optional: true},
+			{Name: "arbitrary string", Desc: "Arbitrary string to remove from the given tags. If this has spaces, don't omit the tag argument - use * instead.", Optional: false},
 		},
 	}
 }
@@ -347,7 +359,7 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 	var stmt *sql.Stmt
 	var params []interface{}
 	arg := "any tag"
-	if len(args) < 1 {
+	if len(args) < 1 || args[0] == "*" {
 		var err error
 		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", "")
 		if err != nil {
@@ -355,8 +367,8 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 		}
 		params = []interface{}{gID}
 	} else {
-
-		arg = msg.Content[indices[0]:]
+		//arg = msg.Content[indices[0]:]
+		arg = args[0]
 		clause, tags := BuildWhereClause(arg)
 		tagIDs, err := getTagIDs(tags, gID)
 		if err != nil {
@@ -387,7 +399,7 @@ func (c *pickCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Picks a random item from the given tags and displays it. If no tags are given, picks an item at random from all possible tags.",
 		Params: []CommandUsageParam{
-			{Name: "tag(s)", Desc: "An arbitrary tag search using the syntax `tag1|(tag2+(-tag3))`, which translates to `tag1 OR (tag2 AND NOT tag3)`.", Optional: true},
+			{Name: "tag(s)", Desc: "An arbitrary tag search using the syntax `tag1|(tag2+(-tag3))`, which translates to `tag1 OR (tag2 AND NOT tag3)`. If set to *, picks from all tags.", Optional: true},
 		},
 	}
 }
@@ -405,8 +417,8 @@ func (c *newCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	tag := strings.ToLower(args[0])
-	if strings.ContainsAny(tag, "+-|()") {
-		return "```Don't make tag names with +, -, |, or () in them, dumbass!```", false, nil
+	if strings.ContainsAny(tag, "+-|()*") {
+		return "```Don't make tag names with +, -, |, *, or () in them, dumbass!```", false, nil
 	}
 
 	gID := SBatoi(info.ID)
@@ -472,7 +484,12 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```You have to provide a tag query (in quotes if there are spaces).```", false, nil
 	}
 	arg := args[0]
-	clause, tags := BuildWhereClause(arg)
+	clause := "1=1"
+	tags := []string{}
+	if arg != "*" {
+		clause, tags = BuildWhereClause(arg)
+	}
+
 	gID := SBatoi(info.ID)
 	tagIDs, err := getTagIDs(tags, gID)
 	if err != nil {
@@ -530,7 +547,7 @@ func (c *searchTagCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns all items that match both the string specified and the tags provided. If no string is specified, just counts how many items match the query.",
 		Params: []CommandUsageParam{
-			{Name: "tags", Desc: "An arbitrary tag search using the syntax `tag1|(tag2+(-tag3))`, which translates to `tag1 OR (tag2 AND NOT tag3)`.", Optional: false},
+			{Name: "tags", Desc: "An arbitrary tag search using the syntax `tag1|(tag2+(-tag3))`, which translates to `tag1 OR (tag2 AND NOT tag3)`, or * to search all tags.", Optional: false},
 			{Name: "arbitrary string", Desc: "Arbitrary string to search for.", Optional: true},
 		},
 	}
