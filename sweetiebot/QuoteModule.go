@@ -62,7 +62,7 @@ func (c *quoteCommand) Process(args []string, msg *discordgo.Message, indices []
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > maxPublicLines, nil
 	}
 
 	q, ok := info.config.Quote.Quotes[IDs[0]]
@@ -115,7 +115,7 @@ func (c *addquoteCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > maxPublicLines, nil
 	}
 
 	if len(info.config.Quote.Quotes) == 0 {
@@ -161,7 +161,7 @@ func (c *removequoteCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > maxPublicLines, nil
 	}
 
 	index--
@@ -197,7 +197,7 @@ func (c *searchQuoteCommand) Process(args []string, msg *discordgo.Message, indi
 				s = append(s, k)
 			}
 		}
-		return "```The following users have at least one quote:\n" + strings.Join(IDsToUsernames(s, info, true), "\n") + "```", len(s) > 6, nil
+		return "```The following users have at least one quote:\n" + strings.Join(IDsToUsernames(s, info, true), "\n") + "```", len(s) > maxPublicLines, nil
 	}
 
 	arg := strings.ToLower(args[0])
@@ -206,7 +206,7 @@ func (c *searchQuoteCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
 	if len(IDs) > 1 {
-		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
+		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > maxPublicLines, nil
 	}
 	l := len(info.config.Quote.Quotes[IDs[0]])
 	if l == 0 {
@@ -216,7 +216,7 @@ func (c *searchQuoteCommand) Process(args []string, msg *discordgo.Message, indi
 	for i := 0; i < l; i++ {
 		quotes[i] = strconv.Itoa(i+1) + ". " + info.config.Quote.Quotes[IDs[0]][i]
 	}
-	return "All quotes for " + IDsToUsernames(IDs, info, false)[0] + ":\n" + strings.Join(quotes, "\n"), l > 6, nil
+	return "All quotes for " + IDsToUsernames(IDs, info, false)[0] + ":\n" + strings.Join(quotes, "\n"), l > maxPublicLines, nil
 }
 func (c *searchQuoteCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
