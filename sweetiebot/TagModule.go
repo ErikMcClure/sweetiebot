@@ -471,12 +471,7 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 	if len(args) < 1 {
 		return "```You have to provide a tag query (in quotes if there are spaces).```", false, nil
 	}
-	if len(args) < 2 {
-		return "```You have to provide something to search for (use !tags to explore what items are in which tags).```", false, nil
-	}
-
 	arg := args[0]
-	search := "%" + msg.Content[indices[1]:] + "%"
 	clause, tags := BuildWhereClause(arg)
 	gID := SBatoi(info.ID)
 	tagIDs, err := getTagIDs(tags, gID)
@@ -488,10 +483,27 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 	for k, v := range tagIDs {
 		params[k] = v
 	}
-	params = append(params, search)
 	params = append(params, gID)
 
-	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND I.Content LIKE ? AND T.Guild = ? GROUP BY I.Content", arg, params...)
+	if len(args) < 2 {
+		stmt, err := c.w.prepStatement("SELECT COUNT(DISTINCT I.Content) FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND T.Guild = ?", arg)
+		if err == nil {
+			var count uint64
+			q := stmt.QueryRow(params...)
+			err := q.Scan(&count)
+			if err == sql.ErrNoRows {
+				return fmt.Sprintf("```No items were returned by %s!```", arg), false, nil
+			} else if err == nil {
+				return fmt.Sprintf("```Number of items matching %s: %v```", arg, count), false, nil
+			}
+		}
+		return err.Error(), false, nil
+	}
+
+	search := "%" + msg.Content[indices[1]:] + "%"
+	params = append(params, search)
+
+	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND T.Guild = ? AND I.Content LIKE ? GROUP BY I.Content", arg, params...)
 	if err != nil {
 		return err.Error(), false, nil
 	}
@@ -516,10 +528,10 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 }
 func (c *searchTagCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Returns all items that match both the string specified and the tags provided.",
+		Desc: "Returns all items that match both the string specified and the tags provided. If no string is specified, just counts how many items match the query.",
 		Params: []CommandUsageParam{
 			{Name: "tags", Desc: "An arbitrary tag search using the syntax `tag1|(tag2+(-tag3))`, which translates to `tag1 OR (tag2 AND NOT tag3)`.", Optional: false},
-			{Name: "arbitrary string", Desc: "Arbitrary string to search for.", Optional: false},
+			{Name: "arbitrary string", Desc: "Arbitrary string to search for.", Optional: true},
 		},
 	}
 }
