@@ -551,26 +551,84 @@ func (info *GuildInfo) HasChannel(id string) bool {
 	return c.GuildID == info.ID
 }
 
+// Log the given arguments to the server, the command line, and the database
 func (info *GuildInfo) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
 	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
 	if sb.DB != nil && info != nil && sb.IsMainGuild(info) && sb.DB.status.get() {
-		sb.DB.Audit(AUDIT_TYPE_LOG, nil, s, SBatoi(info.ID))
+		sb.DB.Audit(AuditTypeLog, nil, s, SBatoi(info.ID))
 	}
 	if info != nil && info.config.Log.Channel > 0 {
 		info.SendMessage(SBitoa(info.config.Log.Channel), "```\n"+s+"```")
 	}
 }
 
+// LogError logs an error only if it exists
 func (info *GuildInfo) LogError(msg string, err error) {
 	if err != nil {
 		info.Log(msg, err.Error())
 	}
 }
 
+// Error prints an error message with a saturation limit
 func (info *GuildInfo) Error(channelID string, message string) {
 	if info != nil && RateLimit(&info.lastlogerr, info.config.Log.Cooldown) { // Don't print more than one error message every n seconds.
 		info.SendMessage(channelID, "```\n"+message+"```")
 	}
 	//Log(message); // Always log it to the debug log. TODO: This is really annoying, maybe we shouldn't do this
+}
+
+// UserHasRole returns true if the specified user ID has the given role ID (both in strings)
+func (info *GuildInfo) UserHasRole(user string, role string) bool {
+	m, err := info.GetMember(user)
+	if err == nil {
+		for _, v := range m.Roles {
+			if v == role {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// UserHasAnyRole returns true if the user ID (as a string) has any of the role IDs given (as a map of strings)
+func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
+	if len(roles) == 0 {
+		return true
+	}
+	m, err := info.GetMember(user)
+	_, reverse := roles["!"]
+	if err == nil {
+		for _, v := range m.Roles {
+			_, ok := roles[v]
+			if ok {
+				return !reverse
+			}
+		}
+	}
+	return reverse
+}
+
+// GetMember attempts to get a member from the guild by checking the state first before making the REST API call.
+func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
+	m, err := sb.DG.State.Member(info.ID, id)
+	if err == nil {
+		return m, nil
+	}
+	return sb.DG.GuildMember(info.ID, id)
+}
+
+// GetMemberCreate creates a member if they don't exist, so it is guaranteed to return a Member
+func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
+	m, err := sb.DG.State.Member(info.ID, u.ID)
+	if err == nil {
+		return m
+	}
+
+	m, err = sb.DG.GuildMember(info.ID, u.ID)
+	if err != nil || m == nil {
+		m = &discordgo.Member{info.ID, "", "", false, false, u, []string{}}
+	}
+	sb.DG.State.MemberAdd(m)
+	return m
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// MiscModule contains miscellaneous commands
 type MiscModule struct {
 	emotes  *EmoteModule
 	spoiler *SpoilerModule
@@ -23,10 +24,10 @@ func (w *MiscModule) Name() string {
 // Commands in the module
 func (w *MiscModule) Commands() []Command {
 	return []Command{
-		&LastSeenCommand{},
+		&lastSeenCommand{},
 		&searchCommand{emotes: w.emotes, statements: make(map[string][]*sql.Stmt)},
 		&rollCommand{},
-		&SnowflakeTimeCommand{},
+		&snowflakeTimeCommand{},
 		&addSetCommand{w},
 		&removeSetCommand{w},
 		&searchSetCommand{},
@@ -38,13 +39,13 @@ func (w *MiscModule) Description() string {
 	return "A collection of miscellaneous commands that don't belong to a module."
 }
 
-type LastSeenCommand struct {
+type lastSeenCommand struct {
 }
 
-func (c *LastSeenCommand) Name() string {
+func (c *lastSeenCommand) Name() string {
 	return "LastSeen"
 }
-func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *lastSeenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
@@ -70,7 +71,7 @@ func (c *LastSeenCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	return "```" + nick + " last seen " + TimeDiff(SinceUTC(lastseen)) + " ago.```", false, nil
 }
-func (c *LastSeenCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *lastSeenCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns when a user was last seen on discord, which is usually their last status change.",
 		Params: []CommandUsageParam{
@@ -78,15 +79,15 @@ func (c *LastSeenCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *LastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
+func (c *lastSeenCommand) UsageShort() string { return "Returns when a user was last seen." }
 
-type SnowflakeTimeCommand struct {
+type snowflakeTimeCommand struct {
 }
 
-func (c *SnowflakeTimeCommand) Name() string {
+func (c *snowflakeTimeCommand) Name() string {
 	return "SnowflakeTime"
 }
-func (c *SnowflakeTimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *snowflakeTimeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to give me an ID!```", false, nil
 	}
@@ -95,7 +96,7 @@ func (c *SnowflakeTimeCommand) Process(args []string, msg *discordgo.Message, in
 	tz := getTimezone(info, msg.Author)
 	return t.In(tz).Format(time.RFC1123), false, nil
 }
-func (c *SnowflakeTimeCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *snowflakeTimeCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Given a discord snowflake ID, returns when that ID was created.",
 		Params: []CommandUsageParam{
@@ -103,13 +104,13 @@ func (c *SnowflakeTimeCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *SnowflakeTimeCommand) UsageShort() string { return "Returns when a snowflake ID was created." }
+func (c *snowflakeTimeCommand) UsageShort() string { return "Returns when a snowflake ID was created." }
 
 type addSetCommand struct {
 	m *MiscModule
 }
 
-func GetAllSets(info *GuildInfo) []string {
+func getAllSets(info *GuildInfo) []string {
 	sets := []string{}
 	for k := range info.config.Collections {
 		sets = append(sets, k)
@@ -122,7 +123,7 @@ func (c *addSetCommand) Name() string {
 }
 func (c *addSetCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```No set given. All sets: " + strings.Join(GetAllSets(info), ", ") + "```", false, nil
+		return "```No set given. All sets: " + strings.Join(getAllSets(info), ", ") + "```", false, nil
 	}
 	if len(args) < 2 {
 		return "```Can't add empty string!```", false, nil
@@ -180,7 +181,7 @@ func (c *removeSetCommand) Name() string {
 }
 func (c *removeSetCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```No set given. All sets: " + strings.Join(GetAllSets(info), ", ") + "```", false, nil
+		return "```No set given. All sets: " + strings.Join(getAllSets(info), ", ") + "```", false, nil
 	}
 	if len(args) < 2 {
 		return "```Can't remove an empty string!```", false, nil
@@ -232,7 +233,7 @@ func (c *searchSetCommand) Name() string {
 }
 func (c *searchSetCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```No set given. All sets: " + strings.Join(GetAllSets(info), ", ") + "```", false, nil
+		return "```No set given. All sets: " + strings.Join(getAllSets(info), ", ") + "```", false, nil
 	}
 
 	set := strings.ToLower(args[0])

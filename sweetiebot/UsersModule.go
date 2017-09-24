@@ -125,7 +125,7 @@ func (c *akaCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *akaCommand) UsageShort() string { return "Lists all known aliases of a user." }
 
-func ProcessDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, uID string, gID uint64) (string, string) {
+func processDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, uID string, gID uint64) (string, string) {
 	reason := ""
 	if len(args) > 0 {
 		if strings.ToLower(args[0]) == "for:" {
@@ -208,7 +208,7 @@ func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```Error: User does not exist!```", false, nil
 	}
 	uID := SBitoa(IDs[0])
-	reason, e := ProcessDurationAndReason(args[1:], msg, indices[1:], 0, uID, gID)
+	reason, e := processDurationAndReason(args[1:], msg, indices[1:], 0, uID, gID)
 	if len(e) > 0 {
 		return e, false, nil
 	}
@@ -346,9 +346,8 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 	if len(tz) < 1 {
 		if len(args) < 2 {
 			return "```Could not find any timezone locations that match that string. Try broadening your search (for example, search for 'America' or 'Pacific').```", false, nil
-		} else {
-			return "```Could not find any timezone locations that match that string and offset combination. Try broadening your search, or leaving out the timezone offset parameter.```", false, nil
 		}
+		return "```Could not find any timezone locations that match that string and offset combination. Try broadening your search, or leaving out the timezone offset parameter.```", false, nil
 	}
 	if len(tz) > 1 {
 		return "Could be any of the following timezones:\n" + strings.Join(tz, "\n"), len(tz) > 6, nil
@@ -563,7 +562,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	gID := SBatoi(info.ID)
 	uID := SBitoa(IDs[0])
-	reason, e := ProcessDurationAndReason(args[index:], msg, indices[index:], 8, uID, gID)
+	reason, e := processDurationAndReason(args[index:], msg, indices[index:], 8, uID, gID)
 	if len(e) > 0 {
 		return e, false, nil
 	}

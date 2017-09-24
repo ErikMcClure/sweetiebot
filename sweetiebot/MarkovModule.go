@@ -42,7 +42,7 @@ func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	if c.lock.test_and_set() {
+	if c.lock.testAndSet() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
 	defer c.lock.clear()
@@ -79,7 +79,7 @@ func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 		}
 	}
 
-	return strings.Join(lines, "\n"), len(lines) > 5, nil
+	return strings.Join(lines, "\n"), len(lines) > maxPublicLines, nil
 }
 func (c *episodeGenCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

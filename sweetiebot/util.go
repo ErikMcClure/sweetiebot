@@ -169,61 +169,6 @@ func boolXOR(a bool, b bool) bool {
 	return (a && !b) || (!a && b)
 }
 
-// UserHasRole returns true if the specified user ID has the given role ID (both in strings)
-func (info *GuildInfo) UserHasRole(user string, role string) bool {
-	m, err := info.GetMember(user)
-	if err == nil {
-		for _, v := range m.Roles {
-			if v == role {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// UserHasAnyRole returns true if the user ID (as a string) has any of the role IDs given (as a map of strings)
-func (info *GuildInfo) UserHasAnyRole(user string, roles map[string]bool) bool {
-	if len(roles) == 0 {
-		return true
-	}
-	m, err := info.GetMember(user)
-	_, reverse := roles["!"]
-	if err == nil {
-		for _, v := range m.Roles {
-			_, ok := roles[v]
-			if ok {
-				return !reverse
-			}
-		}
-	}
-	return reverse
-}
-
-// GetMember attempts to get a member from the guild by checking the state first before making the REST API call.
-func (info *GuildInfo) GetMember(id string) (*discordgo.Member, error) {
-	m, err := sb.DG.State.Member(info.ID, id)
-	if err == nil {
-		return m, nil
-	}
-	return sb.DG.GuildMember(info.ID, id)
-}
-
-// GetMemberCreate creates a member if they don't exist, so it is guaranteed to return a Member
-func (info *GuildInfo) GetMemberCreate(u *discordgo.User) *discordgo.Member {
-	m, err := sb.DG.State.Member(info.ID, u.ID)
-	if err == nil {
-		return m
-	}
-
-	m, err = sb.DG.GuildMember(info.ID, u.ID)
-	if err != nil || m == nil {
-		m = &discordgo.Member{info.ID, "", "", false, false, u, []string{}}
-	}
-	sb.DG.State.MemberAdd(m)
-	return m
-}
-
 // ReadUserPingArg performs common error handling for resolving user pings
 func ReadUserPingArg(args []string) (uint64, string) {
 	if len(args) < 1 {
@@ -982,17 +927,18 @@ func MigrateSettings(config []byte, guild *GuildInfo) error {
 	return nil
 }
 
+// Time format options
 const (
-	FORMAT_PARTIALYEAR = 0
-	FORMAT_FULLYEAR    = 1
-	FORMAT_NOYEAR      = 2
-	FORMAT_STANDARD    = 0
-	FORMAT_MILITARY    = 1
-	FORMAT_NOTIME      = 2
-	FORMAT_ZONEOFFSET  = 0
-	FORMAT_ZONEHOURS   = 1
-	FORMAT_ZONENAME    = 2
-	FORMAT_NOZONE      = 3
+	FormatPartialYear = 0
+	FormatFullYear    = 1
+	FormatNoYear      = 2
+	FormatStandard    = 0
+	FormatMilitary    = 1
+	FormatNoTime      = 2
+	FormatZoneOffset  = 0
+	FormatZoneHours   = 1
+	FormatZoneName    = 2
+	FormatNoZone      = 3
 )
 
 func getTimeFormat(monthfirst bool, fullmonth bool, year int, hours int, timezone int) string {
@@ -1005,23 +951,23 @@ func getTimeFormat(monthfirst bool, fullmonth bool, year int, hours int, timezon
 		date = month + " _2"
 	}
 	switch year {
-	case FORMAT_PARTIALYEAR:
+	case FormatPartialYear:
 		date += " 06"
-	case FORMAT_FULLYEAR:
+	case FormatFullYear:
 		date += " 2006"
 	}
 	switch hours {
-	case FORMAT_STANDARD:
+	case FormatStandard:
 		date += " 3:04pm"
-	case FORMAT_MILITARY:
+	case FormatMilitary:
 		date += " 15:04"
 	}
 	switch timezone {
-	case FORMAT_ZONEOFFSET:
+	case FormatZoneOffset:
 		date += " -0700"
-	case FORMAT_ZONEHOURS:
+	case FormatZoneHours:
 		date += " -07"
-	case FORMAT_ZONENAME:
+	case FormatZoneName:
 		date += " MST"
 	}
 	return date
@@ -1039,13 +985,13 @@ func parseCommonTime(s string, info *GuildInfo, user *discordgo.User) (time.Time
 					for fullmonth := 0; fullmonth < 2; fullmonth++ {
 						format := getTimeFormat(monthfirst != 0, fullmonth != 0, year, hours, timezone)
 
-						if timezone == FORMAT_NOZONE {
+						if timezone == FormatNoZone {
 							t, err = time.ParseInLocation(format, s, tz)
 						} else {
 							t, err = time.Parse(format, s)
 						}
 						if err == nil {
-							if year == FORMAT_NOYEAR {
+							if year == FormatNoYear {
 								t = t.AddDate(ApplyTimezone(time.Now().UTC(), info, user).Year(), 0, 0)
 							}
 							return t, err

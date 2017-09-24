@@ -25,7 +25,7 @@ func realmod(x int, m int) int {
 	return x
 }
 
-func (f *AtomicFlag) test_and_set() bool {
+func (f *AtomicFlag) testAndSet() bool {
 	return atomic.SwapUint32(&f.flag, 1) != 0
 }
 
@@ -34,7 +34,7 @@ func (f *AtomicFlag) clear() {
 }
 
 func (s *SaturationLimit) append(time int64) {
-	for s.lock.test_and_set() {
+	for s.lock.testAndSet() {
 	}
 	s.index = realmod(s.index+1, len(s.times))
 	s.times[s.index] = time
@@ -43,7 +43,7 @@ func (s *SaturationLimit) append(time int64) {
 
 // Used for our own saturation limits, where we check to see if sending the message would violate our limit BEFORE we actually send it.
 func (s *SaturationLimit) check(num int, period int64, curtime int64) bool {
-	for s.lock.test_and_set() {
+	for s.lock.testAndSet() {
 	}
 	i := realmod(s.index-(num-1), len(s.times))
 	b := (curtime - s.times[i]) <= period
@@ -53,7 +53,7 @@ func (s *SaturationLimit) check(num int, period int64, curtime int64) bool {
 
 // Used for spam detection, where we always insert the message first (because it's already happened) and THEN check to see if it violated the limit.
 func (s *SaturationLimit) checkafter(num int, period int64) bool {
-	for s.lock.test_and_set() {
+	for s.lock.testAndSet() {
 	}
 	i := realmod(s.index-num, len(s.times))
 	b := (s.times[s.index] - s.times[i]) <= period
@@ -62,7 +62,7 @@ func (s *SaturationLimit) checkafter(num int, period int64) bool {
 }
 
 func (s *SaturationLimit) resize(size int) {
-	for s.lock.test_and_set() {
+	for s.lock.testAndSet() {
 	}
 	n := make([]int64, size, size)
 	copy(n, s.times)
@@ -97,7 +97,7 @@ func (b *AtomicBool) get() bool {
 }
 
 func (b *AtomicBool) set(value bool) {
-	var v uint32 = 0
+	var v uint32
 	if value {
 		v = 1
 	}

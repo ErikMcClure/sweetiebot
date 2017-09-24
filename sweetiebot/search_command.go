@@ -30,7 +30,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	if !sb.DB.CheckStatus() {
 		return "```A temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	if c.lock.test_and_set() {
+	if c.lock.testAndSet() {
 		return "```Sorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
 	defer c.lock.clear()

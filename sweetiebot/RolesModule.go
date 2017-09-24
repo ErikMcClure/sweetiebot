@@ -4,6 +4,7 @@ import "github.com/blackhole12/discordgo"
 import "fmt"
 import "strings"
 
+// RolesModule contains commands for manipulating user-assignable roles.
 type RolesModule struct {
 }
 

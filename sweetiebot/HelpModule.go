@@ -191,7 +191,7 @@ func (c *rulesCommand) Process(args []string, msg *discordgo.Message, indices []
 				rules = append(rules, fmt.Sprintf("%v. %s", v, info.config.Help.Rules[v]))
 			}
 		}
-		return strings.Join(rules, "\n"), len(rules) > 4, nil
+		return strings.Join(rules, "\n"), len(rules) > maxPublicRules, nil
 	}
 
 	arg, err := strconv.Atoi(args[0])
@@ -232,7 +232,7 @@ func (c *changelogCommand) Process(args []string, msg *discordgo.Message, indice
 			version := Version{byte(k >> 24), byte((k >> 16) & 0xFF), byte((k >> 8) & 0xFF), byte(k & 0xFF)}
 			versions = append(versions, version.String())
 		}
-		return "```\n" + strings.Join(versions, "\n") + "```", len(versions) > 6, nil
+		return "```\n" + strings.Join(versions, "\n") + "```", len(versions) > maxPublicLines, nil
 	}
 	if strings.ToLower(args[0]) == "current" {
 		v = sb.version

@@ -9,12 +9,16 @@ import (
 	"time"
 
 	"github.com/blackhole12/discordgo"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
 )
 
-var ErrDuplicateEntry = errors.New("Error 1062: Duplicate entry for unique key.")
-var ErrLockWaitTimeout = errors.New("Error 1205: Lock wait timeout exceeded.")
+// ErrDuplicateEntry - Error 1062: Duplicate entry for unique key
+var ErrDuplicateEntry = errors.New("Error 1062: Duplicate entry for unique key")
 
+// ErrLockWaitTimeout - Error 1205: Lock wait timeout exceeded
+var ErrLockWaitTimeout = errors.New("Error 1205: Lock wait timeout exceeded")
+
+// BotDB contains the database connection and all database Prepared statements exposed as functions
 type BotDB struct {
 	db                        *sql.DB
 	status                    AtomicBool
@@ -110,7 +114,7 @@ type BotDB struct {
 	sqlImportTag              *sql.Stmt
 }
 
-func DB_Load(log logger, driver string, conn string) (*BotDB, error) {
+func dbLoad(log logger, driver string, conn string) (*BotDB, error) {
 	cdb, err := sql.Open(driver, conn)
 	r := BotDB{}
 	r.db = cdb
@@ -129,6 +133,7 @@ func DB_Load(log logger, driver string, conn string) (*BotDB, error) {
 	return &r, err
 }
 
+// Close destroys the database connection
 func (db *BotDB) Close() {
 	if db.db != nil {
 		db.db.Close()
@@ -136,7 +141,7 @@ func (db *BotDB) Close() {
 	}
 }
 
-func (db *BotDB) StandardErr(err error) error {
+func (db *BotDB) standardErr(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -150,6 +155,8 @@ func (db *BotDB) StandardErr(err error) error {
 	}
 	return err
 }
+
+// Prepare a sql statement and logs an error if it fails
 func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 	statement, err := db.db.Prepare(s)
 	if err != nil {
@@ -158,11 +165,13 @@ func (db *BotDB) Prepare(s string) (*sql.Stmt, error) {
 	return statement, err
 }
 
-const DB_RECONNECT_TIMEOUT = time.Duration(30) * time.Second // Reconnect time interval in seconds
+// DBReconnectTimeout is the reconnect time interval in seconds
+const DBReconnectTimeout = time.Duration(30) * time.Second
 
+// CheckStatus checks if the database connection has been lost
 func (db *BotDB) CheckStatus() bool {
 	if !db.status.get() {
-		if db.statuslock.test_and_set() { // If this was already true, bail out
+		if db.statuslock.testAndSet() { // If this was already true, bail out
 			return false
 		}
 		defer db.statuslock.clear()
@@ -171,12 +180,12 @@ func (db *BotDB) CheckStatus() bool {
 			return true
 		}
 
-		if db.lastattempt.Add(DB_RECONNECT_TIMEOUT).Before(time.Now().UTC()) {
+		if db.lastattempt.Add(DBReconnectTimeout).Before(time.Now().UTC()) {
 			db.log.Log("Database failure detected! Attempting to reboot database connection...")
 			db.lastattempt = time.Now().UTC()
 			err := db.db.Ping()
 			if err != nil {
-				db.log.LogError("Reconnection failed! Another attempt will be made in "+TimeDiff(DB_RECONNECT_TIMEOUT)+". Error: ", err)
+				db.log.LogError("Reconnection failed! Another attempt will be made in "+TimeDiff(DBReconnectTimeout)+". Error: ", err)
 				return false
 			}
 			err = db.LoadStatements()                       // If we re-establish connection, we must reload statements in case they were lost or never loaded in the first place
@@ -191,6 +200,7 @@ func (db *BotDB) CheckStatus() bool {
 	return true
 }
 
+// LoadStatements loads all Prepared statements
 func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sqlAddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
@@ -281,13 +291,14 @@ func (db *BotDB) LoadStatements() error {
 	return err
 }
 
+// Audit types
 const (
-	AUDIT_TYPE_LOG     = iota
-	AUDIT_TYPE_ACTION  = iota
-	AUDIT_TYPE_COMMAND = iota
+	AuditTypeLog     = iota
+	AuditTypeAction  = iota
+	AuditTypeCommand = iota
 )
 
-func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
+func (db *BotDB) parseStringResults(q *sql.Rows) []string {
 	r := make([]string, 0, 3)
 	for q.Next() {
 		p := ""
@@ -299,6 +310,8 @@ func (db *BotDB) ParseStringResults(q *sql.Rows) []string {
 	}
 	return r
 }
+
+// CheckError logs any unknown errors and pings the database to check if it's still there
 func (db *BotDB) CheckError(name string, err error) bool {
 	if err != nil {
 		if err != sql.ErrNoRows && err != sql.ErrTxDone && err != ErrDuplicateEntry && err != ErrLockWaitTimeout {
@@ -314,11 +327,13 @@ func (db *BotDB) CheckError(name string, err error) bool {
 	return false
 }
 
+// AddMessage logs a message to the chatlog
 func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool, guild uint64) {
 	_, err := db.sqlAddMessage.Exec(id, author, message, channel, everyone, guild)
 	db.CheckError("AddMessage", err)
 }
 
+// GetMessage gets a message from the chatlog (if it exists)
 func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
 	var author uint64
 	var message string
@@ -331,33 +346,39 @@ func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
 	return author, message, timestamp, channel
 }
 
+// PingContext contains a simplified context for a message
 type PingContext struct {
 	Author    string
 	Message   string
 	Timestamp time.Time
 }
 
+// AddUser adds or updates user information
 func (db *BotDB) AddUser(id uint64, username string, discriminator int, avatar string, isonline bool) {
 	_, err := db.sqlAddUser.Exec(id, username, discriminator, avatar, isonline)
 	db.CheckError("AddUser", err)
 }
 
+// AddMember adds or updates guild-specific user information
 func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nickname string) {
 	_, err := db.sqlAddMember.Exec(id, guild, firstseen, nickname)
 	db.CheckError("AddMember", err)
 }
+
+// RemoveMember removes a user from a guild
 func (db *BotDB) RemoveMember(id uint64, guild uint64) error {
 	_, err := db.sqlRemoveMember.Exec(guild, id)
 	db.CheckError("RemoveMember", err)
 	return err
 }
 
+// GetUser gets the guild-independent information about a user (if it exists)
 func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location, *uint64) {
 	u := &discordgo.User{}
 	var lastseen time.Time
 	var loc sql.NullString
 	var guild sql.NullInt64
-	var discriminator int = 0
+	var discriminator int
 	err := db.sqlGetUser.QueryRow(id).Scan(&u.ID, &u.Username, &discriminator, &u.Avatar, &lastseen, &loc, &guild)
 	if discriminator > 0 {
 		u.Discriminator = strconv.Itoa(discriminator)
@@ -372,13 +393,14 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	return u, lastseen, evalTimeZone(loc), &g
 }
 
+// GetMember gets all information about a user for the given guild
 func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Time, *time.Time) {
 	m := &discordgo.Member{}
 	m.User = &discordgo.User{}
 	var lastseen time.Time
 	var firstmessage *time.Time
 	var joinedat time.Time
-	var discriminator int = 0
+	var discriminator int
 	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat, &firstmessage)
 	if !joinedat.IsZero() {
 		m.JoinedAt = joinedat.Format(time.RFC3339)
@@ -397,6 +419,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	return m, lastseen, firstmessage
 }
 
+// FindGuildUsers returns all users in a guild that could satisfy the given name.
 func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
 	q, err := db.sqlFindGuildUsers.Query(guild, name, name, name, maxresults, offset)
 	if db.CheckError("FindGuildUsers", err) {
@@ -413,6 +436,7 @@ func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, g
 	return r
 }
 
+// FindUsers returns all users from ANY guild that could satisfy the given name.
 func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
 	q, err := db.sqlFindUsers.Query(name, name, name, maxresults, offset)
 	if db.CheckError("FindUsers", err) {
@@ -429,6 +453,7 @@ func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint
 	return r
 }
 
+// GetRecentMessages returns all messages logged for a user in the given duration
 func (db *BotDB) GetRecentMessages(user uint64, duration uint64, guild uint64) []struct {
 	message uint64
 	channel uint64
@@ -457,6 +482,7 @@ func (db *BotDB) GetRecentMessages(user uint64, duration uint64, guild uint64) [
 	return r
 }
 
+// GetNewestUsers gets the last maxresults users to join the guild
 func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 	User      *discordgo.User
 	FirstSeen time.Time
@@ -485,6 +511,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 	return r
 }
 
+// GetRecentUsers returns any users whose first message was sent after the given timestamp
 func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User {
 	q, err := db.sqlGetRecentUsers.Query(guild, since)
 	if db.CheckError("GetRecentUsers", err) {
@@ -501,15 +528,17 @@ func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User
 	return r
 }
 
+// GetAliases returns all aliases for the given user
 func (db *BotDB) GetAliases(user uint64) []string {
 	q, err := db.sqlGetAliases.Query(user)
 	if db.CheckError("GetAliases", err) {
 		return []string{}
 	}
 	defer q.Close()
-	return db.ParseStringResults(q)
+	return db.parseStringResults(q)
 }
 
+// Audit logs an action to the audit log
 func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uint64) {
 	var err error
 	if user == nil {
@@ -523,6 +552,7 @@ func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uin
 	}
 }
 
+// GetAuditRows returns rows from the audit log
 func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search string, guild uint64) []PingContext {
 	var q *sql.Rows
 	var err error
@@ -532,13 +562,13 @@ func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search str
 	}
 
 	if user != nil && len(search) > 0 {
-		q, err = db.sqlGetAuditRowsUserString.Query(AUDIT_TYPE_COMMAND, guild, *user, search, maxresults, start)
+		q, err = db.sqlGetAuditRowsUserString.Query(AuditTypeCommand, guild, *user, search, maxresults, start)
 	} else if user != nil && len(search) == 0 {
-		q, err = db.sqlGetAuditRowsUser.Query(AUDIT_TYPE_COMMAND, guild, *user, maxresults, start)
+		q, err = db.sqlGetAuditRowsUser.Query(AuditTypeCommand, guild, *user, maxresults, start)
 	} else if user == nil && len(search) > 0 {
-		q, err = db.sqlGetAuditRowsString.Query(AUDIT_TYPE_COMMAND, guild, search, maxresults, start)
+		q, err = db.sqlGetAuditRowsString.Query(AuditTypeCommand, guild, search, maxresults, start)
 	} else {
-		q, err = db.sqlGetAuditRows.Query(AUDIT_TYPE_COMMAND, guild, maxresults, start)
+		q, err = db.sqlGetAuditRows.Query(AuditTypeCommand, guild, maxresults, start)
 	}
 	if db.CheckError("GetAuditRows", err) {
 		return []PingContext{}
@@ -555,6 +585,7 @@ func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search str
 	return r
 }
 
+// GetTableCounts returns a debug dump count of the tables
 func (db *BotDB) GetTableCounts() string {
 	if !db.status.get() {
 		return "DATABASE ERROR"
@@ -567,6 +598,7 @@ func (db *BotDB) GetTableCounts() string {
 	return counts
 }
 
+// AddTranscript is used to construct the markov chain
 func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string, text string) {
 	_, err := db.sqlAddTranscript.Exec(season, episode, line, speaker, text)
 	if err != nil {
@@ -574,6 +606,7 @@ func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string
 	}
 }
 
+// Transcript describes a single line from the transcript
 type Transcript struct {
 	Season  uint
 	Episode uint
@@ -582,6 +615,7 @@ type Transcript struct {
 	Text    string
 }
 
+// GetTranscript gets all lines that satisfy the query from the transcripts
 func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Transcript {
 	q, err := db.sqlGetTranscript.Query(season, episode, start, end)
 	if db.CheckError("GetTranscript", err) {
@@ -602,10 +636,13 @@ func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Tr
 	return r
 }
 
+// RemoveTranscript removes a line from the transcripts
 func (db *BotDB) RemoveTranscript(season int, episode int, line int) {
 	_, err := db.sqlRemoveTranscript.Exec(season, episode, line)
 	db.CheckError("RemoveTranscript", err)
 }
+
+// AddMarkov adds a line to the markov chain
 func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text string) uint64 {
 	var id uint64
 	err := db.sqlAddMarkov.QueryRow(last, last2, speaker, text).Scan(&id)
@@ -613,6 +650,7 @@ func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text strin
 	return id
 }
 
+// GetMarkovLine generates a line from the markov chain
 func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
 	var r sql.NullString
 	err := db.sqlGetMarkovLine.QueryRow(last).Scan(&r)
@@ -626,6 +664,7 @@ func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
 	return str[0], SBatoi(str[1])
 }
 
+// GetMarkovLine2 generates a line from the markov chain
 func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint64) {
 	var r sql.NullString
 	err := db.sqlGetMarkovLine2.QueryRow(last, last2).Scan(&r)
@@ -638,6 +677,8 @@ func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint
 	}
 	return str[0], SBatoi(str[1]), SBatoi(str[2])
 }
+
+// GetMarkovWord generates a word from the markov chain
 func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
 	var r string
 	err := db.sqlGetMarkovWord.QueryRow(speaker, phrase).Scan(&r)
@@ -647,6 +688,8 @@ func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
 	db.CheckError("GetMarkovWord", err)
 	return r
 }
+
+// GetRandomQuote gets a random quote from the transcript
 func (db *BotDB) GetRandomQuote() Transcript {
 	var i uint64
 	err := db.sqlGetRandomQuoteInt.QueryRow().Scan(&i)
@@ -657,6 +700,8 @@ func (db *BotDB) GetRandomQuote() Transcript {
 	}
 	return p
 }
+
+// GetSpeechQuote gets a random speech quote from the transcript
 func (db *BotDB) GetSpeechQuote() Transcript {
 	var i uint64
 	err := db.sqlGetSpeechQuoteInt.QueryRow().Scan(&i)
@@ -667,6 +712,8 @@ func (db *BotDB) GetSpeechQuote() Transcript {
 	}
 	return p
 }
+
+// GetCharacterQuote gets a random character quote from the transcript
 func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	var i uint64
 	err := db.sqlGetCharacterQuoteInt.QueryRow(character).Scan(&i)
@@ -679,6 +726,8 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	}
 	return p
 }
+
+// GetRandomSpeaker gets a random speaker from the transcript
 func (db *BotDB) GetRandomSpeaker() string {
 	var i uint64
 	err := db.sqlGetRandomSpeakerInt.QueryRow().Scan(&i)
@@ -689,6 +738,8 @@ func (db *BotDB) GetRandomSpeaker() string {
 	}
 	return p
 }
+
+// GetRandomMember gets a random user from the guild
 func (db *BotDB) GetRandomMember(guild uint64) string {
 	var i uint64
 	err := db.sqlGetRandomMemberInt.QueryRow(guild).Scan(&i)
@@ -699,6 +750,8 @@ func (db *BotDB) GetRandomMember(guild uint64) string {
 	}
 	return p
 }
+
+// GetRandomWord gets a random word from the markov chain
 func (db *BotDB) GetRandomWord() string {
 	var i uint64
 	err := db.sqlGetRandomWordInt.QueryRow().Scan(&i)
@@ -709,6 +762,8 @@ func (db *BotDB) GetRandomWord() string {
 	}
 	return p
 }
+
+// CountNewUsers returns a count of users joined in the given duration
 func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 	var i int
 	err := db.sqlCountNewUsers.QueryRow(seconds, guild).Scan(&i)
@@ -716,10 +771,13 @@ func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 	return i
 }
 
+// RemoveSchedule removes the event with the given ID
 func (db *BotDB) RemoveSchedule(id uint64) {
 	_, err := db.sqlRemoveSchedule.Exec(id)
 	db.CheckError("RemoveSchedule", err)
 }
+
+// AddSchedule adds an event to the schedule
 func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) bool {
 	var i int
 	err := db.sqlCountEvents.QueryRow(guild).Scan(&i)
@@ -730,6 +788,8 @@ func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string
 	}
 	return false
 }
+
+// AddScheduleRepeat adds a repeating event to the schedule
 func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) bool {
 	var i int
 	err := db.sqlCountEvents.QueryRow(guild).Scan(&i)
@@ -740,6 +800,7 @@ func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval 
 	return false
 }
 
+// ScheduleEvent describes an event in the schedule
 type ScheduleEvent struct {
 	ID   uint64
 	Date time.Time
@@ -747,6 +808,7 @@ type ScheduleEvent struct {
 	Data string
 }
 
+// GetSchedule gets all events for a guild
 func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 	q, err := db.sqlGetSchedule.Query(guild)
 	if db.CheckError("GetSchedule", err) {
@@ -763,6 +825,7 @@ func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 	return r
 }
 
+// GetEvent gets the event data for the given ID
 func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
 	e := &ScheduleEvent{}
 	err := db.sqlGetEvent.QueryRow(id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
@@ -772,6 +835,7 @@ func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
 	return e
 }
 
+// GetEvents gets all events for a guild up to maxnum
 func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetEvents.Query(guild, maxnum)
 	if db.CheckError("GetEvents", err) {
@@ -788,6 +852,7 @@ func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
 	return r
 }
 
+// GetEventsByType gets all events for a given type
 func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetEventsByType.Query(guild, ty, maxnum)
 	if db.CheckError("GetEventsByType", err) {
@@ -804,6 +869,7 @@ func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleE
 	return r
 }
 
+// GetNextEvent gets the next event of the given type
 func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 	p := ScheduleEvent{}
 	err := db.sqlGetNextEvent.QueryRow(guild, ty).Scan(&p.ID, &p.Date, &p.Type, &p.Data)
@@ -813,6 +879,7 @@ func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 	return p
 }
 
+// GetReminders gets reminders for the given user
 func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetReminders.Query(guild, id+"|%", maxnum)
 	if db.CheckError("GetReminders", err) {
@@ -829,6 +896,7 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 	return r
 }
 
+// GetUnsilenceDate returns the unsilence date for the given user if it exists
 func (db *BotDB) GetUnsilenceDate(guild uint64, id uint64) *time.Time {
 	var timestamp time.Time
 	err := db.sqlGetUnsilenceDate.QueryRow(guild, id).Scan(&timestamp)
@@ -848,6 +916,7 @@ func evalTimeZone(loc sql.NullString) *time.Location {
 	return nil
 }
 
+// GetTimeZone returns the evaluated timezone for the user
 func (db *BotDB) GetTimeZone(user uint64) *time.Location {
 	var loc sql.NullString
 	err := db.sqlGetTimeZone.QueryRow(user).Scan(&loc)
@@ -857,6 +926,7 @@ func (db *BotDB) GetTimeZone(user uint64) *time.Location {
 	return evalTimeZone(loc)
 }
 
+// FindTimeZone returns all matching timezone locations
 func (db *BotDB) FindTimeZone(s string) []string {
 	q, err := db.sqlFindTimeZone.Query(s)
 	if db.CheckError("FindTimeZone", err) {
@@ -873,6 +943,7 @@ func (db *BotDB) FindTimeZone(s string) []string {
 	return r
 }
 
+// FindTimeZoneOffset finds all timezones with the given offset
 func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
 	q, err := db.sqlFindTimeZoneOffset.Query(s, minutes, minutes)
 	if db.CheckError("FindTimeZoneOffset", err) {
@@ -889,17 +960,20 @@ func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
 	return r
 }
 
+// SetTimeZone sets a users timezone location
 func (db *BotDB) SetTimeZone(user uint64, tz *time.Location) error {
 	_, err := db.sqlSetTimeZone.Exec(tz.String(), user)
 	db.CheckError("SetTimeZone", err)
 	return err
 }
 
+// RemoveAlias removes an alias from a user, if it exists.
 func (db *BotDB) RemoveAlias(user uint64, alias string) {
 	_, err := db.sqlRemoveAlias.Exec(user, alias)
 	db.CheckError("RemoveAlias", err)
 }
 
+// GetUserGuilds returns all guilds a user is on
 func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 	q, err := db.sqlGetUserGuilds.Query(user)
 	if db.CheckError("GetUserGuilds", err) {
@@ -916,6 +990,7 @@ func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 	return r
 }
 
+// FindEvent finds an event in the schedule
 func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 	var id uint64
 	err := db.sqlFindEvent.QueryRow(ty, user, guild).Scan(&id)
@@ -925,17 +1000,19 @@ func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 	return &id
 }
 
-func (db *BotDB) SetDefaultServer(user uint64, server uint64) error {
-	_, err := db.sqlSetDefaultServer.Exec(server, user)
+// SetDefaultServer sets a users default guild
+func (db *BotDB) SetDefaultServer(user uint64, guild uint64) error {
+	_, err := db.sqlSetDefaultServer.Exec(guild, user)
 	db.CheckError("SetDefaultServer", err)
 	return err
 }
 
-func (db *BotDB) GetPolls(server uint64) []struct {
+// GetPolls returns all polls for a given guild
+func (db *BotDB) GetPolls(guild uint64) []struct {
 	name        string
 	description string
 } {
-	q, err := db.sqlGetPolls.Query(server)
+	q, err := db.sqlGetPolls.Query(guild)
 	if db.CheckError("GetPolls", err) {
 		return []struct {
 			name        string
@@ -959,21 +1036,24 @@ func (db *BotDB) GetPolls(server uint64) []struct {
 	return r
 }
 
-func (db *BotDB) GetPoll(name string, server uint64) (uint64, string) {
+// GetPoll gets the poll ID with the given name
+func (db *BotDB) GetPoll(name string, guild uint64) (uint64, string) {
 	var id uint64
 	var desc string
-	err := db.sqlGetPoll.QueryRow(name, server).Scan(&id, &desc)
+	err := db.sqlGetPoll.QueryRow(name, guild).Scan(&id, &desc)
 	if err == sql.ErrNoRows || db.CheckError("GetPoll", err) {
 		return 0, ""
 	}
 	return id, desc
 }
 
+// PollOptionStruct contains the option index and text
 type PollOptionStruct struct {
 	index  uint64
 	option string
 }
 
+// GetOptions returns all options for a given poll ID
 func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 	q, err := db.sqlGetOptions.Query(poll)
 	if db.CheckError("GetOptions", err) {
@@ -990,6 +1070,7 @@ func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 	return r
 }
 
+// GetOption returns any option for a given poll ID that contains a string
 func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
 	var id uint64
 	err := db.sqlGetOption.QueryRow(poll, option).Scan(&id)
@@ -999,11 +1080,13 @@ func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
 	return &id
 }
 
+// PollResultStruct is an index+count pair
 type PollResultStruct struct {
 	index uint64
 	count uint64
 }
 
+// GetResults returns the results of a poll ID
 func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 	q, err := db.sqlGetResults.Query(poll)
 	if db.CheckError("GetResults", err) {
@@ -1020,38 +1103,44 @@ func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 	return r
 }
 
-func (db *BotDB) AddPoll(name string, description string, server uint64) error {
-	_, err := db.sqlAddPoll.Exec(name, description, server)
+// AddPoll creates a poll
+func (db *BotDB) AddPoll(name string, description string, guild uint64) error {
+	_, err := db.sqlAddPoll.Exec(name, description, guild)
 	db.CheckError("AddPoll", err)
 	return err
 }
 
+// AddOption adds an option to an existing poll with a specific index
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 	_, err := db.sqlAddOption.Exec(poll, index, option)
-	err = db.StandardErr(err)
+	err = db.standardErr(err)
 	db.CheckError("AddOption", err)
 	return err
 }
 
+// AppendOption appends an option to the end of an existing poll
 func (db *BotDB) AppendOption(poll uint64, option string) error {
 	_, err := db.sqlAppendOption.Exec(option, poll)
-	err = db.StandardErr(err)
+	err = db.standardErr(err)
 	db.CheckError("AppendOption", err)
 	return err
 }
 
+// AddVote adds or reassigns a users vote on a poll
 func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
 	_, err := db.sqlAddVote.Exec(poll, user, option, option)
 	db.CheckError("AddVote", err)
 	return err
 }
 
-func (db *BotDB) RemovePoll(name string, server uint64) error {
-	_, err := db.sqlRemovePoll.Exec(name, server)
+// RemovePoll deletes a poll
+func (db *BotDB) RemovePoll(name string, guild uint64) error {
+	_, err := db.sqlRemovePoll.Exec(name, guild)
 	db.CheckError("RemovePoll", err)
 	return err
 }
 
+// CheckOption checks if an option exists
 func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
 	var name string
 	err := db.sqlCheckOption.QueryRow(poll, option).Scan(&name)
@@ -1061,12 +1150,14 @@ func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
 	return true
 }
 
+// SentMessage doesn't log a message, but sets a user's "firstseen" and "lastseen" values if necessary
 func (db *BotDB) SentMessage(user uint64, guild uint64) error {
 	_, err := db.sqlSentMessage.Exec(user, guild)
 	db.CheckError("SentMessage", err)
 	return err
 }
 
+// GetNewcomers returns any users that posted recently
 func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
 	q, err := db.sqlGetNewcomers.Query(guild, lookback)
 	if db.CheckError("GetNewcomers", err) {
@@ -1083,15 +1174,17 @@ func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
 	return r
 }
 
+// AddItem adds an item or just returns the ID if it already exists.
 func (db *BotDB) AddItem(item string) (uint64, error) {
 	var id uint64
-	err := db.StandardErr(db.sqlAddItem.QueryRow(item).Scan(&id))
+	err := db.standardErr(db.sqlAddItem.QueryRow(item).Scan(&id))
 	if db.CheckError("AddItem", err) {
 		return 0, err
 	}
 	return id, nil
 }
 
+// GetItem returns the ID of the item, if it exists
 func (db *BotDB) GetItem(item string) (uint64, error) {
 	var id uint64
 	err := db.sqlGetItem.QueryRow(item).Scan(&id)
@@ -1101,37 +1194,44 @@ func (db *BotDB) GetItem(item string) (uint64, error) {
 	return id, nil
 }
 
+// RemoveItem removes an item from all tags on the given server
 func (db *BotDB) RemoveItem(item uint64, guild uint64) error {
 	_, err := db.sqlRemoveItem.Exec(item, guild)
 	db.CheckError("RemoveItem", err)
 	return err
 }
 
+// AddTag adds a tag to an item
 func (db *BotDB) AddTag(item uint64, tag uint64) error {
 	_, err := db.sqlAddTag.Exec(item, tag)
-	err = db.StandardErr(err)
+	err = db.standardErr(err)
 	db.CheckError("AddTag", err)
 	return err
 }
 
+// RemoveTag removes a tag to an item
 func (db *BotDB) RemoveTag(item uint64, tag uint64) error {
 	_, err := db.sqlRemoveTag.Exec(item, tag)
 	db.CheckError("RemoveTag", err)
 	return err
 }
 
+// CreateTag creates a new tag on the given server
 func (db *BotDB) CreateTag(tag string, guild uint64) error {
 	_, err := db.sqlCreateTag.Exec(tag, guild)
-	err = db.StandardErr(err)
+	err = db.standardErr(err)
 	db.CheckError("CreateTag", err)
 	return err
 }
 
+// DeleteTag delets a tag from the given server
 func (db *BotDB) DeleteTag(tag string, guild uint64) error {
 	_, err := db.sqlDeleteTag.Exec(tag, guild)
 	db.CheckError("DeleteTag", err)
 	return err
 }
+
+// GetTag gets the tag ID for a tag name on the given server
 func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
 	var id uint64
 	err := db.sqlGetTag.QueryRow(tag, guild).Scan(&id)
@@ -1140,6 +1240,8 @@ func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
 	}
 	return id, nil
 }
+
+// CountTag returns the number of items with the given tag
 func (db *BotDB) CountTag(tag uint64) (uint64, error) {
 	var n uint64
 	err := db.sqlCountTag.QueryRow(tag).Scan(&n)
@@ -1148,6 +1250,8 @@ func (db *BotDB) CountTag(tag uint64) (uint64, error) {
 	}
 	return n, nil
 }
+
+// CountItems returns the number of unique items for a given server
 func (db *BotDB) CountItems(guild uint64) (uint64, error) {
 	var n uint64
 	err := db.sqlCountItems.QueryRow(guild).Scan(&n)
@@ -1156,6 +1260,8 @@ func (db *BotDB) CountItems(guild uint64) (uint64, error) {
 	}
 	return n, nil
 }
+
+// GetItemTags returns all tags an item has on the given server
 func (db *BotDB) GetItemTags(item uint64, guild uint64) []string {
 	q, err := db.sqlGetItemTags.Query(item, guild)
 	if db.CheckError("GetItemTags", err) {
@@ -1172,6 +1278,7 @@ func (db *BotDB) GetItemTags(item uint64, guild uint64) []string {
 	return r
 }
 
+// GetTags returns all tags on a server
 func (db *BotDB) GetTags(guild uint64) []struct {
 	Name  string
 	Count int
@@ -1200,6 +1307,7 @@ func (db *BotDB) GetTags(guild uint64) []struct {
 	return r
 }
 
+// ImportTag imports a tag from one server to another
 func (db *BotDB) ImportTag(srcTag uint64, destTag uint64) error {
 	_, err := db.sqlImportTag.Exec(destTag, srcTag)
 	db.CheckError("ImportTag", err)
