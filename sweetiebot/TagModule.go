@@ -9,6 +9,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
+// TagModule contains commands for manipulating Sweetie Bot's tags
 type TagModule struct {
 	Cache map[string]*sql.Stmt
 }
@@ -37,7 +38,7 @@ func (w *TagModule) Commands() []Command {
 func (w *TagModule) Description() string {
 	return "Contains commands for manipulating Sweetie Bot's tags."
 }
-func (w *TagModule) PrepStatement(query string, tags string) (*sql.Stmt, error) {
+func (w *TagModule) prepStatement(query string, tags string) (*sql.Stmt, error) {
 	stmt, ok := w.Cache[query]
 	if !ok {
 		var err error
@@ -51,8 +52,8 @@ func (w *TagModule) PrepStatement(query string, tags string) (*sql.Stmt, error) 
 	return stmt, nil
 }
 
-func (w *TagModule) ExecStatement(query string, tags string, args ...interface{}) (*sql.Rows, error) {
-	stmt, err := w.PrepStatement(query, tags)
+func (w *TagModule) execStatement(query string, tags string, args ...interface{}) (*sql.Rows, error) {
+	stmt, err := w.prepStatement(query, tags)
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +103,8 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	gID := SBatoi(info.ID)
-	if count, _ := sb.DB.CountItems(gID); count >= 25000 {
-		return "```Can't have more than 25000 unique items in a server!```", false, nil
+	if count, _ := sb.DB.CountItems(gID); count >= maxUniqueItems {
+		return fmt.Sprintf("```Can't have more than %v unique items in a server!```", maxUniqueItems), false, nil
 	}
 
 	tags := strings.Split(args[0], "+")
@@ -294,7 +295,7 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	for k, v := range tagIDs {
 		params[k] = v
 	}
-	q, err := c.w.ExecStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content", arg, params...)
+	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content", arg, params...)
 	if err != nil {
 		return err.Error(), false, nil
 	}
@@ -313,15 +314,15 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 
 	var s string
-	if len(r) > 50 && !info.UserHasRole(msg.Author.ID, SBitoa(info.config.Basic.AlertRole)) {
-		s = strings.Join(r[:50], "\n")
+	if len(r) > maxTagResults && !info.UserHasRole(msg.Author.ID, SBitoa(info.config.Basic.AlertRole)) {
+		s = strings.Join(r[:maxTagResults], "\n")
 		arg += " (truncated)"
 	} else {
-		s = strings.Join(r[:50], "\n")
+		s = strings.Join(r[:maxTagResults], "\n")
 	}
 	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
-	return fmt.Sprintf("```\n%v items satisfy %s:\n%s```", len(r), arg, s), len(r) > 15, nil
+	return fmt.Sprintf("```\n%v items satisfy %s:\n%s```", len(r), arg, s), len(r) > maxPublicLines, nil
 }
 func (c *tagsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -347,7 +348,7 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 	arg := "any tag"
 	if len(args) < 1 {
 		var err error
-		stmt, err = c.w.PrepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", "")
+		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", "")
 		if err != nil {
 			return err.Error(), false, nil
 		}
@@ -361,7 +362,7 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 			return err.Error(), false, nil
 		}
 
-		stmt, err = c.w.PrepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content ORDER BY RAND() LIMIT 1", arg)
+		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" GROUP BY I.Content ORDER BY RAND() LIMIT 1", arg)
 		if err != nil {
 			return err.Error(), false, nil
 		}
@@ -486,7 +487,7 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 		params[k] = v
 	}
 	params[len(tagIDs)] = search
-	q, err := c.w.ExecStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND I.Content LIKE ? GROUP BY I.Content", arg, params...)
+	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND I.Content LIKE ? GROUP BY I.Content", arg, params...)
 	if err != nil {
 		return err.Error(), false, nil
 	}
@@ -557,7 +558,7 @@ func (c *importCommand) Process(args []string, msg *discordgo.Message, indices [
 		for i := 0; i < len(other); i++ {
 			names[i] = other[i].Name
 		}
-		return fmt.Sprintf("```Could be any of the following servers: \n%s```", PartialSanitize(strings.Join(names, "\n"))), len(names) > 8, nil
+		return fmt.Sprintf("```Could be any of the following servers: \n%s```", PartialSanitize(strings.Join(names, "\n"))), len(names) > maxPublicLines, nil
 	}
 	if len(other) < 1 {
 		return fmt.Sprintf("```Could not find any server matching %s!```", args[0]), false, nil
