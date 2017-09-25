@@ -29,7 +29,7 @@ func (w *TagModule) Commands() []Command {
 		&pickCommand{w},
 		&newCommand{},
 		&deleteCommand{},
-		&searchTagCommand{w},
+		&searchTagsCommand{w},
 		&importCommand{},
 	}
 }
@@ -199,6 +199,9 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 			return fmt.Sprintf("```%s doesn't exist!```", item), false, nil
 		}
 		if err == nil {
+			if len(sb.DB.GetItemTags(id, gID)) == 0 {
+				return fmt.Sprintf("```%s doesn't exist!```", item), false, nil
+			}
 			err = sb.DB.RemoveItem(id, gID)
 		}
 		if err != nil {
@@ -472,14 +475,14 @@ func (c *deleteCommand) Usage(info *GuildInfo) *CommandUsage {
 }
 func (c *deleteCommand) UsageShort() string { return "Deletes a tag." }
 
-type searchTagCommand struct {
+type searchTagsCommand struct {
 	w *TagModule
 }
 
-func (c *searchTagCommand) Name() string {
-	return "SearchTag"
+func (c *searchTagsCommand) Name() string {
+	return "SearchTags"
 }
-func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
 		return "```You have to provide a tag query (in quotes if there are spaces).```", false, nil
 	}
@@ -543,7 +546,7 @@ func (c *searchTagCommand) Process(args []string, msg *discordgo.Message, indice
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
 	return fmt.Sprintf("```\nAll items satisfying %s that contain that string:\n%s```", arg, s), false, nil
 }
-func (c *searchTagCommand) Usage(info *GuildInfo) *CommandUsage {
+func (c *searchTagsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Returns all items that match both the string specified and the tags provided. If no string is specified, just counts how many items match the query.",
 		Params: []CommandUsageParam{
@@ -552,7 +555,7 @@ func (c *searchTagCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *searchTagCommand) UsageShort() string { return "Searches tags for a string." }
+func (c *searchTagsCommand) UsageShort() string { return "Searches tags for a string." }
 
 type importCommand struct {
 }
