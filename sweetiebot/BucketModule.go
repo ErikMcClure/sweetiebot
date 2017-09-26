@@ -51,6 +51,9 @@ func (c *giveCommand) Process(args []string, msg *discordgo.Message, indices []i
 		return "```That's too big! Give me something smaller!```", false, nil
 	}
 
+	if len(info.config.Collections["bucket"]) == 0 {
+		info.config.Collections["bucket"] = make(map[string]bool)
+	}
 	_, ok := info.config.Collections["bucket"][arg]
 	if ok {
 		return "```I already have " + arg + "!```", false, nil
