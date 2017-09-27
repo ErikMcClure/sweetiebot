@@ -408,7 +408,7 @@ func (info *GuildInfo) SendMessage(channelID string, message string) bool {
 			message = message[index:]
 		}
 	}
-	go info.sendContent(channelID, message, 2)
+	info.sendContent(channelID, message, 2)
 
 	//sb.DG.ChannelMessageSend(channelID, info.sanitizeOutput(message))
 	return true
