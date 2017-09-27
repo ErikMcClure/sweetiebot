@@ -66,6 +66,7 @@ type SweetieBot struct {
 	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
 	locknumber         uint32
 	loader             func() []Module
+	memberChan         chan *GuildInfo
 }
 
 // IsMainGuild returns true if that guild is considered the main (default) guild
@@ -186,14 +187,11 @@ func AttachToGuild(g *discordgo.Guild) {
 				lockdown:     -1,
 				Bot:          sb,
 			}
-			config, err := ioutil.ReadFile(g.ID + ".json")
-			if err == nil {
-				MigrateSettings(config, guild)
-			}
 			sb.guildsLock.Lock()
 			sb.guilds[SBatoi(g.ID)] = guild
 			guild.ProcessGuild(g)
 			sb.guildsLock.Unlock()
+			sb.memberChan <- guild
 			fmt.Println("Processed", g.Name)*/
 			return
 		}
@@ -350,23 +348,7 @@ func AttachToGuild(g *discordgo.Guild) {
 		go guild.SwapStatusLoop()
 	}
 
-	go func() { // Do this concurrently because we don't need this to function properly, we just need it to happen eventually
-		// Discord doesn't send us all the members, so we force feed them into the state ourselves
-		members := []*discordgo.Member{}
-		lastid := ""
-		for {
-			m, err := sb.DG.GuildMembers(guild.ID, lastid, 999)
-			if err != nil || len(m) == 0 {
-				break
-			}
-			members = append(members, m...)
-			lastid = m[len(m)-1].User.ID
-		}
-		for i := range members { // Put the guildID back in because discord is stupid
-			members[i].GuildID = guild.ID
-			sb.DG.State.MemberAdd(members[i])
-		}
-	}()
+	sb.memberChan <- guild // Do this concurrently because we don't need this to function properly, we just need it to happen eventually
 
 	for _, v := range sb.ModCommands {
 		if _, ok := guild.commands[v]; !ok {
@@ -845,6 +827,30 @@ func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	return id
 }
 
+func memberIngestionLoop() {
+	for !sb.quit.get() {
+		guild, more := <-sb.memberChan
+		if !more {
+			return
+		}
+		fmt.Println("Member processing for: " + guild.Name)
+		members := []*discordgo.Member{}
+		lastid := ""
+		for {
+			m, err := sb.DG.GuildMembers(guild.ID, lastid, 999)
+			if err != nil || len(m) == 0 {
+				break
+			}
+			members = append(members, m...)
+			lastid = m[len(m)-1].User.ID
+		}
+		for i := range members { // Put the guildID back in because discord is stupid
+			members[i].GuildID = guild.ID
+			sb.DG.State.MemberAdd(members[i])
+		}
+	}
+}
+
 func idleCheckLoop() {
 	for !sb.quit.get() {
 		sb.guildsLock.RLock()
@@ -999,6 +1005,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		heartbeat:          4294967290,
 		MessageCount:       0,
 		loader:             loader,
+		memberChan:         make(chan *GuildInfo, 1500),
 		changelog: map[int]string{
 			AssembleVersion(0, 9, 8, 20): "- Changed !searchtag to !searchtags because it's more consistent. Feel free to alias it back.",
 			AssembleVersion(0, 9, 8, 19): "- Change how !remove works, use !remove * <item> to remove something with spaces from all tags.\n- !pick now requires tags to be one argument, but supports * to pick from all tags.\n-!searchtag can now take * in the tag argument to search all tags",
@@ -1189,6 +1196,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	go idleCheckLoop()
 	go deadlockDetector()
+	go memberIngestionLoop()
 
 	//BuildMarkov(1, 1)
 	return sb
@@ -1206,6 +1214,7 @@ func (sbot *SweetieBot) Connect() int {
 		fmt.Println("Error opening websocket connection: ", err.Error())
 	}
 
+	close(sbot.memberChan)
 	fmt.Println("Sweetiebot quitting")
 	sbot.DG.Close()
 	sbot.DB.Close()
