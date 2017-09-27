@@ -294,7 +294,7 @@ func (w *SpamModule) checkRaid(info *GuildInfo, m *discordgo.Member) {
 		if sb.Debug {
 			ch, _ = sb.DebugChannels[info.ID]
 		}
-		info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `"+info.config.Basic.CommandPrefix+"autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
+		go info.SendMessage(ch, "<@&"+SBitoa(info.config.Basic.AlertRole)+"> Possible Raid Detected! Use `"+info.config.Basic.CommandPrefix+"autosilence all` to silence them!\n```"+strings.Join(s, "\n")+"```")
 		if info.config.Spam.LockdownDuration > 0 {
 			if info.lockdown == -1 { // Only engage lockdown if it wasn't already engaged
 				guild, err := sb.DG.State.Guild(info.ID)
@@ -399,7 +399,7 @@ func (c *autoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 			return "```Autosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
 		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
-		info.SendMessage(msg.ChannelID, "```Set the auto silence level to "+strings.ToLower(args[0])+".```")
+		go info.SendMessage(msg.ChannelID, "```Set the auto silence level to "+strings.ToLower(args[0])+".```")
 		r := c.s.getRaidUsers(info)
 		s := make([]string, 0, len(r))
 		s = append(s, "```Detected a recent raid. All users from the raid have been silenced:")
