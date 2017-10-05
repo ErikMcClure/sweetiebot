@@ -93,7 +93,7 @@ func (c *akaCommand) Process(args []string, msg *discordgo.Message, indices []in
 		return "```You must provide a user to search for.```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, false)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
@@ -194,7 +194,7 @@ func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 	// get the user ID and deal with Discord's alias bullshit
 	arg := args[0]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, false)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
@@ -294,7 +294,7 @@ func (c *timeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 
 	arg := msg.Content[indices[0]:]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, true)
 	if len(IDs) == 0 { // no matches
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
@@ -388,7 +388,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```You must provide a user to search for.```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, false)
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}
@@ -552,9 +552,9 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		}
 	}
 	arg := strings.Join(args[0:index], " ")
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, true)
 	if len(IDs) == 0 { // no matches!
-		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
+		return "```Error: Could not find any usernames or aliases matching " + arg + " in this server!```", false, nil
 	}
 	if len(IDs) > 1 {
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
@@ -610,9 +610,9 @@ func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```You must provide a user to unsilence.```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, true)
 	if len(IDs) == 0 { // no matches!
-		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
+		return "```Error: Could not find any usernames or aliases matching " + arg + " in this server!```", false, nil
 	}
 	if len(IDs) > 1 {
 		return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil

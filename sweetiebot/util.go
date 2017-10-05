@@ -322,10 +322,15 @@ func buildMarkov(seasonStart int, episodeStart int) {
 }
 
 // FindUsername returns all possible matching IDs for the given username
-func FindUsername(user string, info *GuildInfo) []uint64 {
-	if len(user) <= 0 {
+func FindUsername(arg string, info *GuildInfo, serveronly bool) []uint64 {
+	return findUsernameInternal(arg, info, serveronly, 0)
+}
+
+func findUsernameInternal(arg string, info *GuildInfo, serveronly bool, recurse int) []uint64 {
+	if len(arg) <= 0 {
 		return []uint64{}
 	}
+	user := arg
 	if userregex.MatchString(user) {
 		return []uint64{SBatoi(user[2 : len(user)-1])}
 	}
@@ -333,13 +338,11 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 		return []uint64{}
 	}
 	discriminant := ""
-	username := ""
 	if discriminantregex.MatchString(user) {
 		pos := strings.LastIndex(user, "#")
 		if pos >= 0 {
 			discriminant = user[pos+1:]
-			user = user[:pos]
-			username = strings.ToLower(user)
+			user = strings.ToLower(user[:pos])
 		}
 	}
 	r := sb.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
@@ -347,17 +350,28 @@ func FindUsername(user string, info *GuildInfo) []uint64 {
 		user = "%" + user + "%"
 		r = sb.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	}
-	if len(r) == 0 {
+	if len(r) == 0 && !serveronly {
 		r = sb.DB.FindUsers(user, 20, 0)
 	}
 	if len(discriminant) > 0 {
 		for _, v := range r {
 			m, err := info.GetMember(SBitoa(v))
-			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.User.Username) == username {
+			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.User.Username) == user {
 				return []uint64{v}
 			}
 		}
-		return []uint64{}
+		for _, v := range r {
+			m, err := info.GetMember(SBitoa(v))
+			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.Nick) == user {
+				return []uint64{v}
+			}
+		}
+		if arg[0] != '@' {
+			return []uint64{}
+		}
+	}
+	if arg[0] == '@' && recurse < 1 {
+		return findUsernameInternal(arg[1:], info, serveronly, recurse+1)
 	}
 	return r
 }
