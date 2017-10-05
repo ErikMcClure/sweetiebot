@@ -988,7 +988,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 20},
+		version:            Version{0, 9, 8, 21},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
@@ -1007,6 +1007,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		loader:             loader,
 		memberChan:         make(chan *GuildInfo, 1500),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 21): "- Made !userinfo more persistent at trying to find a match.",
 			AssembleVersion(0, 9, 8, 20): "- Changed !searchtag to !searchtags because it's more consistent. Feel free to alias it back.",
 			AssembleVersion(0, 9, 8, 19): "- Change how !remove works, use !remove * <item> to remove something with spaces from all tags.\n- !pick now requires tags to be one argument, but supports * to pick from all tags.\n-!searchtag can now take * in the tag argument to search all tags",
 			AssembleVersion(0, 9, 8, 18): "- Fix specific tag search allowing tags from other servers to leak",

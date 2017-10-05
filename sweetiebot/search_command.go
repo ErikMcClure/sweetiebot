@@ -95,7 +95,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 		if userregex.MatchString(v) {
 			userIDs = append(userIDs, SBatoi(v[2:len(v)-1]))
 		} else {
-			IDs := FindUsername(v[1:], info)
+			IDs := FindUsername(v[1:], info, false)
 			if len(IDs) == 0 { // we failed to resolve this username, so return an error.
 				return "```Error: Could not find any usernames or aliases matching " + v[1:] + "!```", false, nil
 			}
