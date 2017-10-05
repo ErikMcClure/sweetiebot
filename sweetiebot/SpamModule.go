@@ -511,7 +511,7 @@ func (c *getPressureCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```You must provide a user to search for.```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	IDs := FindUsername(arg, info)
+	IDs := FindUsername(arg, info, false)
 
 	if len(IDs) == 0 { // no matches!
 		return "```Error: Could not find any usernames or aliases matching " + arg + "!```", false, nil
