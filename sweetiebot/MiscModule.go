@@ -147,7 +147,7 @@ func (c *addSetCommand) Process(args []string, msg *discordgo.Message, indices [
 			c.m.emotes.UpdateRegex(info)
 			add = ". Failed to ban " + arg + " because regex compilation failed"
 		}
-		add = "and recompiled the emote regex"
+		add = " and recompiled the emote regex"
 	case "spoiler":
 		r := c.m.spoiler.UpdateRegex(info)
 		if !r {
@@ -155,7 +155,7 @@ func (c *addSetCommand) Process(args []string, msg *discordgo.Message, indices [
 			c.m.spoiler.UpdateRegex(info)
 			add = ". Failed to ban " + arg + " because regex compilation failed"
 		}
-		add = "and recompiled the spoiler regex"
+		add = " and recompiled the spoiler regex"
 	}
 
 	info.SaveConfig()
