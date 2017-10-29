@@ -28,7 +28,6 @@ func (w *BoredModule) Description() string {
 // OnIdle discord hook
 func (w *BoredModule) OnIdle(info *GuildInfo, c *discordgo.Channel) {
 	id := c.ID
-
 	if RateLimit(&w.lastmessage, w.IdlePeriod(info)) && len(info.config.Bored.Commands) > 0 {
 		m := &discordgo.Message{ChannelID: id, Content: MapGetRandomItem(info.config.Bored.Commands),
 			Author: &discordgo.User{

@@ -18,7 +18,7 @@ type searchCommand struct {
 func (c *searchCommand) Name() string {
 	return "Search"
 }
-func MsgHighlightMatch(msg string, match string) string {
+func msgHighlightMatch(msg string, match string) string {
 	if len(match) == 0 {
 		return msg
 	}
@@ -238,7 +238,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	for _, v := range r {
-		ret += "[" + ApplyTimezone(v.Timestamp, info, msg.Author).Format("1/2 3:04:05PM") + "] " + v.Author + ": " + MsgHighlightMatch(v.Message, message) + "\n"
+		ret += "[" + ApplyTimezone(v.Timestamp, info, msg.Author).Format("1/2 3:04:05PM") + "] " + v.Author + ": " + msgHighlightMatch(v.Message, message) + "\n"
 	}
 
 	ret = strings.Replace(ret, "http://", "http\u200B://", -1)
