@@ -46,45 +46,16 @@ func (w *SpamModule) Description() string {
 	return "Tracks all channels it is active on for spammers. Each message someone sends generates \"pressure\", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid."
 }
 
-func isSilenced(m *discordgo.Member, info *GuildInfo) bool {
-	srole := SBitoa(info.config.Spam.SilentRole)
-	for _, v := range m.Roles {
-		if v == srole {
-			return true
-		}
-	}
-	return false
-}
-
-func doDiscordSilence(userID string, info *GuildInfo) {
-	err := sb.DG.GuildMemberRoleAdd(info.ID, userID, SBitoa(info.config.Spam.SilentRole))
-	info.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %v) return error: ", info.ID, userID, info.config.Spam.SilentRole), err)
-}
 func silenceMember(user *discordgo.User, info *GuildInfo) int8 {
-	defer doDiscordSilence(user.ID, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
+	srole := SBitoa(info.config.Spam.SilentRole)
+	defer assignRoleDiscord(user.ID, srole, info) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
 	m := info.GetMemberCreate(user)
 	sb.DG.State.Lock()         // Manually set our internal state to say this spammer is silent to prevent race conditions
 	defer sb.DG.State.Unlock() // this defer will execute BEFORE our doDiscordSilence defer, minimizing lock time
-	if isSilenced(m, info) {
+	if info.MemberHasRole(m, srole) {
 		return 1
 	}
-	m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
-
-	return 0
-}
-
-// SilenceMemberSimple silences a member that already exists
-func SilenceMemberSimple(userID string, info *GuildInfo) int8 {
-	defer doDiscordSilence(userID, info)
-	m, merr := info.GetMember(userID)
-	if merr == nil { // Manually set our internal state to say this spammer is silent to prevent race conditions
-		sb.DG.State.Lock()
-		defer sb.DG.State.Unlock()
-		if isSilenced(m, info) {
-			return 1
-		}
-		m.Roles = append(m.Roles, SBitoa(info.config.Spam.SilentRole))
-	}
+	m.Roles = append(m.Roles, srole)
 
 	return 0
 }

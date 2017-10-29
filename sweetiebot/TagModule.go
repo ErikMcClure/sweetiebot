@@ -95,6 +95,9 @@ func (c *addCommand) Name() string {
 	return "Add"
 }
 func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```No tags given```", false, nil
 	}
@@ -149,6 +152,9 @@ func (c *getCommand) Name() string {
 	return "GetTags"
 }
 func (c *getCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```No item given```", false, nil
 	}
@@ -184,6 +190,9 @@ func (c *removeCommand) Name() string {
 	return "Remove"
 }
 func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You must specify what item you want to remove!```", false, nil
 	}
@@ -294,6 +303,9 @@ func ShowAllTags(message string, info *GuildInfo) *discordgo.MessageEmbed {
 	}
 }
 func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "", false, ShowAllTags("No tag specified.", info)
 	}
@@ -358,6 +370,9 @@ func (c *pickCommand) Name() string {
 	return "Pick"
 }
 func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	gID := SBatoi(info.ID)
 	var stmt *sql.Stmt
 	var params []interface{}
@@ -415,6 +430,9 @@ func (c *newCommand) Name() string {
 	return "New"
 }
 func (c *newCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to provide a new tag name.```", false, nil
 	}
@@ -450,6 +468,9 @@ func (c *deleteCommand) Name() string {
 	return "Delete"
 }
 func (c *deleteCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to provide a tag name.```", false, nil
 	}
@@ -483,6 +504,9 @@ func (c *searchTagsCommand) Name() string {
 	return "SearchTags"
 }
 func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```You have to provide a tag query (in quotes if there are spaces).```", false, nil
 	}
@@ -564,6 +588,9 @@ func (c *importCommand) Name() string {
 	return "Import"
 }
 func (c *importCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !sb.DB.CheckStatus() {
+		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	}
 	if len(args) < 1 {
 		return "```No source server provided.```", false, nil
 	}

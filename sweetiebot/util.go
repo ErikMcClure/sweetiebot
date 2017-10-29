@@ -1112,3 +1112,24 @@ func UnsilenceMember(user uint64, info *GuildInfo) error {
 
 	return sb.DG.GuildMemberRoleRemove(info.ID, SBitoa(user), SBitoa(info.config.Spam.SilentRole))
 }
+
+func assignRoleDiscord(userID string, roleID string, info *GuildInfo) {
+	err := sb.DG.GuildMemberRoleAdd(info.ID, userID, roleID)
+	info.LogError(fmt.Sprintf("GuildMemberRoleAdd(%s, %s, %s) returned error: ", info.ID, userID, roleID), err)
+}
+
+// assignRoleMember adds a role to a member that already exists
+func assignRoleMember(userID string, roleID string, info *GuildInfo) int8 {
+	defer assignRoleDiscord(userID, roleID, info)
+	m, merr := info.GetMember(userID)
+	if merr == nil { // Manually set our internal state to say this role is set to prevent race conditions
+		sb.DG.State.Lock()
+		defer sb.DG.State.Unlock()
+		if info.MemberHasRole(m, roleID) {
+			return 1
+		}
+		m.Roles = append(m.Roles, roleID)
+	}
+
+	return 0
+}
