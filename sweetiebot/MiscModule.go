@@ -129,21 +129,29 @@ func (c *addSetCommand) Process(args []string, msg *discordgo.Message, indices [
 		return "```Can't add empty string!```", false, nil
 	}
 
+	info.config.Lock()
 	set := args[0]
-	_, ok := info.config.Collections[set]
+	m, ok := info.config.Collections[set]
 	if !ok {
+		info.config.Unlock()
 		return fmt.Sprintf("```The %s set does not exist!```", set), false, nil
+	}
+	if len(m) == 0 {
+		info.config.Collections[set] = make(map[string]bool)
 	}
 
 	add := ""
 	arg := msg.Content[indices[1]:]
 	info.config.Collections[set][arg] = true
+	info.config.Unlock()
 
 	switch set {
 	case "emote":
 		r := c.m.emotes.UpdateRegex(info)
 		if !r {
+			info.config.Lock()
 			delete(info.config.Collections["emote"], arg)
+			info.config.Unlock()
 			c.m.emotes.UpdateRegex(info)
 			add = ". Failed to ban " + arg + " because regex compilation failed"
 		}
@@ -151,7 +159,9 @@ func (c *addSetCommand) Process(args []string, msg *discordgo.Message, indices [
 	case "spoiler":
 		r := c.m.spoiler.UpdateRegex(info)
 		if !r {
+			info.config.Lock()
 			delete(info.config.Collections["spoiler"], arg)
+			info.config.Unlock()
 			c.m.spoiler.UpdateRegex(info)
 			add = ". Failed to ban " + arg + " because regex compilation failed"
 		}

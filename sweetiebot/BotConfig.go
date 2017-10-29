@@ -1,7 +1,10 @@
 package sweetiebot
 
+import "sync"
+
 // BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
+	sync.RWMutex
 	Version     int                        `json:"version"`
 	LastVersion int                        `json:"lastversion"`
 	SetupDone   bool                       `json:"setupdone"`
@@ -99,7 +102,7 @@ type BotConfig struct {
 }
 
 // ConfigHelp is a map of help strings for the configuration options above
-var ConfigHelp map[string]string = map[string]string{
+var ConfigHelp = map[string]string{
 	"basic.ignoreinvalidcommands": "If true, Sweetie Bot won't display an error if a nonsensical command is used. This helps her co-exist with other bots that also use the `!` prefix.",
 	"basic.importable":            "If true, the collections on this server will be importable into another server where sweetie is.",
 	"basic.alertrole":             "This is intended to point at a moderator role shared by all admins and moderators of the server for notification purposes.",

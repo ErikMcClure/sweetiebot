@@ -567,7 +567,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return e, false, nil
 	}
 
-	code := SilenceMemberSimple(SBitoa(IDs[0]), info)
+	code := assignRoleMember(SBitoa(IDs[0]), SBitoa(info.config.Spam.SilentRole), info)
 	if code < 0 {
 		return "```Error occurred trying to silence " + IDsToUsernames(IDs, info, false)[0] + ".```", false, nil
 	} else if code == 1 {

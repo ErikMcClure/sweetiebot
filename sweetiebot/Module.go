@@ -262,6 +262,7 @@ type moduleHooks struct {
 	OnTick              []ModuleOnTick
 }
 
+// RegisterModule registers a module with this guild
 func (info *GuildInfo) RegisterModule(m Module) {
 	if h, ok := m.(ModuleOnEvent); ok {
 		info.hooks.OnEvent = append(info.hooks.OnEvent, h)

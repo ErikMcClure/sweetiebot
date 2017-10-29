@@ -102,7 +102,14 @@ func (info *GuildInfo) SetConfig(name string, value string, extra ...string) (st
 								}
 							}
 						case bool:
-							f.SetBool(value == "true")
+							value = strings.ToLower(value)
+							if value == "true" {
+								f.SetBool(true)
+							} else if value == "false" {
+								f.SetBool(false)
+							} else {
+								return name + " must be set to either 'true' or 'false'", false
+							}
 						case map[string]string:
 							value = strings.ToLower(value)
 							if len(extra) == 0 {
@@ -582,10 +589,16 @@ func (info *GuildInfo) Error(channelID string, message string) {
 func (info *GuildInfo) UserHasRole(user string, role string) bool {
 	m, err := info.GetMember(user)
 	if err == nil {
-		for _, v := range m.Roles {
-			if v == role {
-				return true
-			}
+		return info.MemberHasRole(m, role)
+	}
+	return false
+}
+
+// MemberHasRole returns true if the already resolved member object has the given role ID
+func (info *GuildInfo) MemberHasRole(m *discordgo.Member, role string) bool {
+	for _, v := range m.Roles {
+		if v == role {
+			return true
 		}
 	}
 	return false
