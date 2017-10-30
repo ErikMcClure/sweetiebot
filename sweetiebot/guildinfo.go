@@ -28,6 +28,7 @@ type GuildInfo struct {
 	commandLock  sync.RWMutex
 	commandLast  map[string]map[string]int64
 	commandlimit *SaturationLimit
+	configLock   sync.RWMutex
 	config       BotConfig
 	emotemodule  *EmoteModule
 	hooks        moduleHooks
