@@ -1,10 +1,7 @@
 package sweetiebot
 
-import "sync"
-
 // BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
-	sync.RWMutex
 	Version     int                        `json:"version"`
 	LastVersion int                        `json:"lastversion"`
 	SetupDone   bool                       `json:"setupdone"`
