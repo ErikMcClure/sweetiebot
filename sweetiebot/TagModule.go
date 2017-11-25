@@ -565,10 +565,14 @@ func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indic
 		return fmt.Sprintf("```\nNo items match %s that contain that string!```", arg), false, nil
 	}
 
+	count := len(r)
+	if len(r) > 300 {
+		r = r[:300]
+	}
 	s := strings.Join(r, "\n")
 	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
 	s = strings.Replace(s, "[](/", "[\u200B](/", -1)
-	return fmt.Sprintf("```\nAll items satisfying %s that contain that string:\n%s```", arg, s), false, nil
+	return fmt.Sprintf("```\nAll %v items satisfying %s that contain that string:\n%s```", count, arg, s), len(r) > maxPublicLines, nil
 }
 func (c *searchTagsCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{

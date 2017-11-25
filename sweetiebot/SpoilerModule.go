@@ -7,7 +7,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-// SpoilerModule picks a random action to do whenever #example has been idle for several minutes (configurable)
+// SpoilerModule detects and removes spoilers based on a regex
 type SpoilerModule struct {
 	spoilerban *regexp.Regexp
 	lastmsg    int64 // Sanity rate limiter

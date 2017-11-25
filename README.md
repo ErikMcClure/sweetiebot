@@ -148,7 +148,7 @@ Tracks all channels it is active on for spammers. Each message someone sends gen
 #### Commands
 * **AutoSilence:** Toggle auto silence. `All` will autosilence all new members. `Raid` will turn on autosilence if a raid is detected (not recommended). `Alert` does not auto-silence anyone, but sends an alert to the mod channel whenever anyone joins the server. `Log` sends alerts to the log channel instead. `Off` disables auto-silence and disables join alerts.
 * **Wipe:** Deletes up to N seconds worth of messages in the specified channel.
-* **GetPressure:** [RESTRICTED] Gets user's spam pressure.
+* **GetPressure:** Gets user's spam pressure.
 * **GetRaid:** Lists users considered part of the current raid, if there is one.
 * **BanRaid:** Bans all users considered part of the current raid, if there is one.
 

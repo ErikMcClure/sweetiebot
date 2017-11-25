@@ -474,10 +474,6 @@ func (c *getPressureCommand) Name() string {
 	return "GetPressure"
 }
 func (c *getPressureCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	if !isOwner {
-		return "```Only the owner of the bot itself can call this!```", false, nil
-	}
 	if len(args) < 1 {
 		return "```You must provide a user to search for.```", false, nil
 	}

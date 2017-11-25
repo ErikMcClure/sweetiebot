@@ -36,7 +36,7 @@ const (
 	maxUniqueItems = 25000
 	maxTagResults  = 50
 	maxPublicLines = 12
-	maxPublicRules = 5
+	maxPublicRules = 6
 )
 
 // SweetieBot is the primary bot object containing the bot state
@@ -988,7 +988,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 
 	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
 	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 22},
+		version:            Version{0, 9, 8, 23},
 		Debug:              false,
 		Owners:             map[uint64]bool{95585199324143616: true},
 		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
@@ -1007,6 +1007,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 		loader:             loader,
 		memberChan:         make(chan *GuildInfo, 1500),
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 8, 23): "- Remove !getpressure restriction.\n- Limit results of !searchtags",
 			AssembleVersion(0, 9, 8, 22): "- Prevent race-condition crashing set management.\n- Force boolean configuration values to take only true or false.",
 			AssembleVersion(0, 9, 8, 21): "- Made !userinfo more persistent at trying to find a match.",
 			AssembleVersion(0, 9, 8, 20): "- Changed !searchtag to !searchtags because it's more consistent. Feel free to alias it back.",
