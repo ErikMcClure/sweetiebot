@@ -158,6 +158,7 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 			{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
 			{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
 			{Name: "Add Sweetie Bot To Your Server", Value: "https://goo.gl/NQtUZv", Inline: false},
+			{Name: "Support Channel", Value: "<https://discordapp.com/invite/t2gVQvN>", Inline: false},
 			{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
 		},
 	}

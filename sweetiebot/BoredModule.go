@@ -7,7 +7,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-// BoredModule picks a random action to do whenever #example has been idle for several minutes (configurable)
+// BoredModule picks a random action to do whenever a channel has been idle for several minutes (configurable)
 type BoredModule struct {
 	lastmessage int64 // Ensures discord screwing up doesn't make us spam the chatroom.
 }
