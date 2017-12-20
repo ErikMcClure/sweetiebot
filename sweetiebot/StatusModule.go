@@ -32,6 +32,9 @@ func (c *setStatusCommand) Name() string {
 	return "SetStatus"
 }
 func (c *setStatusCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+  if SBatoi(info.ID) != info.Bot.MainGuildID {
+    return "```You can only do this from the main server!```", false, nil
+  }
 	if len(args) < 1 {
 		sb.DG.UpdateStatus(0, "")
 		return "```Removed status```", false, nil
