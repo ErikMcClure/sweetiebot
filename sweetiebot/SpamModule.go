@@ -440,6 +440,13 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 
 	ch := StripPing(args[0])
+	channel, private := channelIsPrivate(ch)
+	if private {
+		return "```Can't delete messages in a PM!```", false, nil
+	}
+	if channel == nil || channel.GuildID != info.ID {
+		return "```That channel isn't on this server!```", false, nil
+	}
 	num, err := strconv.Atoi(args[1])
 	if err != nil || num <= 0 {
 		return "```There's no point deleting 0 messages!.```", false, nil
