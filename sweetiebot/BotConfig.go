@@ -1136,6 +1136,9 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 			} else if guild.Config.Spam.AutoSilence != 0 {
 				guild.Config.Users.NotifyChannel = guild.Config.Basic.ModChannel
 			}
+			if guild.Config.Spam.AutoSilence < 0 {
+				guild.Config.Spam.AutoSilence = 0
+			}
 
 			if spoilers, ok := legacy.Collections["spoiler"]; (ok && len(spoilers) > 0) || len(legacy.Spoiler.Channels) > 0 {
 				guild.Config.Filter.Filters["spoiler"] = make(map[string]bool)
