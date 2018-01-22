@@ -23,7 +23,7 @@ A limited version of Sweetie Bot can be added to any server via [this link](http
 
 ## Sweetiebot Silver
 
-Donating at least $1 a month to the [Patreon](https://www.patreon.com/erikmcclure) will automatically enable chat logging for your server, which is only accessible by moderators via the `!search` command. It will also enable much higher limits for the total number of unique items you can store in tagged item collections.
+Donating at least $1 a month to the [Patreon](https://www.patreon.com/erikmcclure) will automatically enable chat logging for your server, which is only accessible by moderators via the `!search` command. It will also enable much higher limits for the total number of unique items you can store in tagged item collections. In order to recieve these benefits, you must [link your Patreon and Discord accounts](https://patreon.zendesk.com/hc/en-us/articles/212052266-How-do-I-get-my-Discord-Rewards-), and you must join the [Sweetie Bot Support Channel](https://discord.gg/t2gVQvN). The bot cannot detect your donation level unless you are on the server and your account has been linked.
 
 ## Documentation
 
