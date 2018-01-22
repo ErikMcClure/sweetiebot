@@ -102,7 +102,6 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 		case typeEventBan:
 			err := info.Bot.DG.GuildBanDelete(info.ID, v.Data)
 			if err != nil {
-				fmt.Println(err)
 				info.SendMessage(info.Config.Basic.ModChannel, "Error unbanning <@"+v.Data+">: "+err.Error())
 			} else {
 				info.SendMessage(info.Config.Basic.ModChannel, "Unbanned <@"+v.Data+">")
