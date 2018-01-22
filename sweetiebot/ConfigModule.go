@@ -1,8 +1,6 @@
 package sweetiebot
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -12,7 +10,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-// ConfigModule manages Sweetie Bot's configuration file
+// ConfigModule manages the configuration file
 type ConfigModule struct {
 }
 
@@ -31,66 +29,36 @@ func (w *ConfigModule) Commands() []Command {
 }
 
 // Description of the module
-func (w *ConfigModule) Description() string { return "Manages Sweetie Bot's configuration file." }
-
-func fixRequest(arg string, t reflect.Value) (string, error) {
-	args := strings.SplitN(strings.ToLower(arg), ".", 3)
-	list := []string{}
-	n := t.NumField()
-
-	for i := 0; i < n; i++ {
-		if strings.ToLower(t.Type().Field(i).Name) == args[0] {
-			return arg, nil
-		}
-	}
-
-	for i := 0; i < n; i++ {
-		switch t.Field(i).Kind() {
-		case reflect.Struct:
-			f := t.Field(i)
-			for j := 0; j < f.NumField(); j++ {
-				if strings.ToLower(f.Type().Field(j).Name) == args[0] {
-					list = append(list, t.Type().Field(i).Name)
-				}
-			}
-		}
-	}
-	if len(list) < 1 {
-		return arg, nil
-	}
-	if len(list) == 1 {
-		return strings.ToLower(list[0]) + "." + arg, nil
-	}
-	for i := 0; i < len(list); i++ {
-		list[i] += "." + args[0]
-	}
-	return "", errors.New("```Could be any of the following:\n" + strings.Join(list, "\n") + "```")
-}
+func (w *ConfigModule) Description() string { return "Manages the configuration file." }
 
 type setConfigCommand struct {
 }
 
-func (c *setConfigCommand) Name() string {
-	return "SetConfig"
+func (c *setConfigCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "SetConfig",
+		Usage:     "Sets a config value and saves the new configuration.",
+		Sensitive: true,
+	}
 }
 func (c *setConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```No configuration parameter to look for!```", false, nil
+		return "```\nNo configuration parameter to look for!```", false, nil
 	}
 	if len(args) < 2 {
-		return "```No value to set!```", false, nil
+		return "```\nNo value to set!```", false, nil
 	}
 	var err error
-	args[0], err = fixRequest(args[0], reflect.ValueOf(&info.config).Elem())
+	args[0], err = FixRequest(args[0], reflect.ValueOf(&info.Config).Elem())
 	if err != nil {
-		return err.Error(), false, nil
+		return ReturnError(err)
 	}
-	n, ok := info.SetConfig(args[0], args[1], args[2:]...)
+	n, ok := info.Config.SetConfig(info, args[0], args[1], args[2:]...)
 	info.SaveConfig()
 	if ok {
-		return "```Successfully set " + args[0] + " to " + n + ".```", false, nil
+		return "```\nSuccessfully set " + args[0] + " to " + n + ".```", false, nil
 	}
-	return "```" + n + "```", false, nil
+	return "```\n" + n + "```", false, nil
 }
 func (c *setConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -103,127 +71,45 @@ func (c *setConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *setConfigCommand) UsageShort() string {
-	return "Sets a config value and saves the new configuration."
-}
 
 type getConfigCommand struct {
 }
 
-func (c *getConfigCommand) Name() string {
-	return "GetConfig"
-}
-func (c *getConfigCommand) GetOption(f reflect.Value, info *GuildInfo, t reflect.Value) (string, bool, *discordgo.MessageEmbed) {
-	s := []string{}
-	fields := make([]*discordgo.MessageEmbedField, 0, 0)
-	switch f.Interface().(type) {
-	case []string:
-		s = f.Interface().([]string)
-	case []uint64:
-		t, _ := f.Interface().([]uint64)
-		for _, v := range t {
-			s = append(s, SBitoa(v))
-		}
-	case map[string]string:
-		t, _ := f.Interface().(map[string]string)
-		for k, v := range t {
-			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
-		}
-	case map[int64]int:
-		t, _ := f.Interface().(map[int64]int)
-		for k, v := range t {
-			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
-		}
-	case map[int]string:
-		t, _ := f.Interface().(map[int]string)
-		for k, v := range t {
-			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
-		}
-	case map[string]int64:
-		t, _ := f.Interface().(map[string]int64)
-		for k, v := range t {
-			//fields = append(fields, &discordgo.MessageEmbedField{Name: k, Value: strconv.Itoa(int(v)), Inline: true})
-			s = append(s, fmt.Sprintf("\"%v\": %v", k, v))
-		}
-	case map[string]bool:
-		t, _ := f.Interface().(map[string]bool)
-		for k := range t {
-			s = append(s, k)
-		}
-	case map[uint64][]string:
-		t, _ := f.Interface().(map[uint64][]string)
-		for k, v := range t {
-			if len(v) == 1 {
-				s = append(s, fmt.Sprintf("\"%v\": %s", k, v[0]))
-			} else {
-				s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
-			}
-		}
-	case map[string]map[string]bool:
-		t, _ := f.Interface().(map[string]map[string]bool)
-		for k, v := range t {
-			if len(v) == 1 {
-				for q := range v {
-					s = append(s, fmt.Sprintf("\"%v\": %s", k, q))
-				}
-			} else {
-				s = append(s, fmt.Sprintf("\"%v\": [%v items]", k, len(v)))
-			}
-		}
-	default:
-		data, err := json.Marshal(f.Interface())
-		if err != nil {
-			info.Log("JSON error: ", err.Error())
-			s = append(s, "[JSON Error]")
-		} else {
-			s = append(s, ExtraSanitize(string(data)))
-		}
+func (c *getConfigCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "GetConfig",
+		Usage:     "Returns the current configuration, or a specific option.",
+		Sensitive: true,
 	}
-	if len(fields) > 0 {
-		desc, _ := ConfigHelp[strings.ToLower(t.Type().Name()+"."+f.Type().Name())]
-		return "", false, &discordgo.MessageEmbed{
-			Type: "rich",
-			Author: &discordgo.MessageEmbedAuthor{
-				URL:     "https://github.com/blackhole12/sweetiebot#configuration",
-				Name:    f.Type().Name(),
-				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
-			},
-			Description: desc,
-			Color:       0x3e92e5,
-			Fields:      fields,
-		}
-	}
-	return "```\n" + strings.Join(s, "\n") + "```", false, nil
 }
 
-func (c *getConfigCommand) GetSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *getConfigCommand) GetSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) []string {
+	val := f.Field(j)
 	if len(arg) > 2 {
-		str := f.Type().Field(j).Name
-		var val reflect.Value
 		switch f.Field(j).Interface().(type) {
-		case map[string]string, map[string]int64, map[string]map[string]bool:
+		case map[string]bool, map[string]string, map[string]int64, map[string]map[DiscordChannel]bool, map[string]map[DiscordRole]bool, map[string]map[string]bool:
 			val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
-		case map[int64]int:
-			ival, _ := strconv.ParseInt(arg[2], 10, 64)
-			val = f.Field(j).MapIndex(reflect.ValueOf(ival))
+		case map[DiscordChannel]bool, map[DiscordChannel]float32:
+			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordChannel(arg[2])))
+		case map[DiscordRole]bool:
+			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordRole(arg[2])))
+		case map[DiscordUser][]string:
+			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordUser(arg[2])))
 		case map[int]string:
 			ival, _ := strconv.Atoi(arg[2])
 			val = f.Field(j).MapIndex(reflect.ValueOf(ival))
-		case map[uint64][]string:
-			val = f.Field(j).MapIndex(reflect.ValueOf(SBatoi(arg[2])))
 		default:
-			return fmt.Sprintf("```Error: %s is not a map.```", str), false, nil
+			return []string{"is not a map."}
 		}
 		if !val.IsValid() || val == reflect.Zero(val.Type()) {
-			return fmt.Sprintf("```Error: Can't find %v in %s.```", arg[2], str), false, nil
+			return []string{fmt.Sprintf("can't find %v", arg[2])}
 		}
-		return c.GetOption(val, info, f)
 	}
-	return c.GetOption(f.Field(j), info, f)
+	return info.Config.GetConfig(val, info.Bot.DG.State, info.ID)
 }
 
 func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	t := reflect.ValueOf(&info.config).Elem()
+	t := reflect.ValueOf(&info.Config).Elem()
 	n := t.NumField()
 	if len(args) < 1 {
 		fields := make([]*discordgo.MessageEmbedField, 0, n)
@@ -250,18 +136,18 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		embed := &discordgo.MessageEmbed{
 			Type: "rich",
 			Author: &discordgo.MessageEmbedAuthor{
-				URL:     "https://github.com/blackhole12/sweetiebot#configuration",
-				Name:    "Sweetie Bot Config Options",
-				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+				URL:     "https://sweetiebot.io/help/",
+				Name:    info.Bot.AppName + " Config Options",
+				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 			},
 			Color:  0x3e92e5,
 			Fields: fields,
 		}
-		info.SendEmbed(msg.ChannelID, embed)
+		info.SendEmbed(DiscordChannel(msg.ChannelID), embed)
 		return "", false, nil
 	}
 	var err error
-	args[0], err = fixRequest(args[0], t)
+	args[0], err = FixRequest(args[0], t)
 	if err != nil {
 		return err.Error(), false, nil
 	}
@@ -278,27 +164,44 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 				if len(arg) > 1 {
 					for j := 0; j < f.NumField(); j++ {
 						if strings.ToLower(f.Type().Field(j).Name) == arg[1] {
-							return c.GetSubStruct(arg, f, j, info)
+							lines := c.GetSubStruct(arg, f, j, info)
+							if len(lines) == 0 {
+								return fmt.Sprintf("```\n%s.%s: [empty]```", arg[0], arg[1]), false, nil
+							} else if len(lines) == 1 {
+								return fmt.Sprintf("```\n%s.%s: %s```", arg[0], arg[1], info.Sanitize(lines[0], CleanCodeBlock)), false, nil
+							}
+							return fmt.Sprintf("```\n--- %s.%s ---\n%s```", arg[0], arg[1], info.Sanitize(strings.Join(lines, "\n"), CleanCodeBlock)), false, nil
 						}
 					}
 				} else {
 					fields := make([]*discordgo.MessageEmbedField, 0, f.NumField())
+					dump := []string{}
 					for j := 0; j < f.NumField(); j++ {
-						desc, ok := ConfigHelp[strings.ToLower(t.Type().Field(i).Name+"."+f.Type().Field(j).Name)]
+						desc, ok := getConfigHelp(t.Type().Field(i).Name, f.Type().Field(j).Name)
 						if !ok {
 							desc = "\u200b"
 						}
 						fields = append(fields, &discordgo.MessageEmbedField{Name: f.Type().Field(j).Name, Value: desc, Inline: false})
+
+						lines := c.GetSubStruct(arg, f, j, info)
+						if len(lines) == 0 {
+							dump = append(dump, fmt.Sprintf("%s: [empty]", f.Type().Field(j).Name))
+						} else if len(lines) == 1 {
+							dump = append(dump, fmt.Sprintf("%s: %s", f.Type().Field(j).Name, info.Sanitize(lines[0], CleanCodeBlock)))
+						} else {
+							dump = append(dump, fmt.Sprintf("%s: [%v items]", f.Type().Field(j).Name, len(lines)))
+						}
 					}
 					embed := &discordgo.MessageEmbed{
 						Type: "rich",
 						Author: &discordgo.MessageEmbedAuthor{
-							URL:     "https://github.com/blackhole12/sweetiebot#configuration",
+							URL:     "https://sweetiebot.io/help/" + strings.ToLower(t.Type().Field(i).Name),
 							Name:    t.Type().Field(i).Name + " Config Category",
-							IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
+							IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 						},
-						Color:  0x3e92e5,
-						Fields: fields,
+						Description: "```\n" + strings.Join(dump, "\n") + "```",
+						Color:       0x3e92e5,
+						Fields:      fields,
 					}
 					return "", false, embed
 				}
@@ -306,169 +209,141 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		}
 	}
 
-	return "```That's not a recognized config option! Type " + info.config.Basic.CommandPrefix + "getconfig without any arguments to list all possible config options. Use \".\" to specify which category of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\". Using " + info.config.Basic.CommandPrefix + "getconfig with just a category will list help for that category, e.g. \"" + info.config.Basic.CommandPrefix + "getconfig Basic\".```", false, nil
+	return "```\nThat's not a recognized config option! Type " + info.Config.Basic.CommandPrefix + "getconfig without any arguments to list all possible config options. Use \".\" to specify which category of options you want - for example, \"Basic.ModChannel\". If the option is a map, you can specify the key as well: \"Help.Rules 1\". Using " + info.Config.Basic.CommandPrefix + "getconfig with just a category will list help for that category, e.g. \"" + info.Config.Basic.CommandPrefix + "getconfig Basic\".```", false, nil
 }
 func (c *getConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Displays a list of available configuration options or their values.",
 		Params: []CommandUsageParam{
 			{Name: "option", Desc: "The configuration option to display. Use `Help.Rules` to specify a config option in a category. If this is just a category, like `Basic`, lists help information for all config options in that category.", Optional: true},
-			{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `" + info.config.Basic.CommandPrefix + "getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
+			{Name: "map key", Desc: "If the option is a map, this determines the particular key to display. For example: `" + info.Config.Basic.CommandPrefix + "getconfig Help.Rules 1` will return rule 1 in the rules map.", Optional: true},
 		},
 	}
 }
-func (c *getConfigCommand) UsageShort() string {
-	return "Returns the current configuration, or a specific option."
-}
 
 func (c *setupCommand) DisableModule(info *GuildInfo, module string) {
-	for _, v := range info.modules {
+	for _, v := range info.Modules {
 		if strings.ToLower(v.Name()) == module {
 			cmds := v.Commands()
 			for _, v := range cmds {
-				str := strings.ToLower(v.Name())
-				CheckMapNilBool(&info.config.Modules.CommandDisabled)
-				info.config.Modules.CommandDisabled[str] = true
+				str := strings.ToLower(v.Info().Name)
+				CheckMapNilBool(&info.Config.Modules.CommandDisabled)
+				info.Config.Modules.CommandDisabled[CommandID(str)] = true
 			}
 		}
 	}
 
-	info.config.Modules.Disabled[module] = true
+	info.Config.Modules.Disabled[ModuleID(module)] = true
 }
 
 type setupCommand struct {
 }
 
-func (c *setupCommand) Name() string {
-	return "Setup"
+func (c *setupCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:  "Setup",
+		Usage: "Performs first-time initialization on this server.",
+	}
 }
 func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	guild, err := sb.DG.State.Guild(info.ID)
+	guild, err := info.GetGuild()
 	if err != nil || guild == nil {
-		return "```Can't find guild in state object?!?", false, nil
+		return "```\nCan't find guild in state object?!?", false, nil
 	}
-	perms, _ := sb.DG.State.UserChannelPermissions(msg.Author.ID, msg.ChannelID)
-	if perms&0x00000008 == 0 {
-		return "```Only administrators can use this command!```", false, nil
+	perms, _ := info.Bot.DG.UserPermissions(DiscordUser(msg.Author.ID), info.ID)
+	if perms&discordgo.PermissionAdministrator == 0 {
+		return "```\nOnly administrators can use this command!```", false, nil
 	}
 	if len(args) < 2 {
-		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
+		return "```\nYou must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
 	}
-	if info.config.SetupDone {
+	if info.Config.SetupDone {
 		if strings.ToLower(args[0]) != "override" {
-			return "```WARNING: This server has already been configured. If you run !setup again, it will destroy ALL CONFIGURATION DATA! If you wish to proceed, use !setup OVERRIDE <your arguments>```", false, nil
+			return "```\nWARNING: This server has already been configured. If you run !setup again, it will reset ALL CONFIGURATION DATA to defaults! If you wish to proceed, use !setup OVERRIDE <your arguments>```", false, nil
 		}
 		args = args[1:]
 		indices = indices[1:]
+		info.Config = *DefaultConfig()
 	}
 	if len(args) < 2 {
-		return "```You must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
+		return "```\nYou must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
 	}
 	if len(args) > 3 {
-		return fmt.Sprintf("```This function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels? Alternatively, put your moderator role in \"quotes\".```", len(args)), false, nil
+		return fmt.Sprintf("```\nThis function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels? Alternatively, put your moderator role in \"quotes\".```", len(args)), false, nil
 	}
 
-	mod := StripPing(args[0])
-	modchannel := StripPing(args[1])
-
-	if SBatoi(modchannel) == 0 {
-		if args[1][0] == '#' {
-			args[1] = strings.ToLower(args[1][1:])
-			for _, c := range guild.Channels {
-				if strings.ToLower(c.Name) == args[1] {
-					modchannel = c.ID
-					break
-				}
-			}
-		}
-		if SBatoi(modchannel) == 0 {
-			return fmt.Sprintf("```%s is not a valid channel ID! Remember to use #channel so discord actually sends the ID.```", modchannel), false, nil
-		}
+	info.Config.Basic.ModRole, err = ParseRole(args[0], guild)
+	if err != nil || info.Config.Basic.ModRole == RoleEmpty {
+		return args[0] + " is not a valid role!", false, nil
 	}
-	if SBatoi(mod) == 0 {
-		if args[0][0] == '@' {
-			args[0] = strings.ToLower(args[0][1:])
-			for _, r := range guild.Roles {
-				if strings.ToLower(r.Name) == args[0] {
-					mod = r.ID
-					break
-				}
-			}
-		}
-		if SBatoi(mod) == 0 {
-			return fmt.Sprintf("```%s is not a valid role ID! Remember to use @role so discord actually sends the ID.```", mod), false, nil
-		}
+	info.Config.Basic.ModChannel, err = ParseChannel(args[1], guild)
+	if err != nil || info.Config.Basic.ModChannel == ChannelEmpty {
+		return args[1] + " is not a valid channel!", false, nil
 	}
 
-	log := "[None]"
 	if len(args) > 2 {
-		log = StripPing(args[2])
-		if SBatoi(log) == 0 {
-			if args[2][0] == '#' {
-				args[2] = strings.ToLower(args[2][1:])
-				for _, c := range guild.Channels {
-					if strings.ToLower(c.Name) == args[2] {
-						log = c.ID
-						break
-					}
-				}
-			}
-			if SBatoi(log) == 0 {
-				return fmt.Sprintf("```%s is not a valid channel ID!```", log), false, nil
-			}
+		info.Config.Log.Channel, err = ParseChannel(args[2], guild)
+		if err != nil || info.Config.Log.Channel == ChannelEmpty {
+			return args[2] + " is not a valid channel!", false, nil
 		}
-		info.config.Log.Channel = SBatoi(log)
 	}
 
-	silent, err := sb.DG.GuildRoleCreate(info.ID)
+	silent, err := info.Bot.DG.GuildRoleCreate(info.ID)
 	if err != nil {
-		return fmt.Sprintf("```Failed to create the silent role! %s```", err.Error()), false, nil
+		return fmt.Sprintf("```\nFailed to create the silent role! %s```", err.Error()), false, nil
 	}
-	_, err = sb.DG.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, 0x00000400, false)
+	_, err = info.Bot.DG.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, discordgo.PermissionReadMessages, false)
 	if err != nil {
-		sb.DG.GuildRoleDelete(info.ID, silent.ID)
-		return fmt.Sprintf("```Failed to set up the silent role! %s```", err.Error()), false, nil
+		info.Bot.DG.GuildRoleDelete(info.ID, silent.ID)
+		return fmt.Sprintf("```\nFailed to set up the silent role! %s```", err.Error()), false, nil
 	}
 
-	info.config.Basic.AlertRole = SBatoi(mod)
-	info.config.Basic.ModChannel = SBatoi(modchannel)
-	info.config.Spam.SilentRole = SBatoi(silent.ID)
-	info.config.Log.Channel = 0
-	info.config.Basic.Aliases["calc"] = "roll"
-	info.config.Basic.Aliases["calculate"] = "roll"
+	info.Config.Basic.SilenceRole, _ = ParseRole(silent.ID, nil)
+	info.Config.Basic.Aliases["calc"] = "roll"
+	info.Config.Basic.Aliases["calculate"] = "roll"
 
-	modint := SBitoa(info.config.Basic.AlertRole)
-
-	for _, v := range sb.ModCommands {
-		info.config.Modules.CommandRoles[v] = make(map[string]bool)
-		info.config.Modules.CommandRoles[v][modint] = true
+	for k, v := range info.commands {
+		if v.Info().Sensitive {
+			info.Config.Modules.CommandRoles[k] = make(map[DiscordRole]bool)
+			info.Config.Modules.CommandRoles[k][info.Config.Basic.ModRole] = true
+		}
 	}
 
-	info.config.Modules.CommandDisabled = make(map[string]bool)
-	info.config.Modules.Disabled = make(map[string]bool)
+	info.Config.Modules.CommandDisabled = make(map[CommandID]bool)
+	info.Config.Modules.Disabled = make(map[ModuleID]bool)
 
 	c.DisableModule(info, "bucket")
 	c.DisableModule(info, "bored")
 	c.DisableModule(info, "markov")
 	c.DisableModule(info, "witty")
-	c.DisableModule(info, "emote")
-	c.DisableModule(info, "spoiler")
+	c.DisableModule(info, "poll")
+	c.DisableModule(info, "misc")
 
-	setupSilenceRole(info)
-	info.config.SetupDone = true
+	modname := info.Config.Basic.ModRole.String()
+	modchannel := info.Config.Basic.ModChannel.String()
+	logchannel := info.Config.Log.Channel.String()
+	if r, err := info.Bot.DG.State.Role(guild.ID, modname); err == nil {
+		modname = "@" + r.Name
+	}
+	if ch, err := info.Bot.DG.State.Channel(modchannel); err == nil {
+		modchannel = "#" + ch.Name
+	}
+	if ch, err := info.Bot.DG.State.Channel(logchannel); err == nil {
+		logchannel = "#" + ch.Name
+	}
+
+	info.setupSilenceRole()
+	info.Config.SetupDone = true
 	info.SaveConfig()
-	return fmt.Sprintf("```Server configured!\nModerator Role: %s\nMod Channel: %s\nLog Channel: %s```\nNow that you've done basic configuration on Sweetie Bot, here are some additional features you can enable. For additional help, type `"+info.config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check out the readme: https://github.com/blackhole12/sweetiebot/blob/master/README.md \n\n**Bucket**\nIf you'd like to enable Sweetie Bot's bucket, use the command `"+info.config.Basic.CommandPrefix+"enable Bucket`. She defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like Sweetie Bot to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.config.Basic.CommandPrefix+"enable bored` followed by `"+info.config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands she picks from are stored in `bored.commands`. By default, she will quote someone or attempt to throw an item out of her bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", mod, modchannel, log), false, nil
+	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check out the readme: https://github.com/blackhole12/sweetiebot/blob/master/README.md \n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", modname, modchannel, logchannel, info.GetBotName()), false, nil
 }
 func (c *setupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Sets up sweetie bot on this server and restricts all sensitive commands to `Moderator Role`.",
+		Desc: "Sets up " + info.GetBotName() + " on this server and restricts all sensitive commands to `Moderator Role`.",
 		Params: []CommandUsageParam{
 			{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
 			{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
 			{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
 		},
 	}
-}
-func (c *setupCommand) UsageShort() string {
-	return "Performs first-time initialization for Sweetie Bot on this server."
 }
