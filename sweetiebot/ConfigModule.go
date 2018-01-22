@@ -299,6 +299,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 
 	info.Config.Basic.SilenceRole, _ = ParseRole(silent.ID, nil)
+	info.Config.Basic.Aliases = make(map[string]string)
 	info.Config.Basic.Aliases["calc"] = "roll"
 	info.Config.Basic.Aliases["calculate"] = "roll"
 
