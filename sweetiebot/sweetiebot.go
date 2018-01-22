@@ -1,7 +1,6 @@
 package sweetiebot
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,102 +17,88 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-var sb *SweetieBot
-var channelregex = regexp.MustCompile("<#[0-9]+>")
+// ChannelRegex matches any valid discord channel ping
+var ChannelRegex = regexp.MustCompile("<#([0-9]+)>")
+
+// UserRegex matches any valid user or nickname ping
+var UserRegex = regexp.MustCompile("<@!?([0-9]+)>")
+
+// RoleRegex matches any valid role ping
+var RoleRegex = regexp.MustCompile("<@&([0-9]+)>")
+
+var mentionRegex = regexp.MustCompile("<@(!|&)?[0-9]+>")
 var roleregex = regexp.MustCompile("<@&[0-9]+>")
-var userregex = regexp.MustCompile("<@!?[0-9]+>")
-var mentionregex = regexp.MustCompile("<@(!|&)?[0-9]+>")
 var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
-var repeatregex = regexp.MustCompile("repeat -?[0-9]+ (second|minute|hour|day|week|month|quarter|year)s?")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
-var tagargregex = regexp.MustCompile("[^-+()| ][^-+()|]*")
 var locUTC = time.FixedZone("UTC", 0)
+var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-z]{1,6}([-a-zA-Z0-9@:%_\\+.~#?&//=]*)")
 
 // DiscordEpoch is used to figure out snowflake creation times
 var DiscordEpoch uint64 = 1420070400000
 
+// Current version of sweetiebot
+var BotVersion = Version{0, 9, 8, 26}
+
 const (
-	maxUniqueItems = 25000
-	maxTagResults  = 50
-	maxPublicLines = 12
+	MaxPublicLines = 12
 	maxPublicRules = 6
+	SilverServerID = "105443346608095232"
+	QuitNone       = 0
+	QuitNow        = 1
+	QuitRaid       = 2
+	UpdateGrace    = 120
+	MaxUpdateGrace = 600
+	UpdateInterval = 300
 )
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
-	DB                 *BotDB
-	DG                 *discordgo.Session
-	Debug              bool `json:"debug"`
-	version            Version
-	changelog          map[int]string
-	SelfID             string
-	SelfAvatar         string
-	Owners             map[uint64]bool
-	RestrictedCommands map[string]bool
-	NonServerCommands  map[string]bool
-	ModCommands        []string
-	MainGuildID        uint64
-	DBGuilds           map[uint64]bool   `json:"dbguilds"`
-	DebugChannels      map[string]string `json:"debugchannels"`
-	quit               AtomicBool
-	guilds             map[uint64]*GuildInfo
-	guildsLock         sync.RWMutex
-	LastMessages       map[string]int64
-	LastMessagesLock   sync.RWMutex
-	MaxConfigSize      int
-	StartTime          int64
-	MessageCount       uint32 // 32-bit so we can do atomic ops on a 32-bit platform
-	heartbeat          uint32 // perpetually incrementing heartbeat counter to detect deadlock
-	locknumber         uint32
-	loader             func() []Module
-	memberChan         chan *GuildInfo
+	DB               *BotDB
+	DG               *DiscordGoSession
+	Debug            bool `json:"debug"`
+	changelog        map[int]string
+	SelfID           DiscordUser
+	SelfAvatar       string
+	SelfName         string
+	AppID            uint64
+	AppName          string
+	Owner            DiscordUser
+	Token            string                          `json:"token"`
+	DBAuth           string                          `json:"dbauth"`
+	MainGuildID      DiscordGuild                    `json:"mainguildid"`
+	DebugChannels    map[DiscordGuild]DiscordChannel `json:"debugchannels"`
+	quit             uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occured before quitting
+	Guilds           map[DiscordGuild]*GuildInfo
+	GuildsLock       sync.RWMutex
+	LastMessages     map[DiscordChannel]int64
+	LastMessagesLock sync.RWMutex
+	MaxConfigSize    int    `json:"maxconfigsize"`
+	MaxUniqueItems   uint64 `json:"maxuniqueitems"`
+	StartTime        int64
+	MessageCount     uint32 // 32-bit so we can do atomic ops on a 32-bit platform
+	heartbeat        uint32 // perpetually incrementing heartbeat counter to detect deadlock
+	locknumber       uint32
+	loader           func(*GuildInfo) []Module
+	memberChan       chan *GuildInfo
+	Selfhoster       *Selfhost
+	IsUserMode       bool       `json:"runasuser"` // True if running as a user for some godawful reason
+	WebSecure        bool       `json:"websecure"`
+	WebDomain        string     `json:"webdomain"`
+	WebPort          string     `json:"webport"`
+	EmptyGuild       *GuildInfo // Holds an empty GuildInfo for running server independent commands
+	UpdateLock       AtomicFlag
 }
 
 // IsMainGuild returns true if that guild is considered the main (default) guild
-func (sbot *SweetieBot) IsMainGuild(info *GuildInfo) bool {
-	return SBatoi(info.ID) == sbot.MainGuildID
+func (sb *SweetieBot) IsMainGuild(info *GuildInfo) bool {
+	return sb.MainGuildID.Equals(info.ID)
 }
 
-// IsDBGuild returns true if that guild is allowed to use the database
-func (sbot *SweetieBot) IsDBGuild(info *GuildInfo) bool {
-	_, ok := sbot.DBGuilds[SBatoi(info.ID)]
-	return ok
-}
-
-// BulkDelete Performs a bulk deletion in groups of 100
-func (sbot *SweetieBot) BulkDelete(channelID string, messages []string) (err error) {
-	i := 0
-	n := len(messages)
-	for (n - i) > 99 {
-		err := sbot.DG.ChannelMessagesBulkDelete(channelID, messages[i:i+99])
-		if err != nil {
-			return err
-		}
-	}
-	return sbot.DG.ChannelMessagesBulkDelete(channelID, messages[i:])
-}
-
-// PartialSanitize escapes ``` and emotes`
-func PartialSanitize(s string) string {
-	s = strings.Replace(s, "```", "\\`\\`\\`", -1)
-	return strings.Replace(s, "[](/", "[\u200B](/", -1)
-}
-
-// ExtraSanitize calls PartialSanitize and also sanitizes links
-func ExtraSanitize(s string) string {
-	s = strings.Replace(s, "http://", "http\u200B://", -1)
-	s = strings.Replace(s, "https://", "https\u200B://", -1)
-	return PartialSanitize(ReplaceAllMentions(s))
-}
-
-func typeIsPrivate(ty discordgo.ChannelType) bool {
-	return ty != discordgo.ChannelTypeGuildText && ty != discordgo.ChannelTypeGuildCategory && ty != discordgo.ChannelTypeGuildVoice
-}
-func channelIsPrivate(channelID string) (*discordgo.Channel, bool) {
+func (sb *SweetieBot) ChannelIsPrivate(channelID DiscordChannel) (*discordgo.Channel, bool) {
 	if channelID == "heartbeat" {
 		return nil, true
 	}
-	ch, err := sb.DG.State.Channel(channelID)
+	ch, err := sb.DG.State.Channel(channelID.String())
 	if err == nil { // Because of the magic of web development, we can get a message BEFORE the "channel created" packet for the channel being used by that message.
 		return ch, typeIsPrivate(ch.Type)
 	}
@@ -121,33 +106,26 @@ func channelIsPrivate(channelID string) (*discordgo.Channel, bool) {
 	return nil, true
 }
 
-// ChangeBotName changes the username and avatar of the bot
-func ChangeBotName(s *discordgo.Session, name string, avatarfile string) {
-	binary, _ := ioutil.ReadFile(avatarfile)
-	avatar := base64.StdEncoding.EncodeToString(binary)
-
-	_, err := s.UserUpdate("", "", name, "data:image/png;base64,"+avatar, "")
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println("Changed username successfully")
-	}
-}
-
-//func sbEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
-func sbReady(s *discordgo.Session, r *discordgo.Ready) {
+//func (sb *SweetieBot) OnEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
+func (sb *SweetieBot) OnReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
-	sb.SelfID = r.User.ID
+	sb.SelfID = DiscordUser(r.User.ID)
 	sb.SelfAvatar = r.User.Avatar
-	isuser, _ := ioutil.ReadFile("isuser") // THIS FILE SHOULD NOT EXIST UNLESS YOU WANT TO BE IN USER MODE. If you don't know what user mode is, you don't want it.
-	if r.Guilds != nil && isuser != nil {
+	sb.SelfName = r.User.Username
+	sb.AppName = sb.SelfName
+	if r.Guilds != nil && sb.IsUserMode {
 		for _, G := range r.Guilds {
-			AttachToGuild(G)
+			sb.AttachToGuild(G)
 		}
 	}
+	app, err := s.Application("@me")
+	if err == nil {
+		sb.Owner = DiscordUser(app.Owner.ID)
+		sb.AppID = SBatoi(app.ID)
+		sb.AppName = app.Name
+	}
 
-	// Only used to change sweetiebot's name or avatar
-	//ChangeBotName(s, "Sweetie", "avatar.png")
+	sb.Selfhoster.SelfUpdate(sb.Owner)
 }
 
 type moduleArray []Module
@@ -165,32 +143,22 @@ func (f moduleArray) Swap(i, j int) {
 }
 
 // AttachToGuild adds a guild to sweetiebot's state tracking
-func AttachToGuild(g *discordgo.Guild) {
-	sb.guildsLock.RLock()
-	guild, exists := sb.guilds[SBatoi(g.ID)]
-	sb.guildsLock.RUnlock()
+func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
+	sb.GuildsLock.RLock()
+	guild, exists := sb.Guilds[DiscordGuild(g.ID)]
+	sb.GuildsLock.RUnlock()
 	if exists {
 		guild.ProcessGuild(g)
 		return
 	}
 	if sb.Debug {
-		_, ok := sb.DebugChannels[g.ID]
+		_, ok := sb.DebugChannels[DiscordGuild(g.ID)]
 		if !ok {
-			/*guild = &GuildInfo{
-				ID:           g.ID,
-				Name:         g.Name,
-				OwnerID:      g.OwnerID,
-				commandLast:  make(map[string]map[string]int64),
-				commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
-				commands:     make(map[string]Command),
-				emotemodule:  nil,
-				lockdown:     -1,
-				Bot:          sb,
-			}
-			sb.guildsLock.Lock()
-			sb.guilds[SBatoi(g.ID)] = guild
+			/*guild = NewGuildInfo(sb, g)
+			sb.GuildsLock.Lock()
+			sb.Guilds[SBatoi(g.ID)] = guild
 			guild.ProcessGuild(g)
-			sb.guildsLock.Unlock()
+			sb.GuildsLock.Unlock()
 			sb.memberChan <- guild
 			fmt.Println("Processed", g.Name)*/
 			return
@@ -198,48 +166,41 @@ func AttachToGuild(g *discordgo.Guild) {
 	}
 
 	fmt.Println("Initializing " + g.Name)
-
-	guild = &GuildInfo{
-		ID:           g.ID,
-		Name:         g.Name,
-		OwnerID:      g.OwnerID,
-		commandLast:  make(map[string]map[string]int64),
-		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
-		commands:     make(map[string]Command),
-		emotemodule:  nil,
-		lockdown:     -1,
-		lastlogerr:   0,
-		Bot:          sb,
+	guild = NewGuildInfo(sb, g)
+	for _, m := range g.Members {
+		if sb.SelfID.Equals(m.User.ID) {
+			guild.BotNick = m.Nick
+		}
 	}
 	config, err := ioutil.ReadFile(g.ID + ".json")
 	disableall := false
 	if err != nil {
 		fmt.Println("New Guild Detected: " + g.Name)
-		config, _ = ioutil.ReadFile("default.json")
+
 		ch, e := sb.DG.UserChannelCreate(g.OwnerID)
 		if e == nil {
 			sb.DB.SetDefaultServer(SBatoi(g.OwnerID), SBatoi(g.ID)) // This ensures no one blows up another server by accident
-			perms, _ := getAllPerms(guild, sb.SelfID)
+			perms, _ := guild.Bot.DG.UserPermissions(sb.SelfID, guild.ID)
 			warning := ""
-			if perms&0x00000008 != 0 {
-				warning = "\nWARNING: You have given sweetiebot the Administrator role, which implicitly gives her all roles! Sweetie Bot only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+			if perms&discordgo.PermissionAdministrator != 0 {
+				warning = "\nWARNING: You have given " + guild.GetBotName() + " the Administrator role, which implicitly gives it all roles! " + guild.GetBotName() + " only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
 			}
-			if perms&0x00020000 != 0 {
-				warning = "\nWARNING: You have given sweetiebot the Mention Everyone role, which means users will be able to abuse her to ping everyone on the server! Sweetie Bot does NOT attempt to filter @\u200Beveryone from her messages!" + warning
+			if perms&discordgo.PermissionMentionEveryone != 0 {
+				warning = "\nWARNING: You have given " + guild.GetBotName() + " the Mention Everyone role, which means users will be able to abuse it to ping everyone on the server! " + guild.GetBotName() + " does NOT attempt to filter @\u200Beveryone from it messages!" + warning
 			}
-			if perms&0x00000004 == 0 {
-				warning = "\nWARNING: Sweetiebot cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
+			if perms&discordgo.PermissionBanMembers == 0 {
+				warning = "\nWARNING: " + guild.GetBotName() + " cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
 			}
-			if perms&0x10000000 == 0 {
-				warning = "\nWARNING: Sweetiebot cannot silence members or give birthday roles without the Manage Roles role!" + warning
+			if perms&discordgo.PermissionManageRoles == 0 {
+				warning = "\nWARNING: " + guild.GetBotName() + " cannot silence members or give birthday roles without the Manage Roles role!" + warning
 			}
-			if perms&0x00002000 == 0 {
-				warning = "\nWARNING: Sweetiebot cannot delete messages without the Manage Messages role!" + warning
+			if perms&discordgo.PermissionManageMessages == 0 {
+				warning = "\nWARNING: " + guild.GetBotName() + " cannot delete messages without the Manage Messages role!" + warning
 			}
-			if perms&0x00000020 == 0 {
-				warning = "\nWARNING: Sweetiebot cannot engage lockdown mode without the Manage Server role!" + warning
+			if perms&discordgo.PermissionManageServer == 0 {
+				warning = "\nWARNING: " + guild.GetBotName() + " cannot engage lockdown mode without the Manage Server role!" + warning
 			}
-			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added Sweetie Bot to your server! To finish setting her up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. Sweetie Bot will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. This ensures that you can always fix a broken configuration. Before running `!setup`, make sure your moderator role can be pinged: Go to Server Settings -> Roles and select your mod role, then make sure \"Allow anyone to @mention this role\" is checked.\n\n**> Mod Channel**\nThis is the channel Sweetie Bot will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nThis is an optional channel where sweetiebot will post errors and update notifications. Usually, this is only visible to server admins and the bot. Remember to give the bot permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often Sweetie Bot's last resort for notifying you about potential errors.\n\nThat's it! Here is an example of the command: ```!setup @Mods #staff-chat #bot-log```\n\nNote: **Do not run `!setup` in this PM!** It won't work because Discord won't autocomplete `#channel` for you. Run `!setup` directly on your server.")
+			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added "+guild.GetBotName()+" to your server! To finish setting it up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. "+guild.GetBotName()+" will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. \n\n**> Mod Channel**\nThis is the channel "+guild.GetBotName()+" will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nAn optional channel where "+guild.GetBotName()+" will post errors and update notifications. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often "+guild.GetBotName()+"'s last resort for notifying you about potential errors.\n\nThat's it! Here is an example: ```!setup @Mods #staff-chat #bot-log```")
 			if len(warning) > 0 {
 				sb.DG.ChannelMessageSend(ch.ID, warning)
 			}
@@ -247,123 +208,56 @@ func AttachToGuild(g *discordgo.Guild) {
 			fmt.Println("Error sending introductory PM: ", e)
 		}
 		disableall = true
-	}
-	err = MigrateSettings(config, guild)
-	if err != nil {
+	} else if err := guild.MigrateSettings(config); err != nil {
 		fmt.Println("Error reading config file for "+g.Name+": ", err.Error())
 	}
 
-	guild.commandlimit.times = make([]int64, guild.config.Modules.CommandPerDuration*2, guild.config.Modules.CommandPerDuration*2)
-
-	if len(guild.config.Witty.Responses) == 0 {
-		guild.config.Witty.Responses = make(map[string]string)
-	}
-	if len(guild.config.Basic.Aliases) == 0 {
-		guild.config.Basic.Aliases = make(map[string]string)
-	}
-	if len(guild.config.Basic.FreeChannels) == 0 {
-		guild.config.Basic.FreeChannels = make(map[string]bool)
-	}
-	if len(guild.config.Modules.CommandRoles) == 0 {
-		guild.config.Modules.CommandRoles = make(map[string]map[string]bool)
-	}
-	if len(guild.config.Modules.CommandChannels) == 0 {
-		guild.config.Modules.CommandChannels = make(map[string]map[string]bool)
-	}
-	if len(guild.config.Modules.CommandLimits) == 0 {
-		guild.config.Modules.CommandLimits = make(map[string]int64)
-	}
-	if len(guild.config.Modules.CommandDisabled) == 0 {
-		guild.config.Modules.CommandDisabled = make(map[string]bool)
-	}
-	if len(guild.config.Modules.Disabled) == 0 {
-		guild.config.Modules.Disabled = make(map[string]bool)
-	}
-	if len(guild.config.Modules.Channels) == 0 {
-		guild.config.Modules.Channels = make(map[string]map[string]bool)
-	}
-	if len(guild.config.Users.Roles) == 0 {
-		guild.config.Users.Roles = make(map[uint64]bool)
-	}
-	if len(guild.config.Collections) == 0 {
-		guild.config.Collections = make(map[string]map[string]bool)
+	guild.Config.FillConfig()
+	if sb.MainGuildID.Equals(g.ID) {
+		guild.Silver.Set(true)
 	}
 
-	collections := []string{"emote", "status", "spoiler", "bucket"}
-	for _, v := range collections {
-		_, ok := guild.config.Collections[v]
-		if !ok {
-			guild.config.Collections[v] = make(map[string]bool)
-		}
-	}
-
-	sb.guildsLock.Lock()
-	sb.guilds[SBatoi(g.ID)] = guild
+	sb.GuildsLock.Lock()
+	sb.Guilds[DiscordGuild(g.ID)] = guild
 	guild.ProcessGuild(g) // This can be done outside of the guild lock, but it puts a lot of pressure on the database
-	sb.guildsLock.Unlock()
+	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
+	if atomic.LoadUint32(&sb.quit) == QuitNone { // Check this inside the GuildsLock to ensure we cannot ever send a message to a closed channel
+		sb.memberChan <- guild // Do this concurrently because it just has to happen eventually.
+	}
+	sb.GuildsLock.Unlock()
 
-	guild.emotemodule = &EmoteModule{}
-	guild.emotemodule.UpdateRegex(guild)
-	spoilermodule := &SpoilerModule{}
-	spoilermodule.UpdateRegex(guild)
+	guild.Modules = sb.loader(guild)
+	sort.Sort(moduleArray(guild.Modules))
 
-	wittymodule := &WittyModule{lastcomment: 0, lastdelete: 0}
-	wittymodule.UpdateRegex(guild)
-
-	guild.modules = sb.loader()
-	guild.modules = append(guild.modules, &SpamModule{tracker: make(map[uint64]*userPressure), lastraid: 0})
-	guild.modules = append(guild.modules, &BoredModule{lastmessage: 0})
-	guild.modules = append(guild.modules, wittymodule)
-	guild.modules = append(guild.modules, &MiscModule{guild.emotemodule, spoilermodule})
-	guild.modules = append(guild.modules, guild.emotemodule)
-	guild.modules = append(guild.modules, spoilermodule)
-	sort.Sort(moduleArray(guild.modules))
-
-	for _, v := range guild.modules {
+	for _, v := range guild.Modules {
 		guild.RegisterModule(v)
 		cmds := v.Commands()
 		for _, command := range cmds {
-			guild.AddCommand(command)
+			guild.AddCommand(command, v)
 		}
 	}
 
-	for _, v := range guild.modules {
-		_, ok := guild.commands[strings.ToLower(v.Name())]
-		if ok {
-			fmt.Println("WARNING: Ambiguous module/command name ", v.Name())
+	guild.Clean()
+	if sb.Debug {
+		for _, v := range guild.Modules {
+			_, ok := guild.commands[CommandID(strings.ToLower(v.Name()))]
+			if ok {
+				fmt.Println("WARNING: Ambiguous module/command name ", v.Name())
+			}
 		}
 	}
 	if disableall {
 		for k := range guild.commands {
-			guild.config.Modules.CommandDisabled[k] = true
+			guild.Config.Modules.CommandDisabled[k] = true
 		}
-		for _, v := range guild.modules {
-			guild.config.Modules.Disabled[strings.ToLower(v.Name())] = true
+		for _, v := range guild.Modules {
+			guild.Config.Modules.Disabled[ModuleID(strings.ToLower(v.Name()))] = true
 		}
-		delete(guild.config.Modules.CommandDisabled, "setup")
+		delete(guild.Config.Modules.CommandDisabled, "setup")
 		guild.SaveConfig()
 	}
 	if sb.IsMainGuild(guild) {
 		sb.DB.log = guild
-		go guild.SwapStatusLoop()
-	}
-
-	sb.memberChan <- guild // Do this concurrently because we don't need this to function properly, we just need it to happen eventually
-
-	for _, v := range sb.ModCommands {
-		if _, ok := guild.commands[v]; !ok {
-			fmt.Println("Nonexistant command ", v, " in sb.ModCommands")
-		}
-	}
-	for k := range sb.RestrictedCommands {
-		if _, ok := guild.commands[k]; !ok {
-			fmt.Println("Nonexistant command ", k, " in sb.RestrictedCommands")
-		}
-	}
-	for k := range sb.NonServerCommands {
-		if _, ok := guild.commands[k]; !ok {
-			fmt.Println("Nonexistant command ", k, " in sb.NonServerCommands")
-		}
 	}
 
 	debug := "."
@@ -371,43 +265,48 @@ func AttachToGuild(g *discordgo.Guild) {
 		debug = ".\n[DEBUG BUILD]"
 	}
 	changes := ""
-	if guild.config.LastVersion != sb.version.Integer() {
-		guild.config.LastVersion = sb.version.Integer()
+	if guild.Config.LastVersion != BotVersion.Integer() {
+		guild.Config.LastVersion = BotVersion.Integer()
 		guild.SaveConfig()
 		var ok bool
-		changes, ok = sb.changelog[sb.version.Integer()]
+		changes, ok = sb.changelog[BotVersion.Integer()]
 		if ok {
-			changes = "\nChangelog:\n" + changes + "\n\nPlease consider donating to help pay for hosting costs: https://www.patreon.com/erikmcclure"
+			changes = "\nChangelog:\n" + changes
+		}
+		if guild.Silver.Get() {
+			changes += "\n\nThank you for your support!"
+		} else {
+			changes += "\n\nPlease consider donating to help pay for hosting costs: https://www.patreon.com/erikmcclure"
 		}
 	}
-	guild.Log("Sweetiebot version ", sb.version.String(), " successfully loaded on ", g.Name, debug, changes)
+	guild.Log(sb.AppName+" version ", BotVersion.String(), " successfully loaded on ", g.Name, debug, changes)
 }
-func getChannelGuild(id string) *GuildInfo {
+func (sb *SweetieBot) getChannelGuild(id string) *GuildInfo {
 	c, err := sb.DG.State.Channel(id)
 	if err != nil {
 		fmt.Println("Failed to get channel " + id)
 		return nil
 	}
-	sb.guildsLock.RLock()
-	g, ok := sb.guilds[SBatoi(c.GuildID)]
-	sb.guildsLock.RUnlock()
+	sb.GuildsLock.RLock()
+	g, ok := sb.Guilds[DiscordGuild(c.GuildID)]
+	sb.GuildsLock.RUnlock()
 	if !ok {
 		return nil
 	}
 	return g
 }
-func getGuildFromID(id string) *GuildInfo {
-	sb.guildsLock.RLock()
-	g, ok := sb.guilds[SBatoi(id)]
-	sb.guildsLock.RUnlock()
+func (sb *SweetieBot) getGuildFromID(id string) *GuildInfo {
+	sb.GuildsLock.RLock()
+	g, ok := sb.Guilds[DiscordGuild(id)]
+	sb.GuildsLock.RUnlock()
 	if !ok {
 		return nil
 	}
 	return g
 }
-func getAddMsg(info *GuildInfo) string {
-	if info.config.Basic.BotChannel != 0 {
-		addch, adderr := sb.DG.State.Channel(SBitoa(info.config.Basic.BotChannel))
+func (sb *SweetieBot) getAddMsg(info *GuildInfo) string {
+	if info.Config.Basic.BotChannel != ChannelEmpty {
+		addch, adderr := sb.DG.State.Channel(info.Config.Basic.BotChannel.String())
 		if adderr == nil {
 			return fmt.Sprintf(" Try going to #%s instead.", addch.Name)
 		}
@@ -415,232 +314,226 @@ func getAddMsg(info *GuildInfo) string {
 	return ""
 }
 
-// SBProcessCommand processes a command given to sweetiebot in the form "!command"
-func SBProcessCommand(s *discordgo.Session, m *discordgo.Message, info *GuildInfo, t int64, isdbguild bool, isdebug bool) {
+// ProcessCommand processes a command given to sweetiebot in the form "!command"
+func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t int64, isdebug bool, private bool) {
 	var prefix byte = '!'
-	if info != nil && len(info.config.Basic.CommandPrefix) == 1 {
-		prefix = info.config.Basic.CommandPrefix[0]
+	if info != nil && len(info.Config.Basic.CommandPrefix) == 1 {
+		prefix = info.Config.Basic.CommandPrefix[0]
 	}
 
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
 	if len(m.Content) > 1 && m.Content[0] == prefix && (len(m.Content) < 2 || m.Content[1] != prefix) { // We check for > 1 here because a single character can't possibly be a valid command
-		private := info == nil
 		isfree := private
 		authorid := SBatoi(m.Author.ID)
+		channelID := DiscordChannel(m.ChannelID)
 		if info != nil {
-			_, isfree = info.config.Basic.FreeChannels[m.ChannelID]
+			_, isfree = info.Config.Basic.FreeChannels[channelID]
 		}
-		_, isOwner := sb.Owners[authorid]
-		isSelf := m.Author.ID == sb.SelfID
 
-		if !isSelf && info != nil {
-			ignore := false
-			for _, h := range info.hooks.OnCommand {
-				if info.ProcessModule(m.ChannelID, h) {
-					ignore = ignore || h.OnCommand(info, m)
-				}
-			}
-			if ignore && !isOwner && m.Author.ID != info.OwnerID { // if true, a module wants us to ignore this command
-				return
-			}
-		}
+		// command := strings.ToLower(strings.SplitN(m.Content[1:], " ", 2)[0])
 		args, indices := ParseArguments(m.Content[1:])
-		arg := strings.ToLower(args[0])
-		if info == nil && !sb.DB.status.get() {
-			s.ChannelMessageSend(m.ChannelID, "```A temporary database error means I can't process any private message commands right now.```")
-			return
+		arg := CommandID(strings.ToLower(args[0]))
+		if info == nil && sb.DB.Status.Get() {
+			info = sb.GetDefaultServer(authorid)
 		}
 		if info == nil {
-			info = getDefaultServer(authorid)
-		}
-		if info == nil {
+			_, independent := sb.EmptyGuild.commands[arg]
+			if !independent && !sb.DB.Status.Get() {
+				sb.DG.ChannelMessageSend(m.ChannelID, "```\nA temporary database error means I can't process any private message commands right now.```")
+				return
+			}
 			gIDs := sb.DB.GetUserGuilds(authorid)
-			_, independent := sb.NonServerCommands[arg]
 			if !independent && len(gIDs) != 1 {
-				s.ChannelMessageSend(m.ChannelID, "```Cannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
+				sb.DG.ChannelMessageSend(m.ChannelID, "```\nCannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
 				return
 			}
 
-			if len(gIDs) == 0 {
-				gIDs = []uint64{sb.MainGuildID}
+			if len(gIDs) == 1 {
+				sb.GuildsLock.RLock()
+				info = sb.Guilds[NewDiscordGuild(gIDs[0])]
+				sb.GuildsLock.RUnlock()
 			}
-			sb.guildsLock.RLock()
-			info = sb.guilds[gIDs[0]]
-			sb.guildsLock.RUnlock()
 			if info == nil {
-				s.ChannelMessageSend(m.ChannelID, "```I haven't been loaded on that server yet!```")
-				return
+				info = sb.EmptyGuild
 			}
 		}
 		c, ok := info.commands[arg] // First, we check if this matches an existing command so you can't alias yourself into a hole
 		if !ok {
-			alias, aliasok := info.config.Basic.Aliases[arg]
-			if aliasok {
+			if alias, aliasok := info.Config.Basic.Aliases[string(arg)]; aliasok {
 				if len(indices) > 1 {
-					m.Content = info.config.Basic.CommandPrefix + alias + " " + m.Content[indices[1]:]
+					m.Content = info.Config.Basic.CommandPrefix + alias + " " + m.Content[indices[1]:]
 				} else {
-					m.Content = info.config.Basic.CommandPrefix + alias
+					m.Content = info.Config.Basic.CommandPrefix + alias
 				}
 				args, indices = ParseArguments(m.Content[1:])
-				arg = strings.ToLower(args[0])
+				arg = CommandID(strings.ToLower(args[0]))
 				c, ok = info.commands[arg]
 			}
 		}
 		if ok {
-			if sb.DB.status.get() && m.Author.ID != sb.SelfID {
+			if sb.DB.Status.Get() && !sb.SelfID.Equals(m.Author.ID) {
 				sb.DB.Audit(AuditTypeCommand, m.Author, m.Content, SBatoi(info.ID))
 			}
-			isOwner = isOwner || m.Author.ID == info.OwnerID
-			cmdname := strings.ToLower(c.Name())
-			cch := info.config.Modules.CommandChannels[cmdname]
-			_, disabled := info.config.Modules.CommandDisabled[cmdname]
-			_, restricted := sb.RestrictedCommands[cmdname]
-			if disabled && !isOwner && !isSelf {
-				return
+			cmdname := CommandID(strings.ToLower(c.Info().Name))
+
+			ignore := false
+			if !private {
+				for _, h := range info.hooks.OnCommand {
+					if info.ProcessModule(channelID, h) {
+						ignore = ignore || h.OnCommand(info, m)
+					}
+				}
 			}
-			if restricted && !isdbguild {
-				return
-			}
-			if !private && len(cch) > 0 && !isSelf {
+
+			cch := info.Config.Modules.CommandChannels[cmdname]
+			if !private && len(cch) > 0 {
 				_, reverse := cch["!"]
-				_, ok = cch[m.ChannelID]
-				if ok == reverse {
-					return
-				}
+				_, ok = cch[channelID]
+				ignore = ignore || ok == reverse
 			}
-			if !isdebug && !isfree && !isSelf && info.config.Modules.CommandPerDuration > 0 && !info.UserHasRole(m.Author.ID, SBitoa(info.config.Basic.AlertRole)) { // debug channels aren't limited
-				if len(info.commandlimit.times) < info.config.Modules.CommandPerDuration*2 { // Check if we need to re-allocate the array because the configuration changed
-					info.commandlimit.times = make([]int64, info.config.Modules.CommandPerDuration*2, info.config.Modules.CommandPerDuration*2)
+			bypass, err := info.UserCanUseCommand(DiscordUser(m.Author.ID), c, ignore) // Bypass is true for administrators, mods, and the bot owner
+			if err == errDisabled || err == errIgnored || err == errSilenced || err == errMainGuild {
+				return
+			}
+			if !isdebug && !isfree && !bypass && info.Config.Modules.CommandPerDuration > 0 { // debug channels aren't limited
+				if len(info.commandlimit.times) < info.Config.Modules.CommandPerDuration*2 { // Check if we need to re-allocate the array because the configuration changed
+					info.commandlimit.times = make([]int64, info.Config.Modules.CommandPerDuration*2, info.Config.Modules.CommandPerDuration*2)
 				}
-				if info.commandlimit.check(info.config.Modules.CommandPerDuration, info.config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.Error(m.ChannelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.config.Modules.CommandMaxDuration)*time.Second), getAddMsg(info)))
+				if info.commandlimit.check(info.Config.Modules.CommandPerDuration, info.Config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
+					info.SendError(channelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.Config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.Config.Modules.CommandMaxDuration)*time.Second), sb.getAddMsg(info)), t)
 					return
 				}
 				info.commandlimit.append(t)
 			}
-			if !isOwner && !isSelf && !info.UserHasAnyRole(m.Author.ID, info.config.Modules.CommandRoles[cmdname]) {
-				info.Error(m.ChannelID, "You don't have permission to run this command! Allowed Roles: "+info.GetRoles(c))
+			if err != nil {
+				info.SendError(channelID, err.Error(), t)
 				return
 			}
 
-			cmdlimit := info.config.Modules.CommandLimits[cmdname]
-			if !isfree && cmdlimit > 0 && !isSelf {
+			if c.Info().Silver && !info.Silver.Get() {
+				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate to gain access: https://www.patreon.com/erikmcclure. Visit the support channel for help if you already donated.", t)
+				return
+			}
+
+			cmdlimit := info.Config.Modules.CommandLimits[cmdname]
+			if !isfree && cmdlimit > 0 && !bypass {
 				info.commandLock.RLock()
-				lastcmd := info.commandLast[m.ChannelID][cmdname]
+				lastcmd := info.commandLast[channelID][cmdname]
 				info.commandLock.RUnlock()
-				if !RateLimit(&lastcmd, cmdlimit) {
-					info.Error(m.ChannelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), getAddMsg(info)))
+				if !RateLimit(&lastcmd, cmdlimit, t) {
+					info.SendError(channelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), sb.getAddMsg(info)), t)
 					return
 				}
 				info.commandLock.Lock()
-				if len(info.commandLast[m.ChannelID]) == 0 {
-					info.commandLast[m.ChannelID] = make(map[string]int64)
+				if len(info.commandLast[channelID]) == 0 {
+					info.commandLast[channelID] = make(map[CommandID]int64)
 				}
-				info.commandLast[m.ChannelID][cmdname] = t
+				info.commandLast[channelID][cmdname] = t
 				info.commandLock.Unlock()
 			}
 
 			result, usepm, resultembed := c.Process(args[1:], m, indices[1:], info)
 			if len(result) > 0 || resultembed != nil {
-				targetchannel := m.ChannelID
+				targetchannel := channelID
 				if usepm && !private {
-					channel, err := s.UserChannelCreate(m.Author.ID)
+					channel, err := sb.DG.UserChannelCreate(m.Author.ID)
 					info.LogError("Error opening private channel: ", err)
 					if err == nil {
-						targetchannel = channel.ID
+						targetchannel = DiscordChannel(channel.ID)
 						private = true
 						if rand.Float32() < 0.01 {
-							info.SendMessage(m.ChannelID, "Check your ~~privilege~~ Private Messages for my reply!")
+							info.SendMessage(channelID, "Check your ~~privilege~~ Private Messages for my reply!")
 						} else {
-							info.SendMessage(m.ChannelID, "```Check your Private Messages for my reply!```")
+							info.SendMessage(channelID, "```\nCheck your Private Messages for my reply!```")
 						}
 					}
 				}
 
 				if resultembed != nil {
-					info.SendEmbed(targetchannel, resultembed)
-				} else {
-					info.SendMessage(targetchannel, result)
+					if err := info.SendEmbed(targetchannel, resultembed); err != nil {
+						fmt.Println(err)
+					}
+				} else if err := info.SendMessage(targetchannel, result); err != nil {
+					fmt.Println(err)
 				}
 			}
-		} else {
-			if !info.config.Basic.IgnoreInvalidCommands {
-				info.Error(m.ChannelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.")
-			}
+		} else if !info.Config.Basic.IgnoreInvalidCommands {
+			info.SendError(channelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.", t)
 		}
 	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
 		for _, h := range info.hooks.OnMessageCreate {
-			if info.ProcessModule(m.ChannelID, h) {
+			if info.ProcessModule(DiscordChannel(m.ChannelID), h) {
 				h.OnMessageCreate(info, m)
 			}
 		}
 	}
 }
 
-func sbMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+// MessageCreate discord hook
+func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	atomic.AddUint32(&sb.MessageCount, 1)
 	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
 		return
 	}
 
-	t := time.Now().UTC().Unix()
+	channelID := DiscordChannel(m.ChannelID)
+	t := GetTimestamp(m.Message).Unix()
 	sb.LastMessagesLock.Lock()
-	sb.LastMessages[m.ChannelID] = t
+	sb.LastMessages[channelID] = t
 	sb.LastMessagesLock.Unlock()
 
-	ch, private := channelIsPrivate(m.ChannelID)
+	ch, private := sb.ChannelIsPrivate(channelID)
 	var info *GuildInfo
-	isdbguild := true
 	isdebug := false
 	if !private {
-		info = getChannelGuild(m.ChannelID)
+		info = sb.getChannelGuild(m.ChannelID)
 		if info == nil {
 			return
 		}
-		isdbguild = sb.IsDBGuild(info)
-		isdebug = info.IsDebug(m.ChannelID)
+		isdebug = info.IsDebug(channelID)
 	}
 
 	if isdebug && !sb.Debug {
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 	if m.ChannelID != "heartbeat" {
-		if info != nil && isdbguild && sb.DB.CheckStatus() { // Log this message if it was sent to the main guild only.
-			cid := SBatoi(m.ChannelID)
-			if cid != info.config.Log.Channel {
-				sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+		if info != nil && info.Silver.Get() && sb.DB.CheckStatus() { // Log message on silver guilds
+			if channelID != info.Config.Log.Channel {
+				sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), info.Sanitize(m.Content, CleanMentions|CleanPings), channelID.Convert(), m.MentionEveryone, SBatoi(ch.GuildID))
 			}
 		}
 		if info != nil {
 			sb.DB.SentMessage(SBatoi(m.Author.ID), SBatoi(info.ID))
 		}
-		if m.Author.ID == sb.SelfID { // discard all our own messages (unless this is a heartbeat message)
+		if sb.SelfID.Equals(m.Author.ID) { // discard all our own messages (unless this is a heartbeat message)
 			return
 		}
-		if info != nil && !info.config.Basic.ListenToBots && m.Author.Bot { // If we aren't supposed to listen to bot messages, discard them.
+		if info != nil && !info.Config.Basic.ListenToBots && m.Author.Bot { // If we aren't supposed to listen to bot messages, discard them.
 			return
 		}
 		if boolXOR(sb.Debug, isdebug) { // debug builds only respond to the debug channel, and release builds ignore it
 			return
 		}
 	} else {
-		sb.guildsLock.RLock()
-		info, _ = sb.guilds[sb.MainGuildID]
+		sb.GuildsLock.RLock()
+		info, _ = sb.Guilds[sb.MainGuildID]
 		if info == nil {
 			fmt.Println("Failed to get main guild during heartbeat test!")
 		}
-		sb.guildsLock.RUnlock()
+		sb.GuildsLock.RUnlock()
 	}
 
-	SBProcessCommand(s, m.Message, info, t, isdbguild, isdebug)
+	sb.ProcessCommand(m.Message, info, t, isdebug, private)
 }
 
-func sbMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	info := getChannelGuild(m.ChannelID)
+// MessageUpdate discord hook
+func (sb *SweetieBot) MessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	info := sb.getChannelGuild(m.ChannelID)
 	if info == nil {
 		return
 	}
-	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
+	channelID := DiscordChannel(m.ChannelID)
+	if boolXOR(sb.Debug, info.IsDebug(channelID)) {
 		return
 	}
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
@@ -658,42 +551,48 @@ func sbMessageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
 	if err == nil {
 		private = typeIsPrivate(ch.Type)
 	}
-	cid := SBatoi(m.ChannelID)
-	if cid != info.config.Log.Channel && !private && sb.IsDBGuild(info) && sb.DB.CheckStatus() { // Always ignore messages from the log channel
-		sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), SanitizeMentions(m.ContentWithMentionsReplaced()), cid, m.MentionEveryone, SBatoi(ch.GuildID))
+	if channelID != info.Config.Log.Channel && !private && info.Silver.Get() && sb.DB.CheckStatus() { // Always ignore messages from the log channel
+		sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), info.Sanitize(m.Content, CleanMentions|CleanPings), channelID.Convert(), m.MentionEveryone, SBatoi(ch.GuildID))
 	}
-	if m.Author.ID == sb.SelfID {
+	if sb.SelfID.Equals(m.Author.ID) {
 		return
 	}
 	for _, h := range info.hooks.OnMessageUpdate {
-		if info.ProcessModule(m.ChannelID, h) {
+		if info.ProcessModule(channelID, h) {
 			h.OnMessageUpdate(info, m.Message)
 		}
 	}
 }
-func sbMessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
-	info := getChannelGuild(m.ChannelID)
+
+// MessageDelete discord hook
+func (sb *SweetieBot) MessageDelete(s *discordgo.Session, m *discordgo.MessageDelete) {
+	info := sb.getChannelGuild(m.ChannelID)
 	if info == nil {
 		return
 	}
-	if boolXOR(sb.Debug, info.IsDebug(m.ChannelID)) {
+	channelID := DiscordChannel(m.ChannelID)
+	if boolXOR(sb.Debug, info.IsDebug(channelID)) {
 		return
 	}
 	for _, h := range info.hooks.OnMessageDelete {
-		if info.ProcessModule(m.ChannelID, h) {
+		if info.ProcessModule(channelID, h) {
 			h.OnMessageDelete(info, m.Message)
 		}
 	}
 }
-func sbUserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
-	ProcessUser(m.User, nil)
+
+// UserUpdate discord hook
+func (sb *SweetieBot) UserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
+	sb.ProcessUser(m.User, nil)
 }
-func sbPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
-	info := getGuildFromID(m.GuildID)
+
+// PresenceUpdate discord hook
+func (sb *SweetieBot) PresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	ProcessUser(m.User, &m.Presence)
+	sb.ProcessUser(m.User, &m.Presence)
 
 	for _, h := range info.hooks.OnPresenceUpdate {
 		if info.ProcessModule("", h) {
@@ -701,8 +600,10 @@ func sbPresenceUpdate(s *discordgo.Session, m *discordgo.PresenceUpdate) {
 		}
 	}
 }
-func sbGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
-	info := getChannelGuild(m.ID)
+
+// GuildUpdate discord hook
+func (sb *SweetieBot) GuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
+	info := sb.getChannelGuild(m.ID)
 	if info == nil {
 		return
 	}
@@ -715,54 +616,85 @@ func sbGuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate) {
 		}
 	}
 }
-func sbGuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	info := getGuildFromID(m.GuildID)
+
+// GuildMemberAdd discord hook
+func (sb *SweetieBot) GuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
 	info.ProcessMember(m.Member)
 
+	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
+		sb.GuildsLock.RLock()
+		sb.Selfhoster.CheckGuilds(sb.Guilds)
+		sb.GuildsLock.RUnlock()
+	}
 	for _, h := range info.hooks.OnGuildMemberAdd {
 		if info.ProcessModule("", h) {
-			h.OnGuildMemberAdd(info, m.Member)
+			h.OnGuildMemberAdd(info, m.Member, time.Now().UTC())
 		}
 	}
 }
-func sbGuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	info := getGuildFromID(m.GuildID)
+
+// GuildMemberRemove discord hook
+func (sb *SweetieBot) GuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
-	sb.DB.RemoveMember(SBatoi(m.User.ID), SBatoi(info.ID))
+	userID := DiscordUser(m.User.ID)
+	sb.DB.RemoveMember(userID.Convert(), SBatoi(info.ID))
+
+	if info.ID == SilverServerID {
+		sb.Selfhoster.Lock() // Lock for the donor deletion
+		if _, check := sb.Selfhoster.Donors[userID]; check {
+			delete(sb.Selfhoster.Donors, userID)
+			sb.Selfhoster.CheckGuilds(sb.Guilds)
+		}
+		sb.Selfhoster.Unlock()
+	}
 
 	for _, h := range info.hooks.OnGuildMemberRemove {
 		if info.ProcessModule("", h) {
-			h.OnGuildMemberRemove(info, m.Member)
+			h.OnGuildMemberRemove(info, m.Member, time.Now().UTC())
 		}
 	}
 
-	if m.User.ID == sb.SelfID {
+	if userID == sb.SelfID {
 		fmt.Println("Sweetie was removed from", info.Name)
-		sb.guildsLock.Lock()
-		delete(sb.guilds, SBatoi(info.ID))
-		sb.guildsLock.Unlock()
+		sb.GuildsLock.Lock()
+		delete(sb.Guilds, DiscordGuild(info.ID))
+		sb.GuildsLock.Unlock()
 	}
 }
-func sbGuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	info := getGuildFromID(m.GuildID)
+
+// GuildMemberUpdate discord hook
+func (sb *SweetieBot) GuildMemberUpdate(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
+	if sb.SelfID.Equals(m.User.ID) && len(m.Nick) > 0 {
+		info.BotNick = m.Nick
+	}
 	info.ProcessMember(m.Member)
+	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
+		sb.GuildsLock.RLock()
+		sb.Selfhoster.CheckGuilds(sb.Guilds)
+		sb.GuildsLock.RUnlock()
+	}
 
 	for _, h := range info.hooks.OnGuildMemberUpdate {
 		if info.ProcessModule("", h) {
-			h.OnGuildMemberUpdate(info, m.Member)
+			h.OnGuildMemberUpdate(info, m.Member, time.Now().UTC())
 		}
 	}
 }
-func sbGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
-	info := getGuildFromID(m.GuildID) // We don't actually need to resolve this to get the guildID for SawBan, but we want to ignore any guilds we get messages from that we aren't currently attached to.
+
+// GuildBanAdd discord hook
+func (sb *SweetieBot) GuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
+	info := sb.getGuildFromID(m.GuildID) // We don't actually need to resolve this to get the guildID for SawBan, but we want to ignore any guilds we get messages from that we aren't currently attached to.
 	if info == nil {
 		return
 	}
@@ -773,8 +705,10 @@ func sbGuildBanAdd(s *discordgo.Session, m *discordgo.GuildBanAdd) {
 		}
 	}
 }
-func sbGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
-	info := getGuildFromID(m.GuildID)
+
+// GuildBanRemove discord hook
+func (sb *SweetieBot) GuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
@@ -785,8 +719,10 @@ func sbGuildBanRemove(s *discordgo.Session, m *discordgo.GuildBanRemove) {
 		}
 	}
 }
-func sbGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
-	info := getGuildFromID(m.GuildID)
+
+// GuildRoleDelete discord hook
+func (sb *SweetieBot) GuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
+	info := sb.getGuildFromID(m.GuildID)
 	if info == nil {
 		return
 	}
@@ -797,27 +733,70 @@ func sbGuildRoleDelete(s *discordgo.Session, m *discordgo.GuildRoleDelete) {
 		}
 	}
 }
-func sbGuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) { AttachToGuild(m.Guild) }
-func sbGuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
-	fmt.Println("Sweetie was deleted from", m.Guild.Name)
-	sb.guildsLock.Lock()
-	delete(sb.guilds, SBatoi(m.Guild.ID))
-	sb.guildsLock.Unlock()
-}
-func sbChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
-	sb.guildsLock.RLock()
-	guild, ok := sb.guilds[SBatoi(c.GuildID)]
-	sb.guildsLock.RUnlock()
-	if ok {
-		setupSilenceRole(guild)
-	}
-}
-func sbChannelDelete(s *discordgo.Session, c *discordgo.ChannelDelete) {
 
+// GuildCreate discord hook
+func (sb *SweetieBot) GuildCreate(s *discordgo.Session, m *discordgo.GuildCreate) {
+	sb.AttachToGuild(m.Guild)
+}
+
+// GuildDelete discord hook
+func (sb *SweetieBot) GuildDelete(s *discordgo.Session, m *discordgo.GuildDelete) {
+	fmt.Println("Sweetie was deleted from", m.Guild.Name)
+	sb.GuildsLock.Lock()
+	delete(sb.Guilds, DiscordGuild(m.Guild.ID))
+	sb.GuildsLock.Unlock()
+}
+
+// ChannelCreate discord hook
+func (sb *SweetieBot) ChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
+	info := sb.getGuildFromID(c.GuildID)
+	if info == nil {
+		return
+	}
+
+	info.setupSilenceRole()
+}
+
+func (sb *SweetieBot) FindServers(name string, guilds []uint64) []*GuildInfo {
+	name = strings.ToLower(name)
+	info := make([]*GuildInfo, 0, len(guilds))
+	for _, g := range guilds {
+		sb.GuildsLock.RLock()
+		guild, ok := sb.Guilds[NewDiscordGuild(g)]
+		sb.GuildsLock.RUnlock()
+		if ok {
+			n := strings.ToLower(guild.Name)
+			if len(n) > 0 {
+				if n == name { // if these are an EXACT match, throw away the other results and just return this
+					return []*GuildInfo{guild}
+				}
+				if strings.Contains(n, name) {
+					info = append(info, guild)
+				}
+			} else {
+				info = append(info, guild)
+			}
+		}
+	}
+	return info
+}
+
+func (sb *SweetieBot) GetDefaultServer(user uint64) *GuildInfo {
+	_, _, _, server := sb.DB.GetUser(user)
+	if server == nil {
+		return nil
+	}
+	sb.GuildsLock.RLock()
+	defer sb.GuildsLock.RUnlock()
+	info, ok := sb.Guilds[NewDiscordGuild(*server)]
+	if !ok {
+		return nil
+	}
+	return info
 }
 
 // ProcessUser adds a user to the database
-func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
+func (sb *SweetieBot) ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	isonline := (p != nil && p.Status != "Offline")
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
@@ -827,8 +806,8 @@ func ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
 	return id
 }
 
-func memberIngestionLoop() {
-	for !sb.quit.get() {
+func (sb *SweetieBot) memberIngestionLoop() {
+	for atomic.LoadUint32(&sb.quit) != QuitNow {
 		guild, more := <-sb.memberChan
 		if !more {
 			return
@@ -844,6 +823,14 @@ func memberIngestionLoop() {
 			members = append(members, m...)
 			lastid = m[len(m)-1].User.ID
 		}
+		if guild.ID == SilverServerID {
+			for _, m := range members {
+				sb.Selfhoster.CheckDonor(m)
+			}
+			sb.GuildsLock.RLock()
+			sb.Selfhoster.CheckGuilds(sb.Guilds)
+			sb.GuildsLock.RUnlock()
+		}
 		for i := range members { // Put the guildID back in because discord is stupid
 			members[i].GuildID = guild.ID
 			sb.DG.State.MemberAdd(members[i])
@@ -851,54 +838,58 @@ func memberIngestionLoop() {
 	}
 }
 
-func idleCheckLoop() {
-	for !sb.quit.get() {
-		sb.guildsLock.RLock()
-		infos := make([]*GuildInfo, 0, len(sb.guilds))
-		for _, v := range sb.guilds {
+func (sb *SweetieBot) IdleCheck(info *GuildInfo, guild *discordgo.Guild) {
+	sb.DG.State.RLock()
+	channels := guild.Channels
+	sb.DG.State.RUnlock()
+	if sb.Debug { // override this in debug mode
+		c, err := sb.DG.State.Channel(sb.DebugChannels[DiscordGuild(info.ID)].String())
+		if err == nil {
+			channels = []*discordgo.Channel{c}
+		} else {
+			channels = []*discordgo.Channel{}
+		}
+	}
+	tm := time.Now().UTC()
+	for _, ch := range channels {
+		if ch.GuildID != guild.ID {
+			break // Don't allow OnIdle to trigger on channels that aren't in this server
+		}
+		sb.LastMessagesLock.RLock()
+		t, exists := sb.LastMessages[DiscordChannel(ch.ID)]
+		sb.LastMessagesLock.RUnlock()
+		if exists {
+			diff := tm.Sub(time.Unix(t, 0))
+
+			for _, h := range info.hooks.OnIdle {
+				if info.ProcessModule(DiscordChannel(ch.ID), h) && diff >= (time.Duration(h.IdlePeriod(info))*time.Second) {
+					h.OnIdle(info, ch, tm)
+				}
+			}
+		}
+	}
+
+	for _, h := range info.hooks.OnTick {
+		if info.ProcessModule("", h) {
+			h.OnTick(info, tm)
+		}
+	}
+}
+
+func (sb *SweetieBot) idleCheckLoop() {
+	for atomic.LoadUint32(&sb.quit) != QuitNow {
+		sb.GuildsLock.RLock()
+		infos := make([]*GuildInfo, 0, len(sb.Guilds))
+		for _, v := range sb.Guilds {
 			infos = append(infos, v)
 		}
-		sb.guildsLock.RUnlock()
+		sb.GuildsLock.RUnlock()
 		for _, info := range infos {
 			guild, err := sb.DG.State.Guild(info.ID)
 			if err != nil {
 				continue
 			}
-			sb.DG.State.RLock()
-			channels := guild.Channels
-			sb.DG.State.RUnlock()
-			if sb.Debug { // override this in debug mode
-				c, err := sb.DG.State.Channel(sb.DebugChannels[info.ID])
-				if err == nil {
-					channels = []*discordgo.Channel{c}
-				} else {
-					channels = []*discordgo.Channel{}
-				}
-			}
-			for _, ch := range channels {
-				sb.LastMessagesLock.RLock()
-				t, exists := sb.LastMessages[ch.ID]
-				sb.LastMessagesLock.RUnlock()
-				if exists {
-					diff := time.Now().UTC().Sub(time.Unix(t, 0))
-
-					for _, h := range info.hooks.OnIdle {
-						if info.ProcessModule(ch.ID, h) && diff >= (time.Duration(h.IdlePeriod(info))*time.Second) {
-							h.OnIdle(info, ch)
-						}
-					}
-				}
-			}
-
-			for _, h := range info.hooks.OnTick {
-				if info.ProcessModule("", h) {
-					h.OnTick(info)
-				}
-			}
-
-			if info.lockdown != -1 && time.Now().UTC().Sub(info.lastlockdown) > (time.Duration(info.config.Spam.LockdownDuration)*time.Second) {
-				DisableLockdown(info)
-			}
+			sb.IdleCheck(info, guild)
 		}
 
 		fmt.Println("Idle Check: ", time.Now())
@@ -906,26 +897,29 @@ func idleCheckLoop() {
 	}
 }
 
-func deadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (sb *SweetieBot) deadlockTestFunc(s *discordgo.Session, m *discordgo.MessageCreate) {
 	sb.DG.State.RLock()
 	sb.DG.State.RUnlock()
 	sb.locknumber++
 	sb.DG.RLock()
 	sb.DG.RUnlock()
 	sb.locknumber++
-	sbMessageCreate(sb.DG, m)
+	sb.GuildsLock.RLock()
+	sb.GuildsLock.RUnlock()
+	sb.locknumber++
+	sb.MessageCreate(&sb.DG.Session, m)
 }
 
 const heartbeatInterval time.Duration = 20 * time.Second
 
-func deadlockDetector() {
+func (sb *SweetieBot) deadlockDetector() {
 	var counter = sb.heartbeat
 	var missed = 0
 	time.Sleep(heartbeatInterval) // Give sweetie time to load everything first before initiating heartbeats
-	for !sb.quit.get() {
-		sb.guildsLock.RLock()
-		info, ok := sb.guilds[sb.MainGuildID]
-		sb.guildsLock.RUnlock()
+	for atomic.LoadUint32(&sb.quit) != QuitNow {
+		sb.GuildsLock.RLock()
+		info, ok := sb.Guilds[sb.MainGuildID]
+		sb.GuildsLock.RUnlock()
 
 		if !ok {
 			fmt.Println(sb.MainGuildID, "MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
@@ -933,9 +927,9 @@ func deadlockDetector() {
 			continue
 		}
 		m := discordgo.MessageCreate{
-			&discordgo.Message{ChannelID: "heartbeat", Content: info.config.Basic.CommandPrefix + "about",
+			&discordgo.Message{ChannelID: "heartbeat", Content: info.Config.Basic.CommandPrefix + "about",
 				Author: &discordgo.User{
-					ID:       sb.SelfID,
+					ID:       sb.SelfID.String(),
 					Verified: true,
 					Bot:      true,
 				},
@@ -943,7 +937,7 @@ func deadlockDetector() {
 			},
 		}
 		sb.locknumber = 0
-		go deadlockTestFunc(sb.DG, &m) // Do this in another thread so the deadlock detector doesn't deadlock
+		go sb.deadlockTestFunc(&sb.DG.Session, &m) // Do this in another thread so the deadlock detector doesn't deadlock
 		time.Sleep(heartbeatInterval)
 		if atomic.LoadUint32(&sb.heartbeat) == counter+1 {
 			counter++
@@ -960,53 +954,45 @@ func deadlockDetector() {
 	}
 }
 
-type emptyLog struct{}
-
-func (log *emptyLog) Log(args ...interface{}) {
-	s := fmt.Sprint(args...)
-	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
-}
-
-func (log *emptyLog) LogError(msg string, err error) {
-	if err != nil {
-		log.Log(msg, err.Error())
-	}
-}
-
 // New creates and initializes a new instance of Sweetiebot that's ready to connect. Returns nil on error.
-func New(token string, loader func() []Module) *SweetieBot {
-	dbauth, dberr := ioutil.ReadFile("db.auth")
-	if dberr != nil {
-		fmt.Println("db.auth cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
-	}
-	mainguild, gerr := ioutil.ReadFile("mainguild")
-	if gerr != nil {
-		fmt.Println("mainguild cannot be found. Please add the file with the correct format as specified in INSTALLATION.md")
-	}
-	debugchannels, debugerr := ioutil.ReadFile("debug")
+func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
+	path, _ := GetCurrentDir()
+	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, sync.RWMutex{}, AtomicBool{0}, make(map[DiscordUser]bool)}
 	rand.Seed(time.Now().UTC().Unix())
 
-	mainguildid := SBatoi(strings.TrimSpace(string(mainguild)))
-	sb = &SweetieBot{
-		version:            Version{0, 9, 8, 23},
-		Debug:              false,
-		Owners:             map[uint64]bool{95585199324143616: true},
-		RestrictedCommands: map[string]bool{"search": true, "setstatus": true},
-		NonServerCommands:  map[string]bool{"about": true, "roll": true, "episodegen": true, "episodequote": true, "help": true, "listguilds": true, "update": true, "announce": true, "dumptables": true, "defaultserver": true},
-		ModCommands:        []string{"add", "addrole", "addwit", "ban", "disable", "dumptables", "echo", "enable", "getconfig", "deleterole", "removerole", "remove", "removewit", "setconfig", "setstatus", "update", "announce", "addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipe", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption", "echoembed", "getpressure", "getaudit", "getraid", "banraid", "bannewcomers", "addset", "removeset", "searchset"},
-		MainGuildID:        mainguildid,
-		DBGuilds:           make(map[uint64]bool),
-		DebugChannels:      make(map[string]string),
-		quit:               AtomicBool{0},
-		guilds:             make(map[uint64]*GuildInfo),
-		LastMessages:       make(map[string]int64),
-		MaxConfigSize:      1000000,
-		StartTime:          time.Now().UTC().Unix(),
-		heartbeat:          4294967290,
-		MessageCount:       0,
-		loader:             loader,
-		memberChan:         make(chan *GuildInfo, 1500),
+	hostfile, gerr := ioutil.ReadFile("selfhost.json")
+	if gerr != nil {
+
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Fatal error, press enter to exit: ", r)
+				input := ""
+				fmt.Scanln(&input)
+				os.Exit(1)
+			}
+		}()
+		Install(path, selfhoster)
+	}
+
+	sb := &SweetieBot{
+		Token:          token,
+		SelfName:       "Sweetie Bot",
+		AppName:        "Sweetie Bot",
+		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
+		Guilds:         make(map[DiscordGuild]*GuildInfo),
+		LastMessages:   make(map[DiscordChannel]int64),
+		MaxConfigSize:  1000000,
+		MaxUniqueItems: 25000,
+		StartTime:      time.Now().UTC().Unix(),
+		heartbeat:      4294967290,
+		loader:         loader,
+		memberChan:     make(chan *GuildInfo, 1500),
+		Selfhoster:     selfhoster,
+		WebSecure:      false,
+		WebDomain:      "localhost",
+		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 0):  "- Sweetie Bot now supports selfhosting and gives all patreon supporters access to paid features (chat logs and higher database limits). To get the new features, make sure you've linked your Patreon and Discord accounts. Check the GitHub readme for more instructions.\n- Help now hides disabled or restricted commands from users.\n- The bot name is no longer hardcoded: it will use whatever nickname it has on the server or the bot name given to the selfhost instance.\n- Removed echoembed command\n- Made listguilds and dumptables restricted commands\n- renamed AlertRole to ModRole and Search.MaxResults to Miscellaneous.MaxSearchResults, moved TrackUserLeft to Users and added NotifyChannel to track users instead of using !autosilence.\n- Spoiler module and Emote module have been replaced by a Filter module. If you were using these modules, your existing configuration was migrated to the new module. Anti-Spam was also renamed to Spam and Help/About renamed to Information.\n- Removed !addset/!removeset/!searchset. Use !addstatus/!removestatus/etc. or !addfilter/!removefilter/etc. instead.\n- Scheduler module no longer hides episode names outside of spoiler channels.\n- Server owners and admins can now use any command in any channel.\n- getconfig/setconfig now accept/display role names and channel names in addition to pings, and enforce valid types on all inputs. Using !getconfig on a category now displays all options in that category. All commands now accept simply writing out the role name, channel name, or user name.\n- !addbirthday was changed to be easier to use, and now adds the birthday using the user's timezone.\n- This is a total rewrite of sweetiebot, so if you find any bugs, or you think you should have paid features but you don't, please visit sweetiebot's support channel: https://discord.gg/t2gVQvN",
 			AssembleVersion(0, 9, 8, 23): "- Remove !getpressure restriction.\n- Limit results of !searchtags",
 			AssembleVersion(0, 9, 8, 22): "- Prevent race-condition crashing set management.\n- Force boolean configuration values to take only true or false.",
 			AssembleVersion(0, 9, 8, 21): "- Made !userinfo more persistent at trying to find a match.",
@@ -1030,7 +1016,7 @@ func New(token string, loader func() []Module) *SweetieBot {
 			AssembleVersion(0, 9, 8, 3):  "- Allow deadlock detector to respond to deadlocks in the underlying discordgo library.\n- Fixed guild user count.",
 			AssembleVersion(0, 9, 8, 2):  "- Simplify sweetiebot setup\n- Setting autosilence now resets the lockdown timer\n- Sweetiebot won't restore the verification level if it was manually changed by an administrator.",
 			AssembleVersion(0, 9, 8, 1):  "- Switch to fork of discordgo to fix serious connection error handling issues.",
-			AssembleVersion(0, 9, 8, 0):  "- Attempts to register if she is removed from a server.\n- Silencing has been redone to minimize rate-limiting problems.\n- Sweetie now tracks the first time someone posts a message, used in the \"bannewcomers\" command, which bans everyone who sent their first message in the past two minutes (configurable).\n- Sweetie now attempts to engage a lockdown when a raid is detected by temporarily increasing the server verification level. YOU MUST GIVE HER \"MANAGE SERVER\" PERMISSIONS FOR THIS TO WORK! This can be disabled by setting Spam.LockdownDuration to 0.",
+			AssembleVersion(0, 9, 8, 0):  "- Attempts to register if she is removed from a server.\n- Silencing has been redone to minimize rate-limiting problems.\n- Sweetie now tracks the first time someone posts a message, used in the \"bannewcomers\" command, which bans everyone who sent their first message in the past two minutes (configurable).\n- Sweetie now attempts to engage a lockdown when a raid is detected by temporarily increasing the server verification level. YOU MUST GIVE THE BOT \"MANAGE SERVER\" PERMISSIONS FOR THIS TO WORK! This can be disabled by setting Spam.LockdownDuration to 0.",
 			AssembleVersion(0, 9, 7, 9):  "- Discard Group DM errors from legacy conversations.",
 			AssembleVersion(0, 9, 7, 8):  "- Correctly deal with rare edge-case on !userinfo queries.",
 			AssembleVersion(0, 9, 7, 7):  "- Sweetiebot sends an autosilence change message before she starts silencing raiders, to ensure admins get immediate feedback even if discord is being slow.",
@@ -1130,23 +1116,26 @@ func New(token string, loader func() []Module) *SweetieBot {
 		},
 	}
 
-	if debugerr == nil && len(debugchannels) > 0 {
-		json.Unmarshal(debugchannels, sb)
-	}
-	dbguilds, err := ioutil.ReadFile("db.guilds")
-	if err == nil && len(dbguilds) > 0 {
-		json.Unmarshal(dbguilds, sb)
-	}
-	sb.DBGuilds[sb.MainGuildID] = true
+	json.Unmarshal(hostfile, sb)
+	sb.Token = strings.TrimSpace(sb.Token)
+	sb.EmptyGuild = NewGuildInfo(sb, &discordgo.Guild{})
 
-	rand.Intn(10)
-	for i := 0; i < 20+rand.Intn(20); i++ {
-		rand.Intn(50)
+	sb.EmptyGuild.Config.FillConfig()
+	sb.EmptyGuild.Modules = sb.loader(sb.EmptyGuild)
+	sort.Sort(moduleArray(sb.EmptyGuild.Modules))
+
+	for _, v := range sb.EmptyGuild.Modules {
+		sb.EmptyGuild.RegisterModule(v)
+		for _, command := range v.Commands() {
+			if command.Info().ServerIndependent {
+				sb.EmptyGuild.AddCommand(command, v)
+			}
+		}
 	}
 
-	db, err := dbLoad(&emptyLog{}, "mysql", strings.TrimSpace(string(dbauth)))
+	db, err := dbLoad(&emptyLog{}, "mysql", strings.TrimSpace(sb.DBAuth))
 	sb.DB = db
-	if !db.status.get() {
+	if !db.Status.Get() {
 		fmt.Println("Database connection failure - running in No Database mode: ", err.Error())
 	} else {
 		err = sb.DB.LoadStatements()
@@ -1159,67 +1148,85 @@ func New(token string, loader func() []Module) *SweetieBot {
 		}
 	}
 
-	isuser, _ := ioutil.ReadFile("isuser") // DO NOT CREATE THIS FILE UNLESS YOU KNOW *EXACTLY* WHAT YOU ARE DOING. This is for crazy people who want to run sweetiebot in user mode. If you don't know what user mode is, you don't want it. If you create this file anyway and the bot breaks, it's your own fault.
-	if isuser == nil {
-		sb.DG, err = discordgo.New("Bot " + token)
-	} else {
-		sb.DG, err = discordgo.New(token)
+	var dg *discordgo.Session
+	if sb.IsUserMode {
+		dg, err = discordgo.New(sb.Token)
 		fmt.Println("Started SweetieBot on a user account.")
+	} else {
+		dg, err = discordgo.New("Bot " + sb.Token)
 	}
+	sb.DG = &DiscordGoSession{*dg}
+
 	if err != nil {
 		fmt.Println("Error creating discord session", err.Error())
 		return nil
 	}
 	sb.DG.LogLevel = discordgo.LogWarning
 
-	sb.DG.AddHandler(sbReady)
-	sb.DG.AddHandler(sbMessageCreate)
-	sb.DG.AddHandler(sbMessageUpdate)
-	sb.DG.AddHandler(sbMessageDelete)
-	sb.DG.AddHandler(sbUserUpdate)
-	sb.DG.AddHandler(sbPresenceUpdate)
-	sb.DG.AddHandler(sbGuildUpdate)
-	sb.DG.AddHandler(sbGuildMemberAdd)
-	sb.DG.AddHandler(sbGuildMemberRemove)
-	sb.DG.AddHandler(sbGuildMemberUpdate)
-	sb.DG.AddHandler(sbGuildBanAdd)
-	sb.DG.AddHandler(sbGuildBanRemove)
-	sb.DG.AddHandler(sbGuildRoleDelete)
-	sb.DG.AddHandler(sbGuildCreate)
-	sb.DG.AddHandler(sbChannelCreate)
-	sb.DG.AddHandler(sbChannelDelete)
+	sb.DG.AddHandler(sb.OnReady)
+	sb.DG.AddHandler(sb.MessageCreate)
+	sb.DG.AddHandler(sb.MessageUpdate)
+	sb.DG.AddHandler(sb.MessageDelete)
+	sb.DG.AddHandler(sb.UserUpdate)
+	sb.DG.AddHandler(sb.PresenceUpdate)
+	sb.DG.AddHandler(sb.GuildUpdate)
+	sb.DG.AddHandler(sb.GuildMemberAdd)
+	sb.DG.AddHandler(sb.GuildMemberRemove)
+	sb.DG.AddHandler(sb.GuildMemberUpdate)
+	sb.DG.AddHandler(sb.GuildBanAdd)
+	sb.DG.AddHandler(sb.GuildBanRemove)
+	sb.DG.AddHandler(sb.GuildRoleDelete)
+	sb.DG.AddHandler(sb.GuildCreate)
+	sb.DG.AddHandler(sb.ChannelCreate)
 
-	if sb.Debug { // The server does not necessarily tie a standard input to the program
-		go func() {
-			var input string
-			fmt.Scanln(&input)
-			sb.quit.set(true)
-		}()
-	}
-
-	go idleCheckLoop()
-	go deadlockDetector()
-	go memberIngestionLoop()
-
-	//BuildMarkov(1, 1)
 	return sb
 }
 
 // Connect opens a websocket connection to discord. Only returns after disconnecting.
-func (sbot *SweetieBot) Connect() int {
-	err := sbot.DG.Open()
+func (sb *SweetieBot) Connect() int {
+	if sb.Debug { // The server does not necessarily tie a standard input to the program
+		go func() {
+			var input string
+			fmt.Scanln(&input)
+			atomic.StoreUint32(&sb.quit, QuitNow)
+		}()
+	}
+
+	go sb.idleCheckLoop()
+	go sb.deadlockDetector()
+	go sb.memberIngestionLoop()
+	go sb.ServeWeb()
+
+	err := sb.DG.Open()
 	if err == nil {
 		fmt.Println("Connection established")
-		for !sbot.quit.get() {
-			time.Sleep(400 * time.Millisecond)
+		for atomic.LoadUint32(&sb.quit) == QuitNone {
+			time.Sleep(800 * time.Millisecond)
+		}
+		begin := time.Now().UTC().Unix()
+		for cur := time.Now().UTC().Unix(); (cur-begin) < MaxUpdateGrace && atomic.LoadUint32(&sb.quit) == QuitRaid; cur = time.Now().UTC().Unix() {
+			quit := true
+			for _, g := range sb.Guilds {
+				if cur-g.LastRaid < UpdateGrace {
+					quit = false
+					break
+				}
+			}
+			if quit {
+				atomic.StoreUint32(&sb.quit, QuitNow)
+			} else {
+				time.Sleep(2400 * time.Millisecond)
+			}
 		}
 	} else {
 		fmt.Println("Error opening websocket connection: ", err.Error())
 	}
 
-	close(sbot.memberChan)
 	fmt.Println("Sweetiebot quitting")
-	sbot.DG.Close()
-	sbot.DB.Close()
-	return sbot.version.Integer()
+	sb.DG.Close()
+	sb.DB.Close()
+	sb.GuildsLock.Lock() // Prevents a race condition from sending a value to a closed channel
+	close(sb.memberChan)
+	sb.GuildsLock.Unlock()
+	return BotVersion.Integer()
 }

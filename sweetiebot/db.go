@@ -21,7 +21,7 @@ var ErrLockWaitTimeout = errors.New("Error 1205: Lock wait timeout exceeded")
 // BotDB contains the database connection and all database Prepared statements exposed as functions
 type BotDB struct {
 	db                        *sql.DB
-	status                    AtomicBool
+	Status                    AtomicBool
 	lastattempt               time.Time
 	log                       logger
 	driver                    string
@@ -116,20 +116,21 @@ type BotDB struct {
 
 func dbLoad(log logger, driver string, conn string) (*BotDB, error) {
 	cdb, err := sql.Open(driver, conn)
-	r := BotDB{}
-	r.db = cdb
-	r.status.set(err == nil)
-	r.lastattempt = time.Now().UTC()
-	r.log = log
-	r.driver = driver
-	r.conn = conn
+	r := BotDB{
+		db:          cdb,
+		lastattempt: time.Now().UTC(),
+		log:         log,
+		driver:      driver,
+		conn:        conn,
+	}
+	r.Status.Set(err == nil)
 	if err != nil {
 		return &r, err
 	}
 
 	r.db.SetMaxOpenConns(70)
 	err = r.db.Ping()
-	r.status.set(err == nil)
+	r.Status.Set(err == nil)
 	return &r, err
 }
 
@@ -170,13 +171,13 @@ const DBReconnectTimeout = time.Duration(30) * time.Second
 
 // CheckStatus checks if the database connection has been lost
 func (db *BotDB) CheckStatus() bool {
-	if !db.status.get() {
-		if db.statuslock.testAndSet() { // If this was already true, bail out
+	if !db.Status.Get() {
+		if db.statuslock.TestAndSet() { // If this was already true, bail out
 			return false
 		}
-		defer db.statuslock.clear()
+		defer db.statuslock.Clear()
 
-		if db.status.get() { // If the database was already fixed, return true
+		if db.Status.Get() { // If the database was already fixed, return true
 			return true
 		}
 
@@ -190,7 +191,7 @@ func (db *BotDB) CheckStatus() bool {
 			}
 			err = db.LoadStatements()                       // If we re-establish connection, we must reload statements in case they were lost or never loaded in the first place
 			db.log.LogError("LoadStatements failed: ", err) // if loading the statements fails we're screwed anyway so we just log the error and keep going
-			db.status.set(true)                             // Only after loading the statements do we set status to true
+			db.Status.Set(true)                             // Only after loading the statements do we set status to true
 			db.log.Log("Reconnection succeeded, exiting out of No Database mode.")
 		} else { // If not, just fail
 			return false
@@ -248,7 +249,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
 	db.sqlRemoveSchedule, err = db.Prepare("CALL RemoveSchedule(?)")
 	db.sqlCountEvents, err = db.Prepare("SELECT COUNT(*) FROM schedule WHERE Guild = ?")
-	db.sqlGetEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE ID = ?")
+	db.sqlGetEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND ID = ?")
 	db.sqlGetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type != 0 AND Type != 4 AND Type != 6 ORDER BY Date ASC LIMIT ?")
 	db.sqlGetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sqlGetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
@@ -315,11 +316,11 @@ func (db *BotDB) parseStringResults(q *sql.Rows) []string {
 func (db *BotDB) CheckError(name string, err error) bool {
 	if err != nil {
 		if err != sql.ErrNoRows && err != sql.ErrTxDone && err != ErrDuplicateEntry && err != ErrLockWaitTimeout {
-			if db.status.get() {
+			if db.Status.Get() {
 				db.log.LogError(name+" error: ", err)
 			}
 			if db.db.Ping() != nil {
-				db.status.set(false)
+				db.Status.Set(false)
 			}
 			return true
 		}
@@ -503,7 +504,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 		p := struct {
 			User      *discordgo.User
 			FirstSeen time.Time
-		}{&discordgo.User{}, time.Now()}
+		}{&discordgo.User{}, time.Now().UTC()}
 		if err := q.Scan(&p.User.ID, &p.User.Username, &p.User.Avatar, &p.FirstSeen); err == nil {
 			r = append(r, p)
 		}
@@ -547,7 +548,7 @@ func (db *BotDB) Audit(ty uint8, user *discordgo.User, message string, guild uin
 		_, err = db.sqlAudit.Exec(ty, SBatoi(user.ID), message, guild)
 	}
 
-	if err != nil && sb.DB.status.get() {
+	if err != nil && db.Status.Get() {
 		fmt.Println("Logger failed to log to database! ", err.Error())
 	}
 }
@@ -587,7 +588,7 @@ func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search str
 
 // GetTableCounts returns a debug dump count of the tables
 func (db *BotDB) GetTableCounts() string {
-	if !db.status.get() {
+	if !db.Status.Get() {
 		return "DATABASE ERROR"
 	}
 	var counts string
@@ -826,9 +827,9 @@ func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 }
 
 // GetEvent gets the event data for the given ID
-func (db *BotDB) GetEvent(id uint64) *ScheduleEvent {
+func (db *BotDB) GetEvent(guild uint64, id uint64) *ScheduleEvent {
 	e := &ScheduleEvent{}
-	err := db.sqlGetEvent.QueryRow(id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
+	err := db.sqlGetEvent.QueryRow(guild, id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
 	if err == sql.ErrNoRows || db.CheckError("GetEvent", err) {
 		return nil
 	}
@@ -1001,35 +1002,29 @@ func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 }
 
 // SetDefaultServer sets a users default guild
-func (db *BotDB) SetDefaultServer(user uint64, guild uint64) error {
-	_, err := db.sqlSetDefaultServer.Exec(guild, user)
+func (db *BotDB) SetDefaultServer(userID uint64, guild uint64) error {
+	_, err := db.sqlSetDefaultServer.Exec(guild, userID)
 	db.CheckError("SetDefaultServer", err)
 	return err
 }
 
+// PollData contains the poll name and description
+type PollData struct {
+	Name        string
+	Description string
+}
+
 // GetPolls returns all polls for a given guild
-func (db *BotDB) GetPolls(guild uint64) []struct {
-	name        string
-	description string
-} {
+func (db *BotDB) GetPolls(guild uint64) []PollData {
 	q, err := db.sqlGetPolls.Query(guild)
 	if db.CheckError("GetPolls", err) {
-		return []struct {
-			name        string
-			description string
-		}{}
+		return []PollData{}
 	}
 	defer q.Close()
-	r := make([]struct {
-		name        string
-		description string
-	}, 0, 2)
+	r := make([]PollData, 0, 2)
 	for q.Next() {
-		var s struct {
-			name        string
-			description string
-		}
-		if err := q.Scan(&s.name, &s.description); err == nil {
+		var s PollData
+		if err := q.Scan(&s.Name, &s.Description); err == nil {
 			r = append(r, s)
 		}
 	}
@@ -1049,8 +1044,8 @@ func (db *BotDB) GetPoll(name string, guild uint64) (uint64, string) {
 
 // PollOptionStruct contains the option index and text
 type PollOptionStruct struct {
-	index  uint64
-	option string
+	Index  uint64
+	Option string
 }
 
 // GetOptions returns all options for a given poll ID
@@ -1063,7 +1058,7 @@ func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 	r := make([]PollOptionStruct, 0, 2)
 	for q.Next() {
 		var s PollOptionStruct
-		if err := q.Scan(&s.index, &s.option); err == nil {
+		if err := q.Scan(&s.Index, &s.Option); err == nil {
 			r = append(r, s)
 		}
 	}
@@ -1082,8 +1077,8 @@ func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
 
 // PollResultStruct is an index+count pair
 type PollResultStruct struct {
-	index uint64
-	count uint64
+	Index uint64
+	Count uint64
 }
 
 // GetResults returns the results of a poll ID
@@ -1096,7 +1091,7 @@ func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 	r := make([]PollResultStruct, 0, 2)
 	for q.Next() {
 		var s PollResultStruct
-		if err := q.Scan(&s.index, &s.count); err == nil {
+		if err := q.Scan(&s.Index, &s.Count); err == nil {
 			r = append(r, s)
 		}
 	}
@@ -1106,7 +1101,6 @@ func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 // AddPoll creates a poll
 func (db *BotDB) AddPoll(name string, description string, guild uint64) error {
 	_, err := db.sqlAddPoll.Exec(name, description, guild)
-	db.CheckError("AddPoll", err)
 	return err
 }
 
@@ -1114,7 +1108,6 @@ func (db *BotDB) AddPoll(name string, description string, guild uint64) error {
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 	_, err := db.sqlAddOption.Exec(poll, index, option)
 	err = db.standardErr(err)
-	db.CheckError("AddOption", err)
 	return err
 }
 
@@ -1122,21 +1115,18 @@ func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 func (db *BotDB) AppendOption(poll uint64, option string) error {
 	_, err := db.sqlAppendOption.Exec(option, poll)
 	err = db.standardErr(err)
-	db.CheckError("AppendOption", err)
 	return err
 }
 
 // AddVote adds or reassigns a users vote on a poll
 func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
 	_, err := db.sqlAddVote.Exec(poll, user, option, option)
-	db.CheckError("AddVote", err)
 	return err
 }
 
 // RemovePoll deletes a poll
 func (db *BotDB) RemovePoll(name string, guild uint64) error {
 	_, err := db.sqlRemovePoll.Exec(name, guild)
-	db.CheckError("RemovePoll", err)
 	return err
 }
 

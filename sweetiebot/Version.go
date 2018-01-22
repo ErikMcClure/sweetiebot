@@ -10,7 +10,12 @@ type Version struct {
 	build    byte
 }
 
-func (v *Version) String() string {
+// VersionInt constructs Version object from an integer
+func VersionInt(k int) Version {
+	return Version{byte(k >> 24), byte((k >> 16) & 0xFF), byte((k >> 8) & 0xFF), byte(k & 0xFF)}
+}
+
+func (v Version) String() string {
 	if v.build > 0 {
 		return fmt.Sprintf("%v.%v.%v.%v", v.major, v.minor, v.revision, v.build)
 	}
@@ -21,7 +26,7 @@ func (v *Version) String() string {
 }
 
 // Integer gets the integer representation of the version
-func (v *Version) Integer() int {
+func (v Version) Integer() int {
 	return AssembleVersion(v.major, v.minor, v.revision, v.build)
 }
 
