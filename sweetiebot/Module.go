@@ -1,8 +1,7 @@
 package sweetiebot
 
 import (
-	"fmt"
-	"strings"
+	"time"
 
 	"github.com/blackhole12/discordgo"
 )
@@ -12,6 +11,7 @@ type Module interface {
 	Name() string
 	Commands() []Command
 	Description() string
+	//Config() interface{}
 }
 
 // Giving each possible hook function its own interface ensures each module
@@ -62,19 +62,19 @@ type ModuleOnGuildUpdate interface {
 // ModuleOnGuildMemberAdd hook interface
 type ModuleOnGuildMemberAdd interface {
 	Module
-	OnGuildMemberAdd(*GuildInfo, *discordgo.Member)
+	OnGuildMemberAdd(*GuildInfo, *discordgo.Member, time.Time)
 }
 
 // ModuleOnGuildMemberRemove hook interface
 type ModuleOnGuildMemberRemove interface {
 	Module
-	OnGuildMemberRemove(*GuildInfo, *discordgo.Member)
+	OnGuildMemberRemove(*GuildInfo, *discordgo.Member, time.Time)
 }
 
 // ModuleOnGuildMemberUpdate hook interface
 type ModuleOnGuildMemberUpdate interface {
 	Module
-	OnGuildMemberUpdate(*GuildInfo, *discordgo.Member)
+	OnGuildMemberUpdate(*GuildInfo, *discordgo.Member, time.Time)
 }
 
 // ModuleOnGuildBanAdd hook interface
@@ -104,14 +104,14 @@ type ModuleOnCommand interface {
 // ModuleOnIdle hook interface, also defines an IdlePeriod() that returns how long a period of inactivity is needed to count as "idle"
 type ModuleOnIdle interface {
 	Module
-	OnIdle(*GuildInfo, *discordgo.Channel)
+	OnIdle(*GuildInfo, *discordgo.Channel, time.Time)
 	IdlePeriod(*GuildInfo) int64
 }
 
 // ModuleOnTick hook interface
 type ModuleOnTick interface {
 	Module
-	OnTick(*GuildInfo)
+	OnTick(*GuildInfo, time.Time)
 }
 
 // CommandUsageParam describes a single parameter to a command
@@ -128,120 +128,22 @@ type CommandUsage struct {
 	Params []CommandUsageParam
 }
 
+// CommandInfo defines the properties of a command
+type CommandInfo struct {
+	Name              string
+	Usage             string
+	ServerIndependent bool
+	Sensitive         bool
+	Restricted        bool
+	Silver            bool
+	MainInstance      bool
+}
+
 // Command is any command that is addressed to the bot, optionally restricted by role.
 type Command interface {
-	Name() string
+	Info() *CommandInfo
 	Process([]string, *discordgo.Message, []int, *GuildInfo) (string, bool, *discordgo.MessageEmbed)
 	Usage(*GuildInfo) *CommandUsage
-	UsageShort() string
-}
-
-// IsModuleDisabled returns a string if a module is disabled
-func (info *GuildInfo) IsModuleDisabled(name string) string {
-	_, ok := info.config.Modules.Disabled[strings.ToLower(name)]
-	if ok {
-		return " [disabled]"
-	}
-	return ""
-}
-
-// IsCommandDisabled returns a string if a command is disabled
-func (info *GuildInfo) IsCommandDisabled(name string) string {
-	str := ""
-	_, disabled := info.config.Modules.CommandDisabled[strings.ToLower(name)]
-	_, restricted := sb.RestrictedCommands[strings.ToLower(name)]
-	if restricted && !sb.IsDBGuild(info) {
-		str += " [not available]"
-	} else if disabled {
-		str += " [disabled]"
-	}
-	return str
-}
-
-// GetRoles constructs a string describing the allowed roles for a command
-func (info *GuildInfo) GetRoles(c Command) string {
-	m, ok := info.config.Modules.CommandRoles[strings.ToLower(c.Name())]
-	if !ok {
-		return ""
-	}
-
-	sb.DG.State.RLock()
-	defer sb.DG.State.RUnlock()
-	_, reverse := m["!"]
-	s := make([]string, 0, len(m))
-	for k := range m {
-		r, err := sb.DG.State.Role(info.ID, k)
-		if err == nil {
-			s = append(s, r.Name)
-		}
-	}
-
-	if reverse {
-		return "Any role except " + strings.Join(s, ", ")
-	}
-	return strings.Join(s, ", ")
-}
-
-// GetChannels constructs a string describing the allowed channels a command can run on
-func (info *GuildInfo) GetChannels(c Command) string {
-	m, ok := info.config.Modules.CommandChannels[strings.ToLower(c.Name())]
-	if !ok {
-		return ""
-	}
-
-	sb.DG.State.RLock()
-	defer sb.DG.State.RUnlock()
-	s := make([]string, 0, len(m))
-	for k := range m {
-		c, err := sb.DG.State.Channel(k)
-		if err == nil {
-			s = append(s, "#"+c.Name)
-		}
-	}
-
-	return strings.Join(s, ", ")
-}
-
-// FormatUsage constructs a help string for the given command based on it's usage
-func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.MessageEmbed {
-	r := info.GetRoles(c)
-	ch := info.GetChannels(c)
-	fields := make([]*discordgo.MessageEmbedField, 0, len(usage.Params))
-	use := "> " + info.config.Basic.CommandPrefix + strings.ToLower(c.Name())
-	for _, v := range usage.Params {
-		opt := ""
-		if v.Optional {
-			opt = " [OPTIONAL]"
-			use += fmt.Sprintf(" [%s]", v.Name)
-		} else {
-			use += fmt.Sprintf(" {%s}", v.Name)
-		}
-		if v.Variadic {
-			opt = " (...) " + opt
-			use += "..."
-		}
-		fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name + opt, Value: v.Desc, Inline: false})
-	}
-
-	if len(ch) > 0 {
-		ch = fmt.Sprintf("Available on: %s", ch)
-	}
-	embed := &discordgo.MessageEmbed{
-		Type: "rich",
-		Author: &discordgo.MessageEmbedAuthor{
-			URL:     "https://github.com/blackhole12/sweetiebot#configuration",
-			Name:    c.Name() + " Command",
-			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", sb.SelfID, sb.SelfAvatar),
-		},
-		Color:       0xaaaaaa,
-		Description: fmt.Sprintf("```%s```\n%s\n\n%s", use, usage.Desc, ch),
-		Fields:      fields,
-	}
-
-	if len(r) > 0 {
-		embed.Footer = &discordgo.MessageEmbedFooter{Text: "Only usable by: " + r}
-	}
-	return embed
 }
 
 type moduleHooks struct {
@@ -304,7 +206,6 @@ func (info *GuildInfo) RegisterModule(m Module) {
 		info.hooks.OnCommand = append(info.hooks.OnCommand, h)
 	}
 	if h, ok := m.(ModuleOnIdle); ok {
-		fmt.Println("OnIdle")
 		info.hooks.OnIdle = append(info.hooks.OnIdle, h)
 	}
 	if h, ok := m.(ModuleOnTick); ok {

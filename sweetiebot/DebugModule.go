@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"strconv"
+	"sync/atomic"
+	"time"
 
 	"github.com/blackhole12/discordgo"
 )
 
 // DebugModule contains various debugging commands
 type DebugModule struct {
+	lastcheck int64
 }
 
 // Name of the module
@@ -23,7 +24,6 @@ func (w *DebugModule) Name() string {
 func (w *DebugModule) Commands() []Command {
 	return []Command{
 		&echoCommand{},
-		&echoEmbedCommand{},
 		&disableCommand{},
 		&enableCommand{},
 		&updateCommand{},
@@ -32,171 +32,121 @@ func (w *DebugModule) Commands() []Command {
 		&announceCommand{},
 		&removeAliasCommand{},
 		&getAuditCommand{},
+		&setProfileCommand{},
 	}
 }
 
 // Description of the module
 func (w *DebugModule) Description() string {
-	return "Contains various debugging commands. Some of these commands can only be run by the bot owner."
+	return "Contains various debugging commands and checks for updates. Some of these commands can only be run by the bot owner."
+}
+
+func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
+	if info.Bot.IsMainGuild(info) && t.Unix()-w.lastcheck > UpdateInterval {
+		w.lastcheck = t.Unix()
+		m := &discordgo.Message{ChannelID: info.Config.Log.Channel.String(),
+			Content:   "",
+			Author:    &discordgo.User{ID: info.Bot.Owner.String()},
+			Timestamp: discordgo.Timestamp(t.Format(time.RFC3339Nano)),
+		}
+
+		updater := &updateCommand{}
+		updater.Process([]string{}, m, []int{}, info)
+	}
 }
 
 type echoCommand struct {
 }
 
-func (c *echoCommand) Name() string {
-	return "Echo"
+func (c *echoCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "Echo",
+		Usage:     "Says something in the given channel.",
+		Sensitive: true,
+	}
 }
 func (c *echoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if len(args) == 0 {
-		return "```You have to tell me to say something, silly!```", false, nil
+	if len(args) < 2 {
+		return "```\nYou have to tell me to say something, silly!```", false, nil
 	}
-	arg := args[0]
-	if channelregex.MatchString(arg) {
-		if len(args) < 2 {
-			return "```You have to tell me to say something, silly!```", false, nil
+
+	g, _ := info.GetGuild()
+	ch, err := ParseChannel(args[0], g)
+	if err == nil {
+		if err = info.SendMessage(ch, msg.Content[indices[1]:]); err != nil {
+			return ReturnError(err)
 		}
-		info.SendMessage(arg[2:len(arg)-1], msg.Content[indices[1]:])
 		return "", false, nil
 	}
 	return msg.Content[indices[0]:], false, nil
 }
 func (c *echoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Makes Sweetie Bot say the given sentence in `#channel`, or in the current channel if no channel is provided.",
+		Desc: "Makes " + info.GetBotName() + " say the given sentence in `#channel`.",
 		Params: []CommandUsageParam{
-			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
-			{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
+			{Name: "#channel", Desc: "The channel to echo the message in.", Optional: false},
+			{Name: "arbitrary string", Desc: "An arbitrary string for " + info.GetBotName() + " to say.", Optional: false},
 		},
 	}
 }
-func (c *echoCommand) UsageShort() string {
-	return "Makes Sweetie Bot say something in the given channel."
-}
 
-type echoEmbedCommand struct {
-}
-
-func (c *echoEmbedCommand) Name() string {
-	return "EchoEmbed"
-}
-func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func setCommandEnable(args []string, enable bool, success string, info *GuildInfo, msg *discordgo.Message) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
-		return "```You have to tell me to say something, silly!```", false, nil
-	}
-	arg := args[0]
-	channel := msg.ChannelID
-	i := 0
-	if channelregex.MatchString(arg) {
-		if len(args) < 2 {
-			return "```You have to tell me to say something, silly!```", false, nil
-		}
-		channel = arg[2 : len(arg)-1]
-		i++
-	}
-	if i >= len(args) {
-		return "```A URL is mandatory or discord won't send the embed message for some stupid reason.```", false, nil
-	}
-	url := args[i]
-	i++
-	var color uint64 = 0xFFFFFFFF
-	if i < len(args) {
-		if colorregex.MatchString(args[i]) {
-			if len(args) < i+2 {
-				return "```You have to tell me to say something, silly!```", false, nil
-			}
-			color, _ = strconv.ParseUint(args[i][2:], 16, 64)
-			i++
-		}
-	}
-	fields := make([]*discordgo.MessageEmbedField, 0, len(args)-i)
-	for i < len(args) {
-		s := strings.SplitN(args[i], ":", 2)
-		if len(s) < 2 {
-			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
-		}
-		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
-		i++
-	}
-	embed := &discordgo.MessageEmbed{
-		Type: "rich",
-		Author: &discordgo.MessageEmbedAuthor{
-			URL:     url,
-			Name:    msg.Author.Username + "#" + msg.Author.Discriminator,
-			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.jpg", msg.Author.ID, msg.Author.Avatar),
-		},
-		Color:  int(color),
-		Fields: fields,
-	}
-	info.SendEmbed(channel, embed)
-	return "", false, nil
-}
-func (c *echoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
-	return &CommandUsage{
-		Desc: "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel",
-		Params: []CommandUsageParam{
-			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
-			{Name: "URL", Desc: "URL for the author to link to.", Optional: false},
-			{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: true},
-			{Name: "key:value", Desc: "A key:value pair of fields to display in the embed. Remember to use quotes around the *entire* key:value pair if either the key or the value have spaces.", Optional: true, Variadic: true},
-		},
-	}
-}
-func (c *echoEmbedCommand) UsageShort() string {
-	return "Makes Sweetie Bot echo a rich text embed in a given channel."
-}
-
-func setCommandEnable(args []string, enable bool, success string, info *GuildInfo, channelID string) (string, bool, *discordgo.MessageEmbed) {
-	if len(args) == 0 {
-		return "```No module or command specified.Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
+		return "```\nNo module or command specified.Use " + info.Config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 	}
 	name := strings.ToLower(args[0])
-	for _, v := range info.modules {
+	for _, v := range info.Modules {
 		if strings.ToLower(v.Name()) == name {
 			cmds := v.Commands()
 			for _, v := range cmds {
-				str := strings.ToLower(v.Name())
+				str := strings.ToLower(v.Info().Name)
 				if enable {
-					delete(info.config.Modules.CommandDisabled, str)
+					delete(info.Config.Modules.CommandDisabled, CommandID(str))
 				} else {
-					CheckMapNilBool(&info.config.Modules.CommandDisabled)
-					info.config.Modules.CommandDisabled[str] = true
+					CheckMapNilBool(&info.Config.Modules.CommandDisabled)
+					info.Config.Modules.CommandDisabled[CommandID(str)] = true
 				}
 			}
 
 			if enable {
-				delete(info.config.Modules.Disabled, name)
+				delete(info.Config.Modules.Disabled, ModuleID(name))
 			} else {
-				CheckMapNilBool(&info.config.Modules.Disabled)
-				info.config.Modules.Disabled[name] = true
+				if len(info.Config.Modules.Disabled) == 0 {
+					info.Config.Modules.Disabled = make(map[ModuleID]bool)
+				}
+				info.Config.Modules.Disabled[ModuleID(name)] = true
 			}
 			info.SaveConfig()
-			return "", false, DumpCommandsModules(channelID, info, "", "**Success!** "+args[0]+success)
+			return "", false, DumpCommandsModules(info, "", "**Success!** "+args[0]+success, msg)
 		}
 	}
-	for _, v := range info.commands {
-		str := strings.ToLower(v.Name())
-		if str == name {
+	for k, _ := range info.commands {
+		if string(k) == name {
 			if enable {
-				delete(info.config.Modules.CommandDisabled, str)
+				delete(info.Config.Modules.CommandDisabled, k)
 			} else {
-				CheckMapNilBool(&info.config.Modules.CommandDisabled)
-				info.config.Modules.CommandDisabled[str] = true
+				CheckMapNilBool(&info.Config.Modules.CommandDisabled)
+				info.Config.Modules.CommandDisabled[k] = true
 			}
 			info.SaveConfig()
-			return "", false, DumpCommandsModules(channelID, info, "", "**Success!** "+args[0]+success)
+			return "", false, DumpCommandsModules(info, "", "**Success!** "+args[0]+success, msg)
 		}
 	}
-	return "```The " + args[0] + " module/command does not exist. Use " + info.config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
+	return "```\nThe " + args[0] + " module/command does not exist. Use " + info.Config.Basic.CommandPrefix + "help with no arguments to list all modules and commands.```", false, nil
 }
 
 type disableCommand struct {
 }
 
-func (c *disableCommand) Name() string {
-	return "Disable"
+func (c *disableCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "Disable",
+		Usage:     "Disables the given module/command, if possible.",
+		Sensitive: true,
+	}
 }
 func (c *disableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return setCommandEnable(args, false, " was disabled.", info, msg.ChannelID)
+	return setCommandEnable(args, false, " was disabled.", info, msg)
 }
 func (c *disableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -211,11 +161,15 @@ func (c *disableCommand) UsageShort() string { return "Disables the given module
 type enableCommand struct {
 }
 
-func (c *enableCommand) Name() string {
-	return "Enable"
+func (c *enableCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "Enable",
+		Usage:     "Enables the given module/command.",
+		Sensitive: true,
+	}
 }
 func (c *enableCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return setCommandEnable(args, true, " was enabled.", info, msg.ChannelID)
+	return setCommandEnable(args, true, " was enabled.", info, msg)
 }
 func (c *enableCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -225,54 +179,80 @@ func (c *enableCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *enableCommand) UsageShort() string { return "Enables the given module/command." }
-func (c *enableCommand) Roles() []string    { return []string{"Princesses", "Royal Guard"} }
-func (c *enableCommand) Channels() []string { return []string{} }
 
 type updateCommand struct {
 }
 
-func (c *updateCommand) Name() string {
-	return "Update"
+func (c *updateCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:              "Update",
+		Usage:             "Updates the bot.",
+		Restricted:        true,
+		Sensitive:         true,
+		ServerIndependent: true,
+	}
 }
 func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	if !isOwner {
-		return "```Only the owner of the bot itself can call this!```", false, nil
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
 	}
-	/*sb.log.Log("Update command called, current PID: ", os.Getpid())
-	  err := exec.Command("./update.sh", strconv.Itoa(os.Getpid())).Start()
-	  if err != nil {
-	    sb.log.Log("Command.Start() error: ", err.Error())
-	    return "```Could not start update script!```"
-	  }*/
+	if info.Bot.UpdateLock.TestAndSet() {
+		return "```\nThe bot is already checking for or downloading an update.```", false, nil
+	}
+	defer info.Bot.UpdateLock.Clear()
+	switch atomic.LoadUint32(&info.Bot.quit) {
+	case QuitNow:
+		return "```\nThe bot is shutting down.```", false, nil
+	case QuitRaid:
+		return "```\nAn update has already been scheduled, and will happen soon.```", false, nil
+	}
 
-	sb.guildsLock.RLock()
-	defer sb.guildsLock.RUnlock()
-	for _, v := range sb.guilds {
-		if v.config.Log.Channel > 0 {
-			v.SendMessage(SBitoa(v.config.Log.Channel), "```Shutting down for update...```")
+	r, update := info.Bot.Selfhoster.CheckForUpdate(info.Bot.Owner, BotVersion.Integer())
+	switch r {
+	case -1:
+		return buySelfhosting, false, nil
+	case 0:
+		return "```" + info.GetBotName() + " is currently up-to-date.```", false, nil
+	case 1:
+		info.SendMessage(DiscordChannel(msg.ChannelID), "```\nAn update to v."+VersionInt(update.Version).String()+" is available, downloading files now. The bot will restart when the download is complete (or after any active raids have subsided)```")
+	}
+
+	for _, file := range update.Files { // We ignore any errors here because the updater will re-attempt the downloads anyway
+		DownloadFile(UpdateEndpoint(file, info.Bot.Owner, 0), "~"+file, false)
+	}
+
+	info.Bot.GuildsLock.RLock()
+	defer info.Bot.GuildsLock.RUnlock()
+	for _, v := range info.Bot.Guilds {
+		if !v.Config.Log.Channel.Equals(msg.ChannelID) {
+			v.SendMessage(v.Config.Log.Channel, "```\nShutting down for update...```")
 		}
 	}
 
-	sb.quit.set(true) // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
-	return "```Shutting down for update...```", false, nil
+	atomic.StoreUint32(&info.Bot.quit, QuitRaid) // Instead of trying to call a batch script, we run the bot inside an infinite loop batch script and just shut it off when we want to update
+	return "```\nShutting down for update...```", false, nil
 }
 func (c *updateCommand) Usage(info *GuildInfo) *CommandUsage {
-	return &CommandUsage{Desc: "Tells sweetiebot to shut down, calls an update script, rebuilds the code, and then restarts."}
+	return &CommandUsage{Desc: "Shuts down, calls an update script, rebuilds the code, and then restarts."}
 }
-func (c *updateCommand) UsageShort() string { return "[RESTRICTED] Updates sweetiebot." }
-func (c *updateCommand) Roles() []string    { return []string{"Princesses"} }
-func (c *updateCommand) Channels() []string { return []string{} }
 
 type dumpTablesCommand struct {
 }
 
-func (c *dumpTablesCommand) Name() string {
-	return "DumpTables"
+func (c *dumpTablesCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:              "DumpTables",
+		Usage:             "Dumps table row counts.",
+		Restricted:        true,
+		Sensitive:         true,
+		ServerIndependent: true,
+	}
 }
 func (c *dumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	return "```\n" + sb.DB.GetTableCounts() + "```", false, nil
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
+	}
+	return "```\n" + info.Bot.DB.GetTableCounts() + "```", false, nil
 }
 func (c *dumpTablesCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{Desc: "Dumps table row counts."}
@@ -304,71 +284,70 @@ func (s guildSlice) Less(i, j int) bool {
 type listGuildsCommand struct {
 }
 
-func (c *listGuildsCommand) Name() string {
-	return "ListGuilds"
+func (c *listGuildsCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:              "ListGuilds",
+		Usage:             "Lists the servers the bot is on.",
+		MainInstance:      true,
+		Sensitive:         true,
+		ServerIndependent: true,
+	}
 }
 func (c *listGuildsCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	sb.DG.State.RLock()
-	guilds := append([]*discordgo.Guild{}, sb.DG.State.Guilds...)
-	sb.DG.State.RUnlock()
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
+	}
+	info.Bot.DG.State.RLock()
+	guilds := append([]*discordgo.Guild{}, info.Bot.DG.State.Guilds...)
+	info.Bot.DG.State.RUnlock()
 	sort.Sort(guildSlice(guilds))
 	s := make([]string, 0, len(guilds))
 	private := 0
 	for _, v := range guilds {
-		if !isOwner {
-			sb.guildsLock.RLock()
-			g, ok := sb.guilds[SBatoi(v.ID)]
-			sb.guildsLock.RUnlock()
-			if ok && g.config.Basic.Importable {
-				s = append(s, PartialSanitize(v.Name))
-			} else {
-				private++
-			}
+		username := "<@" + v.OwnerID + ">"
+		m, _ := info.Bot.DG.GetMember(DiscordUser(v.OwnerID), v.ID)
+		if m != nil {
+			username = m.User.Username + "#" + m.User.Discriminator
+		}
+		count := v.MemberCount
+		if count < len(v.Members) {
+			count = len(v.Members)
+		}
+		if count > 25 {
+			s = append(s, info.Sanitize(fmt.Sprintf("%v (%v) - %v", v.Name, count, username), CleanCodeBlock))
 		} else {
-			username := "<@" + v.OwnerID + ">"
-			if sb.DB.status.get() {
-				m, _, _, _ := sb.DB.GetUser(SBatoi(v.OwnerID))
-				if m != nil {
-					username = m.Username + "#" + m.Discriminator
-				}
-			}
-			count := v.MemberCount
-			if count < len(v.Members) {
-				count = len(v.Members)
-			}
-			if count > 25 {
-				s = append(s, PartialSanitize(fmt.Sprintf("%v (%v) - %v", v.Name, count, username)))
-			} else {
-				private++
-			}
+			private++
 		}
 	}
-	return fmt.Sprintf("```Sweetie has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", strings.Join(s, "\n"), private), len(s) > 8, nil
+	return fmt.Sprintf("```\n%s has joined these servers:\n%s\n\n+ %v private servers (Basic.Importable is false)```", info.GetBotName(), strings.Join(s, "\n"), private), len(s) > 8, nil
 }
 func (c *listGuildsCommand) Usage(info *GuildInfo) *CommandUsage {
-	return &CommandUsage{Desc: "Lists the servers that sweetiebot has joined."}
+	return &CommandUsage{Desc: "Lists the servers the bot is on."}
 }
-func (c *listGuildsCommand) UsageShort() string { return "Lists servers." }
 
 type announceCommand struct {
 }
 
-func (c *announceCommand) Name() string {
-	return "Announce"
+func (c *announceCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:              "Announce",
+		Usage:             "Announcement command.",
+		Restricted:        true,
+		Sensitive:         true,
+		ServerIndependent: true,
+	}
 }
 func (c *announceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	if !isOwner {
-		return "```Only the owner of the bot itself can call this!```", false, nil
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
 	}
 
 	arg := msg.Content[indices[0]:]
-	sb.guildsLock.RLock()
-	defer sb.guildsLock.RUnlock()
-	for _, v := range sb.guilds {
-		if v.config.Log.Channel > 0 {
-			v.SendMessage(SBitoa(v.config.Log.Channel), "<@&"+SBitoa(v.config.Basic.AlertRole)+"> "+arg)
+	info.Bot.GuildsLock.RLock()
+	defer info.Bot.GuildsLock.RUnlock()
+	for _, v := range info.Bot.Guilds {
+		if v.Config.Log.Channel != ChannelEmpty {
+			v.SendMessage(v.Config.Log.Channel, v.Config.Basic.ModRole.Display()+" "+arg)
 		}
 	}
 
@@ -378,34 +357,37 @@ func (c *announceCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
 		Desc: "Restricted command that announces a message to all the log channels of all servers.",
 		Params: []CommandUsageParam{
-			{Name: "arbitrary string", Desc: "An arbitrary string for Sweetie Bot to say.", Optional: false},
+			{Name: "arbitrary string", Desc: "An arbitrary string for " + info.GetBotName() + " to say.", Optional: false},
 		},
 	}
 }
-func (c *announceCommand) UsageShort() string { return "[RESTRICTED] Announcement command." }
 
 type removeAliasCommand struct {
 }
 
-func (c *removeAliasCommand) Name() string {
-	return "RemoveAlias"
+func (c *removeAliasCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:       "RemoveAlias",
+		Usage:      "Removes an alias.",
+		Restricted: true,
+		Sensitive:  true,
+	}
 }
 func (c *removeAliasCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	_, isOwner := sb.Owners[SBatoi(msg.Author.ID)]
-	if !isOwner {
-		return "```Only the owner of the bot itself can call this!```", false, nil
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
 	}
 	if len(args) < 1 {
-		return "```You must PING the user you want to remove an alias from.```", false, nil
+		return "```\nYou must PING the user you want to remove an alias from.```", false, nil
 	}
 	if len(args) < 2 {
-		return "```You must provide an alias to remove.```", false, nil
+		return "```\nYou must provide an alias to remove.```", false, nil
 	}
-	if !sb.DB.CheckStatus() {
-		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	if !info.Bot.DB.CheckStatus() {
+		return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
 	}
-	sb.DB.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
-	return "```Attempted to remove the alias. Use " + info.config.Basic.CommandPrefix + "aka to check if it worked.```", false, nil
+	info.Bot.DB.RemoveAlias(PingAtoi(args[0]), msg.Content[indices[1]:])
+	return "```\nAttempted to remove the alias. Use " + info.Config.Basic.CommandPrefix + "aka to check if it worked.```", false, nil
 }
 func (c *removeAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -416,13 +398,16 @@ func (c *removeAliasCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *removeAliasCommand) UsageShort() string { return "[RESTRICTED] Removes an alias." }
 
 type getAuditCommand struct {
 }
 
-func (c *getAuditCommand) Name() string {
-	return "GetAudit"
+func (c *getAuditCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "GetAudit",
+		Usage:     "Inspects the audit log.",
+		Sensitive: true,
+	}
 }
 func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	var low uint64
@@ -430,26 +415,26 @@ func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices
 	var user *uint64
 	var search string
 
-	if !sb.DB.CheckStatus() {
-		return "```A temporary database outage is preventing this command from being executed.```", false, nil
+	if !info.Bot.DB.CheckStatus() {
+		return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
 	}
 
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		if len(args[i]) > 0 {
 			switch args[i][0] {
 			case '<', '@':
 				if args[i][0] == '@' || (len(args[i]) > 1 && args[i][1] == '@') {
 					var IDs []uint64
 					if args[i][0] == '@' {
-						IDs = FindUsername(args[i][1:], info, false)
+						IDs = info.FindUsername(args[i][1:], false)
 					} else {
 						IDs = []uint64{SBatoi(StripPing(args[i]))}
 					}
 					if len(IDs) == 0 { // no matches!
-						return "```Error: Could not find any usernames or aliases matching " + args[i] + "!```", false, nil
+						return "```\nError: Could not find any usernames or aliases matching " + args[i] + "!```", false, nil
 					}
 					if len(IDs) > 1 {
-						return "```Could be any of the following users or their aliases:\n" + strings.Join(IDsToUsernames(IDs, info, true), "\n") + "```", len(IDs) > 5, nil
+						return "```\nCould be any of the following users or their aliases:\n" + strings.Join(info.IDsToUsernames(IDs, true), "\n") + "```", len(IDs) > 5, nil
 					}
 					user = &IDs[0]
 					break
@@ -477,14 +462,14 @@ func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 	}
 
-	r := sb.DB.GetAuditRows(low, high, user, search, SBatoi(info.ID))
-	ret := []string{"```Matching Audit Log entries:```"}
+	r := info.Bot.DB.GetAuditRows(low, high, user, search, SBatoi(info.ID))
+	ret := []string{"```\nMatching Audit Log entries:```"}
 
 	for _, v := range r {
-		ret = append(ret, fmt.Sprintf("[%s] %s: %s", ApplyTimezone(v.Timestamp, info, msg.Author).Format("1/2 3:04:05PM"), v.Author, v.Message))
+		ret = append(ret, fmt.Sprintf("[%s] %s: %s", info.ApplyTimezone(v.Timestamp, DiscordUser(msg.Author.ID)).Format("1/2 3:04:05PM"), v.Author, v.Message))
 	}
 
-	return strings.Join(ret, "\n"), len(ret) > 12, nil
+	return info.Sanitize(strings.Join(ret, "\n"), CleanMost), len(ret) > 12, nil
 }
 func (c *getAuditCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -496,4 +481,44 @@ func (c *getAuditCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *getAuditCommand) UsageShort() string { return "Inspects the audit log." }
+
+type setProfileCommand struct {
+}
+
+func (c *setProfileCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:              "SetProfile",
+		Usage:             "Changes username and avatar of the bot.",
+		Sensitive:         true,
+		ServerIndependent: true,
+		MainInstance:      true,
+	}
+}
+func (c *setProfileCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if !info.Bot.Owner.Equals(msg.Author.ID) {
+		return "```\nOnly the owner of the bot itself can call this!```", false, nil
+	}
+	if len(args) < 1 {
+		return "```\nYou must include at least a username to change.```", false, nil
+	}
+	avatarfile := ""
+	if len(args) > 1 {
+		avatarfile = msg.Content[indices[1]:]
+	}
+	if err := info.Bot.DG.ChangeBotName(args[0], avatarfile); err != nil {
+		return fmt.Sprintf("```\nError changing bot name or avatar: %s```", err.Error()), false, nil
+	}
+	if len(args) < 1 {
+		return "```\nSuccessfully changed the bot name!```", false, nil
+	}
+	return "```\nSuccessfully changed the bot name and avatar!```", false, nil
+}
+func (c *setProfileCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Restricted command that changes the bot name and/or avatar.",
+		Params: []CommandUsageParam{
+			{Name: "username", Desc: "What the bot's username should be. If the name has spaces, you must put this argument in quotes!", Optional: false},
+			{Name: "avatar", Desc: "A PNG, JPG or GIF file relative to the bot's executable that contains the avatar. If this parameter is omitted, the avatar is not changed. Quotes are optional.", Optional: true},
+		},
+	}
+}
