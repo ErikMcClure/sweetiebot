@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 8, 26}
+var BotVersion = Version{0, 9, 9, 0}
 
 const (
 	MaxPublicLines = 12
