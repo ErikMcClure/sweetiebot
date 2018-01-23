@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 1}
+var BotVersion = Version{0, 9, 9, 2}
 
 const (
 	MaxPublicLines = 12
@@ -584,7 +584,7 @@ func (sb *SweetieBot) MessageDelete(s *discordgo.Session, m *discordgo.MessageDe
 
 // UserUpdate discord hook
 func (sb *SweetieBot) UserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
-	sb.ProcessUser(m.User, nil)
+	sb.ProcessUser(m.User)
 }
 
 // PresenceUpdate discord hook
@@ -593,7 +593,9 @@ func (sb *SweetieBot) PresenceUpdate(s *discordgo.Session, m *discordgo.Presence
 	if info == nil {
 		return
 	}
-	sb.ProcessUser(m.User, &m.Presence)
+	if m.Presence.Status != "" && m.Presence.Status != "offline" {
+		sb.DB.SawUser(SBatoi(m.User.ID))
+	}
 
 	for _, h := range info.hooks.OnPresenceUpdate {
 		if info.ProcessModule("", h) {
@@ -797,12 +799,11 @@ func (sb *SweetieBot) GetDefaultServer(user uint64) *GuildInfo {
 }
 
 // ProcessUser adds a user to the database
-func (sb *SweetieBot) ProcessUser(u *discordgo.User, p *discordgo.Presence) uint64 {
-	isonline := (p != nil && p.Status != "Offline")
+func (sb *SweetieBot) ProcessUser(u *discordgo.User) uint64 {
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
 	if sb.DB.CheckStatus() {
-		sb.DB.AddUser(id, u.Username, discriminator, u.Avatar, isonline)
+		sb.DB.AddUser(id, u.Username, discriminator, u.Avatar, false)
 	}
 	return id
 }
@@ -993,6 +994,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 2):  "- Attempt #2 at fixing the database :U",
 			AssembleVersion(0, 9, 9, 1):  "- Database restructuring and optimizations",
 			AssembleVersion(0, 9, 9, 0):  "- Sweetie Bot now supports selfhosting and gives all patreon supporters access to paid features (chat logs and higher database limits). To get the new features, make sure you've linked your Patreon and Discord accounts. Check the GitHub readme for more instructions.\n- Help now hides disabled or restricted commands from users.\n- The bot name is no longer hardcoded: it will use whatever nickname it has on the server or the bot name given to the selfhost instance.\n- Removed echoembed command\n- Made listguilds and dumptables restricted commands\n- renamed AlertRole to ModRole and Search.MaxResults to Miscellaneous.MaxSearchResults, moved TrackUserLeft to Users and added NotifyChannel to track users instead of using !autosilence.\n- Spoiler module and Emote module have been replaced by a Filter module. If you were using these modules, your existing configuration was migrated to the new module. Anti-Spam was also renamed to Spam and Help/About renamed to Information.\n- Removed !addset/!removeset/!searchset. Use !addstatus/!removestatus/etc. or !addfilter/!removefilter/etc. instead.\n- Scheduler module no longer hides episode names outside of spoiler channels.\n- Server owners and admins can now use any command in any channel.\n- getconfig/setconfig now accept/display role names and channel names in addition to pings, and enforce valid types on all inputs. Using !getconfig on a category now displays all options in that category. All commands now accept simply writing out the role name, channel name, or user name.\n- !addbirthday was changed to be easier to use, and now adds the birthday using the user's timezone.\n- This is a total rewrite of sweetiebot, so if you find any bugs, or you think you should have paid features but you don't, please visit sweetiebot's support channel: https://discord.gg/t2gVQvN",
 			AssembleVersion(0, 9, 8, 23): "- Remove !getpressure restriction.\n- Limit results of !searchtags",
