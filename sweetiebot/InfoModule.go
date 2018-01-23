@@ -191,7 +191,7 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 			{Name: "Uptime", Value: TimeDiff(time.Duration(GetTimestamp(msg).Unix()-info.Bot.StartTime) * time.Second), Inline: true},
 			{Name: "Messages Seen", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&info.Bot.MessageCount)), 10), Inline: true},
 			{Name: "Github", Value: "https://github.com/blackhole12/sweetiebot", Inline: false},
-			{Name: "Patreon", Value: "https://www.patreon.com/erikmcclure", Inline: false},
+			{Name: "Patreon", Value: PatreonURL, Inline: false},
 			{Name: "Add " + info.GetBotName() + " To Your Server", Value: fmt.Sprintf("https://discordapp.com/oauth2/authorize?client_id=%v&scope=bot&permissions=535948390", info.Bot.AppID), Inline: false},
 			{Name: "Support Channel", Value: "<https://discordapp.com/invite/t2gVQvN>", Inline: false},
 			{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
