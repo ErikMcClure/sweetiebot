@@ -37,12 +37,13 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 0}
+var BotVersion = Version{0, 9, 9, 1}
 
 const (
 	MaxPublicLines = 12
 	maxPublicRules = 6
 	SilverServerID = "105443346608095232"
+	PatreonURL     = "https://www.patreon.com/erikmcclure"
 	QuitNone       = 0
 	QuitNow        = 1
 	QuitRaid       = 2
@@ -156,7 +157,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 		if !ok {
 			/*guild = NewGuildInfo(sb, g)
 			sb.GuildsLock.Lock()
-			sb.Guilds[SBatoi(g.ID)] = guild
+			sb.Guilds[DiscordGuild(g.ID)] = guild
 			guild.ProcessGuild(g)
 			sb.GuildsLock.Unlock()
 			sb.memberChan <- guild
@@ -276,7 +277,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 		if guild.Silver.Get() {
 			changes += "\n\nThank you for your support!"
 		} else {
-			changes += "\n\nPlease consider donating to help pay for hosting costs: https://www.patreon.com/erikmcclure"
+			changes += "\n\nPlease consider donating to help pay for hosting costs: " + PatreonURL
 		}
 	}
 	guild.Log(sb.AppName+" version ", BotVersion.String(), " successfully loaded on ", g.Name, debug, changes)
@@ -411,7 +412,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 
 			if c.Info().Silver && !info.Silver.Get() {
-				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate to gain access: https://www.patreon.com/erikmcclure. Visit the support channel for help if you already donated.", t)
+				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate to gain access: "+PatreonURL+". Visit the support channel for help if you already donated.", t)
 				return
 			}
 
@@ -992,6 +993,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 1):  "- Database restructuring and optimizations",
 			AssembleVersion(0, 9, 9, 0):  "- Sweetie Bot now supports selfhosting and gives all patreon supporters access to paid features (chat logs and higher database limits). To get the new features, make sure you've linked your Patreon and Discord accounts. Check the GitHub readme for more instructions.\n- Help now hides disabled or restricted commands from users.\n- The bot name is no longer hardcoded: it will use whatever nickname it has on the server or the bot name given to the selfhost instance.\n- Removed echoembed command\n- Made listguilds and dumptables restricted commands\n- renamed AlertRole to ModRole and Search.MaxResults to Miscellaneous.MaxSearchResults, moved TrackUserLeft to Users and added NotifyChannel to track users instead of using !autosilence.\n- Spoiler module and Emote module have been replaced by a Filter module. If you were using these modules, your existing configuration was migrated to the new module. Anti-Spam was also renamed to Spam and Help/About renamed to Information.\n- Removed !addset/!removeset/!searchset. Use !addstatus/!removestatus/etc. or !addfilter/!removefilter/etc. instead.\n- Scheduler module no longer hides episode names outside of spoiler channels.\n- Server owners and admins can now use any command in any channel.\n- getconfig/setconfig now accept/display role names and channel names in addition to pings, and enforce valid types on all inputs. Using !getconfig on a category now displays all options in that category. All commands now accept simply writing out the role name, channel name, or user name.\n- !addbirthday was changed to be easier to use, and now adds the birthday using the user's timezone.\n- This is a total rewrite of sweetiebot, so if you find any bugs, or you think you should have paid features but you don't, please visit sweetiebot's support channel: https://discord.gg/t2gVQvN",
 			AssembleVersion(0, 9, 8, 23): "- Remove !getpressure restriction.\n- Limit results of !searchtags",
 			AssembleVersion(0, 9, 8, 22): "- Prevent race-condition crashing set management.\n- Force boolean configuration values to take only true or false.",
@@ -1221,6 +1223,19 @@ func (sb *SweetieBot) Connect() int {
 	} else {
 		fmt.Println("Error opening websocket connection: ", err.Error())
 	}
+
+	/*if q, err := sb.DB.db.Query("SELECT DISTINCT Guild FROM members"); err == nil {
+		f, _ := os.Create("out.csv")
+		defer f.Close()
+		for q.Next() {
+			var p uint64
+			if err := q.Scan(&p); err == nil {
+				if _, ok := sb.Guilds[NewDiscordGuild(p)]; !ok {
+					fmt.Fprintf(f, "%v,", p)
+				}
+			}
+		}
+	}*/
 
 	fmt.Println("Sweetiebot quitting")
 	sb.DG.Close()
