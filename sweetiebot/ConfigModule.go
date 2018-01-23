@@ -302,6 +302,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	info.Config.Basic.Aliases = make(map[string]string)
 	info.Config.Basic.Aliases["calc"] = "roll"
 	info.Config.Basic.Aliases["calculate"] = "roll"
+	info.Config.Modules.CommandRoles = make(map[CommandID]map[DiscordRole]bool)
 
 	for k, v := range info.commands {
 		if v.Info().Sensitive {

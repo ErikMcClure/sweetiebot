@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 3}
+var BotVersion = Version{0, 9, 9, 4}
 
 const (
 	MaxPublicLines = 12
@@ -977,6 +977,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 4):  "- Fix crash",
 			AssembleVersion(0, 9, 9, 3):  "- Sweetie Bot no longer tracks presence updates, because they were the cause of the database slowdowns. This means !lastseen will only operate on last message sent.\n- Fixed !search.\n- Added !assignrole",
 			AssembleVersion(0, 9, 9, 2):  "- Attempt #2 at fixing the database :U",
 			AssembleVersion(0, 9, 9, 1):  "- Database restructuring and optimizations",
