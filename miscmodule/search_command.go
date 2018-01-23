@@ -69,7 +69,15 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 				}
 				users = strings.Split(v, "|")
 			case v[0] == '#':
-				return "```\nError: Unknown channel format " + v + " - Must be an actual recognized channel by discord!```", false, nil
+				s := strings.Split(v, "|")
+				g, _ := info.GetGuild()
+				for _, c := range s {
+					ch, err := bot.ParseChannel(c, g)
+					if err != nil {
+						return bot.ReturnError(err)
+					}
+					channels = append(channels, ch.Convert())
+				}
 			case (v[0] == '<' && v[1] == '#'):
 				if len(v) < 2 {
 					return "```\nError: No channels specified```", false, nil
@@ -150,7 +158,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	query += "C.ID != ? AND C.Author != ? AND C.Channel != ? AND C.Message NOT LIKE '" + info.Config.Basic.CommandPrefix + "search %' ORDER BY C.Timestamp DESC" // Always exclude the message corresponding to the command and all sweetie bot messages (which also prevents trailing ANDs)
 	params = append(params, bot.SBatoi(msg.ID))
 	params = append(params, info.Bot.SelfID.Convert())
-	params = append(params, info.Config.Basic.ModChannel)
+	params = append(params, info.Config.Basic.ModChannel.Convert())
 
 	querylimit := query
 	if rangeend >= 0 {
@@ -169,8 +177,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 			err = err2
 		}
 		if err != nil {
-			info.Log(err.Error())
-			return "```\nError: Failed to prepare statement!```", false, nil
+			return bot.ReturnError(err)
 		}
 		stmt = []*sql.Stmt{stmt1, stmt2}
 		c.statements[querylimit] = stmt
@@ -181,6 +188,8 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	err := stmt[0].QueryRow(params...).Scan(&count)
 	if err == sql.ErrNoRows {
 		return "```\nError: Expected 1 row, but got no rows!```", false, nil
+	} else if info.Bot.DB.CheckError("Search Command", err) {
+		return "```Error counting search results.```", false, nil
 	}
 
 	if count == 0 {
