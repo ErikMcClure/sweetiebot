@@ -1,10 +1,38 @@
 DELIMITER //
 
--- Dumping database structure for sweetiebot
-CREATE DATABASE IF NOT EXISTS `sweetiebot` //
-USE `sweetiebot` //
+SET NAMES utf8mb4//
 
--- Dumping structure for procedure sweetiebot.AddChat
+-- Dumping database structure for sweetiebot
+CREATE DATABASE IF NOT EXISTS `sweetiebot` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci//
+ALTER DATABASE `sweetiebot` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci //
+USE `sweetiebot`//
+
+-- Data exporting was unselected.
+-- Dumping structure for table sweetiebot.timezones
+CREATE TABLE IF NOT EXISTS `timezones` (
+  `Location` varchar(40) NOT NULL,
+  `Offset` int(11) NOT NULL,
+  `DST` int(11) NOT NULL,
+  PRIMARY KEY (`Location`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
+
+-- Data exporting was unselected.
+-- Dumping structure for table sweetiebot.users
+CREATE TABLE IF NOT EXISTS `users` (
+  `ID` bigint(20) unsigned NOT NULL,
+  `Username` varchar(128) NOT NULL DEFAULT '',
+  `Discriminator` int(10) unsigned NOT NULL DEFAULT 0,
+  `Avatar` varchar(512) NOT NULL DEFAULT '',
+  `LastSeen` datetime NOT NULL,
+  `LastNameChange` datetime NOT NULL,
+  `Location` varchar(40) DEFAULT NULL,
+  `DefaultServer` bigint(20) unsigned DEFAULT NULL,
+  PRIMARY KEY (`ID`),
+  KEY `INDEX_USERNAME` (`Username`),
+  KEY `FK_Location_timezone` (`Location`),
+  CONSTRAINT `FK_Location_timezone` FOREIGN KEY (`Location`) REFERENCES `timezones` (`Location`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
+
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT, IN `_guild` BIGINT)
     MODIFIES SQL DATA
 BEGIN
@@ -20,31 +48,6 @@ Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Ev
 
 END//
 
--- Dumping structure for table sweetiebot.timezones
-CREATE TABLE IF NOT EXISTS `timezones` (
-  `Location` varchar(40) NOT NULL,
-  `Offset` int(11) NOT NULL,
-  `DST` int(11) NOT NULL,
-  PRIMARY KEY (`Location`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Dumping structure for table sweetiebot.users
-CREATE TABLE IF NOT EXISTS `users` (
-  `ID` bigint(20) unsigned NOT NULL,
-  `Username` varchar(128) NOT NULL DEFAULT '',
-  `Discriminator` int(10) unsigned NOT NULL DEFAULT '0',
-  `Avatar` varchar(512) NOT NULL DEFAULT '',
-  `LastSeen` datetime NOT NULL,
-  `LastNameChange` datetime NOT NULL,
-  `Location` varchar(40) DEFAULT NULL,
-  `DefaultServer` bigint(20) unsigned DEFAULT NULL,
-  PRIMARY KEY (`ID`),
-  KEY `INDEX_USERNAME` (`Username`),
-  KEY `FK_Location_timezone` (`Location`),
-  CONSTRAINT `FK_Location_timezone` FOREIGN KEY (`Location`) REFERENCES `timezones` (`Location`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Dumping structure for function sweetiebot.AddItem
 CREATE DEFINER=`root`@`localhost` FUNCTION `AddItem`(`_content` VARCHAR(500)) RETURNS bigint(20)
     MODIFIES SQL DATA
 BEGIN
@@ -58,8 +61,6 @@ END IF;
 RETURN @id;
 END//
 
-
--- Dumping structure for function sweetiebot.AddMarkov
 CREATE DEFINER=`root`@`localhost` FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(64), `_phrase` VARCHAR(64)) RETURNS bigint(20)
     MODIFIES SQL DATA
     DETERMINISTIC
@@ -85,8 +86,6 @@ ON DUPLICATE KEY UPDATE Count = Count + 1;
 RETURN @ret;
 END//
 
-
--- Dumping structure for procedure sweetiebot.AddMember
 CREATE DEFINER=`root`@`localhost` PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME, IN `_nickname` VARCHAR(128))
     MODIFIES SQL DATA
 INSERT INTO members (ID, Guild, FirstSeen, Nickname)
@@ -94,31 +93,59 @@ VALUES (_id, _guild, _firstseen, _nickname)
 ON DUPLICATE KEY UPDATE
 FirstSeen=GetMinDate(_firstseen,FirstSeen), Nickname=_nickname//
 
-
--- Dumping structure for procedure sweetiebot.AddUser
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_username` VARCHAR(512), IN `_discriminator` INT, IN `_avatar` VARCHAR(512), IN `_isonline` BIT)
+CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(
+	IN `_id` BIGINT,
+	IN `_username` VARCHAR(512),
+	IN `_discriminator` INT,
+	IN `_avatar` VARCHAR(512),
+	IN `_isonline` BIT
+)
     MODIFIES SQL DATA
+BEGIN
+
+DECLARE oldname VARCHAR(128) DEFAULT '';
+SELECT Username INTO oldname
+FROM users
+WHERE ID = _id FOR UPDATE;
+
 INSERT INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) 
 VALUES (_id, _username, _discriminator, _avatar, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Discriminator=_discriminator, Avatar=_avatar, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
+Username=IF(_username = '', Username, _username),
+Discriminator=IF(_discriminator = 0, Discriminator, _discriminator),
+Avatar=IF(_avatar = '', Avatar, _avatar),
+LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen),
+LastNameChange=IF(_username = '', LastNameChange, IF(_username != `Username`, UTC_TIMESTAMP(), LastNameChange));
 
+IF _username != '' THEN
+	IF oldname != '' THEN
+		INSERT INTO aliases (`User`, Alias, Duration, `Timestamp`)
+		VALUES (_id, oldname, 0, UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE `Duration` = `Duration` + (UNIX_TIMESTAMP(UTC_TIMESTAMP()) - UNIX_TIMESTAMP(`Timestamp`)), `Timestamp` = UTC_TIMESTAMP(); 
+	END IF;
+	
+	IF _username != oldname THEN
+		INSERT INTO aliases (`User`, Alias, Duration, `Timestamp`)
+		VALUES (_id, _username, 0, UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE `Timestamp` = UTC_TIMESTAMP(); 
+	END IF;
+END IF;
+
+END//
 
 -- Dumping structure for table sweetiebot.aliases
 CREATE TABLE IF NOT EXISTS `aliases` (
-  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `User` bigint(20) unsigned NOT NULL,
   `Alias` varchar(128) NOT NULL,
+  `Timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `Duration` bigint(20) unsigned NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `ALIASES_ALIAS` (`Alias`),
+  PRIMARY KEY (`User`,`Alias`),
   KEY `ALIASES_USERS` (`User`),
+  KEY `ALIASES_ALIAS` (`Alias`),
   CONSTRAINT `ALIASES_USERS` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.chatlog
 CREATE TABLE IF NOT EXISTS `chatlog` (
   `ID` bigint(20) unsigned NOT NULL,
@@ -135,20 +162,17 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   CONSTRAINT `CHATLOG_USERS` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A log of all the messages from all the chatrooms.'//
 
--- Data exporting was unselected.
-
-
--- Dumping structure for event sweetiebot.CleanChatlog
 CREATE DEFINER=`root`@`localhost` EVENT `CleanChatlog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:04:34' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
 DELETE FROM chatlog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY);
 END//
 
-
--- Dumping structure for event sweetiebot.CleanDebugLog
 CREATE DEFINER=`root`@`localhost` EVENT `CleanDebugLog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:30:36' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
 DELETE FROM debuglog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY);
 END//
 
+CREATE DEFINER=`root`@`localhost` EVENT `CleanUsers` ON SCHEDULE EVERY 1 DAY STARTS '2018-01-22 15:50:17' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+DELETE FROM users WHERE `ID` NOT IN (SELECT DISTINCT ID FROM members);
+END//
 
 -- Dumping structure for table sweetiebot.debuglog
 CREATE TABLE IF NOT EXISTS `debuglog` (
@@ -165,8 +189,6 @@ CREATE TABLE IF NOT EXISTS `debuglog` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.editlog
 CREATE TABLE IF NOT EXISTS `editlog` (
   `ID` bigint(20) unsigned NOT NULL,
@@ -184,10 +206,6 @@ CREATE TABLE IF NOT EXISTS `editlog` (
   CONSTRAINT `editlog_ibfk_1` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPACT COMMENT='A log of all the messages from all the chatrooms.'//
 
--- Data exporting was unselected.
-
-
--- Dumping structure for function sweetiebot.GetMarkov
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkov`(`_prev` BIGINT) RETURNS bigint(20)
     READS SQL DATA
 BEGIN
@@ -221,8 +239,6 @@ LIMIT 1);*/
 
 END//
 
-
--- Dumping structure for function sweetiebot.GetMarkov2
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkov2`(`_prev` BIGINT, `_prev2` BIGINT) RETURNS bigint(20)
     READS SQL DATA
 BEGIN
@@ -244,8 +260,6 @@ return n;
 
 END//
 
-
--- Dumping structure for function sweetiebot.GetMarkovLine
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkovLine`(`_prev` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
     READS SQL DATA
 BEGIN
@@ -299,8 +313,6 @@ RETURN CONCAT(line, '|', @prev);
 
 END//
 
-
--- Dumping structure for function sweetiebot.GetMarkovLine2
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMarkovLine2`(`_prev` BIGINT, `_prev2` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
     READS SQL DATA
 BEGIN
@@ -358,8 +370,6 @@ RETURN CONCAT(line, '|', @prev, '|', @prev2);
 
 END//
 
-
--- Dumping structure for function sweetiebot.GetMinDate
 CREATE DEFINER=`root`@`localhost` FUNCTION `GetMinDate`(`date1` DATETIME, `date2` DATETIME) RETURNS datetime
     NO SQL
     DETERMINISTIC
@@ -376,16 +386,6 @@ END IF;
 RETURN date2;
 END//
 
-
--- Dumping structure for table sweetiebot.tags
-CREATE TABLE IF NOT EXISTS `tags` (
-  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `Name` varchar(50) NOT NULL,
-  `Guild` bigint(20) unsigned NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `UNIQUE_NAME` (`Name`,`Guild`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
 -- Dumping structure for table sweetiebot.items
 CREATE TABLE IF NOT EXISTS `items` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -395,8 +395,16 @@ CREATE TABLE IF NOT EXISTS `items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
+-- Dumping structure for table sweetiebot.tags
+CREATE TABLE IF NOT EXISTS `tags` (
+  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `Name` varchar(50) NOT NULL,
+  `Guild` bigint(20) unsigned NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UNIQUE_NAME` (`Name`,`Guild`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
-
+-- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.itemtags
 CREATE TABLE IF NOT EXISTS `itemtags` (
   `Item` bigint(20) unsigned NOT NULL,
@@ -408,8 +416,6 @@ CREATE TABLE IF NOT EXISTS `itemtags` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.markov_transcripts_speaker
 CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -418,11 +424,11 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
   UNIQUE KEY `INDEX_SPEAKER` (`Speaker`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
-
+-- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.markov_transcripts
 CREATE TABLE IF NOT EXISTS `markov_transcripts` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `SpeakerID` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `SpeakerID` bigint(20) unsigned NOT NULL DEFAULT 0,
   `Phrase` varchar(64) NOT NULL,
   PRIMARY KEY (`ID`),
   UNIQUE KEY `INDEX_SPEAKER_PHRASE` (`SpeakerID`,`Phrase`),
@@ -430,14 +436,12 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.markov_transcripts_map
 CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
   `Prev` bigint(20) unsigned NOT NULL,
   `Prev2` bigint(20) unsigned NOT NULL,
   `Next` bigint(20) unsigned NOT NULL,
-  `Count` int(10) unsigned NOT NULL DEFAULT '1',
+  `Count` int(10) unsigned NOT NULL DEFAULT 1,
   PRIMARY KEY (`Prev`,`Next`,`Prev2`),
   KEY `FK_NEXT` (`Next`),
   KEY `INDEX_PREV` (`Prev`),
@@ -448,10 +452,6 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
--- Data exporting was unselected.
-
-
 -- Dumping structure for table sweetiebot.members
 CREATE TABLE IF NOT EXISTS `members` (
   `ID` bigint(20) unsigned NOT NULL,
@@ -461,11 +461,11 @@ CREATE TABLE IF NOT EXISTS `members` (
   `FirstMessage` datetime DEFAULT NULL,
   PRIMARY KEY (`ID`,`Guild`),
   KEY `INDEX_NICKNAME` (`Nickname`),
+  KEY `INDEX_GUILD_FIRSTSEEN` (`Guild`,`FirstSeen`),
   CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
 -- Dumping structure for table sweetiebot.polls
 CREATE TABLE IF NOT EXISTS `polls` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -476,6 +476,7 @@ CREATE TABLE IF NOT EXISTS `polls` (
   UNIQUE KEY `Index 2` (`Name`,`Guild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
+-- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.polloptions
 CREATE TABLE IF NOT EXISTS `polloptions` (
   `Poll` bigint(20) unsigned NOT NULL,
@@ -488,20 +489,28 @@ CREATE TABLE IF NOT EXISTS `polloptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
-
--- Data exporting was unselected.
-
-
 -- Dumping structure for view sweetiebot.randomwords
 -- Creating temporary table to overcome VIEW dependency errors
 CREATE TABLE `randomwords` (
 	`Phrase` VARCHAR(64) NOT NULL COLLATE 'utf8mb4_general_ci'
 ) ENGINE=MyISAM//
 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `RemoveGuild`(
+	IN `_guild` BIGINT UNSIGNED
+)
+    MODIFIES SQL DATA
+BEGIN
 
--- Dumping structure for procedure sweetiebot.RemoveSchedule
+DELETE FROM `members` WHERE Guild = _guild;
+DELETE FROM `polls` WHERE Guild = _guild;
+DELETE FROM `schedule` WHERE Guild = _guild;
+DELETE FROM `chatlog` WHERE Guild = _guild;
+DELETE FROM `debuglog` WHERE Guild = _guild;
+DELETE FROM `editlog` WHERE Guild = _guild;
+DELETE FROM `tags` WHERE Guild = _guild;
+
+END//
+
 CREATE DEFINER=`root`@`localhost` PROCEDURE `RemoveSchedule`(IN `_id` BIGINT)
     MODIFIES SQL DATA
 BEGIN
@@ -520,8 +529,6 @@ CASE (SELECT `RepeatInterval` FROM `schedule` WHERE ID = _id)
 END CASE;
 END//
 
-
--- Dumping structure for procedure sweetiebot.ResetMarkov
 CREATE DEFINER=`root`@`localhost` PROCEDURE `ResetMarkov`()
     MODIFIES SQL DATA
 BEGIN
@@ -541,7 +548,6 @@ UPDATE markov_transcripts SET ID = 0 WHERE ID = 1;
 
 END//
 
-
 -- Dumping structure for table sweetiebot.schedule
 CREATE TABLE IF NOT EXISTS `schedule` (
   `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -556,7 +562,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
   KEY `INDEX_GUILD` (`Guild`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
-
+-- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.transcripts
 CREATE TABLE IF NOT EXISTS `transcripts` (
   `Season` int(10) unsigned NOT NULL,
@@ -567,6 +573,7 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
   PRIMARY KEY (`Season`,`Episode`,`Line`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
+-- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.votes
 CREATE TABLE IF NOT EXISTS `votes` (
   `Poll` bigint(20) unsigned NOT NULL,
@@ -580,82 +587,60 @@ CREATE TABLE IF NOT EXISTS `votes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
-
-
 -- Dumping structure for trigger sweetiebot.chatlog_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW DELETE FROM editlog WHERE ID = OLD.ID//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
 VALUES (OLD.ID, OLD.Author, OLD.Message, OLD.Timestamp, OLD.Channel, OLD.Everyone, OLD.Guild)
 ON DUPLICATE KEY UPDATE ID = OLD.ID//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for trigger sweetiebot.itemtags_after_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `itemtags_after_delete` AFTER DELETE ON `itemtags` FOR EACH ROW BEGIN
 
 IF (SELECT COUNT(*) FROM itemtags WHERE Item = OLD.Item) = 0 THEN
-	DELETE FROM items WHERE ID = OLD.Item;
+DELETE FROM items WHERE ID = OLD.Item;
 END IF;
 
 END//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for trigger sweetiebot.polloptions_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for trigger sweetiebot.polls_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW DELETE FROM polloptions WHERE Poll = OLD.ID//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for trigger sweetiebot.tags_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `tags_before_delete` BEFORE DELETE ON `tags` FOR EACH ROW DELETE FROM itemtags WHERE Tag = OLD.ID//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
+-- Dumping structure for trigger sweetiebot.users_before_delete
+SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
+CREATE TRIGGER `users_before_delete` BEFORE DELETE ON `users` FOR EACH ROW BEGIN
 
--- Dumping structure for trigger sweetiebot.users_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
-
-IF NEW.Username = '' THEN
-SET NEW.Username = OLD.Username;
-END IF;
-
-IF NEW.Discriminator = 0 THEN
-SET NEW.Discriminator = OLD.Discriminator;
-END IF;
-
-IF NEW.Avatar = '' THEN
-SET NEW.Avatar = OLD.Avatar;
-END IF;
-
-IF NEW.Username != OLD.Username THEN
-SET NEW.LastNameChange = UTC_TIMESTAMP();
-SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
-INSERT INTO aliases (User, Alias, Duration)
-VALUES (OLD.ID, OLD.Username, @diff)
-ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
-END IF;
+-- Note: You cannot delete a user unless they have no entries in the members table
+DELETE FROM aliases WHERE `User` = OLD.ID;
+DELETE FROM chatlog WHERE `Author` = OLD.ID;
+DELETE FROM debuglog WHERE `User` = OLD.ID;
+DELETE FROM editlog WHERE `Author` = OLD.ID;
+DELETE FROM votes WHERE `User` = OLD.ID;
 
 END//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
-
 -- Dumping structure for view sweetiebot.randomwords
 -- Removing temporary table and create final VIEW structure
-DROP TABLE IF EXISTS `randomwords`//
-CREATE ALGORITHM=MERGE DEFINER=`root`@`localhost` VIEW `randomwords` AS select `markov_transcripts`.`Phrase` AS `Phrase` from `markov_transcripts` where ((`markov_transcripts`.`Phrase` <> '.') and (`markov_transcripts`.`Phrase` <> '!') and (`markov_transcripts`.`Phrase` <> '?') and (`markov_transcripts`.`Phrase` <> 'the') and (`markov_transcripts`.`Phrase` <> 'of') and (`markov_transcripts`.`Phrase` <> 'a') and (`markov_transcripts`.`Phrase` <> 'to') and (`markov_transcripts`.`Phrase` <> 'too') and (`markov_transcripts`.`Phrase` <> 'as') and (`markov_transcripts`.`Phrase` <> 'at') and (`markov_transcripts`.`Phrase` <> 'an') and (`markov_transcripts`.`Phrase` <> 'am') and (`markov_transcripts`.`Phrase` <> 'and') and (`markov_transcripts`.`Phrase` <> 'be') and (`markov_transcripts`.`Phrase` <> 'he') and (`markov_transcripts`.`Phrase` <> 'she') and (`markov_transcripts`.`Phrase` <> '')) 
+DROP TABLE IF EXISTS `randomwords`;
+CREATE ALGORITHM=MERGE DEFINER=`root`@`localhost` VIEW `randomwords` AS select `markov_transcripts`.`Phrase` AS `Phrase` from `markov_transcripts` where `markov_transcripts`.`Phrase` <> '.' and `markov_transcripts`.`Phrase` <> '!' and `markov_transcripts`.`Phrase` <> '?' and `markov_transcripts`.`Phrase` <> 'the' and `markov_transcripts`.`Phrase` <> 'of' and `markov_transcripts`.`Phrase` <> 'a' and `markov_transcripts`.`Phrase` <> 'to' and `markov_transcripts`.`Phrase` <> 'too' and `markov_transcripts`.`Phrase` <> 'as' and `markov_transcripts`.`Phrase` <> 'at' and `markov_transcripts`.`Phrase` <> 'an' and `markov_transcripts`.`Phrase` <> 'am' and `markov_transcripts`.`Phrase` <> 'and' and `markov_transcripts`.`Phrase` <> 'be' and `markov_transcripts`.`Phrase` <> 'he' and `markov_transcripts`.`Phrase` <> 'she' and `markov_transcripts`.`Phrase` <> '' 
  WITH LOCAL CHECK OPTION //

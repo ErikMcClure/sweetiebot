@@ -16,7 +16,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-const buySelfhosting = "Whoops, it seems like you haven't paid for selfhosting support! To buy selfhosting support, go to https://www.patreon.com/erikmcclure and choose the Selfhost reward, then make sure you link your Patreon account with your Discord account. If you're already paying for selfhosting support but this installation failed to detect it, please contact Blackhole#8270 on the sweetiebot support channel: https://discord.gg/t2gVQvN"
+const buySelfhosting = "Whoops, it seems like you haven't paid for selfhosting support! To buy selfhosting support, go to " + PatreonURL + " and choose the Selfhost reward, then make sure you link your Patreon account with your Discord account. If you're already paying for selfhosting support but this installation failed to detect it, please contact Blackhole#8270 on the sweetiebot support channel: https://discord.gg/t2gVQvN"
 
 func openBrowser(url string) {
 	var err error
@@ -204,7 +204,7 @@ dbretry:
 	err = row.Scan(&dbname)
 	if err != nil || len(dbname) == 0 {
 		fmt.Println("Initializing database...")
-		_, err = db.Exec("CREATE DATABASE sweetiebot")
+		_, err = db.Exec("CREATE DATABASE sweetiebot CHARACTER SET = 'utf8mb4' COLLATE = 'utf8mb4_general_ci'")
 		if err == nil {
 			_, err = db.Exec("USE sweetiebot")
 		}

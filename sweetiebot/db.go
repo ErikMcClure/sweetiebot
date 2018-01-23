@@ -28,7 +28,6 @@ type BotDB struct {
 	conn                      string
 	statuslock                AtomicFlag
 	sqlAddMessage             *sql.Stmt
-	sqlGetMessage             *sql.Stmt
 	sqlAddUser                *sql.Stmt
 	sqlAddMember              *sql.Stmt
 	sqlRemoveMember           *sql.Stmt
@@ -36,7 +35,6 @@ type BotDB struct {
 	sqlGetMember              *sql.Stmt
 	sqlFindGuildUsers         *sql.Stmt
 	sqlFindUsers              *sql.Stmt
-	sqlGetRecentMessages      *sql.Stmt
 	sqlGetNewestUsers         *sql.Stmt
 	sqlGetRecentUsers         *sql.Stmt
 	sqlGetAliases             *sql.Stmt
@@ -205,15 +203,13 @@ func (db *BotDB) CheckStatus() bool {
 func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sqlAddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
-	db.sqlGetMessage, err = db.Prepare("SELECT Author, Message, Timestamp, Channel FROM chatlog WHERE ID = ?")
 	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sqlAddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sqlRemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
 	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
-	db.sqlFindGuildUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE M.Guild = ? AND (U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ?) GROUP BY U.ID LIMIT ? OFFSET ?")
-	db.sqlFindUsers, err = db.Prepare("SELECT U.ID FROM users U LEFT OUTER JOIN aliases A ON A.User = U.ID LEFT OUTER JOIN members M ON M.ID = U.ID WHERE U.Username LIKE ? OR M.Nickname LIKE ? OR A.Alias = ? GROUP BY U.ID LIMIT ? OFFSET ?")
-	db.sqlGetRecentMessages, err = db.Prepare("SELECT ID, Channel FROM chatlog WHERE Guild = ? AND Author = ? AND Timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
+	db.sqlFindGuildUsers, err = db.Prepare("SELECT DISTINCT M.ID FROM members M LEFT OUTER JOIN aliases A ON A.User = M.ID WHERE M.Guild = ? AND (M.Nickname LIKE ? OR A.Alias = ?) LIMIT ? OFFSET ?")
+	db.sqlFindUsers, err = db.Prepare("SELECT DISTINCT M.ID FROM members M LEFT OUTER JOIN aliases A ON A.User = M.ID WHERE M.Nickname LIKE ? OR A.Alias = ? LIMIT ? OFFSET ?")
 	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
 	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sqlGetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
@@ -334,19 +330,6 @@ func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel ui
 	db.CheckError("AddMessage", err)
 }
 
-// GetMessage gets a message from the chatlog (if it exists)
-func (db *BotDB) GetMessage(id uint64) (uint64, string, time.Time, uint64) {
-	var author uint64
-	var message string
-	var timestamp time.Time
-	var channel uint64
-	err := db.sqlGetMessage.QueryRow(id).Scan(&author, &message, &timestamp, &channel)
-	if err == sql.ErrNoRows || db.CheckError("GetMessage", err) {
-		return 0, "", time.Now().UTC(), 0
-	}
-	return author, message, timestamp, channel
-}
-
 // PingContext contains a simplified context for a message
 type PingContext struct {
 	Author    string
@@ -422,7 +405,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 
 // FindGuildUsers returns all users in a guild that could satisfy the given name.
 func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
-	q, err := db.sqlFindGuildUsers.Query(guild, name, name, name, maxresults, offset)
+	q, err := db.sqlFindGuildUsers.Query(guild, name, name, maxresults, offset)
 	if db.CheckError("FindGuildUsers", err) {
 		return []uint64{}
 	}
@@ -439,7 +422,7 @@ func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, g
 
 // FindUsers returns all users from ANY guild that could satisfy the given name.
 func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
-	q, err := db.sqlFindUsers.Query(name, name, name, maxresults, offset)
+	q, err := db.sqlFindUsers.Query(name, name, maxresults, offset)
 	if db.CheckError("FindUsers", err) {
 		return []uint64{}
 	}
@@ -448,35 +431,6 @@ func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint
 	for q.Next() {
 		var p uint64
 		if err := q.Scan(&p); err == nil {
-			r = append(r, p)
-		}
-	}
-	return r
-}
-
-// GetRecentMessages returns all messages logged for a user in the given duration
-func (db *BotDB) GetRecentMessages(user uint64, duration uint64, guild uint64) []struct {
-	message uint64
-	channel uint64
-} {
-	q, err := db.sqlGetRecentMessages.Query(guild, user, duration)
-	if db.CheckError("GetRecentMessages", err) {
-		return []struct {
-			message uint64
-			channel uint64
-		}{}
-	}
-	defer q.Close()
-	r := make([]struct {
-		message uint64
-		channel uint64
-	}, 0, 4)
-	for q.Next() {
-		p := struct {
-			message uint64
-			channel uint64
-		}{}
-		if err := q.Scan(&p.message, &p.channel); err == nil {
 			r = append(r, p)
 		}
 	}
