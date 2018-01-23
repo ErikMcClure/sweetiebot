@@ -30,6 +30,7 @@ type BotDB struct {
 	sqlAddMessage             *sql.Stmt
 	sqlAddUser                *sql.Stmt
 	sqlAddMember              *sql.Stmt
+	sqlSawUser                *sql.Stmt
 	sqlRemoveMember           *sql.Stmt
 	sqlGetUser                *sql.Stmt
 	sqlGetMember              *sql.Stmt
@@ -205,6 +206,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlAddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
 	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sqlAddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
+	db.sqlSawUser, err = db.Prepare("UPDATE users SET LastSeen = UTC_TIMESTAMP() WHERE ID = ?")
 	db.sqlRemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
 	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
@@ -347,6 +349,13 @@ func (db *BotDB) AddUser(id uint64, username string, discriminator int, avatar s
 func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nickname string) {
 	_, err := db.sqlAddMember.Exec(id, guild, firstseen, nickname)
 	db.CheckError("AddMember", err)
+}
+
+// SetTimeZone sets a users timezone location
+func (db *BotDB) SawUser(user uint64) error {
+	_, err := db.sqlSawUser.Exec(user)
+	db.CheckError("SawUser", err)
+	return err
 }
 
 // RemoveMember removes a user from a guild

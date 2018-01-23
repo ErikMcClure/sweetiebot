@@ -250,7 +250,7 @@ func (info *GuildInfo) IsDebug(channelID DiscordChannel) bool {
 
 // ProcessMember called ProcessUser and adds additional member information to the database
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
-	info.Bot.ProcessUser(u.User, nil)
+	info.Bot.ProcessUser(u.User)
 
 	if info.Bot.DB.CheckStatus() {
 		info.Bot.DB.AddMember(SBatoi(u.User.ID), SBatoi(info.ID), GetJoinedAt(u), u.Nick)
