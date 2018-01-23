@@ -76,7 +76,7 @@ type BotDB struct {
 	sqlGetEventsByType        *sql.Stmt
 	sqlGetNextEvent           *sql.Stmt
 	sqlGetReminders           *sql.Stmt
-	sqlGetUnsilenceDate       *sql.Stmt
+	sqlGetScheduleDate        *sql.Stmt
 	sqlGetTimeZone            *sql.Stmt
 	sqlFindTimeZone           *sql.Stmt
 	sqlFindTimeZoneOffset     *sql.Stmt
@@ -252,7 +252,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetEventsByType, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT ?")
 	db.sqlGetNextEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = ? ORDER BY Date ASC LIMIT 1")
 	db.sqlGetReminders, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type = 6 AND Data LIKE ? ORDER BY Date ASC LIMIT ?")
-	db.sqlGetUnsilenceDate, err = db.Prepare("SELECT Date FROM schedule WHERE Guild = ? AND Type = 8 AND Data = ?")
+	db.sqlGetScheduleDate, err = db.Prepare("SELECT Date FROM schedule WHERE Guild = ? AND Type = ? AND Data = ?")
 	db.sqlGetTimeZone, err = db.Prepare("SELECT Location FROM users WHERE ID = ?")
 	db.sqlFindTimeZone, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ?")
 	db.sqlFindTimeZoneOffset, err = db.Prepare("SELECT Location FROM timezones WHERE Location LIKE ? AND (Offset = ? OR DST = ?)")
@@ -860,11 +860,11 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 	return r
 }
 
-// GetUnsilenceDate returns the unsilence date for the given user if it exists
-func (db *BotDB) GetUnsilenceDate(guild uint64, id uint64) *time.Time {
+// GetScheduleDate returns the date for the given event if it exists
+func (db *BotDB) GetScheduleDate(guild uint64, ty uint8, data string) *time.Time {
 	var timestamp time.Time
-	err := db.sqlGetUnsilenceDate.QueryRow(guild, id).Scan(&timestamp)
-	if err == sql.ErrNoRows || db.CheckError("GetUnsilenceDate", err) {
+	err := db.sqlGetScheduleDate.QueryRow(guild, ty, data).Scan(&timestamp)
+	if err == sql.ErrNoRows || db.CheckError("GetScheduleDate", err) {
 		return nil
 	}
 	return &timestamp

@@ -41,12 +41,6 @@ type ModuleOnMessageDelete interface {
 	OnMessageDelete(*GuildInfo, *discordgo.Message)
 }
 
-// ModuleOnPresenceUpdate hook interface
-type ModuleOnPresenceUpdate interface {
-	Module
-	OnPresenceUpdate(*GuildInfo, *discordgo.PresenceUpdate)
-}
-
 // ModuleOnVoiceStateUpdate hook interface
 type ModuleOnVoiceStateUpdate interface {
 	Module
@@ -151,7 +145,6 @@ type moduleHooks struct {
 	OnMessageCreate     []ModuleOnMessageCreate
 	OnMessageUpdate     []ModuleOnMessageUpdate
 	OnMessageDelete     []ModuleOnMessageDelete
-	OnPresenceUpdate    []ModuleOnPresenceUpdate
 	OnGuildUpdate       []ModuleOnGuildUpdate
 	OnGuildMemberAdd    []ModuleOnGuildMemberAdd
 	OnGuildMemberRemove []ModuleOnGuildMemberRemove
@@ -177,9 +170,6 @@ func (info *GuildInfo) RegisterModule(m Module) {
 	}
 	if h, ok := m.(ModuleOnMessageDelete); ok {
 		info.hooks.OnMessageDelete = append(info.hooks.OnMessageDelete, h)
-	}
-	if h, ok := m.(ModuleOnPresenceUpdate); ok {
-		info.hooks.OnPresenceUpdate = append(info.hooks.OnPresenceUpdate, h)
 	}
 	if h, ok := m.(ModuleOnGuildUpdate); ok {
 		info.hooks.OnGuildUpdate = append(info.hooks.OnGuildUpdate, h)

@@ -320,18 +320,9 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	c.DisableModule(info, "poll")
 	c.DisableModule(info, "misc")
 
-	modname := info.Config.Basic.ModRole.String()
-	modchannel := info.Config.Basic.ModChannel.String()
-	logchannel := info.Config.Log.Channel.String()
-	if r, err := info.Bot.DG.State.Role(guild.ID, modname); err == nil {
-		modname = "@" + r.Name
-	}
-	if ch, err := info.Bot.DG.State.Channel(modchannel); err == nil {
-		modchannel = "#" + ch.Name
-	}
-	if ch, err := info.Bot.DG.State.Channel(logchannel); err == nil {
-		logchannel = "#" + ch.Name
-	}
+	modname := info.Config.Basic.ModRole.Show(info)
+	modchannel := info.Config.Basic.ModChannel.Show(info)
+	logchannel := info.Config.Log.Channel.Show(info)
 
 	info.setupSilenceRole()
 	info.Config.SetupDone = true

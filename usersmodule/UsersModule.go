@@ -38,6 +38,7 @@ func (w *UsersModule) Commands() []bot.Command {
 		&defaultServerCommand{},
 		&silenceCommand{},
 		&unsilenceCommand{},
+		&assignRoleCommand{},
 	}
 }
 
@@ -167,7 +168,7 @@ func (c *akaCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	}
 }
 
-func processDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, uID string, gID uint64, db *bot.BotDB) (string, error) {
+func processDurationAndReason(args []string, msg *discordgo.Message, indices []int, ty uint8, data string, gID uint64, db *bot.BotDB) (string, error) {
 	if ty == 6 {
 		return "", errors.New("Illegal event type.")
 	}
@@ -202,11 +203,11 @@ func processDurationAndReason(args []string, msg *discordgo.Message, indices []i
 				return "", errors.New("unrecognized interval.")
 			}
 
-			if !db.AddSchedule(gID, t, ty, uID) {
+			if !db.AddSchedule(gID, t, ty, data) {
 				return "", errors.New("servers can't have more than 5000 events!")
 			}
 
-			scheduleID := db.FindEvent(uID, gID, ty)
+			scheduleID := db.FindEvent(data, gID, ty)
 			if scheduleID == nil {
 				return "", errors.New("Could not find inserted event!")
 			}
@@ -481,12 +482,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {
-		role, err := info.Bot.DG.State.Role(info.ID, v)
-		if err == nil {
-			roles = append(roles, role.Name)
-		} else {
-			roles = append(roles, "<@&"+v+">")
-		}
+		roles = append(roles, bot.DiscordRole(v).Show(info))
 	}
 	created := bot.SnowflakeTime(id)
 	fullusername := m.User.Username + "#" + m.User.Discriminator
@@ -624,7 +620,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 	} else if code == 1 {
 		var t *time.Time
 		if info.Bot.DB.Status.Get() {
-			t = info.Bot.DB.GetUnsilenceDate(gID, user.Convert())
+			t = info.Bot.DB.GetScheduleDate(gID, 8, user.String())
 		}
 		if t == nil {
 			return "```\n" + info.GetUserName(user) + " is already silenced!```", false, nil
@@ -680,6 +676,75 @@ func (c *unsilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 		Desc: "Unsilences the given user.",
 		Params: []bot.CommandUsageParam{
 			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+		},
+	}
+}
+
+type assignRoleCommand struct {
+}
+
+func (c *assignRoleCommand) Info() *bot.CommandInfo {
+	return &bot.CommandInfo{
+		Name:      "AssignRole",
+		Usage:     "Assigns an arbitrary role to a user for an optional amount of time.",
+		Sensitive: true,
+	}
+}
+
+func (c *assignRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 2 {
+		return "```\nYou must provide a role to assign and a user to assign it to.```", false, nil
+	}
+	index := len(args)
+	for i := 1; i < len(args); i++ {
+		if strings.ToLower(args[i]) == "for:" {
+			index = i
+			break
+		}
+	}
+
+	g, err := info.GetGuild()
+	role, err := bot.ParseRole(args[0], g)
+	if err != nil {
+		return bot.ReturnError(err)
+	}
+
+	user, err := bot.ParseUser(strings.Join(args[1:index], " "), info)
+	if err != nil {
+		return bot.ReturnError(err)
+	}
+
+	gID := bot.SBatoi(info.ID)
+	reason, err := processDurationAndReason(args[index:], msg, indices[index:], 9, user.String()+"|"+role.String(), gID, info.Bot.DB)
+	if err != nil {
+		return bot.ReturnError(err)
+	}
+
+	code, err := assignRoleMember(info, user, role)
+	if code < 0 || err != nil {
+		return fmt.Sprintf("```\nError occurred trying to assign %s to  %s: %s```", role.Show(info), info.GetUserName(user), err.Error()), false, nil
+	} else if code == 1 {
+		var t *time.Time
+		if info.Bot.DB.Status.Get() {
+			t = info.Bot.DB.GetScheduleDate(gID, 9, user.String()+"|"+role.String())
+		}
+		if t == nil {
+			return "```\n" + info.GetUserName(user) + " already has that role!```", false, nil
+		}
+		return fmt.Sprintf("```\n%s already has that role, which will be removed in %s```", info.GetUserName(user), bot.TimeDiff(t.Sub(bot.GetTimestamp(msg)))), false, nil
+	}
+	if len(reason) > 0 {
+		reason = " because " + reason
+	}
+	return fmt.Sprintf("```\nAssigned the %s role to %s%s.```", role.Show(info), info.GetUserName(user), reason), false, nil
+}
+func (c *assignRoleCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
+	return &bot.CommandUsage{
+		Desc: "Assigns the role to the given user, and optionally adds an event to remove it in the future.",
+		Params: []bot.CommandUsageParam{
+			{Name: "role", Desc: "The role to add, either as a ping or as the name, but must be in quotes if it has spaces.", Optional: false},
+			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+			{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an event that will remove the role after that much time has passed from now.", Optional: true},
 		},
 	}
 }
