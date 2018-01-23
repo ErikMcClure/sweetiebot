@@ -46,6 +46,22 @@ func (u DiscordUser) Display() string {
 	return fmt.Sprintf("<@%v>", u)
 }
 
+// Show channel name if available, or display ping
+func (ch DiscordChannel) Show(info *GuildInfo) string {
+	if channel, err := info.Bot.DG.State.Channel(string(ch)); err == nil {
+		return "#" + channel.Name
+	}
+	return ch.Display()
+}
+
+// Show role name if available, or display ping
+func (r DiscordRole) Show(info *GuildInfo) string {
+	if role, err := info.Bot.DG.State.Role(info.ID, string(r)); err == nil {
+		return "@" + role.Name
+	}
+	return r.Display()
+}
+
 // Convert channel to integer
 func (ch DiscordChannel) Convert() (i uint64) {
 	i, _ = strconv.ParseUint(string(ch), 10, 64)

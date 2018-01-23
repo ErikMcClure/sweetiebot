@@ -27,6 +27,7 @@ const ( // We don't use iota here because this must match the database values ex
 	typeEventReminder   = 6
 	typeEventRole       = 7
 	typeEventSilence    = 8
+	typeEventRemoveRole = 9
 )
 
 // New SchedulerModule
@@ -142,6 +143,19 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 			} else {
 				info.SendMessage(info.Config.Basic.ModChannel, "Unsilenced <@"+v.Data+">")
 			}
+		case typeEventRemoveRole:
+			dat := strings.SplitN(v.Data, "|", 2)
+			if len(dat) != 2 {
+				info.SendMessage(info.Config.Basic.ModChannel, "Invalid data in role removal event: "+v.Data)
+			} else {
+				role := bot.DiscordRole(dat[1])
+				err := info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(dat[0]), role)
+				if err != nil {
+					info.SendMessage(info.Config.Basic.ModChannel, "Error removing "+role.Show(info)+" from <@"+dat[0]+">: "+err.Error())
+				} else {
+					info.SendMessage(info.Config.Basic.ModChannel, "Removed "+role.Show(info)+" from <@"+dat[0]+">")
+				}
+			}
 		}
 
 		info.Bot.DB.RemoveSchedule(v.ID)
@@ -233,6 +247,10 @@ func (c *scheduleCommand) Process(args []string, msg *discordgo.Message, indices
 			datas := strings.SplitN(data, "|", 2)
 			mt = "ROLE:" + bot.ReplaceAllRolePings(datas[0], info)
 			data = datas[1]
+		case typeEventRemoveRole:
+			datas := strings.SplitN(data, "|", 2)
+			mt = "REMOVAL:" + bot.DiscordRole(datas[1]).Show(info)
+			data = "<@" + datas[0] + ">"
 		}
 		lines[k+1] = fmt.Sprintf("#%v **%s** [%s] %s", bot.SBitoa(v.ID), t, mt, info.Sanitize(data, bot.CleanMentions|bot.CleanPings|bot.CleanEmotes))
 	}
@@ -267,6 +285,8 @@ func getScheduleType(s string) uint8 {
 		return typeEventRole
 	case "silences", "silence":
 		return typeEventSilence
+	case "removals", "removal":
+		return typeEventRemoveRole
 	}
 	return 255
 }
