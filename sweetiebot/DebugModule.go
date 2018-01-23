@@ -224,7 +224,7 @@ func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices [
 	info.Bot.GuildsLock.RLock()
 	defer info.Bot.GuildsLock.RUnlock()
 	for _, v := range info.Bot.Guilds {
-		if !v.Config.Log.Channel.Equals(msg.ChannelID) {
+		if v.Config.Log.Channel != ChannelEmpty && !v.Config.Log.Channel.Equals(msg.ChannelID) {
 			v.SendMessage(v.Config.Log.Channel, "```\nShutting down for update...```")
 		}
 	}
