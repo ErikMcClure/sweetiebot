@@ -434,10 +434,7 @@ func (info *GuildInfo) GetRoles(command CommandID) string {
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k := range m {
-		r, err := info.Bot.DG.State.Role(info.ID, k.String())
-		if err == nil {
-			s = append(s, r.Name)
-		}
+		s = append(s, k.Show(info))
 	}
 
 	sort.Strings(s)
