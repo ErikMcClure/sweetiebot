@@ -74,7 +74,7 @@ func TestSetConfig(t *testing.T) {
 	info.commands["1"] = mockCommand("1")
 	info.commands[""] = mockCommand("")
 	info.Modules = []Module{mockModule(""), mockModule("1")}
-	dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(sqlmock.AnyArg(), "1", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(1))
+	dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(sqlmock.AnyArg(), "1", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(1))
 
 	fnSetInterface := func(name string, value interface{}) {
 		name, _ = FixRequest(name, reflect.ValueOf(config).Elem())
@@ -160,66 +160,66 @@ func TestSetConfig(t *testing.T) {
 				if !Check(ok, true, t) {
 					fmt.Println(path)
 				}
-				switch p.Field(i).Field(j).Interface().(type) {
+				switch m := p.Field(i).Field(j).Interface().(type) {
 				case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser:
-					Check(fmt.Sprint(p.Field(i).Field(j).Interface()), "1", t)
+					Check(fmt.Sprint(m), "1", t)
 				case []uint64:
-					Check(p.Field(i).Field(j).Interface().([]uint64)[0], 1, t)
+					Check(m[0], 1, t)
 				case map[string]string:
-					v, _ := p.Field(i).Field(j).Interface().(map[string]string)["1"]
+					v, _ := m["1"]
 					Check(v, "1", t)
 				case map[CommandID]int64:
-					v, _ := p.Field(i).Field(j).Interface().(map[CommandID]int64)["1"]
+					v, _ := m["1"]
 					Check(v, int64(1), t)
 				case map[DiscordChannel]float32:
-					v, _ := p.Field(i).Field(j).Interface().(map[DiscordChannel]float32)["1"]
+					v, _ := m["1"]
 					Check(v, float32(1.0), t)
 				case map[int]string:
-					v, _ := p.Field(i).Field(j).Interface().(map[int]string)[1]
+					v, _ := m[1]
 					Check(v, "1", t)
 				case map[DiscordChannel]bool:
-					_, ok := p.Field(i).Field(j).Interface().(map[DiscordChannel]bool)["1"]
+					_, ok := m["1"]
 					Check(ok, true, t)
 				case map[DiscordRole]bool:
-					_, ok := p.Field(i).Field(j).Interface().(map[DiscordRole]bool)["1"]
+					_, ok := m["1"]
 					Check(ok, true, t)
 				case map[string]bool:
-					_, ok := p.Field(i).Field(j).Interface().(map[string]bool)["1"]
+					_, ok := m["1"]
 					Check(ok, true, t)
 				case map[ModuleID]bool:
-					_, ok := p.Field(i).Field(j).Interface().(map[ModuleID]bool)["1"]
+					_, ok := m["1"]
 					Check(ok, true, t)
 				case map[CommandID]bool:
-					_, ok := p.Field(i).Field(j).Interface().(map[CommandID]bool)["1"]
+					_, ok := m["1"]
 					Check(ok, true, t)
 				case map[CommandID]map[DiscordChannel]bool:
-					v, ok := p.Field(i).Field(j).Interface().(map[CommandID]map[DiscordChannel]bool)["1"]
+					v, ok := m["1"]
 					Check(ok, true, t)
 					_, ok = v["1"]
 					Check(ok, true, t)
 				case map[ModuleID]map[DiscordChannel]bool:
-					v, ok := p.Field(i).Field(j).Interface().(map[ModuleID]map[DiscordChannel]bool)["1"]
+					v, ok := m["1"]
 					Check(ok, true, t)
 					_, ok = v["1"]
 					Check(ok, true, t)
 				case map[string]map[string]bool:
-					v, ok := p.Field(i).Field(j).Interface().(map[string]map[string]bool)["1"]
+					v, ok := m["1"]
 					Check(ok, true, t)
 					_, ok = v["1"]
 					Check(ok, true, t)
 				case map[DiscordUser][]string:
-					v, ok := p.Field(i).Field(j).Interface().(map[DiscordUser][]string)["1"]
+					v, ok := m["1"]
 					if !Check(ok, true, t) {
 						t.Error("failure: ", path)
 					}
 					Check(v[0], "1", t)
 				case map[CommandID]map[DiscordRole]bool:
-					v, ok := p.Field(i).Field(j).Interface().(map[CommandID]map[DiscordRole]bool)["1"]
+					v, ok := m["1"]
 					Check(ok, true, t)
 					_, ok = v["1"]
 					Check(ok, true, t)
 				case map[string]map[DiscordChannel]bool:
-					v, ok := p.Field(i).Field(j).Interface().(map[string]map[DiscordChannel]bool)["1"]
+					v, ok := m["1"]
 					Check(ok, true, t)
 					_, ok = v["1"]
 					Check(ok, true, t)

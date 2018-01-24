@@ -19,13 +19,13 @@ func TestAddCommand(t *testing.T) {
 	info := sb.Guilds[NewDiscordGuild(TestServer)]
 	Check(len(info.commands), 0, t)
 
-	info.AddCommand(mockCommand("TEST"))
+	info.AddCommand(mockCommand("TEST"), mockModule("TESTMODULE"))
 	if len(info.commands) < 1 || info.commands["test"].Info().Name != "TEST" {
 		t.Errorf("info.commands state is invalid: %v", info.commands)
 	}
 
 	info.commands = make(map[CommandID]Command)
-	info.AddCommand(mockCommand("test"))
+	info.AddCommand(mockCommand("test"), mockModule("testmodule"))
 	if len(info.commands) < 1 || info.commands["test"].Info().Name != "test" {
 		t.Errorf("info.commands state is invalid: %v", info.commands)
 	}
@@ -321,10 +321,11 @@ func TestUserCanUseCommand(t *testing.T) {
 		mod := mockCommandFull(CommandInfo{Name: "Mod", Sensitive: true})
 		exclude := mockCommand("Exclude")
 		list := mockCommand("List")
+		module := mockModule("TESTMODULE")
 
 		commands := []Command{any, disabled, restricted, main, mod, exclude, list}
 		for _, command := range commands {
-			v.AddCommand(command)
+			v.AddCommand(command, module)
 		}
 		v.Config.Modules.CommandDisabled = map[CommandID]bool{"disabled": true}
 		v.Config.Modules.CommandRoles["mod"] = map[DiscordRole]bool{NewDiscordRole(TestRoleMod | i): true}
@@ -411,9 +412,9 @@ func TestGetRoles(t *testing.T) {
 		v.Config.Modules.CommandRoles["exclude"] = map[DiscordRole]bool{NewDiscordRole(TestRoleUser | i): true, "!": true}
 		v.Config.Modules.CommandRoles["roles"] = map[DiscordRole]bool{NewDiscordRole(TestRoleUser | i): true, NewDiscordRole(TestRoleAssign | i): true}
 		Check(v.GetRoles(""), "", t)
-		Check(v.GetRoles("one"), "Mod Role", t)
-		Check(v.GetRoles("exclude"), "Any role except User Role", t)
-		Check(v.GetRoles("roles"), "User Assignable, User Role", t)
+		Check(v.GetRoles("one"), "@Mod Role", t)
+		Check(v.GetRoles("exclude"), "Any role except @User Role", t)
+		Check(v.GetRoles("roles"), "@User Assignable, @User Role", t)
 	}
 }
 func TestGetChannels(t *testing.T) {

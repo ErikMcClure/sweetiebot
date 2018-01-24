@@ -552,20 +552,20 @@ func TestParseUser(t *testing.T) {
 		for _, v := range nilresults {
 			if len(v) > 0 && v[0] != '<' {
 				v2 := "%" + v + "%"
-				dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), v, v, v, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
-				dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), v2, v2, v2, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+				dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), v, v, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+				dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), v2, v2, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
 				if v[0] == '@' {
 					v2 := "%" + v[1:] + "%"
-					dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), v[1:], v[1:], v[1:], 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
-					dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), v2, v2, v2, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+					dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), v[1:], v[1:], 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+					dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), v2, v2, 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
 				}
 			}
 			u, err := ParseUser(v, g)
 			Check(u, UserEmpty, t)
 			CheckNot(err, nil, t)
 		}
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "0", "0", "0", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "%0%", "%0%", "%0%", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "0", "0", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "%0%", "%0%", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
 		u, err = ParseUser("0", g)
 		Check(u, UserEmpty, t)
 		CheckNot(err, nil, t)
@@ -575,17 +575,17 @@ func TestParseUser(t *testing.T) {
 		u, err = ParseUser(fmt.Sprintf("<@%v>", TestUserAssigned|i), g)
 		Check(u, DiscordUser(fmt.Sprintf("%v", TestUserAssigned|i)), t)
 		Check(err, nil, t)
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "boring user", "boring user", "boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "boring user", "boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i))
 		u, err = ParseUser("Boring User", g)
 		Check(u, DiscordUser(fmt.Sprintf("%v", TestUserBoring|i)), t)
 		Check(err, nil, t)
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "@boring user", "@boring user", "@boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "%@boring user%", "%@boring user%", "%@boring user%", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "boring user", "boring user", "boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "@boring user", "@boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "%@boring user%", "%@boring user%", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "boring user", "boring user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i))
 		u, err = ParseUser("@Boring User", g)
 		Check(u, DiscordUser(fmt.Sprintf("%v", TestUserBoring|i)), t)
 		Check(err, nil, t)
-		dbmock.ExpectQuery("SELECT U.ID FROM users.*").WithArgs(k.Convert(), "user", "user", "user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i).AddRow(TestUserBot | i).AddRow(TestUserAssigned | i))
+		dbmock.ExpectQuery("SELECT DISTINCT M.ID FROM members.*").WithArgs(k.Convert(), "user", "user", 20, 0).WillReturnRows(sqlmock.NewRows([]string{"ID"}).AddRow(TestUserBoring | i).AddRow(TestUserBot | i).AddRow(TestUserAssigned | i))
 		u, err = ParseUser("User", g)
 		Check(u, UserEmpty, t)
 		CheckNot(err, nil, t)

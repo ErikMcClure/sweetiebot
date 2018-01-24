@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 4}
+var BotVersion = Version{0, 9, 9, 5}
 
 const (
 	MaxPublicLines = 12
@@ -51,6 +51,11 @@ const (
 	MaxUpdateGrace = 600
 	UpdateInterval = 300
 )
+
+type DeferPair struct {
+	data interface{}
+	info *GuildInfo
+}
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
@@ -81,6 +86,7 @@ type SweetieBot struct {
 	locknumber       uint32
 	loader           func(*GuildInfo) []Module
 	memberChan       chan *GuildInfo
+	deferChan        chan DeferPair
 	Selfhoster       *Selfhost
 	IsUserMode       bool       `json:"runasuser"` // True if running as a user for some godawful reason
 	WebSecure        bool       `json:"websecure"`
@@ -483,7 +489,7 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 	sb.LastMessages[channelID] = t
 	sb.LastMessagesLock.Unlock()
 
-	ch, private := sb.ChannelIsPrivate(channelID)
+	_, private := sb.ChannelIsPrivate(channelID)
 	var info *GuildInfo
 	isdebug := false
 	if !private {
@@ -500,11 +506,11 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 	if m.ChannelID != "heartbeat" {
 		if info != nil && info.Silver.Get() && sb.DB.CheckStatus() { // Log message on silver guilds
 			if channelID != info.Config.Log.Channel {
-				sb.DB.AddMessage(SBatoi(m.ID), SBatoi(m.Author.ID), info.Sanitize(m.Content, CleanMentions|CleanPings), channelID.Convert(), m.MentionEveryone, SBatoi(ch.GuildID))
+				sb.deferChan <- DeferPair{m, info}
 			}
 		}
 		if info != nil {
-			sb.DB.SentMessage(SBatoi(m.Author.ID), SBatoi(info.ID))
+			sb.deferChan <- DeferPair{m.Author, info}
 		}
 		if sb.SelfID.Equals(m.Author.ID) { // discard all our own messages (unless this is a heartbeat message)
 			return
@@ -583,8 +589,8 @@ func (sb *SweetieBot) MessageDelete(s *discordgo.Session, m *discordgo.MessageDe
 }
 
 // UserUpdate discord hook
-func (sb *SweetieBot) UserUpdate(s *discordgo.Session, m *discordgo.UserUpdate) {
-	sb.ProcessUser(m.User)
+func (sb *SweetieBot) UserUpdate(s *discordgo.Session, u *discordgo.UserUpdate) {
+	sb.deferChan <- DeferPair{u, nil}
 }
 
 // GuildUpdate discord hook
@@ -664,7 +670,7 @@ func (sb *SweetieBot) GuildMemberUpdate(s *discordgo.Session, m *discordgo.Guild
 	if sb.SelfID.Equals(m.User.ID) && len(m.Nick) > 0 {
 		info.BotNick = m.Nick
 	}
-	info.ProcessMember(m.Member)
+	sb.deferChan <- DeferPair{m, info}
 	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
 		sb.GuildsLock.RLock()
 		sb.Selfhoster.CheckGuilds(sb.Guilds)
@@ -823,6 +829,21 @@ func (sb *SweetieBot) memberIngestionLoop() {
 	}
 }
 
+func (sb *SweetieBot) DeferProcessing() {
+	for atomic.LoadUint32(&sb.quit) != QuitNow {
+		pair := <-sb.deferChan
+		switch v := pair.data.(type) {
+		case *discordgo.MessageCreate:
+			sb.DB.AddMessage(SBatoi(v.ID), SBatoi(v.Author.ID), pair.info.Sanitize(v.Content, CleanMentions|CleanPings), SBatoi(v.ChannelID), v.MentionEveryone, SBatoi(pair.info.ID))
+		case *discordgo.User:
+			sb.DB.SentMessage(SBatoi(v.ID), SBatoi(pair.info.ID))
+		case *discordgo.UserUpdate:
+			sb.ProcessUser(v.User)
+		case *discordgo.GuildMemberUpdate:
+			pair.info.ProcessMember(v.Member)
+		}
+	}
+}
 func (sb *SweetieBot) IdleCheck(info *GuildInfo, guild *discordgo.Guild) {
 	sb.DG.State.RLock()
 	channels := guild.Channels
@@ -972,11 +993,13 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		heartbeat:      4294967290,
 		loader:         loader,
 		memberChan:     make(chan *GuildInfo, 1500),
+		deferChan:      make(chan DeferPair, 2000),
 		Selfhoster:     selfhoster,
 		WebSecure:      false,
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 5):  "- Message logging is now deferred to a single thread to prevent database deadlocking.\n- Username lookup now does fuzzy lookups on all aliases\n- Only retains 10 most used aliases.",
 			AssembleVersion(0, 9, 9, 4):  "- Fix crash",
 			AssembleVersion(0, 9, 9, 3):  "- Sweetie Bot no longer tracks presence updates, because they were the cause of the database slowdowns. This means !lastseen will only operate on last message sent.\n- Fixed !search.\n- Added !assignrole",
 			AssembleVersion(0, 9, 9, 2):  "- Attempt #2 at fixing the database :U",
@@ -1180,6 +1203,7 @@ func (sb *SweetieBot) Connect() int {
 		}()
 	}
 
+	go sb.DeferProcessing()
 	go sb.idleCheckLoop()
 	go sb.deadlockDetector()
 	go sb.memberIngestionLoop()

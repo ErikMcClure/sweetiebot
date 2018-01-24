@@ -102,6 +102,7 @@ func (c *addStatusCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```\n" + arg + " is already in the status rotation!```", false, nil
 	}
 	info.Config.Status.Lines[arg] = true
+	info.SaveConfig()
 	return "```\nAdded " + arg + " to the status rotation.```", false, nil
 }
 func (c *addStatusCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
