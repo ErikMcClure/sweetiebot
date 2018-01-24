@@ -316,8 +316,9 @@ type searchFilterCommand struct {
 
 func (c *searchFilterCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:  "SearchFilter",
-		Usage: "Searches a filter.",
+		Name:      "SearchFilter",
+		Usage:     "Searches a filter.",
+		Sensitive: true,
 	}
 }
 func (c *searchFilterCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
