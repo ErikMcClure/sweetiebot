@@ -156,7 +156,7 @@ func (c *setFilterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Sets the [filter] response to [response] and it's excluded channel list to [channels]. Creates the filter if it doesn't exist.",
 		Params: []bot.CommandUsageParam{
-			{Name: "filter", Desc: "The name of a filter. The filter must exist. Create a new filter by using !setfilter.", Optional: false},
+			{Name: "filter", Desc: "The name of a filter.", Optional: false},
 			{Name: "response", Desc: "The message that will be sent when a message is deleted. Can be left blank, but quotes are mandatory.", Optional: true},
 			{Name: "channels", Desc: "All additional arguments should be channels to exclude the filter from.", Optional: true},
 		},
@@ -260,7 +260,7 @@ func (c *removeFilterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Removes [arbitrary string] from [filter], then recompiles the regex.",
 		Params: []bot.CommandUsageParam{
-			{Name: "filter", Desc: "The name of a filter.", Optional: false},
+			{Name: "filter", Desc: "The name of a filter. The filter must exist. Create a new filter by using !setfilter.", Optional: false},
 			{Name: "arbitrary string", Desc: "Arbitrary string to remove from the filter. Quotes aren't necessary, but cannot be empty.", Optional: false},
 		},
 	}
@@ -306,7 +306,7 @@ func (c *deleteFilterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Deletes a filter and all of its settings.",
 		Params: []bot.CommandUsageParam{
-			{Name: "filter", Desc: "The name of a filter.", Optional: false},
+			{Name: "filter", Desc: "The name of a filter. The filter must exist. Create a new filter by using !setfilter.", Optional: false},
 		},
 	}
 }
@@ -351,7 +351,7 @@ func (c *searchFilterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Returns all terms of the given filter that contain the given string.",
 		Params: []bot.CommandUsageParam{
-			{Name: "filter", Desc: "The name of the filter.", Optional: false},
+			{Name: "filter", Desc: "The name of the filter. The filter must exist. Create a new filter by using !setfilter.", Optional: false},
 			{Name: "arbitrary string", Desc: "Arbitrary string to add to filter. If not provided, will simply return entire contents of the filter.", Optional: true},
 		},
 	}

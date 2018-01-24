@@ -62,7 +62,7 @@ func TestFuzzer(t *testing.T) {
 		for _, v := range info.Modules {
 			info.RegisterModule(v)
 			for _, command := range v.Commands() {
-				info.AddCommand(command)
+				info.AddCommand(command, v)
 			}
 		}
 	}
@@ -73,7 +73,7 @@ func TestFuzzer(t *testing.T) {
 		sb.EmptyGuild.RegisterModule(v)
 		for _, command := range v.Commands() {
 			if command.Info().ServerIndependent {
-				sb.EmptyGuild.AddCommand(command)
+				sb.EmptyGuild.AddCommand(command, v)
 			}
 		}
 	}

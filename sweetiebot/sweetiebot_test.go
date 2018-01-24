@@ -3,7 +3,7 @@ package sweetiebot
 import (
 	"database/sql/driver"
 	"fmt"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync"
@@ -82,7 +82,8 @@ func mockDiscordRole(role int, index int) *discordgo.Role {
 	case TestRoleUser:
 		name = "User Role"
 		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
-	case TestRoleAssign2: fallthrough
+	case TestRoleAssign2:
+		fallthrough
 	case TestRoleAssign:
 		name = "User Assignable"
 		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
@@ -175,7 +176,8 @@ func mockDiscordChannel(channel int, index int) *discordgo.Channel {
 	}
 
 	switch channel {
-	case TestChannel2: fallthrough
+	case TestChannel2:
+		fallthrough
 	case TestChannel:
 		name = "Test Channel"
 		perms = append(perms, disallowSilence)
@@ -277,7 +279,7 @@ func mockBotDB() (*BotDB, sqlmock.Sqlmock) {
 		driver:      "mysql",
 		conn:        "",
 	}
-	for i := 0; i < 85; i++ {
+	for i := 0; i < 84; i++ {
 		mock.ExpectPrepare(".*")
 	}
 	botdb.Status.Set(botdb.LoadStatements() == nil)
@@ -361,6 +363,7 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 			commandLast:  make(map[DiscordChannel]map[CommandID]int64),
 			commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 			commands:     make(map[CommandID]Command),
+			commandmap:   make(map[CommandID]ModuleID),
 			lastlogerr:   0,
 			Bot:          sb,
 			Config:       *DefaultConfig(),
@@ -414,7 +417,7 @@ func TestProcessCommand(t *testing.T) {
 		for _, v := range modules {
 			info.RegisterModule(v)
 			for _, command := range v.Commands() {
-				info.AddCommand(command)
+				info.AddCommand(command, v)
 			}
 		}
 	}
