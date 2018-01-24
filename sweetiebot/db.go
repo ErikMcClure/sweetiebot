@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/blackhole12/discordgo"
-	_ "github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
+	"github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
 )
 
 // ErrDuplicateEntry - Error 1062: Duplicate entry for unique key
@@ -145,13 +145,13 @@ func (db *BotDB) standardErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	const err1062 string = "Error 1062"
-	const err1205 string = "Error 1205"
-	if len(err.Error()) >= len(err1062) && err.Error()[:len(err1062)] == err1062 {
-		return ErrDuplicateEntry
-	}
-	if len(err.Error()) >= len(err1062) && err.Error()[:len(err1062)] == err1062 {
-		return ErrLockWaitTimeout
+	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+		switch mysqlErr.Number {
+		case 1062:
+			return ErrDuplicateEntry
+		case 1205:
+			return ErrLockWaitTimeout
+		}
 	}
 	return err
 }
@@ -311,19 +311,16 @@ func (db *BotDB) parseStringResults(q *sql.Rows) []string {
 }
 
 // CheckError logs any unknown errors and pings the database to check if it's still there
-func (db *BotDB) CheckError(name string, err error) bool {
-	if err != nil {
-		if err != sql.ErrNoRows && err != sql.ErrTxDone && err != ErrDuplicateEntry && err != ErrLockWaitTimeout {
-			if db.Status.Get() {
-				db.log.LogError(name+" error: ", err)
-			}
-			if db.db.Ping() != nil {
-				db.Status.Set(false)
-			}
-			return true
+func (db *BotDB) CheckError(name string, err error) error {
+	if err != nil && err != sql.ErrNoRows && err != sql.ErrTxDone && err != ErrDuplicateEntry {
+		if db.Status.Get() {
+			db.log.LogError(name+" error: ", err)
+		}
+		if db.db.Ping() != nil {
+			db.Status.Set(false)
 		}
 	}
-	return false
+	return err
 }
 
 // AddMessage logs a message to the chatlog
@@ -354,15 +351,15 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 // SetTimeZone sets a users timezone location
 func (db *BotDB) SawUser(user uint64) error {
 	_, err := db.sqlSawUser.Exec(user)
-	db.CheckError("SawUser", err)
-	return err
+	err = db.standardErr(err)
+	return db.CheckError("SawUser", err)
 }
 
 // RemoveMember removes a user from a guild
 func (db *BotDB) RemoveMember(id uint64, guild uint64) error {
 	_, err := db.sqlRemoveMember.Exec(guild, id)
-	db.CheckError("RemoveMember", err)
-	return err
+	err = db.standardErr(err)
+	return db.CheckError("RemoveMember", err)
 }
 
 // GetUser gets the guild-independent information about a user (if it exists)
@@ -376,7 +373,7 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	if discriminator > 0 {
 		u.Discriminator = strconv.Itoa(discriminator)
 	}
-	if err == sql.ErrNoRows || db.CheckError("GetUser", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetUser", err) != nil {
 		return nil, lastseen, nil, nil
 	}
 	if !guild.Valid {
@@ -415,7 +412,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 // FindGuildUsers returns all users in a guild that could satisfy the given name.
 func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, guild uint64) []uint64 {
 	q, err := db.sqlFindGuildUsers.Query(guild, name, name, maxresults, offset)
-	if db.CheckError("FindGuildUsers", err) {
+	if db.CheckError("FindGuildUsers", err) != nil {
 		return []uint64{}
 	}
 	defer q.Close()
@@ -432,7 +429,7 @@ func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, g
 // FindUsers returns all users from ANY guild that could satisfy the given name.
 func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
 	q, err := db.sqlFindUsers.Query(name, name, maxresults, offset)
-	if db.CheckError("FindUsers", err) {
+	if db.CheckError("FindUsers", err) != nil {
 		return []uint64{}
 	}
 	defer q.Close()
@@ -452,7 +449,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 	FirstSeen time.Time
 } {
 	q, err := db.sqlGetNewestUsers.Query(guild, maxresults)
-	if db.CheckError("GetNewestUsers", err) {
+	if db.CheckError("GetNewestUsers", err) != nil {
 		return []struct {
 			User      *discordgo.User
 			FirstSeen time.Time
@@ -478,7 +475,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 // GetRecentUsers returns any users whose first message was sent after the given timestamp
 func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User {
 	q, err := db.sqlGetRecentUsers.Query(guild, since)
-	if db.CheckError("GetRecentUsers", err) {
+	if db.CheckError("GetRecentUsers", err) != nil {
 		return []*discordgo.User{}
 	}
 	defer q.Close()
@@ -495,7 +492,7 @@ func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User
 // GetAliases returns all aliases for the given user
 func (db *BotDB) GetAliases(user uint64) []string {
 	q, err := db.sqlGetAliases.Query(user)
-	if db.CheckError("GetAliases", err) {
+	if db.CheckError("GetAliases", err) != nil {
 		return []string{}
 	}
 	defer q.Close()
@@ -534,7 +531,7 @@ func (db *BotDB) GetAuditRows(start uint64, end uint64, user *uint64, search str
 	} else {
 		q, err = db.sqlGetAuditRows.Query(AuditTypeCommand, guild, maxresults, start)
 	}
-	if db.CheckError("GetAuditRows", err) {
+	if db.CheckError("GetAuditRows", err) != nil {
 		return []PingContext{}
 	}
 	defer q.Close()
@@ -556,8 +553,8 @@ func (db *BotDB) GetTableCounts() string {
 	}
 	var counts string
 	err := db.sqlGetTableCounts.QueryRow().Scan(&counts)
-	if db.CheckError("GetTableCounts", err) {
-		return "DATABASE ERROR"
+	if db.CheckError("GetTableCounts", err) != nil {
+		return err.Error()
 	}
 	return counts
 }
@@ -582,7 +579,7 @@ type Transcript struct {
 // GetTranscript gets all lines that satisfy the query from the transcripts
 func (db *BotDB) GetTranscript(season int, episode int, start int, end int) []Transcript {
 	q, err := db.sqlGetTranscript.Query(season, episode, start, end)
-	if db.CheckError("GetTranscript", err) {
+	if db.CheckError("GetTranscript", err) != nil {
 		return []Transcript{}
 	}
 	defer q.Close()
@@ -618,7 +615,7 @@ func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text strin
 func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
 	var r sql.NullString
 	err := db.sqlGetMarkovLine.QueryRow(last).Scan(&r)
-	if db.CheckError("GetMarkovLine", err) || !r.Valid {
+	if db.CheckError("GetMarkovLine", err) != nil || !r.Valid {
 		return "", 0
 	}
 	str := strings.SplitN(r.String, "|", 2) // Being unable to call stored procedures makes this unnecessarily complex
@@ -632,7 +629,7 @@ func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
 func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint64) {
 	var r sql.NullString
 	err := db.sqlGetMarkovLine2.QueryRow(last, last2).Scan(&r)
-	if db.CheckError("GetMarkovLine2", err) || !r.Valid {
+	if db.CheckError("GetMarkovLine2", err) != nil || !r.Valid {
 		return "", 0, 0
 	}
 	str := strings.SplitN(r.String, "|", 3) // Being unable to call stored procedures makes this unnecessarily complex
@@ -658,7 +655,7 @@ func (db *BotDB) GetRandomQuote() Transcript {
 	var i uint64
 	err := db.sqlGetRandomQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
-	if !db.CheckError("GetRandomQuoteInt", err) {
+	if db.CheckError("GetRandomQuoteInt", err) == nil {
 		err = db.sqlGetRandomQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
 		db.CheckError("GetRandomQuote", err)
 	}
@@ -670,7 +667,7 @@ func (db *BotDB) GetSpeechQuote() Transcript {
 	var i uint64
 	err := db.sqlGetSpeechQuoteInt.QueryRow().Scan(&i)
 	var p Transcript
-	if !db.CheckError("GetSpeechQuoteInt", err) {
+	if db.CheckError("GetSpeechQuoteInt", err) == nil {
 		err = db.sqlGetSpeechQuote.QueryRow(i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
 		db.CheckError("GetSpeechQuote", err)
 	}
@@ -682,9 +679,9 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	var i uint64
 	err := db.sqlGetCharacterQuoteInt.QueryRow(character).Scan(&i)
 	var p Transcript
-	if !db.CheckError("GetCharacterQuoteInt ", err) {
+	if db.CheckError("GetCharacterQuoteInt ", err) == nil {
 		err = db.sqlGetCharacterQuote.QueryRow(character, i).Scan(&p.Season, &p.Episode, &p.Line, &p.Speaker, &p.Text)
-		if err == sql.ErrNoRows || db.CheckError("GetCharacterQuote ", err) {
+		if err == sql.ErrNoRows || db.CheckError("GetCharacterQuote ", err) != nil {
 			return Transcript{0, 0, 0, "", ""}
 		}
 	}
@@ -696,7 +693,7 @@ func (db *BotDB) GetRandomSpeaker() string {
 	var i uint64
 	err := db.sqlGetRandomSpeakerInt.QueryRow().Scan(&i)
 	var p string
-	if !db.CheckError("GetRandomSpeakerInt", err) {
+	if db.CheckError("GetRandomSpeakerInt", err) == nil {
 		err = db.sqlGetRandomSpeaker.QueryRow(i).Scan(&p)
 		db.CheckError("GetRandomSpeaker", err)
 	}
@@ -708,7 +705,7 @@ func (db *BotDB) GetRandomMember(guild uint64) string {
 	var i uint64
 	err := db.sqlGetRandomMemberInt.QueryRow(guild).Scan(&i)
 	var p string
-	if !db.CheckError("GetRandomMemberInt", err) {
+	if db.CheckError("GetRandomMemberInt", err) == nil {
 		err = db.sqlGetRandomMember.QueryRow(guild, i).Scan(&p)
 		db.CheckError("GetRandomMember", err)
 	}
@@ -720,7 +717,7 @@ func (db *BotDB) GetRandomWord() string {
 	var i uint64
 	err := db.sqlGetRandomWordInt.QueryRow().Scan(&i)
 	var p string
-	if !db.CheckError("GetRandomWordInt", err) {
+	if db.CheckError("GetRandomWordInt", err) == nil {
 		err = db.sqlGetRandomWord.QueryRow(i).Scan(&p)
 		db.CheckError("GetRandomWord", err)
 	}
@@ -736,32 +733,38 @@ func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 }
 
 // RemoveSchedule removes the event with the given ID
-func (db *BotDB) RemoveSchedule(id uint64) {
+func (db *BotDB) RemoveSchedule(id uint64) error {
 	_, err := db.sqlRemoveSchedule.Exec(id)
-	db.CheckError("RemoveSchedule", err)
+	return db.CheckError("RemoveSchedule", err)
 }
 
 // AddSchedule adds an event to the schedule
-func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) bool {
+func (db *BotDB) AddSchedule(guild uint64, date time.Time, ty uint8, data string) error {
 	var i int
 	err := db.sqlCountEvents.QueryRow(guild).Scan(&i)
 
-	if !db.CheckError("CountEvents", err) && i < 5000 {
+	if db.CheckError("CountEvents", err) == nil {
+		if i >= MaxScheduleRows {
+			return fmt.Errorf("Can't have more than %v events!", MaxScheduleRows)
+		}
 		_, err = db.sqlAddSchedule.Exec(guild, date, ty, data)
-		return !db.CheckError("AddSchedule", err)
+		return db.CheckError("AddSchedule", err)
 	}
-	return false
+	return err
 }
 
 // AddScheduleRepeat adds a repeating event to the schedule
-func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) bool {
+func (db *BotDB) AddScheduleRepeat(guild uint64, date time.Time, repeatinterval uint8, repeat int, ty uint8, data string) error {
 	var i int
 	err := db.sqlCountEvents.QueryRow(guild).Scan(&i)
-	if !db.CheckError("CountEvents", err) && i < 5000 {
+	if db.CheckError("CountEvents", err) == nil {
+		if i >= MaxScheduleRows {
+			return fmt.Errorf("Can't have more than %v events!", MaxScheduleRows)
+		}
 		_, err := db.sqlAddScheduleRepeat.Exec(guild, date, repeatinterval, repeat, ty, data)
-		return !db.CheckError("AddScheduleRepeat", err)
+		return db.CheckError("AddScheduleRepeat", err)
 	}
-	return false
+	return err
 }
 
 // ScheduleEvent describes an event in the schedule
@@ -775,7 +778,7 @@ type ScheduleEvent struct {
 // GetSchedule gets all events for a guild
 func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 	q, err := db.sqlGetSchedule.Query(guild)
-	if db.CheckError("GetSchedule", err) {
+	if db.CheckError("GetSchedule", err) != nil {
 		return []ScheduleEvent{}
 	}
 	defer q.Close()
@@ -793,7 +796,7 @@ func (db *BotDB) GetSchedule(guild uint64) []ScheduleEvent {
 func (db *BotDB) GetEvent(guild uint64, id uint64) *ScheduleEvent {
 	e := &ScheduleEvent{}
 	err := db.sqlGetEvent.QueryRow(guild, id).Scan(&e.ID, &e.Date, &e.Type, &e.Data)
-	if err == sql.ErrNoRows || db.CheckError("GetEvent", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetEvent", err) != nil {
 		return nil
 	}
 	return e
@@ -802,7 +805,7 @@ func (db *BotDB) GetEvent(guild uint64, id uint64) *ScheduleEvent {
 // GetEvents gets all events for a guild up to maxnum
 func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetEvents.Query(guild, maxnum)
-	if db.CheckError("GetEvents", err) {
+	if db.CheckError("GetEvents", err) != nil {
 		return []ScheduleEvent{}
 	}
 	defer q.Close()
@@ -819,7 +822,7 @@ func (db *BotDB) GetEvents(guild uint64, maxnum int) []ScheduleEvent {
 // GetEventsByType gets all events for a given type
 func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetEventsByType.Query(guild, ty, maxnum)
-	if db.CheckError("GetEventsByType", err) {
+	if db.CheckError("GetEventsByType", err) != nil {
 		return []ScheduleEvent{}
 	}
 	defer q.Close()
@@ -837,7 +840,7 @@ func (db *BotDB) GetEventsByType(guild uint64, ty uint8, maxnum int) []ScheduleE
 func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 	p := ScheduleEvent{}
 	err := db.sqlGetNextEvent.QueryRow(guild, ty).Scan(&p.ID, &p.Date, &p.Type, &p.Data)
-	if err == sql.ErrNoRows || db.CheckError("GetNextEvent", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetNextEvent", err) != nil {
 		return ScheduleEvent{0, time.Now().UTC(), 0, ""}
 	}
 	return p
@@ -846,7 +849,7 @@ func (db *BotDB) GetNextEvent(guild uint64, ty uint8) ScheduleEvent {
 // GetReminders gets reminders for the given user
 func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEvent {
 	q, err := db.sqlGetReminders.Query(guild, id+"|%", maxnum)
-	if db.CheckError("GetReminders", err) {
+	if db.CheckError("GetReminders", err) != nil {
 		return []ScheduleEvent{}
 	}
 	defer q.Close()
@@ -864,7 +867,7 @@ func (db *BotDB) GetReminders(guild uint64, id string, maxnum int) []ScheduleEve
 func (db *BotDB) GetScheduleDate(guild uint64, ty uint8, data string) *time.Time {
 	var timestamp time.Time
 	err := db.sqlGetScheduleDate.QueryRow(guild, ty, data).Scan(&timestamp)
-	if err == sql.ErrNoRows || db.CheckError("GetScheduleDate", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetScheduleDate", err) != nil {
 		return nil
 	}
 	return &timestamp
@@ -884,7 +887,7 @@ func evalTimeZone(loc sql.NullString) *time.Location {
 func (db *BotDB) GetTimeZone(user uint64) *time.Location {
 	var loc sql.NullString
 	err := db.sqlGetTimeZone.QueryRow(user).Scan(&loc)
-	if db.CheckError("GetTimeZone", err) {
+	if db.CheckError("GetTimeZone", err) != nil {
 		return nil
 	}
 	return evalTimeZone(loc)
@@ -893,7 +896,7 @@ func (db *BotDB) GetTimeZone(user uint64) *time.Location {
 // FindTimeZone returns all matching timezone locations
 func (db *BotDB) FindTimeZone(s string) []string {
 	q, err := db.sqlFindTimeZone.Query(s)
-	if db.CheckError("FindTimeZone", err) {
+	if db.CheckError("FindTimeZone", err) != nil {
 		return []string{}
 	}
 	defer q.Close()
@@ -910,7 +913,7 @@ func (db *BotDB) FindTimeZone(s string) []string {
 // FindTimeZoneOffset finds all timezones with the given offset
 func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
 	q, err := db.sqlFindTimeZoneOffset.Query(s, minutes, minutes)
-	if db.CheckError("FindTimeZoneOffset", err) {
+	if db.CheckError("FindTimeZoneOffset", err) != nil {
 		return []string{}
 	}
 	defer q.Close()
@@ -927,20 +930,21 @@ func (db *BotDB) FindTimeZoneOffset(s string, minutes int) []string {
 // SetTimeZone sets a users timezone location
 func (db *BotDB) SetTimeZone(user uint64, tz *time.Location) error {
 	_, err := db.sqlSetTimeZone.Exec(tz.String(), user)
-	db.CheckError("SetTimeZone", err)
-	return err
+	err = db.standardErr(err)
+	return db.CheckError("SetTimeZone", err)
 }
 
 // RemoveAlias removes an alias from a user, if it exists.
-func (db *BotDB) RemoveAlias(user uint64, alias string) {
+func (db *BotDB) RemoveAlias(user uint64, alias string) error {
 	_, err := db.sqlRemoveAlias.Exec(user, alias)
-	db.CheckError("RemoveAlias", err)
+	err = db.standardErr(err)
+	return db.CheckError("RemoveAlias", err)
 }
 
 // GetUserGuilds returns all guilds a user is on
 func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 	q, err := db.sqlGetUserGuilds.Query(user)
-	if db.CheckError("GetUserGuilds", err) {
+	if db.CheckError("GetUserGuilds", err) != nil {
 		return []uint64{}
 	}
 	defer q.Close()
@@ -958,7 +962,7 @@ func (db *BotDB) GetUserGuilds(user uint64) []uint64 {
 func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 	var id uint64
 	err := db.sqlFindEvent.QueryRow(ty, user, guild).Scan(&id)
-	if err == sql.ErrNoRows || db.CheckError("FindEvent", err) {
+	if err == sql.ErrNoRows || db.CheckError("FindEvent", err) != nil {
 		return nil
 	}
 	return &id
@@ -967,8 +971,7 @@ func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 // SetDefaultServer sets a users default guild
 func (db *BotDB) SetDefaultServer(userID uint64, guild uint64) error {
 	_, err := db.sqlSetDefaultServer.Exec(guild, userID)
-	db.CheckError("SetDefaultServer", err)
-	return err
+	return db.CheckError("SetDefaultServer", err)
 }
 
 // PollData contains the poll name and description
@@ -980,7 +983,7 @@ type PollData struct {
 // GetPolls returns all polls for a given guild
 func (db *BotDB) GetPolls(guild uint64) []PollData {
 	q, err := db.sqlGetPolls.Query(guild)
-	if db.CheckError("GetPolls", err) {
+	if db.CheckError("GetPolls", err) != nil {
 		return []PollData{}
 	}
 	defer q.Close()
@@ -999,7 +1002,7 @@ func (db *BotDB) GetPoll(name string, guild uint64) (uint64, string) {
 	var id uint64
 	var desc string
 	err := db.sqlGetPoll.QueryRow(name, guild).Scan(&id, &desc)
-	if err == sql.ErrNoRows || db.CheckError("GetPoll", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetPoll", err) != nil {
 		return 0, ""
 	}
 	return id, desc
@@ -1014,7 +1017,7 @@ type PollOptionStruct struct {
 // GetOptions returns all options for a given poll ID
 func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 	q, err := db.sqlGetOptions.Query(poll)
-	if db.CheckError("GetOptions", err) {
+	if db.CheckError("GetOptions", err) != nil {
 		return []PollOptionStruct{}
 	}
 	defer q.Close()
@@ -1032,7 +1035,7 @@ func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
 func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
 	var id uint64
 	err := db.sqlGetOption.QueryRow(poll, option).Scan(&id)
-	if err == sql.ErrNoRows || db.CheckError("GetOption", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetOption", err) != nil {
 		return nil
 	}
 	return &id
@@ -1047,7 +1050,7 @@ type PollResultStruct struct {
 // GetResults returns the results of a poll ID
 func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 	q, err := db.sqlGetResults.Query(poll)
-	if db.CheckError("GetResults", err) {
+	if db.CheckError("GetResults", err) != nil {
 		return []PollResultStruct{}
 	}
 	defer q.Close()
@@ -1064,40 +1067,38 @@ func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
 // AddPoll creates a poll
 func (db *BotDB) AddPoll(name string, description string, guild uint64) error {
 	_, err := db.sqlAddPoll.Exec(name, description, guild)
-	return err
+	return db.standardErr(err)
 }
 
 // AddOption adds an option to an existing poll with a specific index
 func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
 	_, err := db.sqlAddOption.Exec(poll, index, option)
-	err = db.standardErr(err)
-	return err
+	return db.standardErr(err)
 }
 
 // AppendOption appends an option to the end of an existing poll
 func (db *BotDB) AppendOption(poll uint64, option string) error {
 	_, err := db.sqlAppendOption.Exec(option, poll)
-	err = db.standardErr(err)
-	return err
+	return db.standardErr(err)
 }
 
 // AddVote adds or reassigns a users vote on a poll
 func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
 	_, err := db.sqlAddVote.Exec(poll, user, option, option)
-	return err
+	return db.standardErr(err)
 }
 
 // RemovePoll deletes a poll
 func (db *BotDB) RemovePoll(name string, guild uint64) error {
 	_, err := db.sqlRemovePoll.Exec(name, guild)
-	return err
+	return db.standardErr(err)
 }
 
 // CheckOption checks if an option exists
 func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
 	var name string
 	err := db.sqlCheckOption.QueryRow(poll, option).Scan(&name)
-	if err == sql.ErrNoRows || db.CheckError("CheckOption", err) {
+	if err == sql.ErrNoRows || db.CheckError("CheckOption", err) != nil {
 		return false
 	}
 	return true
@@ -1106,14 +1107,13 @@ func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
 // SentMessage doesn't log a message, but sets a user's "firstseen" and "lastseen" values if necessary
 func (db *BotDB) SentMessage(user uint64, guild uint64) error {
 	_, err := db.sqlSentMessage.Exec(user, guild)
-	db.CheckError("SentMessage", err)
-	return err
+	return db.CheckError("SentMessage", db.standardErr(err))
 }
 
 // GetNewcomers returns any users that posted recently
 func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
 	q, err := db.sqlGetNewcomers.Query(guild, lookback)
-	if db.CheckError("GetNewcomers", err) {
+	if db.CheckError("GetNewcomers", err) != nil {
 		return []uint64{}
 	}
 	defer q.Close()
@@ -1131,7 +1131,8 @@ func (db *BotDB) GetNewcomers(lookback int, guild uint64) []uint64 {
 func (db *BotDB) AddItem(item string) (uint64, error) {
 	var id uint64
 	err := db.standardErr(db.sqlAddItem.QueryRow(item).Scan(&id))
-	if db.CheckError("AddItem", err) {
+
+	if db.CheckError("AddItem", err) != nil {
 		return 0, err
 	}
 	return id, nil
@@ -1141,7 +1142,7 @@ func (db *BotDB) AddItem(item string) (uint64, error) {
 func (db *BotDB) GetItem(item string) (uint64, error) {
 	var id uint64
 	err := db.sqlGetItem.QueryRow(item).Scan(&id)
-	if err == sql.ErrNoRows || db.CheckError("GetItem", err) {
+	if err == sql.ErrNoRows || db.CheckError("GetItem", err) != nil {
 		return 0, err
 	}
 	return id, nil
@@ -1150,45 +1151,38 @@ func (db *BotDB) GetItem(item string) (uint64, error) {
 // RemoveItem removes an item from all tags on the given server
 func (db *BotDB) RemoveItem(item uint64, guild uint64) error {
 	_, err := db.sqlRemoveItem.Exec(item, guild)
-	db.CheckError("RemoveItem", err)
-	return err
+	return db.CheckError("RemoveItem", db.standardErr(err))
 }
 
 // AddTag adds a tag to an item
 func (db *BotDB) AddTag(item uint64, tag uint64) error {
 	_, err := db.sqlAddTag.Exec(item, tag)
-	err = db.standardErr(err)
-	db.CheckError("AddTag", err)
-	return err
+	return db.CheckError("AddTag", db.standardErr(err))
 }
 
 // RemoveTag removes a tag to an item
 func (db *BotDB) RemoveTag(item uint64, tag uint64) error {
 	_, err := db.sqlRemoveTag.Exec(item, tag)
-	db.CheckError("RemoveTag", err)
-	return err
+	return db.CheckError("RemoveTag", db.standardErr(err))
 }
 
 // CreateTag creates a new tag on the given server
 func (db *BotDB) CreateTag(tag string, guild uint64) error {
 	_, err := db.sqlCreateTag.Exec(tag, guild)
-	err = db.standardErr(err)
-	db.CheckError("CreateTag", err)
-	return err
+	return db.CheckError("CreateTag", db.standardErr(err))
 }
 
 // DeleteTag delets a tag from the given server
 func (db *BotDB) DeleteTag(tag string, guild uint64) error {
 	_, err := db.sqlDeleteTag.Exec(tag, guild)
-	db.CheckError("DeleteTag", err)
-	return err
+	return db.CheckError("DeleteTag", db.standardErr(err))
 }
 
 // GetTag gets the tag ID for a tag name on the given server
 func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
 	var id uint64
-	err := db.sqlGetTag.QueryRow(tag, guild).Scan(&id)
-	if err == sql.ErrNoRows || db.CheckError("GetTag", err) {
+	err := db.standardErr(db.sqlGetTag.QueryRow(tag, guild).Scan(&id))
+	if err == sql.ErrNoRows || db.CheckError("GetTag", err) != nil {
 		return 0, err
 	}
 	return id, nil
@@ -1197,8 +1191,8 @@ func (db *BotDB) GetTag(tag string, guild uint64) (uint64, error) {
 // CountTag returns the number of items with the given tag
 func (db *BotDB) CountTag(tag uint64) (uint64, error) {
 	var n uint64
-	err := db.sqlCountTag.QueryRow(tag).Scan(&n)
-	if err == sql.ErrNoRows || db.CheckError("CountTag", err) {
+	err := db.standardErr(db.sqlCountTag.QueryRow(tag).Scan(&n))
+	if err == sql.ErrNoRows || db.CheckError("CountTag", err) != nil {
 		return 0, err
 	}
 	return n, nil
@@ -1207,8 +1201,8 @@ func (db *BotDB) CountTag(tag uint64) (uint64, error) {
 // CountItems returns the number of unique items for a given server
 func (db *BotDB) CountItems(guild uint64) (uint64, error) {
 	var n uint64
-	err := db.sqlCountItems.QueryRow(guild).Scan(&n)
-	if db.CheckError("CountItems", err) {
+	err := db.standardErr(db.sqlCountItems.QueryRow(guild).Scan(&n))
+	if db.CheckError("CountItems", err) != nil {
 		return 0, err
 	}
 	return n, nil
@@ -1217,7 +1211,8 @@ func (db *BotDB) CountItems(guild uint64) (uint64, error) {
 // GetItemTags returns all tags an item has on the given server
 func (db *BotDB) GetItemTags(item uint64, guild uint64) []string {
 	q, err := db.sqlGetItemTags.Query(item, guild)
-	if db.CheckError("GetItemTags", err) {
+	err = db.standardErr(err)
+	if db.CheckError("GetItemTags", err) != nil {
 		return []string{}
 	}
 	defer q.Close()
@@ -1237,7 +1232,8 @@ func (db *BotDB) GetTags(guild uint64) []struct {
 	Count int
 } {
 	q, err := db.sqlGetTags.Query(guild)
-	if db.CheckError("GetTags", err) {
+	err = db.standardErr(err)
+	if db.CheckError("GetTags", err) != nil {
 		return []struct {
 			Name  string
 			Count int
@@ -1263,6 +1259,7 @@ func (db *BotDB) GetTags(guild uint64) []struct {
 // ImportTag imports a tag from one server to another
 func (db *BotDB) ImportTag(srcTag uint64, destTag uint64) error {
 	_, err := db.sqlImportTag.Exec(destTag, srcTag)
+	err = db.standardErr(err)
 	db.CheckError("ImportTag", err)
 	return err
 }

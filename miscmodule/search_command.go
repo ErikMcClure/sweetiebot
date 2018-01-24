@@ -188,7 +188,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	err := stmt[0].QueryRow(params...).Scan(&count)
 	if err == sql.ErrNoRows {
 		return "```\nError: Expected 1 row, but got no rows!```", false, nil
-	} else if info.Bot.DB.CheckError("Search Command", err) {
+	} else if info.Bot.DB.CheckError("Search Command", err) != nil {
 		return "```Error counting search results.```", false, nil
 	}
 
@@ -229,7 +229,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	}
 
 	q, err := stmt[1].Query(params...)
-	if info.Bot.DB.CheckError("Search Command", err) {
+	if info.Bot.DB.CheckError("Search Command", err) != nil {
 		return "```\nError getting search results.```", false, nil
 	}
 	defer q.Close()

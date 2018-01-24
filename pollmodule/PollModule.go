@@ -107,8 +107,10 @@ func (c *createPollCommand) Process(args []string, msg *discordgo.Message, indic
 	gID := bot.SBatoi(info.ID)
 	name := strings.ToLower(args[0])
 	err := info.Bot.DB.AddPoll(name, args[1], gID)
-	if err != nil {
-		return "```\nError creating poll, make sure you haven't used this name already.```", false, nil
+	if err == bot.ErrDuplicateEntry {
+		return "```\nError, poll name already used.```", false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 	poll, _ := info.Bot.DB.GetPoll(name, gID)
 	if poll == 0 {
@@ -117,8 +119,10 @@ func (c *createPollCommand) Process(args []string, msg *discordgo.Message, indic
 
 	for k, v := range args[2:] {
 		err = info.Bot.DB.AddOption(poll, uint64(k+1), v)
-		if err != nil {
-			return fmt.Sprintf("```\nError adding option %v:%s. Did you try to add the same option twice? Each option must be unique!```", k+1, v), false, nil
+		if err == bot.ErrDuplicateEntry {
+			return fmt.Sprintf("```\nError adding duplicate option %v:%s. Each option must be unique!```", k+1, v), false, nil
+		} else if err != nil {
+			return bot.ReturnError(err)
 		}
 	}
 
@@ -160,7 +164,7 @@ func (c *deletePollCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	err := info.Bot.DB.RemovePoll(arg, gID)
 	if err != nil {
-		return "```\nError removing poll.```", false, nil
+		return bot.ReturnError(err)
 	}
 	return fmt.Sprintf("```\nSuccessfully removed %s.```", arg), false, nil
 }
@@ -214,7 +218,7 @@ func (c *voteCommand) Process(args []string, msg *discordgo.Message, indices []i
 
 	err = info.Bot.DB.AddVote(bot.SBatoi(msg.Author.ID), id, option)
 	if err != nil {
-		return "```\nError adding vote.```", false, nil
+		return bot.ReturnError(err)
 	}
 
 	return "```\nVoted! Use " + info.Config.Basic.CommandPrefix + "results to check the results.```", false, nil
@@ -333,8 +337,10 @@ func (c *addOptionCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	arg := msg.Content[indices[1]:]
 	err := info.Bot.DB.AppendOption(id, arg)
-	if err != nil {
-		return "```\nError appending option, make sure no other option has this value!```", false, nil
+	if err == bot.ErrDuplicateEntry {
+		return "```\nAnother option is already called this! Options must be unique.```", false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 	return fmt.Sprintf("```\nSuccessfully added %s to %s.```", arg, args[0]), false, nil
 }

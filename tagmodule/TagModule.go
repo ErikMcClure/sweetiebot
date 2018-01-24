@@ -73,11 +73,7 @@ func (w *TagModule) execStatement(query string, tags string, db *bot.BotDB, args
 	}
 
 	q, err := stmt.Query(args...)
-	if db.CheckError("Query: "+query, err) {
-		return nil, fmt.Errorf("```Error executing statement: %s```", err.Error())
-	}
-
-	return q, nil
+	return q, db.CheckError("Query: "+query, err)
 }
 
 func getTagIDs(tags []string, guild uint64, db *bot.BotDB) ([]uint64, error) {
@@ -85,7 +81,9 @@ func getTagIDs(tags []string, guild uint64, db *bot.BotDB) ([]uint64, error) {
 	for k, v := range tags {
 		id, err := db.GetTag(v, guild)
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("```The %s tag does not exist!```", v)
+			return nil, fmt.Errorf("The %s tag does not exist!", v)
+		} else if err != nil {
+			return nil, err
 		}
 		tagIDs[k] = id
 	}
@@ -138,13 +136,13 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 	tags := strings.Split(args[0], "+")
 	tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	item := msg.Content[indices[1]:]
 	id, err := info.Bot.DB.AddItem(item)
 	if err != nil && err != bot.ErrDuplicateEntry {
-		return "Error: " + err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 	for _, v := range tagIDs {
 		info.Bot.DB.AddTag(id, v)
@@ -192,6 +190,8 @@ func (c *getCommand) Process(args []string, msg *discordgo.Message, indices []in
 	id, err := info.Bot.DB.GetItem(item)
 	if err == sql.ErrNoRows {
 		return "```\nThat item has no tags.```", false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 
 	tags := info.Bot.DB.GetItemTags(id, gID)
@@ -245,7 +245,7 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 			err = info.Bot.DB.RemoveItem(id, gID)
 		}
 		if err != nil {
-			return fmt.Sprintf("```Error removing %s: %s```", item, err.Error()), false, nil
+			return bot.ReturnError(err)
 		}
 		return fmt.Sprintf("```Removed %s from all tags.```", info.Sanitize(item, bot.CleanCodeBlock)), false, nil
 	}
@@ -253,14 +253,17 @@ func (c *removeCommand) Process(args []string, msg *discordgo.Message, indices [
 	tags := strings.Split(args[0], "+")
 	tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	item := msg.Content[indices[1]:]
 	id, err := info.Bot.DB.GetItem(item)
-	if err != nil {
+	if err == sql.ErrNoRows {
 		return fmt.Sprintf("```That item doesn't exist!```"), false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
+
 	for _, v := range tagIDs {
 		info.Bot.DB.RemoveTag(id, v)
 	}
@@ -348,7 +351,7 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	gID := bot.SBatoi(info.ID)
 	tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	params := make([]interface{}, len(tagIDs), len(tagIDs))
@@ -358,7 +361,7 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	params = append(params, gID)
 	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" AND T.Guild = ? GROUP BY I.Content", arg, info.Bot.DB, params...)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	defer q.Close()
@@ -418,7 +421,7 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 		var err error
 		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", "", info.Bot.DB)
 		if err != nil {
-			return err.Error(), false, nil
+			return bot.ReturnError(err)
 		}
 		params = []interface{}{gID}
 	} else {
@@ -427,12 +430,12 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 		clause, tags := BuildWhereClause(arg)
 		tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 		if err != nil {
-			return err.Error(), false, nil
+			return bot.ReturnError(err)
 		}
 
 		stmt, err = c.w.prepStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE "+clause+" AND T.Guild = ? GROUP BY I.Content ORDER BY RAND() LIMIT 1", arg, info.Bot.DB)
 		if err != nil {
-			return err.Error(), false, nil
+			return bot.ReturnError(err)
 		}
 
 		params = make([]interface{}, len(tagIDs), len(tagIDs))
@@ -447,6 +450,8 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 	err := q.Scan(&item)
 	if err == sql.ErrNoRows {
 		return fmt.Sprintf("```No items were returned by %s!```", arg), false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 	return info.Sanitize(item, bot.CleanMentions|bot.CleanPings), false, nil
 }
@@ -487,7 +492,7 @@ func (c *newCommand) Process(args []string, msg *discordgo.Message, indices []in
 	if err == bot.ErrDuplicateEntry {
 		return "```\nThat tag already exists!```", false, nil
 	} else if err != nil {
-		return "```\nError creating tag: " + err.Error() + "```", false, nil
+		return bot.ReturnError(err)
 	}
 	return "```\nCreated the " + tag + " tag.```", false, nil
 }
@@ -523,10 +528,12 @@ func (c *deleteCommand) Process(args []string, msg *discordgo.Message, indices [
 	gID := bot.SBatoi(info.ID)
 	if _, err := info.Bot.DB.GetTag(tag, gID); err == sql.ErrNoRows {
 		return "```\nThat tag doesn't exist!```", false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 
 	if err := info.Bot.DB.DeleteTag(tag, gID); err != nil {
-		return "```\nError deleting tag: " + err.Error() + "```", false, nil
+		return bot.ReturnError(err)
 	}
 	return "```\nDeleted the " + tag + " tag.```", false, nil
 }
@@ -567,7 +574,7 @@ func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indic
 	gID := bot.SBatoi(info.ID)
 	tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	params := make([]interface{}, len(tagIDs), len(tagIDs))
@@ -588,7 +595,7 @@ func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indic
 				return fmt.Sprintf("```Number of items matching %s: %v```", arg, count), false, nil
 			}
 		}
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	search := "%" + msg.Content[indices[1]:] + "%"
@@ -596,7 +603,7 @@ func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indic
 
 	q, err := c.w.execStatement("SELECT I.Content FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID INNER JOIN items I ON M.Item = I.ID WHERE ("+clause+") AND T.Guild = ? AND I.Content LIKE ? GROUP BY I.Content", arg, info.Bot.DB, params...)
 	if err != nil {
-		return err.Error(), false, nil
+		return bot.ReturnError(err)
 	}
 
 	defer q.Close()
@@ -695,18 +702,22 @@ func (c *importCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	otherGID := bot.SBatoi(other[0].ID)
 	sourceTag, err := info.Bot.DB.GetTag(source, otherGID)
-	if err != nil {
+	if err == sql.ErrNoRows {
 		return fmt.Sprintf("```The source tag (%s) does not exist on the source server (%s)!```", source, other[0].Name), false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 
 	gID := bot.SBatoi(info.ID)
 	targetTag, err := info.Bot.DB.GetTag(target, gID)
-	if err != nil {
+	if err == sql.ErrNoRows {
 		return fmt.Sprintf("```The target tag (%s) does not exist on this server! Please manually create this tag using !new if you actually intended this.```", target), false, nil
+	} else if err != nil {
+		return bot.ReturnError(err)
 	}
 
 	if err = info.Bot.DB.ImportTag(sourceTag, targetTag); err != nil {
-		return fmt.Sprintf("```Error importing tags: %s```", err.Error()), false, nil
+		return bot.ReturnError(err)
 	}
 
 	return fmt.Sprintf("```Successfully merged \"%s\" from %s into \"%s\" on this server.```", source, other[0].Name, target), false, nil

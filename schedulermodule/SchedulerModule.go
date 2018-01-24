@@ -398,16 +398,16 @@ func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices
 		if len(args) > 3 {
 			data += msg.Content[indices[3]:]
 		}
-		if !info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t, repeatinterval, repeat, ty, data) {
-			return "```\nError: servers can't have more than 5000 events!```", false, nil
+		if err := info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t, repeatinterval, repeat, ty, data); err != nil {
+			return bot.ReturnError(err)
 		}
 	} else {
 		if len(args) > 2 {
 			data += msg.Content[indices[2]:]
 		}
 
-		if !info.Bot.DB.AddSchedule(bot.SBatoi(info.ID), t, ty, data) {
-			return "```\nError: servers can't have more than 5000 events!```", false, nil
+		if err := info.Bot.DB.AddSchedule(bot.SBatoi(info.ID), t, ty, data); err != nil {
+			return bot.ReturnError(err)
 		}
 	}
 
@@ -549,8 +549,8 @@ func (c *remindMeCommand) Process(args []string, msg *discordgo.Message, indices
 	if len(arg) == 0 {
 		return "```\nWhat am I reminding you about? I can't send you a blank message!```", false, nil
 	}
-	if !info.Bot.DB.AddSchedule(bot.SBatoi(info.ID), t, 6, msg.Author.ID+"|"+arg) {
-		return "```\nError: servers can't have more than 5000 events!```", false, nil
+	if err := info.Bot.DB.AddSchedule(bot.SBatoi(info.ID), t, 6, msg.Author.ID+"|"+arg); err != nil {
+		return bot.ReturnError(err)
 	}
 	return "Reminder set for " + bot.TimeDiff(t.Sub(timestamp)) + " from now.", false, nil
 }
@@ -607,9 +607,11 @@ func (c *addBirthdayCommand) Process(args []string, msg *discordgo.Message, indi
 		t = t.AddDate(1, 0, 0)
 	}
 
-	info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t, 8, 1, typeEventBirthday, user.String())                          // Create the normal birthday event at 12 AM on this server's timezone
-	if !info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t.AddDate(0, 0, 1), 8, 1, typeEventUnbirthday, user.String()) { // Create the hidden "remove birthday role" event 24 hours later.
-		return "```\nError: servers can't have more than 5000 events!```", false, nil
+	if err := info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t, 8, 1, typeEventBirthday, user.String()); err != nil { // Create the normal birthday event at 12 AM on this server's timezone
+		return bot.ReturnError(err)
+	}
+	if err := info.Bot.DB.AddScheduleRepeat(bot.SBatoi(info.ID), t.AddDate(0, 0, 1), 8, 1, typeEventUnbirthday, user.String()); err != nil { // Create the hidden "remove birthday role" event 24 hours later.
+		return bot.ReturnError(err)
 	}
 	return info.Sanitize("```Added a birthday for "+user.Display()+"```", bot.CleanMentions|bot.CleanPings), false, nil
 }

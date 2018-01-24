@@ -203,8 +203,8 @@ func processDurationAndReason(args []string, msg *discordgo.Message, indices []i
 				return "", errors.New("unrecognized interval.")
 			}
 
-			if !db.AddSchedule(gID, t, ty, data) {
-				return "", errors.New("servers can't have more than 5000 events!")
+			if err := db.AddSchedule(gID, t, ty, data); err != nil {
+				return "", err
 			}
 
 			scheduleID := db.FindEvent(data, gID, ty)

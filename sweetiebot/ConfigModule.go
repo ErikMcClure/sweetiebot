@@ -149,7 +149,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 	var err error
 	args[0], err = FixRequest(args[0], t)
 	if err != nil {
-		return err.Error(), false, nil
+		return ReturnError(err)
 	}
 	arg := strings.SplitN(strings.ToLower(args[0]), ".", 3)
 	if len(args) > 1 {

@@ -37,19 +37,20 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 5}
+var BotVersion = Version{0, 9, 9, 6}
 
 const (
-	MaxPublicLines = 12
-	maxPublicRules = 6
-	SilverServerID = "105443346608095232"
-	PatreonURL     = "https://www.patreon.com/erikmcclure"
-	QuitNone       = 0
-	QuitNow        = 1
-	QuitRaid       = 2
-	UpdateGrace    = 120
-	MaxUpdateGrace = 600
-	UpdateInterval = 300
+	MaxPublicLines  = 12
+	maxPublicRules  = 6
+	SilverServerID  = "105443346608095232"
+	PatreonURL      = "https://www.patreon.com/erikmcclure"
+	QuitNone        = 0
+	QuitNow         = 1
+	QuitRaid        = 2
+	UpdateGrace     = 120
+	MaxUpdateGrace  = 600
+	UpdateInterval  = 300
+	MaxScheduleRows = 5000
 )
 
 type DeferPair struct {
@@ -999,6 +1000,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 6):  "- Update to go v1.9.3\n- Improve database error handling.\n- Fix chatlog race condition.",
 			AssembleVersion(0, 9, 9, 5):  "- Message logging is now deferred to a single thread to prevent database deadlocking.\n- Username lookup now does fuzzy lookups on all aliases\n- Only retains 10 most used aliases.",
 			AssembleVersion(0, 9, 9, 4):  "- Fix crash",
 			AssembleVersion(0, 9, 9, 3):  "- Sweetie Bot no longer tracks presence updates, because they were the cause of the database slowdowns. This means !lastseen will only operate on last message sent.\n- Fixed !search.\n- Added !assignrole",
