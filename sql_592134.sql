@@ -1,0 +1,47 @@
+DELIMITER //
+
+DROP TRIGGER IF EXISTS `chatlog_before_update`//
+CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Everyone, Guild)
+VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Everyone, OLD.Guild)
+ON DUPLICATE KEY UPDATE `Timestamp` = OLD.`Timestamp`, Message = OLD.Message//
+
+DROP EVENT IF EXISTS `CleanAliases`//
+CREATE EVENT `CleanAliases`
+	ON SCHEDULE
+		EVERY 1 DAY STARTS '2018-01-23 16:29:25'
+	ON COMPLETION PRESERVE
+	ENABLE
+	COMMENT ''
+	DO BEGIN
+
+Block1: BEGIN
+DECLARE done INT DEFAULT 0;
+DECLARE uid BIGINT UNSIGNED;
+DECLARE aid VARCHAR(128);
+DECLARE c_1 CURSOR FOR SELECT User FROM aliases GROUP BY User HAVING COUNT(Alias) > 10;
+DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+OPEN c_1;
+REPEAT
+FETCH c_1 INTO uid;
+
+Block2: BEGIN
+DECLARE done2 INT DEFAULT 0;
+DECLARE c_2 CURSOR FOR SELECT A.Alias FROM aliases A INNER JOIN users U ON A.User = U.ID WHERE A.User = uid AND A.Alias != U.Username ORDER BY A.Duration DESC LIMIT 9999 OFFSET 10;
+DECLARE CONTINUE HANDLER FOR NOT FOUND SET done2 = 1;
+OPEN c_2;
+REPEAT
+FETCH c_2 INTO aid;
+
+DELETE FROM aliases WHERE User=uid AND Alias=aid;
+
+UNTIL done2 END REPEAT;
+CLOSE c_2;
+END Block2;
+
+UNTIL done END REPEAT;
+CLOSE c_1;
+END Block1;
+
+
+END//
