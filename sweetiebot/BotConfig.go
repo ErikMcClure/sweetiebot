@@ -230,7 +230,7 @@ func getConfigHelp(module string, option string) (string, bool) {
 }
 
 // ConfigVersion is the latest version of the config file
-var ConfigVersion = 21
+var ConfigVersion = 22
 
 // DefaultConfig returns a default BotConfig struct. We can't define this as a variable because you can't initialize nested structs in a sane way in Go
 func DefaultConfig() *BotConfig {
@@ -1217,6 +1217,10 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 				delete(guild.Config.Modules.Channels, k)
 			}
 		}
+	}
+
+	if guild.Config.Version <= 21 {
+		restrictCommand("assignrole", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 	}
 
 	if guild.Config.Version != ConfigVersion {
