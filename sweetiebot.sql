@@ -196,7 +196,7 @@ FETCH c_1 INTO uid;
 
 Block2: BEGIN
 DECLARE done2 INT DEFAULT 0;
-DECLARE c_2 CURSOR FOR SELECT Alias FROM aliases WHERE User = uid ORDER BY Duration DESC LIMIT 9999 OFFSET 10;
+DECLARE c_2 CURSOR FOR SELECT A.Alias FROM aliases A INNER JOIN users U ON A.User = U.ID WHERE A.User = uid AND A.Alias != U.Username ORDER BY A.Duration DESC LIMIT 9999 OFFSET 10;
 DECLARE CONTINUE HANDLER FOR NOT FOUND SET done2 = 1;
 OPEN c_2;
 REPEAT
@@ -628,8 +628,9 @@ CREATE TABLE IF NOT EXISTS `votes` (
 
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, Timestamp, Author, Message, Channel, Everyone, Guild)
-VALUES (OLD.ID, OLD.Timestamp, OLD.Author, OLD.Message, OLD.Channel, OLD.Everyone, OLD.Guild)//
+CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Everyone, Guild)
+VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Everyone, OLD.Guild)
+ON DUPLICATE KEY UPDATE `Timestamp` = OLD.`Timestamp`, Message = OLD.Message//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
 -- Dumping structure for trigger sweetiebot.itemtags_after_delete
