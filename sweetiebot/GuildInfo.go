@@ -434,7 +434,9 @@ func (info *GuildInfo) GetRoles(command CommandID) string {
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k := range m {
-		s = append(s, k.Show(info))
+		if k != RoleExclusion {
+			s = append(s, k.Show(info))
+		}
 	}
 
 	sort.Strings(s)
