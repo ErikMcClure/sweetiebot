@@ -134,7 +134,7 @@ Documentation</p></a></li>
 <pre>!{{.URL}}{{- range .Usage.Params }} {{if .Optional}}[{{.Name}}]{{else}}&lt;{{.Name}}&gt;{{end}}{{if .Variadic}}...{{end}}{{- end }}</pre>
 <p>{{.Usage.Desc | parsemarkup}}</p>
 <dl>
-{{- range .Usage.Params}}<dd><p>{{.Name}}</p>{{if .Optional}}<span> (optional) </span>{{end}}{{.Desc}}</dd>{{- end }}
+{{- range .Usage.Params}}<dd><p>{{.Name}}</p>{{if .Optional}}<span> (optional) </span>{{end}}{{.Desc | parsemarkup}}</dd>{{- end }}
 </dl>
 {{- end }}
 
