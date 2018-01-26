@@ -3,6 +3,7 @@ package rolesmodule
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	bot "../sweetiebot"
@@ -10,6 +11,7 @@ import (
 )
 
 var errNotUserAssignable = errors.New("not a user-assignable role")
+var pingRegex = regexp.MustCompile("<[@#](!|&)?[0-9]+>")
 
 // RolesModule contains commands for manipulating user-assignable roles.
 type RolesModule struct {
@@ -29,6 +31,7 @@ func (w *RolesModule) Name() string {
 func (w *RolesModule) Commands() []bot.Command {
 	return []bot.Command{
 		&addRoleCommand{},
+		&createRoleCommand{},
 		&joinRoleCommand{},
 		&listRoleCommand{},
 		&leaveRoleCommand{},
@@ -68,7 +71,7 @@ func GetRoleByNameOrPing(role string, info *bot.GuildInfo) (*discordgo.Role, err
 		if err != nil {
 			return nil, err
 		}
-		if r == bot.RoleEmpty {
+		if r == bot.RoleEmpty || r == bot.RoleExclusion {
 			return nil, errNotUserAssignable
 		}
 		_, ok := info.Config.Users.Roles[r]
@@ -90,13 +93,58 @@ func GetRoleByNameOrPing(role string, info *bot.GuildInfo) (*discordgo.Role, err
 	return GetUserAssignableRole(role, info)
 }
 
+type createRoleCommand struct {
+}
+
+func (c *createRoleCommand) Info() *bot.CommandInfo {
+	return &bot.CommandInfo{
+		Name:      "CreateRole",
+		Usage:     "Creates a new user-assignable role.",
+		Sensitive: true,
+	}
+}
+
+func (c *createRoleCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 1 {
+		return "```\nYou must provide a new role name!```", false, nil
+	}
+	g, _ := info.GetGuild()
+	role := msg.Content[indices[0]:]
+	if pingRegex.MatchString(role) {
+		return "```\nDon't do that. Give the role a name that isn't a ping.```", false, nil
+	}
+	roles := bot.FindRole(role, g)
+	if len(roles) > 0 {
+		return "```\nThat role already exists! Use " + info.Config.Basic.CommandPrefix + "addrole to make it user-assignable if it isn't already.```", false, nil
+	}
+
+	r, err := info.Bot.DG.GuildRoleCreate(info.ID)
+	if err == nil {
+		r, err = info.Bot.DG.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
+	}
+	if err != nil {
+		return "```Could not create role! " + err.Error() + "```", false, nil
+	}
+	info.Config.Users.Roles[bot.DiscordRole(r.ID)] = true
+	info.SaveConfig()
+	return fmt.Sprintf("```Created the %s role. By default, it has no permissions and can be pinged by users, but you can change these settings if you like. Use "+info.Config.Basic.CommandPrefix+"deleterole to delete it.```", r.Name), false, nil
+}
+func (c *createRoleCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
+	return &bot.CommandUsage{
+		Desc: "Creates a new role and makes it user-assignable.",
+		Params: []bot.CommandUsageParam{
+			{Name: "name/id", Desc: "Name of a new role that doesn't already exist.", Optional: false},
+		},
+	}
+}
+
 type addRoleCommand struct {
 }
 
 func (c *addRoleCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "AddRole",
-		Usage:     "Creates or sets a role as user-assignable.",
+		Usage:     "Sets a role as user-assignable.",
 		Sensitive: true,
 	}
 }
@@ -110,8 +158,8 @@ func (c *addRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	if err != nil {
 		return bot.ReturnError(err)
 	}
-	if role == bot.RoleEmpty {
-		return "```\nThat's not a role!```", false, nil
+	if role == bot.RoleEmpty || role == bot.RoleExclusion {
+		return "```\nThat's not a role! Use " + info.Config.Basic.CommandPrefix + "createroll to create a new role.```", false, nil
 	}
 	if info.Config.Basic.ModRole == role {
 		return "```\nYou can't make the moderator role user-assignable you maniac!```", false, nil

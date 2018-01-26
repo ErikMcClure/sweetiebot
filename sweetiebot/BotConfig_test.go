@@ -3,6 +3,7 @@ package sweetiebot
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
@@ -43,6 +44,17 @@ Channels           map[string]map[string]bool `json:"modulechannels"`
 CommandLimits      map[string]int64           `json:"Commandlimits"`
 */
 
+func (config *BotConfig) internalSetConfig(info *GuildInfo, s ...string) (string, bool) {
+	for k := range s {
+		if len(s[k]) == 0 {
+			s[k] = "\"\""
+		}
+	}
+	message := "!" + strings.Join(s, " ") // Have to add the "!" here because ParseArguments is intended for commands
+	args, indices := ParseArguments(message[1:])
+	return config.SetConfig(info, args, indices, message)
+}
+
 func TestSetConfig(t *testing.T) {
 	t.Parallel()
 
@@ -50,14 +62,14 @@ func TestSetConfig(t *testing.T) {
 	fnImportable := func(name string) {
 		config.Basic.Importable = false
 		name, _ = FixRequest(name, reflect.ValueOf(config).Elem())
-		if s, ok := config.SetConfig(nil, name, "true"); !ok {
+		if s, ok := config.internalSetConfig(nil, name, "true"); !ok {
 			t.Errorf("SetConfig(%s) returned %v", name, s)
 		}
 		if config.Basic.Importable != true {
 			t.Errorf("Importable not true")
 		}
 	}
-	if _, ok := config.SetConfig(nil, "importable", "true"); ok {
+	if _, ok := config.internalSetConfig(nil, "importable", "true"); ok {
 		t.Errorf("SetConfig shouldn't have found Importable by itself")
 	}
 
@@ -78,7 +90,7 @@ func TestSetConfig(t *testing.T) {
 
 	fnSetInterface := func(name string, value interface{}) {
 		name, _ = FixRequest(name, reflect.ValueOf(config).Elem())
-		if s, ok := config.SetConfig(info, name, fmt.Sprintf("%v", value)); !ok {
+		if s, ok := config.internalSetConfig(info, name, fmt.Sprintf("%v", value)); !ok {
 			t.Errorf("SetConfig(%s) returned %v", name, s)
 		}
 	}
@@ -93,7 +105,7 @@ func TestSetConfig(t *testing.T) {
 
 	fnFreeChannels := func(value DiscordChannel, extra ...string) {
 		name, _ := FixRequest("FreeChannels", reflect.ValueOf(config).Elem())
-		if s, ok := config.SetConfig(info, name, value.String(), extra...); !ok {
+		if s, ok := config.internalSetConfig(info, append([]string{name, value.String()}, extra...)...); !ok {
 			t.Errorf("SetConfig(FreeChannels) returned %v", s)
 		}
 		if len(value) == 0 {
@@ -117,11 +129,13 @@ func TestSetConfig(t *testing.T) {
 
 	fnCommandLimits := func(key string, value int64) {
 		name, _ := FixRequest("CommandLimits", reflect.ValueOf(config).Elem())
-		str := ""
+		var s string
+		var ok bool
 		if value != 0 {
-			str = fmt.Sprintf("%v", value)
+			s, ok = config.internalSetConfig(info, name, key, fmt.Sprintf("%v", value))
+		} else {
+			s, ok = config.internalSetConfig(info, name, key)
 		}
-		s, ok := config.SetConfig(info, name, key, str)
 		if (value != 0 && !ok) || (value == 0 && s == fmt.Sprintf("Deleted %v", value)) {
 			t.Errorf("SetConfig(CommandLimits) returned %v", s)
 		}
@@ -143,26 +157,32 @@ func TestSetConfig(t *testing.T) {
 		case reflect.Struct:
 			for j := 0; j < p.Field(i).NumField(); j++ {
 				path := name + p.Field(i).Type().Field(j).Name
-				str, _ := config.SetConfig(info, path, "", "")
+				str, _ := config.internalSetConfig(info, path, "", "")
+				if !CheckNot(str, "That config option has an unknown type!", t) {
+					fmt.Println(path)
+				}
+				str, _ = config.internalSetConfig(info, path)
 				if !CheckNot(str, "That config option has an unknown type!", t) {
 					fmt.Println(path)
 				}
 
 				switch p.Field(i).Field(j).Interface().(type) {
+				case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser:
+					config.internalSetConfig(info, path, "1")
+					Check(fmt.Sprint(p.Field(i).Field(j).Interface()), "1", t)
+					continue
 				case bool:
-					config.SetConfig(info, path, "true")
+					config.internalSetConfig(info, path, "true")
 					Check(p.Field(i).Field(j).Interface().(bool), true, t)
 					continue
 				}
 
-				config.SetConfig(info, path, "1", "1")
+				config.internalSetConfig(info, path, "1", "1")
 				_, ok := getConfigHelp(p.Type().Field(i).Name, p.Field(i).Type().Field(j).Name)
 				if !Check(ok, true, t) {
 					fmt.Println(path)
 				}
 				switch m := p.Field(i).Field(j).Interface().(type) {
-				case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser:
-					Check(fmt.Sprint(m), "1", t)
 				case []uint64:
 					Check(m[0], 1, t)
 				case map[string]string:
@@ -225,6 +245,10 @@ func TestSetConfig(t *testing.T) {
 					Check(ok, true, t)
 				default:
 					t.Error("Invalid config type: ", path)
+				}
+
+				if res := GetSubStruct([]string{"", "", "1"}, p.Field(i), j, info); len(res) > 0 && !CheckNot(res[0], "is not a map", t) {
+					fmt.Println(path)
 				}
 			}
 		}

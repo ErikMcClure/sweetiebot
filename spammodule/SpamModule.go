@@ -570,5 +570,5 @@ func (c *banRaidCommand) Process(args []string, msg *discordgo.Message, indices 
 	return fmt.Sprintf("```\nBanned %v users. The ban log will reflect who ran this command.```", len(users)), false, nil
 }
 func (c *banRaidCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
-	return &bot.CommandUsage{Desc: "Bans all users that are considered part of the most recent raid, if there was one. Use !getraid to check who will be banned before using this command."}
+	return &bot.CommandUsage{Desc: "Bans all users that are considered part of the most recent raid, if there was one. Use " + info.Config.Basic.CommandPrefix + "getraid to check who will be banned before using this command."}
 }

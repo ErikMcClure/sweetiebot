@@ -222,10 +222,10 @@ func ParseRole(s string, guild *discordgo.Guild) (DiscordRole, error) {
 	} else if guild != nil {
 		var r []*discordgo.Role
 		if s[0] == '@' {
-			r = findRole(s[1:], guild)
+			r = FindRole(s[1:], guild)
 		}
 		if len(r) == 0 {
-			r = findRole(s, guild)
+			r = FindRole(s, guild)
 		}
 		if len(r) > 0 {
 			if len(r) > 1 {
