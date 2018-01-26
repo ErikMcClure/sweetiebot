@@ -78,6 +78,7 @@ func getExt(sys string) string {
 	return ""
 }
 
+// SelfUpdate is run by sweetie.exe to to get a new version of updater.exe
 func (b *SelfhostBase) SelfUpdate(ownerid DiscordUser) error {
 	path, _ := GetCurrentDir()
 	v, err := RunCommand("./updater"+getExt(runtime.GOOS), path, "version")
@@ -94,6 +95,7 @@ func (b *SelfhostBase) SelfUpdate(ownerid DiscordUser) error {
 	return nil
 }
 
+// DoUpdate is the function run by updater.exe to perform the actual update
 func (b *SelfhostBase) DoUpdate(dbauth string, token string) error {
 	c := make(chan DiscordUser)
 	dg, err := discordgo.New("Bot " + token)
@@ -153,17 +155,22 @@ func (b *SelfhostBase) DoUpdate(dbauth string, token string) error {
 	return nil
 }
 
-func (b *SelfhostBase) ConfigureMux(mux *http.ServeMux)     {}
+// ConfigureMux has nothing to configure for selfhosters
+func (b *SelfhostBase) ConfigureMux(mux *http.ServeMux) {}
+
+// CheckDonor always returns false because donor status never changes when selfhosting
 func (b *SelfhostBase) CheckDonor(m *discordgo.Member) bool { return false }
 
+// CheckGuilds sets all guilds as silver unless there's more than 30
 func (b *SelfhostBase) CheckGuilds(guilds map[DiscordGuild]*GuildInfo) {
 	count := 0
 	for _, g := range guilds {
-		g.Silver.Set(count < 50)
+		g.Silver.Set(count < 30)
 		count++
 	}
 }
 
+// FindUpgradeFiles finds the .sql upgrade files that should be run
 func FindUpgradeFiles(scriptdir string, version int) (files []int) {
 	results, _ := ioutil.ReadDir(scriptdir)
 	for _, f := range results {
@@ -280,7 +287,7 @@ done
 	}
 }
 
-func CalcMD5Hash(file string) ([]byte, error) {
+func calcMD5Hash(file string) ([]byte, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -294,13 +301,13 @@ func CalcMD5Hash(file string) ([]byte, error) {
 
 	return h.Sum(nil), nil
 }
-func CheckHash(file string, hash []byte) bool {
-	if result, err := CalcMD5Hash(file); err == nil {
+func checkHash(file string, hash []byte) bool {
+	if result, err := calcMD5Hash(file); err == nil {
 		return bytes.Compare(result, hash) == 0
 	}
 	return false
 }
-func GetMD5Hash(url string) (md5body []byte, err error) {
+func getMD5Hash(url string) (md5body []byte, err error) {
 	i := strings.Index(url, "?")
 	md5url := url + ".md5"
 	if i >= 0 {
@@ -313,6 +320,8 @@ func GetMD5Hash(url string) (md5body []byte, err error) {
 	}
 	return
 }
+
+// Downloads a file from the url and attempts to get a *.md5 to check it against if checkMD5 is true
 func DownloadFile(url string, file string, checkMD5 bool) error {
 	out, err := os.Create(file)
 	if err != nil {
@@ -322,8 +331,8 @@ func DownloadFile(url string, file string, checkMD5 bool) error {
 
 	var md5body []byte
 	if checkMD5 {
-		md5body, err = GetMD5Hash(url)
-		if len(md5body) > 0 && CheckHash(file, md5body) {
+		md5body, err = getMD5Hash(url)
+		if len(md5body) > 0 && checkHash(file, md5body) {
 			return nil // If the hash is nonzero and matches the file, we don't need to download it
 		}
 	}
@@ -349,6 +358,8 @@ func DownloadFile(url string, file string, checkMD5 bool) error {
 	}
 	return err
 }
+
+// HTTPRequestData returns the result of an HTTP request as a byte array
 func HTTPRequestData(url string) (body []byte, err error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -359,6 +370,8 @@ func HTTPRequestData(url string) (body []byte, err error) {
 	body, err = ioutil.ReadAll(resp.Body)
 	return
 }
+
+// GetWebDir returns the directory where the website is
 func (b *SelfhostBase) GetWebDir() string {
 	if dir, err := GetCurrentDir(); err == nil {
 		return dir

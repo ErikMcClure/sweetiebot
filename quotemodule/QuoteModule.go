@@ -92,7 +92,7 @@ func (c *quoteCommand) Process(args []string, msg *discordgo.Message, indices []
 		i = rand.Intn(l)
 	}
 	if i >= l || i < 0 {
-		return "```\nInvalid quote index. Use !searchquote [user] to list a user's quotes and their indexes.```", false, nil
+		return "```\nInvalid quote index. Use " + info.Config.Basic.CommandPrefix + "searchquote [user] to list a user's quotes and their indexes.```", false, nil
 	}
 	return "**" + info.GetUserName(user) + "**: " + q[i], false, nil
 }
@@ -162,7 +162,7 @@ func (c *removequoteCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```\nMust specify username.```", false, nil
 	}
 	if len(args) < 2 {
-		return "```\nMust specify quote index. Use !searchquote to list them.```", false, nil
+		return "```\nMust specify quote index. Use " + info.Config.Basic.CommandPrefix + "searchquote to list them.```", false, nil
 	}
 
 	last := len(args) - 1
@@ -172,12 +172,12 @@ func (c *removequoteCommand) Process(args []string, msg *discordgo.Message, indi
 	}
 	index, err := strconv.Atoi(args[last])
 	if err != nil {
-		return "```\nError: could not parse quote index. Did you surround your username with quotes? Use !searchquote to find a quote index.```", false, nil
+		return "```\nError: could not parse quote index. Did you surround your username with quotes? Use " + info.Config.Basic.CommandPrefix + "searchquote to find a quote index.```", false, nil
 	}
 
 	index--
 	if index >= len(info.Config.Quote.Quotes[user]) || index < 0 {
-		return "```\nInvalid quote index. Use !searchquote [user] to list a user's quotes and their indexes.```", false, nil
+		return "```\nInvalid quote index. Use " + info.Config.Basic.CommandPrefix + "searchquote [user] to list a user's quotes and their indexes.```", false, nil
 	}
 	info.Config.Quote.Quotes[user] = append(info.Config.Quote.Quotes[user][:index], info.Config.Quote.Quotes[user][index+1:]...)
 	info.SaveConfig()

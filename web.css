@@ -63,6 +63,7 @@ pre {
   padding: 0.5em 0.75em;
   margin: 0.5em 0;
 }
+
 .icon-img {
   opacity: 0.7;
   width: 24px;
@@ -212,6 +213,9 @@ main section {
 main p {
 	display:block;
 	margin-top: 0.8em;
+}
+main i {
+  font-style: italic;
 }
 
 main ul {

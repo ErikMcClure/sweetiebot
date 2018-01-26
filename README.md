@@ -47,25 +47,32 @@ For example: `!setup @Mods #staff-lounge #bot-log`
 Additional configuration is optional via `!setconfig` but usually isn't necessary. **DO NOT SET PRESSURE VALUES UNLESS YOU NEED TO CHANGE THEM.** The pressure values are *already set up for you* and setting them incorrectly will result in Sweetie Bot silencing everyone instantly.
 
 ### Configuration
-Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use `!getconfig <paramater name>`.
+Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use `!getconfig <paramater name>`. Do not use quotes on these values if they have spaces.
 
-Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.
+Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values. In list parameters, *all values* must use quotes if they have spaces in them.
 
     !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>
     !setconfig bored.commands !drop "!pick cute"
 
-Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.
+You may pass no values to a list, which will simply set the list to nothing:
+
+    !setconfig bored.commands
+
+Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten.
 
     !setconfig <map parameter> <key> <value>
     !setconfig basic.aliases listbucket list
-    !setconfig basic.aliases listbucket ""
 
-Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
+If no value is given, the key will be deleted:
+
+    !setconfig basic.aliases listbucket
+
+Maps of lists match keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:
 
     !setconfig <maplist parameter> <key> <value 1> <value 2> <value 3> <etc...>
     !setconfig modules.commandchannels roll #channel1 #channel2
 
-However, to delete a value from a maplist, you simply call `!setconfig modules.commandchannels <key>` with no values at all:
+To delete a value, simply provide only the key and no values:
 
     !setconfig modules.commandchannels roll
 	
