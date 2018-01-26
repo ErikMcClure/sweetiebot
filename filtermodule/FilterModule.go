@@ -282,7 +282,7 @@ func (c *deleteFilterCommand) Process(args []string, msg *discordgo.Message, ind
 		return "```\nNo filter given. All filters: " + strings.Join(getAllFilters(info), ", ") + "```", false, nil
 	}
 	if len(args) > 1 {
-		return "```\nYou specified more than one argument. This command completely removes an entire filter, use !removefilter to remove a single item.```", false, nil
+		return "```\nYou specified more than one argument. This command completely removes an entire filter, use " + info.Config.Basic.CommandPrefix + "removefilter to remove a single item.```", false, nil
 	}
 
 	filter := args[0]

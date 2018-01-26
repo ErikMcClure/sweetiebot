@@ -130,7 +130,7 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 		if info.Silver.Get() {
 			return fmt.Sprintf("```Can't have more than %v unique items in a server!```", max), false, nil
 		}
-		return fmt.Sprintf("```Can't have more than %v unique items in a server! If you want up to %v items, upgrade to Silver by contributing: %s```", max, info.Bot.MaxUniqueItems, bot.PatreonURL), false, nil
+		return fmt.Sprintf("```Can't have more than %v unique items in a server! If you want up to %v items, upgrade to Silver for $1 a month by contributing: %s```", max, info.Bot.MaxUniqueItems, bot.PatreonURL), false, nil
 	}
 
 	tags := strings.Split(args[0], "+")

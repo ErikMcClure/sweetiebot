@@ -496,7 +496,6 @@ func TestParseRole(t *testing.T) {
 	r, err = ParseRole("<@&0>", nil)
 	Check(r, DiscordRole("0"), t)
 	Check(err, nil, t)
-	r, err = ParseRole("<@&a>", nil)
 
 	for _, g := range sb.DG.State.Guilds {
 		i := DiscordGuild(g.ID).Convert() & 0xFF

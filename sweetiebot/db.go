@@ -348,7 +348,7 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 	db.CheckError("AddMember", err)
 }
 
-// SetTimeZone sets a users timezone location
+// SawUser updates a user's lastseen time
 func (db *BotDB) SawUser(user uint64) error {
 	_, err := db.sqlSawUser.Exec(user)
 	err = db.standardErr(err)

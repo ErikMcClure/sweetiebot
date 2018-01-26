@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -86,11 +85,6 @@ func (info *GuildInfo) SaveConfig() (err error) {
 		info.Log("Error writing json: ", err.Error())
 	}
 	return
-}
-
-func deleteFromMapReflect(f reflect.Value, k reflect.Value) string {
-	f.SetMapIndex(k, reflect.Value{})
-	return "Deleted " + fmt.Sprint(k.Interface())
 }
 
 // SendEmbed sends an embed message to the channel, splitting it into multiple messages if necessary

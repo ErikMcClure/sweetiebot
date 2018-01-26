@@ -120,7 +120,7 @@ func setCommandEnable(args []string, enable bool, success string, info *GuildInf
 			return "", false, DumpCommandsModules(info, "", "**Success!** "+args[0]+success, msg)
 		}
 	}
-	for k, _ := range info.commands {
+	for k := range info.commands {
 		if string(k) == name {
 			if enable {
 				delete(info.Config.Modules.CommandDisabled, k)
@@ -224,7 +224,7 @@ func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices [
 	info.Bot.GuildsLock.RLock()
 	defer info.Bot.GuildsLock.RUnlock()
 	for _, v := range info.Bot.Guilds {
-		if v.Config.Log.Channel != ChannelEmpty && !v.Config.Log.Channel.Equals(msg.ChannelID) {
+		if v.Config.Log.Channel != ChannelEmpty && v.Config.Log.Channel != ChannelExclusion && !v.Config.Log.Channel.Equals(msg.ChannelID) {
 			v.SendMessage(v.Config.Log.Channel, "```\nShutting down for update...```")
 		}
 	}

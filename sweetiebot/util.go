@@ -427,7 +427,8 @@ func findChannel(name string, guild *discordgo.Guild) (s []*discordgo.Channel) {
 	return
 }
 
-func findRole(name string, guild *discordgo.Guild) (s []*discordgo.Role) {
+// FindRole returns all roles with the given name
+func FindRole(name string, guild *discordgo.Guild) (s []*discordgo.Role) {
 	name = strings.ToLower(name)
 	for _, r := range guild.Roles {
 		if strings.ToLower(r.Name) == name {
@@ -437,6 +438,7 @@ func findRole(name string, guild *discordgo.Guild) (s []*discordgo.Role) {
 	return
 }
 
+// ReturnError formats an error message and returns it as a message
 func ReturnError(err error) (string, bool, *discordgo.MessageEmbed) {
 	return "```\nError: " + err.Error() + "```", false, nil
 }

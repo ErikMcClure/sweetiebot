@@ -70,21 +70,21 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 	modulename := bot.ModuleID(strings.ToLower(w.Name()))
 	if len(info.Config.Modules.Channels[modulename]) > 0 {
 		for k := range info.Config.Modules.Channels[modulename] {
-			if k != bot.ChannelEmpty {
+			if k != bot.ChannelEmpty && k != bot.ChannelExclusion {
 				channel = k
 				break
 			}
 		}
 	} else if len(info.Config.Modules.Channels["bored"]) > 0 {
 		for k := range info.Config.Modules.Channels["bored"] {
-			if k != bot.ChannelEmpty {
+			if k != bot.ChannelEmpty && k != bot.ChannelExclusion {
 				channel = k
 				break
 			}
 		}
 	} else if len(info.Config.Basic.FreeChannels) > 0 {
 		for k := range info.Config.Basic.FreeChannels {
-			if k != bot.ChannelEmpty {
+			if k != bot.ChannelEmpty && k != bot.ChannelExclusion {
 				channel = k
 				break
 			}
@@ -364,7 +364,7 @@ func (c *addEventCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```\nError: Invalid type specified.```", false, nil
 	}
 	if ty == typeEventReminder {
-		return "```\nError: You cannot add a reminder event this way. Use !remindme instead.```", false, nil
+		return "```\nError: You cannot add a reminder event this way. Use " + info.Config.Basic.CommandPrefix + "remindme instead.```", false, nil
 	}
 	data := ""
 	if ty == typeEventRole {

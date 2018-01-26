@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 6}
+var BotVersion = Version{0, 9, 9, 7}
 
 const (
 	MaxPublicLines  = 12
@@ -53,7 +53,7 @@ const (
 	MaxScheduleRows = 5000
 )
 
-type DeferPair struct {
+type deferPair struct {
 	data interface{}
 	info *GuildInfo
 }
@@ -74,7 +74,7 @@ type SweetieBot struct {
 	DBAuth           string                          `json:"dbauth"`
 	MainGuildID      DiscordGuild                    `json:"mainguildid"`
 	DebugChannels    map[DiscordGuild]DiscordChannel `json:"debugchannels"`
-	quit             uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occured before quitting
+	quit             uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
 	Guilds           map[DiscordGuild]*GuildInfo
 	GuildsLock       sync.RWMutex
 	LastMessages     map[DiscordChannel]int64
@@ -87,7 +87,7 @@ type SweetieBot struct {
 	locknumber       uint32
 	loader           func(*GuildInfo) []Module
 	memberChan       chan *GuildInfo
-	deferChan        chan DeferPair
+	deferChan        chan deferPair
 	Selfhoster       *Selfhost
 	IsUserMode       bool       `json:"runasuser"` // True if running as a user for some godawful reason
 	WebSecure        bool       `json:"websecure"`
@@ -102,6 +102,7 @@ func (sb *SweetieBot) IsMainGuild(info *GuildInfo) bool {
 	return sb.MainGuildID.Equals(info.ID)
 }
 
+// ChannelIsPrivate returns true if channel should be considered private, false otherwise.
 func (sb *SweetieBot) ChannelIsPrivate(channelID DiscordChannel) (*discordgo.Channel, bool) {
 	if channelID == "heartbeat" {
 		return nil, true
@@ -115,6 +116,8 @@ func (sb *SweetieBot) ChannelIsPrivate(channelID DiscordChannel) (*discordgo.Cha
 }
 
 //func (sb *SweetieBot) OnEvent(s *discordgo.Session, e *discordgo.Event) { ApplyFuncRange(len(info.hooks.OnEvent), func(i int) { if(ProcessModule("", info.hooks.OnEvent[i])) { info.hooks.OnEvent[i].OnEvent(s, e) } }) }
+
+// OnReady discord hook
 func (sb *SweetieBot) OnReady(s *discordgo.Session, r *discordgo.Ready) {
 	fmt.Println("Ready message receieved, waiting for guilds...")
 	sb.SelfID = DiscordUser(r.User.ID)
@@ -284,7 +287,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 		if guild.Silver.Get() {
 			changes += "\n\nThank you for your support!"
 		} else {
-			changes += "\n\nPlease consider donating to help pay for hosting costs: " + PatreonURL
+			changes += "\n\nPlease consider donating $1 to help pay for hosting costs: " + PatreonURL
 		}
 	}
 	guild.Log(sb.AppName+" version ", BotVersion.String(), " successfully loaded on ", g.Name, debug, changes)
@@ -419,7 +422,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 
 			if c.Info().Silver && !info.Silver.Get() {
-				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate to gain access: "+PatreonURL+". Visit the support channel for help if you already donated.", t)
+				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate $1 a month to gain access: "+PatreonURL+". Visit the support channel for help if you already donated.", t)
 				return
 			}
 
@@ -507,11 +510,11 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 	if m.ChannelID != "heartbeat" {
 		if info != nil && info.Silver.Get() && sb.DB.CheckStatus() { // Log message on silver guilds
 			if channelID != info.Config.Log.Channel {
-				sb.deferChan <- DeferPair{m, info}
+				sb.deferChan <- deferPair{m, info}
 			}
 		}
 		if info != nil {
-			sb.deferChan <- DeferPair{m.Author, info}
+			sb.deferChan <- deferPair{m.Author, info}
 		}
 		if sb.SelfID.Equals(m.Author.ID) { // discard all our own messages (unless this is a heartbeat message)
 			return
@@ -591,7 +594,7 @@ func (sb *SweetieBot) MessageDelete(s *discordgo.Session, m *discordgo.MessageDe
 
 // UserUpdate discord hook
 func (sb *SweetieBot) UserUpdate(s *discordgo.Session, u *discordgo.UserUpdate) {
-	sb.deferChan <- DeferPair{u, nil}
+	sb.deferChan <- deferPair{u, nil}
 }
 
 // GuildUpdate discord hook
@@ -671,7 +674,7 @@ func (sb *SweetieBot) GuildMemberUpdate(s *discordgo.Session, m *discordgo.Guild
 	if sb.SelfID.Equals(m.User.ID) && len(m.Nick) > 0 {
 		info.BotNick = m.Nick
 	}
-	sb.deferChan <- DeferPair{m, info}
+	sb.deferChan <- deferPair{m, info}
 	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
 		sb.GuildsLock.RLock()
 		sb.Selfhoster.CheckGuilds(sb.Guilds)
@@ -750,6 +753,7 @@ func (sb *SweetieBot) ChannelCreate(s *discordgo.Session, c *discordgo.ChannelCr
 	info.setupSilenceRole()
 }
 
+// FindServers matches server names against a string
 func (sb *SweetieBot) FindServers(name string, guilds []uint64) []*GuildInfo {
 	name = strings.ToLower(name)
 	info := make([]*GuildInfo, 0, len(guilds))
@@ -774,6 +778,7 @@ func (sb *SweetieBot) FindServers(name string, guilds []uint64) []*GuildInfo {
 	return info
 }
 
+// GetDefaultServer attempts to find the default server for a user
 func (sb *SweetieBot) GetDefaultServer(user uint64) *GuildInfo {
 	_, _, _, server := sb.DB.GetUser(user)
 	if server == nil {
@@ -830,7 +835,7 @@ func (sb *SweetieBot) memberIngestionLoop() {
 	}
 }
 
-func (sb *SweetieBot) DeferProcessing() {
+func (sb *SweetieBot) deferProcessing() {
 	for atomic.LoadUint32(&sb.quit) != QuitNow {
 		pair := <-sb.deferChan
 		switch v := pair.data.(type) {
@@ -845,7 +850,7 @@ func (sb *SweetieBot) DeferProcessing() {
 		}
 	}
 }
-func (sb *SweetieBot) IdleCheck(info *GuildInfo, guild *discordgo.Guild) {
+func (sb *SweetieBot) idleCheck(info *GuildInfo, guild *discordgo.Guild) {
 	sb.DG.State.RLock()
 	channels := guild.Channels
 	sb.DG.State.RUnlock()
@@ -896,7 +901,7 @@ func (sb *SweetieBot) idleCheckLoop() {
 			if err != nil {
 				continue
 			}
-			sb.IdleCheck(info, guild)
+			sb.idleCheck(info, guild)
 		}
 
 		fmt.Println("Idle Check: ", time.Now())
@@ -994,12 +999,13 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		heartbeat:      4294967290,
 		loader:         loader,
 		memberChan:     make(chan *GuildInfo, 1500),
-		deferChan:      make(chan DeferPair, 2000),
+		deferChan:      make(chan deferPair, 2000),
 		Selfhoster:     selfhoster,
 		WebSecure:      false,
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 7):  "- Added !createroll\n- !setconfig now accepts arbitrary strings, without quotes, in basic and [map] settings. Quotes are still required for [list] and [maplist] settings. Deletion NO LONGER USES \"\" in [map] settings. Simply pass nothing to delete a key.\n- Fixed display problem in !getconfig, which now displays lists in alphabetical order.",
 			AssembleVersion(0, 9, 9, 6):  "- Update to go v1.9.3\n- Improve database error handling.\n- Fix chatlog race condition.",
 			AssembleVersion(0, 9, 9, 5):  "- Message logging is now deferred to a single thread to prevent database deadlocking.\n- Username lookup now does fuzzy lookups on all aliases\n- Only retains 10 most used aliases.",
 			AssembleVersion(0, 9, 9, 4):  "- Fix crash",
@@ -1205,7 +1211,7 @@ func (sb *SweetieBot) Connect() int {
 		}()
 	}
 
-	go sb.DeferProcessing()
+	go sb.deferProcessing()
 	go sb.idleCheckLoop()
 	go sb.deadlockDetector()
 	go sb.memberIngestionLoop()

@@ -143,7 +143,7 @@ func (c *removeStatusCommand) Process(args []string, msg *discordgo.Message, ind
 }
 func (c *removeStatusCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Removes a string to the discord status rotation. Use !getconfig status.lines to get a list of all strings currently in rotation.",
+		Desc: "Removes a string to the discord status rotation. Use " + info.Config.Basic.CommandPrefix + "getconfig status.lines to get a list of all strings currently in rotation.",
 		Params: []bot.CommandUsageParam{
 			{Name: "arbitrary string", Desc: "Status string that must exactly match the one you want to remove.", Optional: false},
 		},

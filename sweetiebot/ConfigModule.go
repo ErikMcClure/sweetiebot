@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"strconv"
-
 	"github.com/blackhole12/discordgo"
 )
 
@@ -53,7 +51,7 @@ func (c *setConfigCommand) Process(args []string, msg *discordgo.Message, indice
 	if err != nil {
 		return ReturnError(err)
 	}
-	n, ok := info.Config.SetConfig(info, args[0], args[1], args[2:]...)
+	n, ok := info.Config.SetConfig(info, args, indices, msg.Content)
 	info.SaveConfig()
 	if ok {
 		return "```\nSuccessfully set " + args[0] + " to " + n + ".```", false, nil
@@ -62,12 +60,12 @@ func (c *setConfigCommand) Process(args []string, msg *discordgo.Message, indice
 }
 func (c *setConfigCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Sets a configuration value of the format `Collection.Parameter`, possibly involving a key or multiple values, depending on the type of configuration parameter. Will only save the new configuration if it succeeds, and returns the new value upon success.  To set a value with a space in it, surround it with quotes, \"like so\".",
+		Desc: "Sets a configuration value of the format `Collection.Parameter`, possibly involving a key or multiple values, depending on the type of configuration parameter. Will only save the new configuration if it succeeds, and returns the new value upon success. To set lists of values with spaces in them, surround them with quotes, \"like this\" \"and this\". Don't use quotes on single values or key/value parameters, because the quotes won't be removed. To delete a value, set it to nothing.",
 		Params: []CommandUsageParam{
-			{Name: "[parameter] [value]", Desc: "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]", Optional: true},
-			{Name: "[list parameter] [value]", Desc: "If the parameter is a list, it will accept multiple new values.", Optional: true, Variadic: true},
-			{Name: "[map parameter] [key] [value]", Desc: "If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key.", Optional: true},
-			{Name: "[maplist parameter] [key] [value]", Desc: " If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to.", Optional: true, Variadic: true},
+			{Name: "[parameter] [value]", Desc: "Attempts to set the configuration value matching [parameter] (not case-sensitive) to [value]. Don't use quotes for these parameters, even if they have spaces.", Optional: true},
+			{Name: "[list parameter] [value]", Desc: "If the parameter is a list, it will accept multiple new values. For these parameters, you must use quotes on values that have spaces.", Optional: true, Variadic: true},
+			{Name: "[map parameter] [key] [value]", Desc: "If the parameter is a map, it will accept two values: the first is the key, and the second is the value of that key. The key, if it has spaces, must have quotes. The value should not have quotes, even if it has spaces.", Optional: true},
+			{Name: "[maplist parameter] [key] [value]", Desc: "If the parameter is a maplist, the first value is the key, and all other values make up the list of values that key is set to. The key and all the values must have quotes if they have spaces in them.", Optional: true, Variadic: true},
 		},
 	}
 }
@@ -83,31 +81,6 @@ func (c *getConfigCommand) Info() *CommandInfo {
 	}
 }
 
-func (c *getConfigCommand) GetSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) []string {
-	val := f.Field(j)
-	if len(arg) > 2 {
-		switch f.Field(j).Interface().(type) {
-		case map[string]bool, map[string]string, map[string]int64, map[string]map[DiscordChannel]bool, map[string]map[DiscordRole]bool, map[string]map[string]bool:
-			val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
-		case map[DiscordChannel]bool, map[DiscordChannel]float32:
-			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordChannel(arg[2])))
-		case map[DiscordRole]bool:
-			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordRole(arg[2])))
-		case map[DiscordUser][]string:
-			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordUser(arg[2])))
-		case map[int]string:
-			ival, _ := strconv.Atoi(arg[2])
-			val = f.Field(j).MapIndex(reflect.ValueOf(ival))
-		default:
-			return []string{"is not a map."}
-		}
-		if !val.IsValid() || val == reflect.Zero(val.Type()) {
-			return []string{fmt.Sprintf("can't find %v", arg[2])}
-		}
-	}
-	return info.Config.GetConfig(val, info.Bot.DG.State, info.ID)
-}
-
 func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	t := reflect.ValueOf(&info.Config).Elem()
 	n := t.NumField()
@@ -120,13 +93,22 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 				s := make([]string, 0, f.NumField())
 				for j := 0; j < f.NumField(); j++ {
 					str := f.Type().Field(j).Name
-					switch f.Field(j).Interface().(type) {
-					case []uint64, map[string]bool:
+					switch f.Field(j).Kind() {
+					case reflect.Slice:
 						str += " [list]"
-					case map[string]string, map[int64]int, map[int]string, map[string]int64:
-						str += " [map]"
-					case map[uint64][]string, map[string]map[string]bool:
-						str += " [maplist]"
+					case reflect.Map:
+						if f.Field(j).Type().Elem() == reflect.TypeOf(true) {
+							str += " [list]"
+						} else {
+							switch f.Field(j).Type().Elem().Kind() {
+							case reflect.Slice:
+								fallthrough
+							case reflect.Map:
+								str += " [maplist]"
+							default:
+								str += " [map]"
+							}
+						}
 					}
 					s = append(s, str)
 				}
@@ -164,7 +146,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 				if len(arg) > 1 {
 					for j := 0; j < f.NumField(); j++ {
 						if strings.ToLower(f.Type().Field(j).Name) == arg[1] {
-							lines := c.GetSubStruct(arg, f, j, info)
+							lines := GetSubStruct(arg, f, j, info)
 							if len(lines) == 0 {
 								return fmt.Sprintf("```\n%s.%s: [empty]```", arg[0], arg[1]), false, nil
 							} else if len(lines) == 1 {
@@ -183,7 +165,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 						}
 						fields = append(fields, &discordgo.MessageEmbedField{Name: f.Type().Field(j).Name, Value: desc, Inline: false})
 
-						lines := c.GetSubStruct(arg, f, j, info)
+						lines := GetSubStruct(arg, f, j, info)
 						if len(lines) == 0 {
 							dump = append(dump, fmt.Sprintf("%s: [empty]", f.Type().Field(j).Name))
 						} else if len(lines) == 1 {
@@ -259,7 +241,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	if info.Config.SetupDone {
 		if strings.ToLower(args[0]) != "override" {
-			return "```\nWARNING: This server has already been configured. If you run !setup again, it will reset ALL CONFIGURATION DATA to defaults! If you wish to proceed, use !setup OVERRIDE <your arguments>```", false, nil
+			return "```\nWARNING: This server has already been configured. If you run !setup again, it will reset ALL CONFIGURATION DATA to defaults! If you wish to proceed, use " + info.Config.Basic.CommandPrefix + "setup OVERRIDE <your arguments>```", false, nil
 		}
 		args = args[1:]
 		indices = indices[1:]
@@ -273,17 +255,17 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 
 	info.Config.Basic.ModRole, err = ParseRole(args[0], guild)
-	if err != nil || info.Config.Basic.ModRole == RoleEmpty {
+	if err != nil || info.Config.Basic.ModRole == RoleEmpty || info.Config.Basic.ModRole == RoleExclusion {
 		return args[0] + " is not a valid role!", false, nil
 	}
 	info.Config.Basic.ModChannel, err = ParseChannel(args[1], guild)
-	if err != nil || info.Config.Basic.ModChannel == ChannelEmpty {
+	if err != nil || info.Config.Basic.ModChannel == ChannelEmpty || info.Config.Basic.ModChannel == ChannelExclusion {
 		return args[1] + " is not a valid channel!", false, nil
 	}
 
 	if len(args) > 2 {
 		info.Config.Log.Channel, err = ParseChannel(args[2], guild)
-		if err != nil || info.Config.Log.Channel == ChannelEmpty {
+		if err != nil || info.Config.Log.Channel == ChannelEmpty || info.Config.Log.Channel == ChannelExclusion {
 			return args[2] + " is not a valid channel!", false, nil
 		}
 	}

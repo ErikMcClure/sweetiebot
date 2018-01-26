@@ -72,30 +72,41 @@ Documentation</p></a></li>
 <p><a href="https://sweetiebot.io/update/linux/amd64/sweetie">Linux (64-bit)</a></p>
 <p><a href="https://sweetiebot.io/update/linux/386/sweetie">Linux (32-bit)</a></p>
 
-<h2>Configuration</h2>
-<p>Basic configuration parameters can be set with <code>!setconfig &lt;parameter name&gt; &lt;value&gt;</code>. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use <code>!getconfig &lt;paramater name&gt;</code>.</p>
+<h2>Silver</h2>
 
-<p>Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values.</p>
+<p>Donating at least $1 a month to the <a href="https://www.patreon.com/erikmcclure">Patreon</a> will automatically enable chat logging for your server, which is only accessible by moderators via the <code>!search</code> command. It will also enable much higher limits for the total number of unique items you can store in tagged item collections. In order to recieve these benefits, you must <a href="https://patreon.zendesk.com/hc/en-us/articles/212052266-How-do-I-get-my-Discord-Rewards-">link your Patreon and Discord accounts</a>, and you must join the <a href="https://discord.gg/t2gVQvN">Sweetie Bot Support Channel</a>. The bot cannot detect your donation level unless you are on the server and your account has been linked.</p>
+
+<h2>Configuration</h2>
+<p>Basic configuration parameters can be set with <code>!setconfig &lt;parameter name&gt; &lt;value&gt;</code>. To get a list of configuration parameters, use <code>!getconfig</code>. To output the current value of a parameter, use <code>!getconfig &lt;paramater name&gt;</code>.</p>
+
+<p>Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using <code>!getconfig</code>. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will <i>replace</i> the current list of values. In list parameters, <i>all values</i> must use quotes if they have spaces in them.</p>
 
 <pre>!setconfig &lt;list parameter&gt; &lt;value 1&gt; &lt;value 2&gt; &lt;value 3&gt; &lt;etc...&gt;
 !setconfig bored.commands !drop "!pick cute"</pre>
 
-<p>Maps are a set of key-value pairs. Unlike lists, each invocation of `!setconfig` will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten. If the value is set to "", the key will be deleted.</p>
+<p>You may pass no values to a list, which will simply set the list to nothing:</p>
 
-<pre>!setconfig &lt;map parameter&gt; &lt;key&gt; <value>
-!setconfig basic.aliases listbucket list
-!setconfig basic.aliases listbucket ""</pre>
+    !setconfig bored.commands
 
-<p>Maps of lists simply map their keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:</p>
+<p>Maps are a set of key-value pairs. Unlike lists, each invocation of <code>!setconfig</code> will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten.</p>
+
+<pre>!setconfig &lt;map parameter&gt; &lt;key&gt; &lt;value&gt;
+  !setconfig basic.aliases listbucket list</pre>
+
+<p>If no value is given, the key will be deleted:</p>
+
+<pre>!setconfig basic.aliases listbucket</pre>
+
+<p>Maps of lists match keys to entire lists of values instead of just one value. The syntax is similar to setting a single map value:</p>
 
 <pre>!setconfig &lt;maplist parameter&gt; &lt;key&gt; &lt;value 1&gt; &lt;value 2&gt; &lt;value 3&gt; &lt;etc...&gt;
 !setconfig modules.commandchannels roll #channel1 #channel2</pre>
 
-<p>However, to delete a value from a maplist, you simply call <code>!setconfig modules.commandchannels &lt;key&gt;</code> with no values at all:</p>
+<p>To delete a value, simply provide only the key and no values:</p>
 
 <pre>!setconfig modules.commandchannels roll</pre>
-	
-<p>Some maplists are whitelists of channels or roles. To change them into a blacklist, add `!` anywhere in the maplist:</p>
+
+<p>Some maplists are whitelists of channels or roles. To change them into a blacklist, add <code>!</code> anywhere in the maplist:</p>
 
 <pre>!setconfig modules.commandchannels roll ! #excludedchannel1 #excludedchannel2</pre>
 {{ template "footer" . }}
