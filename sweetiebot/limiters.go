@@ -9,7 +9,7 @@ type AtomicFlag struct {
 	flag uint32
 }
 
-// SaturationLimit tracks when events occured and implements a saturation limit on them
+// SaturationLimit tracks when events occurred and implements a saturation limit on them
 type SaturationLimit struct {
 	times []int64
 	index int
