@@ -66,13 +66,18 @@ func (c *echoCommand) Info() *CommandInfo {
 	}
 }
 func (c *echoCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if len(args) < 2 {
+	if len(args) < 1 {
 		return "```\nYou have to tell me to say something, silly!```", false, nil
 	}
-
-	g, _ := info.GetGuild()
-	ch, err := ParseChannel(args[0], g)
-	if err == nil {
+	if ChannelRegex.MatchString(args[0]) || (len(args[0]) > 0 && args[0][0] == '#') {
+		if len(args) < 2 {
+			return "```\nYou have to tell me to say something, silly!```", false, nil
+		}
+		g, _ := info.GetGuild()
+		ch, err := ParseChannel(args[0], g)
+		if err != nil {
+			return ReturnError(err)
+		}
 		if err = info.SendMessage(ch, msg.Content[indices[1]:]); err != nil {
 			return ReturnError(err)
 		}
@@ -82,9 +87,9 @@ func (c *echoCommand) Process(args []string, msg *discordgo.Message, indices []i
 }
 func (c *echoCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Makes " + info.GetBotName() + " say the given sentence in `#channel`.",
+		Desc: "Makes " + info.GetBotName() + " say the given sentence in `#channel`. If `#channel` is omitted, returns the string in the current channel.",
 		Params: []CommandUsageParam{
-			{Name: "#channel", Desc: "The channel to echo the message in.", Optional: false},
+			{Name: "#channel", Desc: "The channel to echo the message in. Must have the `#` prefix, but doesn't have to be a channel ping.", Optional: true},
 			{Name: "arbitrary string", Desc: "An arbitrary string for " + info.GetBotName() + " to say.", Optional: false},
 		},
 	}
