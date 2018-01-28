@@ -10,5 +10,5 @@ type BotInstance struct {
 	AppName     string
 	Token       string `json:"token"`
 	MainGuildID uint64 `json:"mainguildid"`
-	isUserMode  bool   `json:"runasuser"` // True if running as a user for some godawful reason
+	IsUserMode  bool   `json:"runasuser"` // True if running as a user for some godawful reason
 }

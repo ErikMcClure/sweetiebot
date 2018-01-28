@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 7}
+var BotVersion = Version{0, 9, 9, 8}
 
 const (
 	MaxPublicLines  = 12
@@ -1005,6 +1005,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 8):  "- Restore old functionality of !echo\n- say whether a user was autosilenced upon joining.",
 			AssembleVersion(0, 9, 9, 7):  "- Added !createroll\n- !setconfig now accepts arbitrary strings, without quotes, in basic and [map] settings. Quotes are still required for [list] and [maplist] settings. Deletion NO LONGER USES \"\" in [map] settings. Simply pass nothing to delete a key.\n- Fixed display problem in !getconfig, which now displays lists in alphabetical order.",
 			AssembleVersion(0, 9, 9, 6):  "- Update to go v1.9.3\n- Improve database error handling.\n- Fix chatlog race condition.",
 			AssembleVersion(0, 9, 9, 5):  "- Message logging is now deferred to a single thread to prevent database deadlocking.\n- Username lookup now does fuzzy lookups on all aliases\n- Only retains 10 most used aliases.",

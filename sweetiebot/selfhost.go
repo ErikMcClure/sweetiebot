@@ -321,7 +321,7 @@ func getMD5Hash(url string) (md5body []byte, err error) {
 	return
 }
 
-// Downloads a file from the url and attempts to get a *.md5 to check it against if checkMD5 is true
+// DownloadFile downloads a file from the url and attempts to get a *.md5 to check it against if checkMD5 is true
 func DownloadFile(url string, file string, checkMD5 bool) error {
 	out, err := os.Create(file)
 	if err != nil {
