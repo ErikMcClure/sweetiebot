@@ -50,8 +50,11 @@ func (w *UsersModule) Description() string {
 // OnGuildMemberAdd discord hook
 func (w *UsersModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
 	if info.Config.Users.NotifyChannel != bot.ChannelEmpty {
-		created := "(Created " + bot.TimeDiff(t.Sub(bot.SnowflakeTime(bot.SBatoi(m.User.ID)))) + " ago)"
-		info.SendMessage(info.Config.Users.NotifyChannel, "<@"+m.User.ID+"> "+created+" joined.")
+		created := "(Created " + bot.TimeDiff(t.Sub(bot.SnowflakeTime(bot.SBatoi(m.User.ID)))) + " ago) joined"
+		if info.Config.Spam.AutoSilence >= 2 || (info.Config.Spam.AutoSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
+			created += " and was silenced"
+		}
+		info.SendMessage(info.Config.Users.NotifyChannel, "<@"+m.User.ID+"> "+created+".")
 	}
 }
 
