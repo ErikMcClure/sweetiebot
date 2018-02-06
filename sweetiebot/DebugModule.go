@@ -318,7 +318,7 @@ func (c *listGuildsCommand) Process(args []string, msg *discordgo.Message, indic
 		if count < len(v.Members) {
 			count = len(v.Members)
 		}
-		if count > 25 {
+		if count > 50 {
 			s = append(s, info.Sanitize(fmt.Sprintf("%v (%v) - %v", v.Name, count, username), CleanCodeBlock))
 		} else {
 			private++
