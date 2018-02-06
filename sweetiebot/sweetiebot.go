@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // Current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 8}
+var BotVersion = Version{0, 9, 9, 9}
 
 const (
 	MaxPublicLines  = 12
@@ -548,6 +548,9 @@ func (sb *SweetieBot) MessageUpdate(s *discordgo.Session, m *discordgo.MessageUp
 		return
 	}
 	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
+		if perms, err := sb.DG.State.UserChannelPermissions(sb.SelfID.String(), m.ChannelID); err != nil || (perms&discordgo.PermissionReadMessageHistory) == 0 {
+			return // If we don't have read message history this won't work so give up
+		}
 		original, err := s.ChannelMessage(m.ChannelID, m.ID)
 		if err != nil {
 			info.LogError("Error processing MessageUpdate: ", err)
@@ -843,6 +846,7 @@ func (sb *SweetieBot) deferProcessing() {
 			sb.DB.AddMessage(SBatoi(v.ID), SBatoi(v.Author.ID), pair.info.Sanitize(v.Content, CleanMentions|CleanPings), SBatoi(v.ChannelID), v.MentionEveryone, SBatoi(pair.info.ID))
 		case *discordgo.User:
 			sb.DB.SentMessage(SBatoi(v.ID), SBatoi(pair.info.ID))
+			sb.DB.SawUser(SBatoi(v.ID))
 		case *discordgo.UserUpdate:
 			sb.ProcessUser(v.User)
 		case *discordgo.GuildMemberUpdate:
@@ -1005,6 +1009,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 9):  "- Fix lastseen values\n- Fix missing access error message when sweetie doesn't have read message history permissions.",
 			AssembleVersion(0, 9, 9, 8):  "- Restore old functionality of !echo\n- say whether a user was autosilenced upon joining.",
 			AssembleVersion(0, 9, 9, 7):  "- Added !createroll\n- !setconfig now accepts arbitrary strings, without quotes, in basic and [map] settings. Quotes are still required for [list] and [maplist] settings. Deletion NO LONGER USES \"\" in [map] settings. Simply pass nothing to delete a key.\n- Fixed display problem in !getconfig, which now displays lists in alphabetical order.",
 			AssembleVersion(0, 9, 9, 6):  "- Update to go v1.9.3\n- Improve database error handling.\n- Fix chatlog race condition.",
