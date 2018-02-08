@@ -298,13 +298,7 @@ func (sb *SweetieBot) getChannelGuild(id string) *GuildInfo {
 		fmt.Println("Failed to get channel " + id)
 		return nil
 	}
-	sb.GuildsLock.RLock()
-	g, ok := sb.Guilds[DiscordGuild(c.GuildID)]
-	sb.GuildsLock.RUnlock()
-	if !ok {
-		return nil
-	}
-	return g
+	return sb.getGuildFromID(c.GuildID)
 }
 func (sb *SweetieBot) getGuildFromID(id string) *GuildInfo {
 	sb.GuildsLock.RLock()
