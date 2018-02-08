@@ -85,4 +85,4 @@ Sweetie Bot can function with no database, but most commands will no longer func
 
 ******
 
-©2017 Erik McClure
+©2018 Erik McClure
