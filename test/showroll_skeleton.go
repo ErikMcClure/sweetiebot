@@ -1,36 +1,28 @@
-package miscmodule
+package main
 
 import (
-	"math"
 	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
-
-	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
 )
 
+// don't have a sweetiebot instance
+// (or even go binary :P)
+// testing this on https://go-sandbox.com/
 var diceregex = regexp.MustCompile("[0-9]*d[0-9]+")
 
 type showrollCommand struct {
 }
 
-func (c *showrollCommand) Info() *bot.CommandInfo {
-	return &bot.CommandInfo{
-		Name:              "Showroll",
-		Usage:             "Evaluates a dice expression.",
-		ServerIndependent: true,
-	}
-}
-func (c *showrollCommand) eval(args []string, index *int, info *bot.GuildInfo) string {
+func eval(args []string, index *int) string {
 	var s string
 	for *index < len(args) {
 		s += value(args, index) + "\n"
 	}
 	return s
 }
-func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) string {
+func value(args []string, index *int) string {
 	*index++
 	if diceregex.MatchString(args[*index-1]) {
 		dice := strings.SplitN(args[*index-1], "d", 2)
@@ -101,11 +93,11 @@ func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) 
 		}
 		return s
 	}
-	return "Could not parse dice expression. Try " + info.Config.Basic.CommandPrefix + "calculate for advanced expressions."
+	return "Could not parse dice expression. Try !calculate for advanced expressions."
 }
-func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
+func Process(args []string) (retval string) {
 	if len(args) < 1 {
-		return "```\nNothing to roll!```", false, nil
+		return "```\nNothing to roll!```"
 	}
 	defer func() {
 		if s := recover(); s != nil {
@@ -113,14 +105,30 @@ func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 	}()
 	index := 0
-	s := c.eval(args, &index, info)
-	return "```\n" + s + "```", false, nil
+	s := eval(args, &index)
+	return "```\n" + s + "```"
 }
-func (c *showrollCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
-	return &bot.CommandUsage{
-		Desc: "Evaluates a dice roll expression (**N**d**X**[**t**X**][**f**X**]), returning the individual die results. For example, `" + info.Config.Basic.CommandPrefix + "showroll d10` will return `5`, whereas `" + info.Config.Basic.CommandPrefix + "showroll 4d6` will return: `6 + 4 + 2 + 3`. Specify success and failure thresholds with tx and fx respectively. e.g. `17d6t5f2` will report the number of dice 5 or above (successes) and 2 or below (failures)",
-		Params: []bot.CommandUsageParam{
-			{Name: "expression", Desc: "The dice expression to parse.", Optional: false},
-		},
-	}
+func main() {
+	var argsGood []string
+	rand.Seed(2626)
+	argsGood = append(argsGood, "6d6", "12d20", "17d6", "d6")
+	println(Process(argsGood))
+
+	var argsExtra []string
+	rand.Seed(656)
+	argsExtra = append(argsExtra, "12d6t5f1", "8d20f5", "6d10t5", "6d10f1t5")
+	println(Process(argsExtra))
+
+	var argsBad []string
+	rand.Seed(683)
+	argsBad = append(argsBad, "potato", "0d1", "-8d7", "1d0", "6d-6", "6d", "10000d6", "6d10fish", "6d10tx")
+	println(Process(argsBad))
 }
+
+// dice expression (stuff in [] are optional):
+// [x]dx[tx][fx]
+// where:
+//	x: number of dice to roll (postive integer < 10000; optional, defaults to 1)
+//	dx: the type of dice to roll, where x is the number of sides (required)
+//	tx: the threshold to use for hit counting, (x is postive integer < 10000; optional)
+//	fx: the fail threshold to use for hit counting, (x is postive integer < 10000; optional)
