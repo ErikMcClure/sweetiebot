@@ -267,7 +267,6 @@ func DefaultConfig() *BotConfig {
 	config.Markov.DefaultLines = 5
 	config.Markov.UseMemberNames = true
 	config.Bored.Cooldown = 500
-	config.Bored.Commands = map[string]bool{"!quote": true, "!drop": true}
 	config.Log.Cooldown = 4
 	config.Witty.Cooldown = 180
 	config.Miscellaneous.MaxSearchResults = 10
@@ -686,7 +685,7 @@ func (config *BotConfig) FillConfig() {
 		config.Filter.Templates = make(map[string]string)
 	}
 	if len(config.Bored.Commands) == 0 {
-		config.Bored.Commands = make(map[string]bool)
+		config.Bored.Commands = map[string]bool{"!quote": true, "!drop": true}
 	}
 	if len(config.Information.Rules) == 0 {
 		config.Information.Rules = make(map[int]string)

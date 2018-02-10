@@ -76,8 +76,7 @@ func (info *GuildInfo) SaveConfig() (err error) {
 			info.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(info.Bot.MaxConfigSize) + " bytes.")
 			err = errConfigFileTooLarge
 		} else {
-			err = ioutil.WriteFile(info.ID+".json", data, 0664)
-			if err != nil {
+			if err = ioutil.WriteFile(info.ID+".json", data, 0664); err != nil {
 				info.Log("Error saving config file: ", err.Error())
 			}
 		}
@@ -806,4 +805,13 @@ func (info *GuildInfo) ResolveRoleAddError(err error) error {
 		}
 	}
 	return err
+}
+
+func (info *GuildInfo) checkOnCommand(m *discordgo.Message) (ignore bool) {
+	for _, h := range info.hooks.OnCommand {
+		if info.ProcessModule(DiscordChannel(m.ChannelID), h) {
+			ignore = ignore || h.OnCommand(info, m)
+		}
+	}
+	return
 }
