@@ -26,11 +26,11 @@ func (c *showrollCommand) Info() *bot.CommandInfo {
 
 func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo.Config.Basic.CommandPrefix) string {
 	*index++
-	string errmsg := "I can't figure out your dice expression... Try " + prefix + "help showroll for more information."
+	s := "Rolling " + args[*index-1] + ": "
+	errmsg := "I can't figure out your dice expression... Try " + prefix + "help showroll for more information."
 	if diceregex.MatchString(args[*index-1]) {
 		dice := strings.SplitN(args[*index-1], "d", 2)
 		var multiplier, num, threshold, fail int64 = 1, 1, 0, 0
-		s := "Rolling " + args[*index-1] + ": "
 		if len(dice) > 1 {
 			if len(dice[0]) > 0 {
 				multiplier, _ = strconv.ParseInt(dice[0], 10, 64)
@@ -46,7 +46,7 @@ func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo
 					threshold, _ = strconv.ParseInt(tdice[1], 10, 64)
 				}
 				if threshold == 0 {
-					return s + errsmg
+					return s + errmsg
 				}
 			}
 			if strings.Contains(dice[1], "f") {
@@ -101,7 +101,7 @@ func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo
 		}
 		return s
 	}
-	return errmsg
+	return s + errmsg
 }
 
 func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
@@ -110,8 +110,8 @@ func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	index := 0
 	var s string
-	for *index < len(args) {
-		s += value(args, index, info.Config.Basic.CommandPrefix) + "\n"
+	for index < len(args) {
+		s += value(args, &index) + "\n"
 	}
 	return "```\n" + s + "```", false, nil
 }
