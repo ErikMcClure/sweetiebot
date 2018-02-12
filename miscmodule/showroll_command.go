@@ -18,25 +18,19 @@ type showrollCommand struct {
 
 func (c *showrollCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:              "Showroll",
-		Usage:             "Evaluates a dice expression.",
+		Name:              "ShowRoll",
+		Usage:             "Evaluates a dice expression, returning indivual dice results.",
 		ServerIndependent: true,
 	}
 }
-func (c *showrollCommand) eval(args []string, index *int, info *bot.GuildInfo) string {
-	var s string
-	for *index < len(args) {
-		s += value(args, index) + "\n"
-	}
-	return s
-}
-func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) string {
+
+func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo.Config.Basic.CommandPrefix) string {
 	*index++
+	string errmsg := "I can't figure out your dice expression... Try " + prefix + "help showroll for more information."
 	if diceregex.MatchString(args[*index-1]) {
 		dice := strings.SplitN(args[*index-1], "d", 2)
 		var multiplier, num, threshold, fail int64 = 1, 1, 0, 0
-		var s string
-		s = "Rolling " + args[*index-1] + ": "
+		s := "Rolling " + args[*index-1] + ": "
 		if len(dice) > 1 {
 			if len(dice[0]) > 0 {
 				multiplier, _ = strconv.ParseInt(dice[0], 10, 64)
@@ -52,7 +46,7 @@ func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) 
 					threshold, _ = strconv.ParseInt(tdice[1], 10, 64)
 				}
 				if threshold == 0 {
-					return s + "Can't roll that! Check dice expression."
+					return s + errsmg
 				}
 			}
 			if strings.Contains(dice[1], "f") {
@@ -60,17 +54,23 @@ func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) 
 				dice[1] = fdice[0]
 				fail, _ = strconv.ParseInt(fdice[1], 10, 64)
 				if fail == 0 {
-					return s + "Can't roll that! Check dice expression."
+					return s + errmsg
 				}
 			}
 			num, _ = strconv.ParseInt(dice[1], 10, 64)
 		} else {
 			num, _ = strconv.ParseInt(dice[0], 10, 64)
 		}
-		if multiplier < 1 || num < 1 {
-			return s + "Can't roll that! Check dice expression."
+		if fail < 0 || fail > num {
+			return s + "That's a silly fail threshold, filly!"
 		}
-		if multiplier > 9999 {
+		if threshold < 0 || threshold > num {
+			return s + "That's a silly success threshold, filly!"
+		}
+		if multiplier < 1 || num < 1 {
+			return s + errmsg
+		}
+		if multiplier > 250 {
 			return s + "I don't have that many dice..."
 		}
 		var n int64
@@ -101,26 +101,37 @@ func (c *showrollCommand) value(args []string, index *int, info *bot.GuildInfo) 
 		}
 		return s
 	}
-	return "Could not parse dice expression. Try " + info.Config.Basic.CommandPrefix + "calculate for advanced expressions."
+	return errmsg
 }
+
 func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (retval string, b bool, embed *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nNothing to roll!```", false, nil
+		return "```\nNothing to roll...```", false, nil
 	}
-	defer func() {
-		if s := recover(); s != nil {
-			retval = "```ERROR: " + s.(string) + "```"
-		}
-	}()
 	index := 0
-	s := c.eval(args, &index, info)
+	var s string
+	for *index < len(args) {
+		s += value(args, index, info.Config.Basic.CommandPrefix) + "\n"
+	}
 	return "```\n" + s + "```", false, nil
 }
+
 func (c *showrollCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Evaluates a dice roll expression (**N**d**X**[**t**X**][**f**X**]), returning the individual die results. For example, `" + info.Config.Basic.CommandPrefix + "showroll d10` will return `5`, whereas `" + info.Config.Basic.CommandPrefix + "showroll 4d6` will return: `6 + 4 + 2 + 3`. Specify success and failure thresholds with tx and fx respectively. e.g. `17d6t5f2` will report the number of dice 5 or above (successes) and 2 or below (failures)",
+		Desc: `Evaluates a dice roll expression, returning the individual die results. Can also optionally report hit counting for success and fail thresholds.\n
+Acceptable expressions are defined as [**N**]d**X**[t**Y**][f**Z**] where:\n
+N: number of dice to roll (postive integer < 250; optional, defaults to 1)\n
+dX: the type of dice to roll, where X is the number of sides (required)\n
+tY: the threshold to use for hit counting, (x is postive integer; optional)\n
+fZ: the fail threshold to use for hit counting, (x is postive integer; optional)\n
+\n
+Examples:\n
+d6: Rolls a single 6-sided die\n
+4d20: Rolls 4 20-sided dice\n
+12d6t5: Rolls 12 6-sided dice, and counts the number that score 5 or higher\n
+17d10t8f2: Rolls 17 10-sided dice, counts number that roll 8 or higher (successes) and 2 or lower (fails)`,
 		Params: []bot.CommandUsageParam{
-			{Name: "expression", Desc: "The dice expression to parse.", Optional: false},
+			{Name: "expression", Desc: "The dice expression to parse (e.g. `12d6t5f1`; see command description for more details).", Optional: false},
 		},
 	}
 }
