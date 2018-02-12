@@ -111,7 +111,7 @@ func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices
 	index := 0
 	var s string
 	for index < len(args) {
-		s += value(args, &index) + "\n"
+		s += value(args, &index, info.Config.Basic.CommandPrefix) + "\n"
 	}
 	return "```\n" + s + "```", false, nil
 }
