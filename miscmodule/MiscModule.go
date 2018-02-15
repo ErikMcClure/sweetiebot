@@ -29,6 +29,7 @@ func (w *MiscModule) Commands() []bot.Command {
 		&lastSeenCommand{},
 		&searchCommand{statements: make(map[string][]*sql.Stmt)},
 		&rollCommand{},
+		&showrollCommand{},
 		&snowflakeTimeCommand{},
 	}
 }
