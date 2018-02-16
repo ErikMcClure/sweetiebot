@@ -566,6 +566,10 @@ func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, in
 		return "```\nNo server matches that string (or you haven't joined that server).```", false, nil
 	}
 
+	if !guilds[0].Config.SetupDone {
+		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run !setup on that server first.```", guilds[0].Name), false, nil
+	}
+
 	target := bot.SBatoi(guilds[0].ID)
 	_, err := info.Bot.DG.GuildMember(guilds[0].ID, msg.Author.ID) // Attempt to verify the user is actually in this guild.
 	if err != nil {
