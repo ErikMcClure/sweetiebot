@@ -76,6 +76,20 @@ Documentation</p></a></li>
 
 <p>Donating at least $1 a month to the <a href="https://www.patreon.com/erikmcclure">Patreon</a> will automatically enable chat logging for your server, which is only accessible by moderators via the <code>!search</code> command. It will also enable much higher limits for the total number of unique items you can store in tagged item collections. In order to recieve these benefits, you must <a href="https://patreon.zendesk.com/hc/en-us/articles/212052266-How-do-I-get-my-Discord-Rewards-">link your Patreon and Discord accounts</a>, and you must join the <a href="https://discord.gg/t2gVQvN">Sweetie Bot Support Channel</a>. The bot cannot detect your donation level unless you are on the server and your account has been linked.</p>
 
+<h2>Setup</h2>
+
+<p>Upon being added to a server, Sweetie Bot will begin with all commands and modules disabled. <b>Only users with admin rights can setup a server.</b> Sweetie Bot will send the owner of the server a PM when she is first added with instructions on how to run the <code>!setup</code> command. In case you missed it, <code>!setup</code> takes the following parameters, in order:</p>
+
+<dl>
+  <dd><p>Mod Role</p> should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.</dd>
+  <dd><p>Mod Channel</p> should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.</dd>
+  <dd><p>Log Channel</p><span> (optional) </span>should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.</dd>
+</dl>
+
+<p>For example: <code>!setup @Mods #staff-lounge #bot-log</code></p>
+
+<p><code>!setup</code> will automatically restrict all sensitive commands to <code>modrole</code> and enable a default set of modules. <b>Running the setup twice will <i>delete everything</i> and reset all configuration values.</b> Specify an additional <code>OVERRIDE</code> parameter if this is your intent.</p>
+
 <h2>Configuration</h2>
 <p>Basic configuration parameters can be set with <code>!setconfig &lt;parameter name&gt; &lt;value&gt;</code>. To get a list of configuration parameters, use <code>!getconfig</code>. To output the current value of a parameter, use <code>!getconfig &lt;paramater name&gt;</code>.</p>
 
@@ -86,12 +100,12 @@ Documentation</p></a></li>
 
 <p>You may pass no values to a list, which will simply set the list to nothing:</p>
 
-    !setconfig bored.commands
+<pre>!setconfig bored.commands</pre>
 
 <p>Maps are a set of key-value pairs. Unlike lists, each invocation of <code>!setconfig</code> will set just a single key-value pair and won't affect any others. If a key already exists, the value of that key will be overwritten.</p>
 
 <pre>!setconfig &lt;map parameter&gt; &lt;key&gt; &lt;value&gt;
-  !setconfig basic.aliases listbucket list</pre>
+!setconfig basic.aliases listbucket list</pre>
 
 <p>If no value is given, the key will be deleted:</p>
 
