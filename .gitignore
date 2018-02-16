@@ -4,3 +4,5 @@
 /transcripts/
 *.md5
 *.test
+/.vs/
+/.vscode/

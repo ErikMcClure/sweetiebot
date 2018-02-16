@@ -1,9 +1,7 @@
 package miscmodule
 
 import (
-	"math"
 	"math/rand"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -11,7 +9,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-var diceregex = regexp.MustCompile("[0-9]*d[0-9]+")
+const maxShowDice int64 = 250
 
 type showrollCommand struct {
 }
@@ -24,7 +22,7 @@ func (c *showrollCommand) Info() *bot.CommandInfo {
 	}
 }
 
-func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo.Config.Basic.CommandPrefix) string {
+func (c *showrollCommand) value(args []string, index *int, prefix string) string {
 	*index++
 	s := "Rolling " + args[*index-1] + ": "
 	errmsg := "I can't figure out your dice expression... Try " + prefix + "help showroll for more information."
@@ -70,12 +68,12 @@ func (c *showrollCommand) value(args []string, index *int, prefix *bot.GuildInfo
 		if multiplier < 1 || num < 1 {
 			return s + errmsg
 		}
-		if multiplier > 250 {
+		if multiplier > maxShowDice {
 			return s + "I don't have that many dice..."
 		}
 		var n int64
-		var t int = 0
-		var f int = 0
+		var t int
+		var f int
 		for ; multiplier > 0; multiplier-- {
 			n = rand.Int63n(num) + 1
 			s += strconv.FormatInt(n, 10)
@@ -111,27 +109,27 @@ func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices
 	index := 0
 	var s string
 	for index < len(args) {
-		s += value(args, &index, info.Config.Basic.CommandPrefix) + "\n"
+		s += c.value(args, &index, info.Config.Basic.CommandPrefix) + "\n"
 	}
 	return "```\n" + s + "```", false, nil
 }
 
 func (c *showrollCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: `Evaluates a dice roll expression, returning the individual die results. Can also optionally report hit counting for success and fail thresholds.\n
-Acceptable expressions are defined as [**N**]d**X**[t**Y**][f**Z**] where:\n
-N: number of dice to roll (postive integer < 250; optional, defaults to 1)\n
-dX: the type of dice to roll, where X is the number of sides (required)\n
-tY: the threshold to use for hit counting, (x is postive integer; optional)\n
-fZ: the fail threshold to use for hit counting, (x is postive integer; optional)\n
-\n
-Examples:\n
-d6: Rolls a single 6-sided die\n
-4d20: Rolls 4 20-sided dice\n
-12d6t5: Rolls 12 6-sided dice, and counts the number that score 5 or higher\n
+		Desc: `Evaluates a dice roll expression, returning the individual die results. Can also optionally report hit counting for success and fail thresholds.
+Acceptable expressions are defined as [**N**]d**X**[t**Y**][f**Z**] where:
+N: number of dice to roll (postive integer < 250; optional, defaults to 1)
+dX: the type of dice to roll, where X is the number of sides (required)
+tY: the threshold to use for hit counting, (x is postive integer; optional)
+fZ: the fail threshold to use for hit counting, (x is postive integer; optional)
+
+Examples:
+d6: Rolls a single 6-sided die
+4d20: Rolls 4 20-sided dice
+12d6t5: Rolls 12 6-sided dice, and counts the number that score 5 or higher
 17d10t8f2: Rolls 17 10-sided dice, counts number that roll 8 or higher (successes) and 2 or lower (fails)`,
 		Params: []bot.CommandUsageParam{
-			{Name: "expression", Desc: "The dice expression to parse (e.g. `12d6t5f1`; see command description for more details).", Optional: false},
+			{Name: "expression", Desc: "The dice expression to parse (e.g. `12d6t5f1`).", Optional: false},
 		},
 	}
 }
