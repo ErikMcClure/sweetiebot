@@ -134,6 +134,9 @@ func (c *setFilterCommand) Process(args []string, msg *discordgo.Message, indice
 	info.ConfigLock.Lock()
 	m, _ := info.Config.Filter.Filters[filter]
 	if len(m) == 0 {
+		if len(info.Config.Filter.Filters) == 0 {
+			info.Config.Filter.Filters = make(map[string]map[string]bool)
+		}
 		info.Config.Filter.Filters[filter] = make(map[string]bool)
 		add = "Created %s, set response and excluded channels."
 	}

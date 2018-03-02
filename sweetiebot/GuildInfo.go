@@ -320,13 +320,10 @@ func (info *GuildInfo) FindChannelID(name string) string {
 	return ""
 }
 
-// Log the given arguments to the server, the command line, and the database
+// Log the given arguments to the server and the command line
 func (info *GuildInfo) Log(args ...interface{}) {
 	s := fmt.Sprint(args...)
 	fmt.Printf("[%s] %s\n", time.Now().Format(time.Stamp), s)
-	if info.Bot.DB != nil && info != nil && info.Bot.IsMainGuild(info) && info.Bot.DB.Status.Get() {
-		info.Bot.DB.Audit(AuditTypeLog, nil, s, SBatoi(info.ID))
-	}
 	if info != nil && info.Config.Log.Channel != ChannelEmpty {
 		info.SendMessage(info.Config.Log.Channel, "```\n"+s+"```")
 	}
@@ -348,8 +345,7 @@ func (info *GuildInfo) SendError(channelID DiscordChannel, message string, t int
 
 // UserHasRole returns true if the specified user ID has the given role ID (both in strings)
 func (info *GuildInfo) UserHasRole(userID DiscordUser, role DiscordRole) bool {
-	m, err := info.Bot.DG.GetMember(userID, info.ID)
-	if err == nil {
+	if m, err := info.Bot.DG.GetMember(userID, info.ID); err == nil {
 		return MemberHasRole(m, role)
 	}
 	return false
