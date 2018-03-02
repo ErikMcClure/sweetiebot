@@ -37,7 +37,7 @@ var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]
 var DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 11}
+var BotVersion = Version{0, 9, 9, 12}
 
 const (
 	MaxPublicLines  = 12
@@ -1001,6 +1001,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 12): "- Fix crash on !setfilter",
 			AssembleVersion(0, 9, 9, 11): "- Merged !showroll command\n- Prevented setting your default server to one that isn't set up.",
 			AssembleVersion(0, 9, 9, 10): "- Sweetiebot no longer inserts !quote and !drop into the bored commands after restarting, unless the bored commands are empty; if you need to disable bored, disable the module instead.\n- Exorcised demons from three servers with corrupted channel information.\n- Filters now applied to invalid commands.",
 			AssembleVersion(0, 9, 9, 9):  "- Fix lastseen values\n- Fix missing access error message when sweetie doesn't have read message history permissions.",
