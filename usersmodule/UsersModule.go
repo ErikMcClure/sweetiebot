@@ -623,7 +623,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	code, err := assignRoleMember(info, user, info.Config.Basic.SilenceRole)
 	if code < 0 || err != nil {
-		return fmt.Sprintf("```\nError occurred trying to silence %s: %s```", info.GetUserName(user), err.Error()), false, nil
+		return fmt.Sprintf("```\nError occurred trying to silence %s: %s```", info.GetUserName(user), info.ResolveRoleAddError(err).Error()), false, nil
 	} else if code == 1 {
 		var t *time.Time
 		if info.Bot.DB.Status.Get() {
@@ -669,7 +669,7 @@ func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
 	if err != nil {
-		return bot.ReturnError(err)
+		return bot.ReturnError(info.ResolveRoleAddError(err))
 	}
 
 	err = info.Bot.DG.RemoveRole(info.ID, user, info.Config.Basic.SilenceRole)
@@ -729,7 +729,7 @@ func (c *assignRoleCommand) Process(args []string, msg *discordgo.Message, indic
 
 	code, err := assignRoleMember(info, user, role)
 	if code < 0 || err != nil {
-		return fmt.Sprintf("```\nError occurred trying to assign %s to  %s: %s```", role.Show(info), info.GetUserName(user), err.Error()), false, nil
+		return fmt.Sprintf("```\nError occurred trying to assign %s to  %s: %s```", role.Show(info), info.GetUserName(user), info.ResolveRoleAddError(err).Error()), false, nil
 	} else if code == 1 {
 		var t *time.Time
 		if info.Bot.DB.Status.Get() {

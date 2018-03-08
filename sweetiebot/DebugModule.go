@@ -1,7 +1,11 @@
 package sweetiebot
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -13,6 +17,7 @@ import (
 // DebugModule contains various debugging commands
 type DebugModule struct {
 	lastcheck int64
+	lastclean int64
 }
 
 // Name of the module
@@ -53,6 +58,81 @@ func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 		updater := &updateCommand{}
 		updater.Process([]string{}, m, []int{}, info)
 	}
+
+	go func() { // Getting the user list takes forever because of discord API limits, so we do this on a new thread
+		if info.Bot.IsMainGuild(info) && t.Unix()-w.lastclean > CleanInterval {
+			fmt.Println("CLEANING GUILDS")
+			w.lastclean = t.Unix()
+
+			lastid := ""
+			guilds := make(map[string]*discordgo.UserGuild)
+			list, err := info.Bot.DG.UserGuilds(100, "", lastid)
+			for err == nil && len(list) > 0 {
+				for _, v := range list {
+					guilds[v.ID] = v
+				}
+				lastid = list[len(list)-1].ID
+				list, err = info.Bot.DG.UserGuilds(100, "", lastid)
+			}
+			info.LogError("Error cleaning guilds: ", err)
+
+			if err == nil { // ONLY proceed if we have a complete listing of all our guilds with no errors
+				cur, _ := GetCurrentDir()
+				timeNow := time.Now().UTC().Unix()
+				results, err := ioutil.ReadDir(cur)
+				info.LogError("Error cleaning guilds: ", err)
+
+				for _, f := range results {
+					if !f.IsDir() {
+						matches := guildfileregex.FindStringSubmatch(f.Name())
+						if len(matches) > 1 {
+							id := matches[1]
+							_, ok := guilds[id]
+							config := BotConfig{}
+							cfgfile, err := ioutil.ReadFile(filepath.Join(cur, f.Name()))
+							if err == nil {
+								err = json.Unmarshal(cfgfile, &config)
+							}
+							if err != nil {
+								info.LogError("Error loading config: ", err)
+								continue
+							}
+
+							if ok || config.Expires == 0 {
+								config.Expires = timeNow + ExpireTime
+								info.Bot.GuildsLock.RLock()
+								guild, ok := info.Bot.Guilds[DiscordGuild(id)]
+								info.Bot.GuildsLock.RUnlock()
+
+								if ok {
+									guild.ConfigLock.Lock()
+									guild.Config.Expires = config.Expires
+									guild.ConfigLock.Unlock()
+								}
+
+								if data, err := json.Marshal(&config); err == nil {
+									if err = ioutil.WriteFile(id+".json", data, 0664); err != nil {
+										info.Log("Error saving config file: ", err.Error())
+									}
+								} else {
+									info.Log("Error marshalling config file: ", err.Error())
+								}
+							} else if config.Expires < timeNow {
+								fmt.Println("Server ID " + id + " has expired.")
+								info.Bot.GuildsLock.Lock()
+								delete(info.Bot.Guilds, DiscordGuild(id))
+								info.Bot.GuildsLock.Unlock()
+								if err := os.Remove(id + ".json"); err == nil {
+									err = info.Bot.DB.RemoveGuild(SBatoi(id))
+								}
+								info.LogError("Error deleting guild: ", err)
+							}
+						}
+					}
+				}
+			}
+		}
+	}()
 }
 
 type echoCommand struct {
