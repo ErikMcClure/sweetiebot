@@ -17,9 +17,10 @@ type CommandID string
 
 // BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
-	Version     int  `json:"version"`
-	LastVersion int  `json:"lastversion"`
-	SetupDone   bool `json:"setupdone"`
+	Version     int   `json:"version"`
+	LastVersion int   `json:"lastversion"`
+	SetupDone   bool  `json:"setupdone"`
+	Expires     int64 `json:"expires"`
 	Basic       struct {
 		IgnoreInvalidCommands bool                    `json:"ignoreinvalidcommands"`
 		Importable            bool                    `json:"importable"`
