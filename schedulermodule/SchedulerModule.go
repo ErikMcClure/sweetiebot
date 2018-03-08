@@ -137,7 +137,7 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 			dat := strings.SplitN(v.Data, "|", 2)
 			info.SendMessage(channel, dat[0]+" "+dat[1])
 		case typeEventSilence:
-			err := info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(v.Data), info.Config.Basic.SilenceRole)
+			err := info.ResolveRoleAddError(info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(v.Data), info.Config.Basic.SilenceRole))
 			if err != nil {
 				info.SendMessage(info.Config.Basic.ModChannel, "Error unsilencing <@"+v.Data+">: "+err.Error())
 			} else {
@@ -149,7 +149,7 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 				info.SendMessage(info.Config.Basic.ModChannel, "Invalid data in role removal event: "+v.Data)
 			} else {
 				role := bot.DiscordRole(dat[1])
-				err := info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(dat[0]), role)
+				err := info.ResolveRoleAddError(info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(dat[0]), role))
 				if err != nil {
 					info.SendMessage(info.Config.Basic.ModChannel, "Error removing "+role.Show(info)+" from <@"+dat[0]+">: "+err.Error())
 				} else {
