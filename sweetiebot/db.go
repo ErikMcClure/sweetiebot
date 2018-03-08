@@ -111,6 +111,7 @@ type BotDB struct {
 	sqlGetItemTags            *sql.Stmt
 	sqlGetTags                *sql.Stmt
 	sqlImportTag              *sql.Stmt
+	sqlRemoveGuild            *sql.Stmt
 }
 
 func dbLoad(log logger, driver string, conn string) (*BotDB, error) {
@@ -287,6 +288,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetItemTags, err = db.Prepare("SELECT T.Name FROM itemtags M INNER JOIN tags T ON M.Tag = T.ID WHERE M.Item = ? AND T.Guild = ?")
 	db.sqlGetTags, err = db.Prepare("SELECT T.Name, COUNT(M.Item) FROM tags T LEFT OUTER JOIN itemtags M ON T.ID = M.Tag WHERE T.Guild = ? GROUP BY T.Name")
 	db.sqlImportTag, err = db.Prepare("INSERT IGNORE INTO itemtags (Item, Tag) SELECT Item, ? FROM itemtags WHERE Tag = ?")
+	db.sqlRemoveGuild, err = db.Prepare("CALL RemoveGuild(?)")
 	return err
 }
 
@@ -1262,4 +1264,11 @@ func (db *BotDB) ImportTag(srcTag uint64, destTag uint64) error {
 	err = db.standardErr(err)
 	db.CheckError("ImportTag", err)
 	return err
+}
+
+// RemoveGuild removes the given guild from the database, if it exists
+func (db *BotDB) RemoveGuild(guild uint64) error {
+	_, err := db.sqlRemoveGuild.Exec(guild)
+	err = db.standardErr(err)
+	return db.CheckError("RemoveGuild", err)
 }

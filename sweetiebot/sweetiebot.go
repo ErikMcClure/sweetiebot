@@ -32,12 +32,13 @@ var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 var locUTC = time.FixedZone("UTC", 0)
 var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-z]{1,6}([-a-zA-Z0-9@:%_\\+.~#?&//=]*)")
+var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 
 // DiscordEpoch is used to figure out snowflake creation times
 var DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 12}
+var BotVersion = Version{0, 9, 9, 13}
 
 const (
 	MaxPublicLines  = 12
@@ -50,6 +51,8 @@ const (
 	UpdateGrace     = 120
 	MaxUpdateGrace  = 600
 	UpdateInterval  = 300
+	CleanInterval   = 3600
+	ExpireTime      = 3600 * 72
 	MaxScheduleRows = 5000
 )
 
@@ -1001,6 +1004,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 13): "- Made some error messages more clear\n- Fixed database cleanup functions\n- Sweetiebot now deletes all information about guilds she hasn't been on for 3 days.",
 			AssembleVersion(0, 9, 9, 12): "- Fix crash on !setfilter",
 			AssembleVersion(0, 9, 9, 11): "- Merged !showroll command\n- Prevented setting your default server to one that isn't set up.",
 			AssembleVersion(0, 9, 9, 10): "- Sweetiebot no longer inserts !quote and !drop into the bored commands after restarting, unless the bored commands are empty; if you need to disable bored, disable the module instead.\n- Exorcised demons from three servers with corrupted channel information.\n- Filters now applied to invalid commands.",

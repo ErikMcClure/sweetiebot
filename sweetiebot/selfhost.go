@@ -23,7 +23,7 @@ import (
 	"github.com/blackhole12/discordgo"
 )
 
-var fileregex = regexp.MustCompile("^sql_([0-9]+)[.]sql$")
+var sqlfileregex = regexp.MustCompile("^sql_([0-9]+)[.]sql$")
 var ErrMD5Error = errors.New("MD5 mismatch, file corrupt")
 
 type SelfhostBase struct {
@@ -175,7 +175,7 @@ func FindUpgradeFiles(scriptdir string, version int) (files []int) {
 	results, _ := ioutil.ReadDir(scriptdir)
 	for _, f := range results {
 		if !f.IsDir() {
-			matches := fileregex.FindStringSubmatch(f.Name())
+			matches := sqlfileregex.FindStringSubmatch(f.Name())
 			if len(matches) > 1 {
 				v, err := strconv.Atoi(matches[1])
 				if err == nil && v > version {

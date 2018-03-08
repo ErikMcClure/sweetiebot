@@ -310,7 +310,7 @@ func (c *leaveRoleCommand) Process(args []string, msg *discordgo.Message, indice
 		return bot.ReturnError(err)
 	}
 	hasrole := info.UserHasRole(bot.DiscordUser(msg.Author.ID), bot.DiscordRole(r.ID))
-	err = info.Bot.DG.GuildMemberRoleRemove(info.ID, msg.Author.ID, r.ID) // Try removing it no matter what in case discord screwed up
+	err = info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleRemove(info.ID, msg.Author.ID, r.ID)) // Try removing it no matter what in case discord screwed up
 	if !hasrole {
 		return "```\nYou don't have that role.```", false, nil
 	}
@@ -346,7 +346,7 @@ func (c *removeRoleCommand) Process(args []string, msg *discordgo.Message, indic
 
 	r, err := GetRoleByNameOrPing(msg.Content[indices[0]:], info)
 	if err != nil {
-		return bot.ReturnError(err)
+		return bot.ReturnError(info.ResolveRoleAddError(err))
 	}
 	delete(info.Config.Users.Roles, bot.DiscordRole(r.ID))
 	info.SaveConfig()
@@ -381,7 +381,7 @@ func (c *deleteRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	}
 	r, err := GetRoleByNameOrPing(msg.Content[indices[0]:], info)
 	if err != nil {
-		return bot.ReturnError(err)
+		return bot.ReturnError(info.ResolveRoleAddError(err))
 	}
 	err = info.Bot.DG.GuildRoleDelete(info.ID, r.ID)
 	if err != nil {
