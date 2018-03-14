@@ -257,7 +257,7 @@ func ParseUser(s string, info *GuildInfo) (DiscordUser, error) {
 	} else if info != nil {
 		var IDs []uint64
 		s = strings.ToLower(s)
-		IDs = info.FindUsername(s, true)
+		IDs = info.FindUsername(s)
 		if len(IDs) == 0 {
 			return UserEmpty, errNotUser
 		}

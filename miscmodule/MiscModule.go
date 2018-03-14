@@ -56,7 +56,7 @@ func (c *lastSeenCommand) Process(args []string, msg *discordgo.Message, indices
 		return "```\nYou have to give me someone to look for!```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	IDs := info.FindUsername(arg, true)
+	IDs := info.FindUsername(arg)
 	if len(IDs) == 0 { // no matches!
 		return "```\nError: Could not find any usernames or aliases matching " + arg + "!```", false, nil
 	}

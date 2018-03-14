@@ -511,7 +511,7 @@ func (c *getAuditCommand) Process(args []string, msg *discordgo.Message, indices
 				if args[i][0] == '@' || (len(args[i]) > 1 && args[i][1] == '@') {
 					var IDs []uint64
 					if args[i][0] == '@' {
-						IDs = info.FindUsername(args[i][1:], false)
+						IDs = info.FindUsername(args[i][1:])
 					} else {
 						IDs = []uint64{SBatoi(StripPing(args[i]))}
 					}
