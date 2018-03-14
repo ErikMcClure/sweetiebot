@@ -557,7 +557,7 @@ func (info *GuildInfo) setupSilenceRole() {
 			}
 			if !info.Config.Users.WelcomeChannel.Equals(ch.ID) {
 				allow &= (^discordgo.PermissionSendMessages)
-				deny |= discordgo.PermissionSendMessages
+				deny |= discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
 			} else {
 				deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionReadMessages))
 				allow |= discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
@@ -587,11 +587,11 @@ func (info *GuildInfo) ApplyTimezone(t time.Time, user DiscordUser) time.Time {
 }
 
 // FindUsername returns all possible matching IDs for the given username
-func (info *GuildInfo) FindUsername(arg string, serveronly bool) []uint64 {
-	return info.findUsernameInternal(arg, serveronly, 0)
+func (info *GuildInfo) FindUsername(arg string) []uint64 {
+	return info.findUsernameInternal(arg, 0)
 }
 
-func (info *GuildInfo) findUsernameInternal(arg string, serveronly bool, recurse int) []uint64 {
+func (info *GuildInfo) findUsernameInternal(arg string, recurse int) []uint64 {
 	if len(arg) <= 0 {
 		return []uint64{}
 	}
@@ -602,12 +602,14 @@ func (info *GuildInfo) findUsernameInternal(arg string, serveronly bool, recurse
 	if !info.Bot.DB.Status.Get() {
 		return []uint64{}
 	}
-	discriminant := ""
 	if discriminantregex.MatchString(user) {
 		pos := strings.LastIndex(user, "#")
 		if pos >= 0 {
-			discriminant = user[pos+1:]
+			discriminant, err := strconv.Atoi(user[pos+1:])
 			user = strings.ToLower(user[:pos])
+			if err == nil {
+				return info.Bot.DB.FindUser(user, discriminant, 20, 0)
+			}
 		}
 	}
 	r := info.Bot.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
@@ -615,28 +617,8 @@ func (info *GuildInfo) findUsernameInternal(arg string, serveronly bool, recurse
 		user = "%" + user + "%"
 		r = info.Bot.DB.FindGuildUsers(user, 20, 0, SBatoi(info.ID))
 	}
-	if len(r) == 0 && !serveronly {
-		r = info.Bot.DB.FindUsers(user, 20, 0)
-	}
-	if len(discriminant) > 0 {
-		for _, v := range r {
-			m, err := info.Bot.DG.GetMember(NewDiscordUser(v), info.ID)
-			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.User.Username) == user {
-				return []uint64{v}
-			}
-		}
-		for _, v := range r {
-			m, err := info.Bot.DG.GetMember(NewDiscordUser(v), info.ID)
-			if err == nil && m.User.Discriminator == discriminant && strings.ToLower(m.Nick) == user {
-				return []uint64{v}
-			}
-		}
-		if arg[0] != '@' {
-			return []uint64{}
-		}
-	}
-	if arg[0] == '@' && recurse < 1 {
-		return info.findUsernameInternal(arg[1:], serveronly, recurse+1)
+	if len(r) == 0 && arg[0] == '@' && recurse < 1 {
+		return info.findUsernameInternal(arg[1:], recurse+1)
 	}
 	return r
 }

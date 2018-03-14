@@ -35,7 +35,7 @@ type BotDB struct {
 	sqlGetUser                *sql.Stmt
 	sqlGetMember              *sql.Stmt
 	sqlFindGuildUsers         *sql.Stmt
-	sqlFindUsers              *sql.Stmt
+	sqlFindUser               *sql.Stmt
 	sqlGetNewestUsers         *sql.Stmt
 	sqlGetRecentUsers         *sql.Stmt
 	sqlGetAliases             *sql.Stmt
@@ -212,7 +212,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sqlFindGuildUsers, err = db.Prepare("SELECT DISTINCT M.ID FROM members M LEFT OUTER JOIN aliases A ON A.User = M.ID WHERE M.Guild = ? AND (M.Nickname LIKE ? OR A.Alias LIKE ?) LIMIT ? OFFSET ?")
-	db.sqlFindUsers, err = db.Prepare("SELECT DISTINCT M.ID FROM members M LEFT OUTER JOIN aliases A ON A.User = M.ID WHERE M.Nickname LIKE ? OR A.Alias LIKE ? LIMIT ? OFFSET ?")
+	db.sqlFindUser, err = db.Prepare("SELECT DISTINCT U.ID FROM users U WHERE U.Discriminator = ? and U.Username LIKE ? LIMIT ? OFFSET ?")
 	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
 	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sqlGetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
@@ -428,10 +428,10 @@ func (db *BotDB) FindGuildUsers(name string, maxresults uint64, offset uint64, g
 	return r
 }
 
-// FindUsers returns all users from ANY guild that could satisfy the given name.
-func (db *BotDB) FindUsers(name string, maxresults uint64, offset uint64) []uint64 {
-	q, err := db.sqlFindUsers.Query(name, name, maxresults, offset)
-	if db.CheckError("FindUsers", err) != nil {
+// FindUser returns all users with the given name and discriminator (which should be only one but cache errors can happen)
+func (db *BotDB) FindUser(name string, discriminator int, maxresults uint64, offset uint64) []uint64 {
+	q, err := db.sqlFindUser.Query(discriminator, name, maxresults, offset)
+	if db.CheckError("FindUser", err) != nil {
 		return []uint64{}
 	}
 	defer q.Close()
