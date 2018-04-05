@@ -27,10 +27,7 @@ var UserRegex = regexp.MustCompile("<@!?([0-9]+)>")
 var RoleRegex = regexp.MustCompile("<@&([0-9]+)>")
 
 var mentionRegex = regexp.MustCompile("<@(!|&)?[0-9]+>")
-var roleregex = regexp.MustCompile("<@&[0-9]+>")
 var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
-var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
-var locUTC = time.FixedZone("UTC", 0)
 var urlregex = regexp.MustCompile("https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-z]{1,6}([-a-zA-Z0-9@:%_\\+.~#?&//=]*)")
 var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 
@@ -478,7 +475,8 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 // MessageCreate discord hook
 func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	atomic.AddUint32(&sb.MessageCount, 1)
-	if m.Author == nil { // This shouldn't ever happen but we check for it anyway
+
+	if m.Type != discordgo.MessageTypeDefault || m.Author == nil { // Ignore all messages that are of a special type or that have no author
 		return
 	}
 
@@ -542,16 +540,8 @@ func (sb *SweetieBot) MessageUpdate(s *discordgo.Session, m *discordgo.MessageUp
 	if boolXOR(sb.Debug, info.IsDebug(channelID)) {
 		return
 	}
-	if m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
-		if perms, err := sb.DG.State.UserChannelPermissions(sb.SelfID.String(), m.ChannelID); err != nil || (perms&discordgo.PermissionReadMessageHistory) == 0 {
-			return // If we don't have read message history this won't work so give up
-		}
-		original, err := s.ChannelMessage(m.ChannelID, m.ID)
-		if err != nil {
-			info.LogError("Error processing MessageUpdate: ", err)
-			return // Fuck it, we can't process this
-		}
-		m.Author = original.Author
+	if m.Type != discordgo.MessageTypeDefault || m.Author == nil { // Discord sends an update message with an empty author when certain media links are posted
+		return // Because this only happens for media links and causes all sorts of problems, we just don't process messages without an author.
 	}
 
 	ch, err := sb.DG.State.Channel(m.ChannelID)
@@ -1006,6 +996,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- ",
 			AssembleVersion(0, 9, 9, 14): "- Fuck Daylight Savings\n- Also, fuck timezones\n- Prevent silenced members from using emoji reactions.\n- Removed main instance status loop (still available on selfhost instances)\n- Can no longer search for a user that is not in your server. If you need to search for a banned user, ping them using the ID or specify username#1234. This makes searches much faster.",
 			AssembleVersion(0, 9, 9, 13): "- Made some error messages more clear\n- Fixed database cleanup functions\n- Sweetiebot now deletes all information about guilds she hasn't been on for 3 days.",
 			AssembleVersion(0, 9, 9, 12): "- Fix crash on !setfilter",
@@ -1205,7 +1196,6 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	sb.DG.AddHandler(sb.GuildRoleDelete)
 	sb.DG.AddHandler(sb.GuildCreate)
 	sb.DG.AddHandler(sb.ChannelCreate)
-
 	return sb
 }
 
