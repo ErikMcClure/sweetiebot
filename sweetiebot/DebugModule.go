@@ -6,13 +6,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/blackhole12/discordgo"
 )
+
+var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
 
 // DebugModule contains various debugging commands
 type DebugModule struct {
@@ -29,6 +33,7 @@ func (w *DebugModule) Name() string {
 func (w *DebugModule) Commands() []Command {
 	return []Command{
 		&echoCommand{},
+		&echoEmbedCommand{},
 		&disableCommand{},
 		&enableCommand{},
 		&updateCommand{},
@@ -171,6 +176,79 @@ func (c *echoCommand) Usage(info *GuildInfo) *CommandUsage {
 		Params: []CommandUsageParam{
 			{Name: "#channel", Desc: "The channel to echo the message in. Must have the `#` prefix, but doesn't have to be a channel ping.", Optional: true},
 			{Name: "arbitrary string", Desc: "An arbitrary string for " + info.GetBotName() + " to say.", Optional: false},
+		},
+	}
+}
+
+type echoEmbedCommand struct {
+}
+
+func (c *echoEmbedCommand) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "EchoEmbed",
+		Usage:     "Makes Sweetie Bot echo a rich text embed in a given channel.",
+		Sensitive: true,
+	}
+}
+func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) == 0 {
+		return "```You have to tell me to say something, silly!```", false, nil
+	}
+	arg := args[0]
+	channel := msg.ChannelID
+	i := 0
+	if ChannelRegex.MatchString(arg) {
+		if len(args) < 2 {
+			return "```You have to tell me to say something, silly!```", false, nil
+		}
+		channel = arg[2 : len(arg)-1]
+		i++
+	}
+	if i >= len(args) {
+		return "```A URL is mandatory or discord won't send the embed message for some stupid reason.```", false, nil
+	}
+	url := args[i]
+	i++
+	var color uint64 = 0xFFFFFFFF
+	if i < len(args) {
+		if colorregex.MatchString(args[i]) {
+			if len(args) < i+2 {
+				return "```You have to tell me to say something, silly!```", false, nil
+			}
+			color, _ = strconv.ParseUint(args[i][2:], 16, 64)
+			i++
+		}
+	}
+	fields := make([]*discordgo.MessageEmbedField, 0, len(args)-i)
+	for i < len(args) {
+		s := strings.SplitN(args[i], ":", 2)
+		if len(s) < 2 {
+			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
+		}
+		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
+		i++
+	}
+	embed := &discordgo.MessageEmbed{
+		Type: "rich",
+		Author: &discordgo.MessageEmbedAuthor{
+			URL:     url,
+			Name:    msg.Author.Username + "#" + msg.Author.Discriminator,
+			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%s/%s.jpg", msg.Author.ID, msg.Author.Avatar),
+		},
+		Color:  int(color),
+		Fields: fields,
+	}
+	info.SendEmbed(DiscordChannel(channel), embed)
+	return "", false, nil
+}
+func (c *echoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel",
+		Params: []CommandUsageParam{
+			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
+			{Name: "URL", Desc: "URL for the author to link to.", Optional: false},
+			{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: true},
+			{Name: "key:value", Desc: "A key:value pair of fields to display in the embed. Remember to use quotes around the *entire* key:value pair if either the key or the value have spaces.", Optional: true, Variadic: true},
 		},
 	}
 }

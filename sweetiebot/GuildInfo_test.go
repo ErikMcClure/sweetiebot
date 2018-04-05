@@ -468,9 +468,9 @@ func TestSetupSilenceRole(t *testing.T) {
 				allow := discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory
 				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", allow, 0)
 			} else {
-				deny := discordgo.PermissionSendMessages
+				deny := discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
 				if len(c.PermissionOverwrites) > 0 && c.PermissionOverwrites[0].ID == g.Config.Basic.SilenceRole.String() {
-					deny = discordgo.PermissionAllText
+					deny = discordgo.PermissionAllText | discordgo.PermissionAddReactions
 				}
 				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", 0, deny)
 			}
