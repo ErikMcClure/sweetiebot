@@ -212,7 +212,7 @@ func ReplaceAllRolePings(s string, info *GuildInfo) string {
 	if err != nil {
 		return s
 	}
-	return roleregex.ReplaceAllStringFunc(s, func(s string) string {
+	return RoleRegex.ReplaceAllStringFunc(s, func(s string) string {
 		r := StripPing(s)
 		for _, v := range guild.Roles {
 			if v.ID == r {
