@@ -70,6 +70,7 @@ type BotDB struct {
 	sqlAddScheduleRepeat      *sql.Stmt
 	sqlGetSchedule            *sql.Stmt
 	sqlRemoveSchedule         *sql.Stmt
+	sqlDeleteSchedule         *sql.Stmt
 	sqlCountEvents            *sql.Stmt
 	sqlGetEvent               *sql.Stmt
 	sqlGetEvents              *sql.Stmt
@@ -247,6 +248,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlAddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
 	db.sqlGetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
 	db.sqlRemoveSchedule, err = db.Prepare("CALL RemoveSchedule(?)")
+	db.sqlDeleteSchedule, err = db.Prepare("DELETE FROM `schedule` WHERE ID = ?")
 	db.sqlCountEvents, err = db.Prepare("SELECT COUNT(*) FROM schedule WHERE Guild = ?")
 	db.sqlGetEvent, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND ID = ?")
 	db.sqlGetEvents, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Type != 0 AND Type != 4 AND Type != 6 ORDER BY Date ASC LIMIT ?")
@@ -734,10 +736,16 @@ func (db *BotDB) CountNewUsers(seconds int64, guild uint64) int {
 	return i
 }
 
-// RemoveSchedule removes the event with the given ID
+// RemoveSchedule removes the event with the given ID and creates a new one after the repeat interval
 func (db *BotDB) RemoveSchedule(id uint64) error {
 	_, err := db.sqlRemoveSchedule.Exec(id)
 	return db.CheckError("RemoveSchedule", err)
+}
+
+// DeleteSchedule deletes the event with the given ID regardless of it's repeat interval or activation time.
+func (db *BotDB) DeleteSchedule(id uint64) error {
+	_, err := db.sqlDeleteSchedule.Exec(id)
+	return db.CheckError("DeleteSchedule", err)
 }
 
 // AddSchedule adds an event to the schedule
