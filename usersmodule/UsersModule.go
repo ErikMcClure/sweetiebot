@@ -529,8 +529,9 @@ type defaultServerCommand struct {
 
 func (c *defaultServerCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:  "DefaultServer",
-		Usage: "Sets your default server.",
+		Name:              "DefaultServer",
+		Usage:             "Sets your default server.",
+		ServerIndependent: true,
 	}
 }
 
