@@ -6,21 +6,24 @@ import (
 	"strconv"
 	"strings"
 
+	"../spammodule"
 	bot "../sweetiebot"
 	"github.com/blackhole12/discordgo"
 )
 
 // FilterModule implements word filters that allow you to look for spoilers or profanity uses regex matching.
 type FilterModule struct {
+	spam    *spammodule.SpamModule
 	filters map[string]*regexp.Regexp
 	lastmsg int64 // Universal saturation limit on all filter responses
 }
 
 // New instance of FilterModule
-func New(info *bot.GuildInfo) *FilterModule {
+func New(info *bot.GuildInfo, s *spammodule.SpamModule) *FilterModule {
 	w := &FilterModule{
 		filters: make(map[string]*regexp.Regexp),
 		lastmsg: 0,
+		spam:    s,
 	}
 	for k := range info.Config.Filter.Filters {
 		w.UpdateRegex(k, info)
@@ -46,10 +49,15 @@ func (w *FilterModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *FilterModule) Description() string {
-	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels."
+	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure."
 }
 
 func (w *FilterModule) matchFilter(info *bot.GuildInfo, m *discordgo.Message) bool {
+	author := bot.DiscordUser(m.Author.ID)
+	if info.UserIsMod(author) || info.UserIsAdmin(author) || m.Author.Bot {
+		return false
+	}
+
 	timestamp := bot.GetTimestamp(m)
 	for k, v := range w.filters {
 		if v == nil { // skip empty regex
@@ -62,9 +70,17 @@ func (w *FilterModule) matchFilter(info *bot.GuildInfo, m *discordgo.Message) bo
 		}
 		if v.MatchString(m.Content) {
 			ch, _ := info.Bot.DG.State.Channel(m.ChannelID)
-			info.ChannelMessageDelete(ch, m.ID)
-			if bot.RateLimit(&w.lastmsg, 5, timestamp.Unix()) {
-				if s := info.Config.Filter.Responses[k]; len(s) > 0 {
+
+			if len(info.Config.Filter.Pressure) > 0 && w.spam != nil {
+				if p, ok := info.Config.Filter.Pressure[k]; ok && p > 0.0 {
+					w.spam.AddPressure(info, m, w.spam.TrackUser(author, bot.GetTimestamp(m)), p, "triggering the "+k+" filter")
+				}
+			}
+
+			if s, _ := info.Config.Filter.Responses[k]; len(s) != 1 || s[0] != '!' {
+				info.ChannelMessageDelete(ch, m.ID)
+
+				if len(s) > 0 && bot.RateLimit(&w.lastmsg, 5, timestamp.Unix()) {
 					info.SendMessage(bot.DiscordChannel(m.ChannelID), s)
 				}
 			}
