@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"../spammodule"
 	bot "../sweetiebot"
@@ -78,6 +79,7 @@ func (w *FilterModule) matchFilter(info *bot.GuildInfo, m *discordgo.Message) bo
 			}
 
 			if s, _ := info.Config.Filter.Responses[k]; len(s) != 1 || s[0] != '!' {
+				time.Sleep(bot.DelayTime)
 				info.ChannelMessageDelete(ch, m.ID)
 
 				if len(s) > 0 && bot.RateLimit(&w.lastmsg, 5, timestamp.Unix()) {
