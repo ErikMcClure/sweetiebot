@@ -78,6 +78,7 @@ func silenceMember(user *discordgo.User, info *bot.GuildInfo) int8 {
 func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
 	// Before anything else happens, we delete this message. This ensures that even if we get rate-limited, we can still delete any new messages
 	if info.Config.Spam.MaxRemoveLookback >= 0 {
+		time.Sleep(bot.DelayTime)
 		info.Bot.DG.ChannelMessageDelete(msg.ChannelID, msg.ID)
 	}
 
@@ -184,6 +185,7 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 		author := bot.DiscordUser(m.Author.ID)
 		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.WelcomeChannel.Equals(m.ChannelID) {
 			ch, _ := info.Bot.DG.Channel(m.ChannelID)
+			time.Sleep(bot.DelayTime)
 			info.ChannelMessageDelete(ch, m.ID)
 			return true
 		}
