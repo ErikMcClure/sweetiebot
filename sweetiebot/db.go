@@ -31,6 +31,7 @@ type BotDB struct {
 	sqlAddUser                *sql.Stmt
 	sqlAddMember              *sql.Stmt
 	sqlSawUser                *sql.Stmt
+	sqlSetUserAlias           *sql.Stmt
 	sqlRemoveMember           *sql.Stmt
 	sqlGetUser                *sql.Stmt
 	sqlGetMember              *sql.Stmt
@@ -209,6 +210,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
 	db.sqlAddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sqlSawUser, err = db.Prepare("UPDATE users SET LastSeen = UTC_TIMESTAMP() WHERE ID = ?")
+	db.sqlSetUserAlias, err = db.Prepare("INSERT IGNORE INTO aliases (`User`, Alias, Duration, `Timestamp`)	VALUES (?, ?, 0, UTC_TIMESTAMP())")
 	db.sqlRemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
 	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
 	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
@@ -328,8 +330,8 @@ func (db *BotDB) CheckError(name string, err error) error {
 }
 
 // AddMessage logs a message to the chatlog
-func (db *BotDB) AddMessage(id uint64, author uint64, message string, channel uint64, everyone bool, guild uint64) {
-	_, err := db.sqlAddMessage.Exec(id, author, message, channel, everyone, guild)
+func (db *BotDB) AddMessage(id uint64, author *discordgo.User, message string, channel uint64, guild uint64) {
+	_, err := db.sqlAddMessage.Exec(id, SBatoi(author.ID), author.Username, message, channel, guild)
 	db.CheckError("AddMessage", err)
 }
 
@@ -353,10 +355,15 @@ func (db *BotDB) AddMember(id uint64, guild uint64, firstseen time.Time, nicknam
 }
 
 // SawUser updates a user's lastseen time
-func (db *BotDB) SawUser(user uint64) error {
+func (db *BotDB) SawUser(user uint64, username string) error {
 	_, err := db.sqlSawUser.Exec(user)
 	err = db.standardErr(err)
-	return db.CheckError("SawUser", err)
+	if err != nil || len(username) == 0 {
+		return db.CheckError("SawUser", err)
+	}
+	_, err = db.sqlSetUserAlias.Exec(user, username) // Ensures the username is always in the alias table even if we miss it somehow
+	err = db.standardErr(err)
+	return db.CheckError("SetUserAlias", err)
 }
 
 // RemoveMember removes a user from a guild
