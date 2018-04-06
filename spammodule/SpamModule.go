@@ -96,8 +96,15 @@ func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message,
 		chname = ch.Name
 	}
 	lastmsg := info.Sanitize(msg.Content, bot.CleanAll)
-	if len(lastmsg) > 300 {
-		lastmsg = lastmsg[:300] + " [truncated]"
+	split := strings.SplitAfterN(lastmsg, "\n", 10)
+	if len(split) > 9 {
+		lastmsg = strings.Join(split[:9], "\n")
+		if len(lastmsg) > 300 {
+			lastmsg = lastmsg[:300]
+		}
+		lastmsg += "... [truncated]"
+	} else if len(lastmsg) > 300 {
+		lastmsg = lastmsg[:300] + "... [truncated]"
 	}
 	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
 	if info.Config.Users.WelcomeChannel.Equals(msg.ChannelID) {
@@ -200,6 +207,9 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 			track.pressure = 0
 		}
 
+		if w.AddPressure(info, m, track, info.Config.Spam.BasePressure, "spamming too many messages") {
+			return true
+		}
 		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Attachments)), "attaching too many files") {
 			return true
 		}
@@ -221,10 +231,6 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 			}
 		}
 		track.lastcache = strings.ToLower(m.Content)
-
-		if w.AddPressure(info, m, track, info.Config.Spam.BasePressure, "spamming too many messages") {
-			return true
-		}
 	}
 	return false
 }
