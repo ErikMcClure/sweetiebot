@@ -33,20 +33,32 @@ CREATE TABLE IF NOT EXISTS `users` (
   CONSTRAINT `FK_Location_timezone` FOREIGN KEY (`Location`) REFERENCES `timezones` (`Location`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
-CREATE PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT, IN `_guild` BIGINT)
-    MODIFIES SQL DATA
+CREATE PROCEDURE `AddChat`(
+	IN `_id` BIGINT,
+	IN `_author` BIGINT,
+	IN `_username` VARCHAR(128),
+	IN `_message` VARCHAR(2000),
+	IN `_channel` BIGINT,
+	IN `_guild` BIGINT
+
+)
+MODIFIES SQL DATA
 BEGIN
 
 INSERT INTO users (ID, Username, Avatar, LastSeen, LastNameChange) 
-VALUES (_author, '', '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+VALUES (_author, _username, '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP();
 
-INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
-VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone, _guild)
+INSERT IGNORE INTO aliases (`User`, Alias, Duration, `Timestamp`)
+VALUES (_id, _username, 0, UTC_TIMESTAMP());
+
+INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Guild)
+VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _guild)
 ON DUPLICATE KEY UPDATE /* This prevents a race condition from causing a serious error */
-Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Everyone=_everyone;
+Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP();
 
 END//
+
 
 CREATE FUNCTION `AddItem`(`_content` VARCHAR(500)) RETURNS bigint(20)
     MODIFIES SQL DATA
@@ -95,7 +107,7 @@ FirstSeen=GetMinDate(_firstseen,FirstSeen), Nickname=_nickname//
 
 CREATE PROCEDURE `AddUser`(
 	IN `_id` BIGINT,
-	IN `_username` VARCHAR(512),
+	IN `_username` VARCHAR(128),
 	IN `_discriminator` INT,
 	IN `_avatar` VARCHAR(512),
 	IN `_isonline` BIT
@@ -153,7 +165,6 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   `Message` varchar(2000) NOT NULL,
   `Timestamp` datetime NOT NULL,
   `Channel` bigint(20) unsigned NOT NULL,
-  `Everyone` bit(1) NOT NULL,
   `Guild` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`ID`),
   KEY `INDEX_TIMESTAMP` (`Timestamp`),
@@ -236,7 +247,6 @@ CREATE TABLE IF NOT EXISTS `editlog` (
   `Author` BIGINT(20) UNSIGNED NOT NULL,
   `Message` VARCHAR(2000) NOT NULL,
   `Channel` BIGINT(20) UNSIGNED NOT NULL,
-  `Everyone` BIT(1) NOT NULL,
   `Guild` BIGINT(20) UNSIGNED NOT NULL,
   PRIMARY KEY (`ID`, `Timestamp`),
   INDEX `INDEX_TIMESTAMP` (`Timestamp`),
@@ -628,8 +638,8 @@ CREATE TABLE IF NOT EXISTS `votes` (
 
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Everyone, Guild)
-VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Everyone, OLD.Guild)
+CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Guild)
+VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Guild)
 ON DUPLICATE KEY UPDATE `Timestamp` = OLD.`Timestamp`, Message = OLD.Message//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 

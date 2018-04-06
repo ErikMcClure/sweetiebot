@@ -399,7 +399,6 @@ func (info *GuildInfo) UserCanUseCommand(userID DiscordUser, command Command, ig
 
 // UserIsAdmin returns true if the user is an admin or the owner of the bot. Always prefers returning false if any kind of error happens.
 func (info *GuildInfo) UserIsAdmin(userID DiscordUser) bool {
-	return false
 	if userID == info.Bot.Owner {
 		return true
 	}
@@ -409,7 +408,6 @@ func (info *GuildInfo) UserIsAdmin(userID DiscordUser) bool {
 
 // UserIsMod returns true if the user is a mod
 func (info *GuildInfo) UserIsMod(userID DiscordUser) bool {
-	return false
 	return info.Config.Basic.ModRole != RoleEmpty && info.UserHasRole(userID, info.Config.Basic.ModRole)
 }
 
