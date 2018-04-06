@@ -465,7 +465,7 @@ func (c *removeEventCommand) Process(args []string, msg *discordgo.Message, indi
 		return "```\nError: You do not have permission to delete that event.```", false, nil
 	}
 
-	info.Bot.DB.RemoveSchedule(id)
+	info.Bot.DB.DeleteSchedule(id)
 	return "```\nRemoved Event #" + bot.SBitoa(id) + " from schedule.```", false, nil
 }
 func (c *removeEventCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
