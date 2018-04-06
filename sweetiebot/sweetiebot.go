@@ -159,6 +159,9 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.Guilds[DiscordGuild(g.ID)]
 	sb.GuildsLock.RUnlock()
 	if exists {
+		sb.GuildsLock.RLock()
+		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
+		sb.GuildsLock.RUnlock()
 		guild.ProcessGuild(g)
 		return
 	}
@@ -592,6 +595,9 @@ func (sb *SweetieBot) GuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate
 		return
 	}
 	fmt.Println("Guild update detected, updating", m.Name)
+	sb.GuildsLock.RLock()
+	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(info.ID): info})
+	sb.GuildsLock.RUnlock()
 	info.ProcessGuild(m.Guild)
 
 	for _, h := range info.hooks.OnGuildUpdate {
@@ -996,7 +1002,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- ",
+			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- Autosilencing now include a reason for the silence\n- Filters can now add pressure when triggered, and can be configured to not remove the message at all. Check the documentation for details\n- Filters are no longer applied to bots/mods/admins.\n- Ownership changes are properly tracked",
 			AssembleVersion(0, 9, 9, 14): "- Fuck Daylight Savings\n- Also, fuck timezones\n- Prevent silenced members from using emoji reactions.\n- Removed main instance status loop (still available on selfhost instances)\n- Can no longer search for a user that is not in your server. If you need to search for a banned user, ping them using the ID or specify username#1234. This makes searches much faster.",
 			AssembleVersion(0, 9, 9, 13): "- Made some error messages more clear\n- Fixed database cleanup functions\n- Sweetiebot now deletes all information about guilds she hasn't been on for 3 days.",
 			AssembleVersion(0, 9, 9, 12): "- Fix crash on !setfilter",

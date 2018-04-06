@@ -37,8 +37,9 @@ func loader(guild *sweetiebot.GuildInfo) []sweetiebot.Module {
 	modules = append(modules, boredmodule.New())
 	modules = append(modules, miscmodule.New())
 	modules = append(modules, wittymodule.New(guild))
-	modules = append(modules, spammodule.New())
-	modules = append(modules, filtermodule.New(guild))
+	spam := spammodule.New()
+	modules = append(modules, spam)
+	modules = append(modules, filtermodule.New(guild, spam))
 
 	return modules
 }

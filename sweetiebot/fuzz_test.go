@@ -40,8 +40,9 @@ func loader(guild *sweetiebot.GuildInfo) []sweetiebot.Module {
 	modules = append(modules, boredmodule.New())
 	modules = append(modules, miscmodule.New())
 	modules = append(modules, wittymodule.New(guild))
-	modules = append(modules, spammodule.New())
-	modules = append(modules, filtermodule.New(guild))
+	spam := spammodule.New()
+	modules = append(modules, spam)
+	modules = append(modules, filtermodule.New(guild, spam))
 
 	return modules
 }
@@ -90,24 +91,22 @@ func TestFuzzer(t *testing.T) {
 		}
 	}
 
-	/*
-		for _, v := range sb.Guilds {
-			for _, m := range v.Modules {
-				for _, command := range m.Commands() {
-					if command.Info().Name == "Update" {
-						continue
-					}
-					fmt.Printf("%s - %s - %s\n", v.ID, m.Name(), command.Info().Name)
-					CommandFuzzer(command, v, t)
-				}
-			}
-		}
-
-		for _, m := range sb.EmptyGuild.Modules {
+	/*for _, v := range sb.Guilds {
+		for _, m := range v.Modules {
 			for _, command := range m.Commands() {
-				fmt.Printf("%s - %s - %s", v.ID, m.Name(), command.Info().Name)
-				CommandFuzzer(command, sb.EmptyGuild, t)
+				if command.Info().Name == "Update" {
+					continue
+				}
+				fmt.Printf("%s - %s - %s\n", v.ID, m.Name(), command.Info().Name)
+				CommandFuzzer(command, v, t)
 			}
 		}
-	*/
+	}
+
+	for _, m := range sb.EmptyGuild.Modules {
+		for _, command := range m.Commands() {
+			fmt.Printf("%s - %s - %s", v.ID, m.Name(), command.Info().Name)
+			CommandFuzzer(command, sb.EmptyGuild, t)
+		}
+	}*/
 }

@@ -87,6 +87,7 @@ type BotConfig struct {
 		Channels  map[string]map[DiscordChannel]bool `json:"channels"`
 		Responses map[string]string                  `json:"responses"`
 		Templates map[string]string                  `json:"templates"`
+		Pressure  map[string]float32                 `json:"pressure"`
 	} `json:"filter"`
 	Bored struct {
 		Cooldown int64           `json:"maxbored"`
@@ -185,8 +186,9 @@ var ConfigHelp = map[string]map[string]string{
 	"filter": {
 		"filters":   "A collection of word lists for each filter. These are combined into a single regex of the form `(word1|word2|etc...)`, depending on the filter template.",
 		"channels":  "A collection of channel exclusions for each filter.",
-		"responses": "The response message sent by each filter when triggered.",
+		"responses": "The response message sent by each filter when triggered. If this is set to `!`, sweetie won't respond AND she won't delete the message, only the pressure will be added.",
 		"templates": "The template used to construct the regex. `%%` is replaced with `(word1|word2|etc...)` using the filter's word list. Example: `\\[\\]\\(\\/r?%%[-) \"]` is transformed into `\\[\\]\\(\\/r?(word1|word2)[-) \"]`",
+		"pressure":  "The amount of pressure added to the user when the filter is triggered (defaults to 0).",
 	},
 	"bored": {
 		"cooldown": "The bored cooldown timer, in seconds. This is the length of time a channel must be inactive before a bored message is posted.",
@@ -497,7 +499,7 @@ func (config *BotConfig) SetConfig(info *GuildInfo, args []string, indices []int
 							default:
 								return name + " must be set to either 'true' or 'false'", false
 							}
-						case map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string:
+						case map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[string]float32:
 							if len(indices) < 2 {
 								return "No key parameter given", false
 							}
@@ -605,7 +607,7 @@ func (config *BotConfig) GetConfig(f reflect.Value, state *discordgo.State, guil
 	switch f.Interface().(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool:
 		s = append(s, getConfigValue(f, state, guild))
-	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool:
+	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool, map[string]float32:
 		s = getConfigList(f, state, guild)
 	case map[string]map[DiscordChannel]bool, map[CommandID]map[DiscordRole]bool, map[string]map[string]bool, map[DiscordUser][]string, map[CommandID]map[DiscordChannel]bool, map[ModuleID]map[DiscordChannel]bool:
 		s = getConfigMapList(f, state, guild)
@@ -684,6 +686,9 @@ func (config *BotConfig) FillConfig() {
 	}
 	if len(config.Filter.Templates) == 0 {
 		config.Filter.Templates = make(map[string]string)
+	}
+	if len(config.Filter.Pressure) == 0 {
+		config.Filter.Pressure = make(map[string]float32)
 	}
 	if len(config.Bored.Commands) == 0 {
 		config.Bored.Commands = map[string]bool{"!quote": true, "!drop": true}
@@ -1295,11 +1300,11 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 	return nil
 }
 
-func GetSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) []string {
+func getSubStruct(arg []string, f reflect.Value, j int, info *GuildInfo) []string {
 	val := f.Field(j)
 	if len(arg) > 2 {
 		switch f.Field(j).Interface().(type) {
-		case map[string]bool, map[string]string, map[string]int64, map[string]map[DiscordChannel]bool, map[string]map[string]bool:
+		case map[string]bool, map[string]string, map[string]int64, map[string]map[DiscordChannel]bool, map[string]map[string]bool, map[string]float32:
 			val = f.Field(j).MapIndex(reflect.ValueOf(arg[2]))
 		case map[DiscordChannel]bool, map[DiscordChannel]float32:
 			val = f.Field(j).MapIndex(reflect.ValueOf(DiscordChannel(arg[2])))

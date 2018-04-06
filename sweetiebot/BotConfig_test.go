@@ -197,6 +197,9 @@ func TestSetConfig(t *testing.T) {
 				case map[int]string:
 					v, _ := m[1]
 					Check(v, "1", t)
+				case map[string]float32:
+					v, _ := m["1"]
+					Check(v, float32(1.0), t)
 				case map[DiscordChannel]bool:
 					_, ok := m["1"]
 					Check(ok, true, t)
@@ -247,7 +250,7 @@ func TestSetConfig(t *testing.T) {
 					t.Error("Invalid config type: ", path)
 				}
 
-				if res := GetSubStruct([]string{"", "", "1"}, p.Field(i), j, info); len(res) > 0 && !CheckNot(res[0], "is not a map", t) {
+				if res := getSubStruct([]string{"", "", "1"}, p.Field(i), j, info); len(res) > 0 && !CheckNot(res[0], "is not a map", t) {
 					fmt.Println(path)
 				}
 			}
