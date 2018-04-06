@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"math"
-
 	bot "../sweetiebot"
 	"github.com/blackhole12/discordgo"
 )
@@ -145,21 +143,36 @@ func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message,
 	}
 }
 
-// Gets the pressure generated from an isolated message, ignoring the context.
-func getPressure(info *bot.GuildInfo, m *discordgo.Message, edited bool) float32 {
-	p := info.Config.Spam.ImagePressure * float32(len(m.Attachments))
-	p += info.Config.Spam.PingPressure * float32(len(m.Mentions))
-	p += info.Config.Spam.ImagePressure * float32(len(m.Embeds))
-	p += info.Config.Spam.LengthPressure * float32(len(m.Content))
-	p += info.Config.Spam.LinePressure * float32(strings.Count(m.Content, "\n"))
-	p += info.Config.Spam.BasePressure
-	if edited { // Editing a message contributes only the square root of the total (so you can edit a post with lots of pictures and not get instabanned)
-		p = float32(math.Sqrt(float64(p)))
+// TrackUser gets or creates the user tracking object for a given author
+func (w *SpamModule) TrackUser(author bot.DiscordUser, timestamp time.Time) *userPressure {
+	w.Lock()
+	defer w.Unlock()
+	_, ok := w.tracker[author]
+	if !ok {
+		w.tracker[author] = &userPressure{0, timestamp.Unix()*1000 + int64(timestamp.Nanosecond()/1000000), ""}
 	}
-	return p
+	return w.tracker[author]
 }
 
-func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message, edited bool) bool {
+// AddPressure to a user and checks to see if it goes over the limit. Used to supplement spam module via filter module
+func (w *SpamModule) AddPressure(info *bot.GuildInfo, m *discordgo.Message, track *userPressure, p float32, reason string) bool {
+	old := track.pressure
+
+	override, ok := info.Config.Spam.MaxChannelPressure[bot.DiscordChannel(m.ChannelID)]
+	if ok && override > 0.0 {
+		p *= (info.Config.Spam.MaxPressure / override)
+	}
+
+	track.pressure += p
+	//fmt.Println("Current Pressure: ", track.pressure)
+	if track.pressure > info.Config.Spam.MaxPressure {
+		killSpammer(m.Author, info, m, reason, old, track.pressure)
+		return true
+	}
+	return false
+}
+
+func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
 		author := bot.DiscordUser(m.Author.ID)
 		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.WelcomeChannel.Equals(m.ChannelID) {
@@ -173,18 +186,7 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message, edited
 			return false
 		}
 		timestamp := bot.GetTimestamp(m)
-		w.Lock()
-		_, ok := w.tracker[author]
-		if !ok {
-			w.tracker[author] = &userPressure{0, timestamp.Unix()*1000 + int64(timestamp.Nanosecond()/1000000), ""}
-		}
-		track := w.tracker[author]
-		w.Unlock()
-		p := getPressure(info, m, edited)
-		if len(m.Content) > 0 && strings.ToLower(m.Content) == track.lastcache {
-			p += info.Config.Spam.RepeatPressure
-		}
-		track.lastcache = strings.ToLower(m.Content)
+		track := w.TrackUser(author, timestamp)
 		last := track.lastmessage
 		track.lastmessage = timestamp.Unix()*1000 + int64(timestamp.Nanosecond()/1000000)
 		if track.lastmessage < last { // This can happen because discord has a bad habit of re-sending timestamps if anything so much as touches a message
@@ -193,19 +195,34 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message, edited
 		}
 		interval := track.lastmessage - last
 
-		override, ok := info.Config.Spam.MaxChannelPressure[bot.DiscordChannel(m.ChannelID)]
-		if ok && override > 0.0 {
-			p *= (info.Config.Spam.MaxPressure / override)
-		}
-		oldpressure := track.pressure
 		track.pressure -= info.Config.Spam.BasePressure * (float32(interval) / (info.Config.Spam.PressureDecay * 1000.0))
 		if track.pressure < 0 {
 			track.pressure = 0
 		}
-		track.pressure += p
-		//fmt.Println("Current Pressure: ", track.pressure)
-		if track.pressure > info.Config.Spam.MaxPressure {
-			killSpammer(m.Author, info, m, "spamming too many messages", oldpressure, track.pressure)
+
+		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Attachments)), "attaching too many files") {
+			return true
+		}
+		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Embeds)), "spamming too many images") {
+			return true
+		}
+		if w.AddPressure(info, m, track, info.Config.Spam.PingPressure*float32(len(m.Mentions)), "pinging too many people") {
+			return true
+		}
+		if w.AddPressure(info, m, track, info.Config.Spam.LengthPressure*float32(len(m.Content)), "sending a really long message") {
+			return true
+		}
+		if w.AddPressure(info, m, track, info.Config.Spam.LinePressure*float32(strings.Count(m.Content, "\n")), "Using too many newlines") {
+			return true
+		}
+		if len(m.Content) > 0 && strings.ToLower(m.Content) == track.lastcache {
+			if w.AddPressure(info, m, track, info.Config.Spam.RepeatPressure, "copy+pasting the same message") {
+				return true
+			}
+		}
+		track.lastcache = strings.ToLower(m.Content)
+
+		if w.AddPressure(info, m, track, info.Config.Spam.BasePressure, "spamming too many messages") {
 			return true
 		}
 	}
@@ -214,12 +231,12 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message, edited
 
 // OnMessageCreate discord hook
 func (w *SpamModule) OnMessageCreate(info *bot.GuildInfo, m *discordgo.Message) {
-	w.checkSpam(info, m, false)
+	w.checkSpam(info, m)
 }
 
 // OnCommand discord hook
 func (w *SpamModule) OnCommand(info *bot.GuildInfo, m *discordgo.Message) bool {
-	return w.checkSpam(info, m, false)
+	return w.checkSpam(info, m)
 }
 
 // DisableLockdown disables the guild lockdown, if there is one

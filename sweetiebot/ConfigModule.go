@@ -146,7 +146,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 				if len(arg) > 1 {
 					for j := 0; j < f.NumField(); j++ {
 						if strings.ToLower(f.Type().Field(j).Name) == arg[1] {
-							lines := GetSubStruct(arg, f, j, info)
+							lines := getSubStruct(arg, f, j, info)
 							if len(lines) == 0 {
 								return fmt.Sprintf("```\n%s.%s: [empty]```", arg[0], arg[1]), false, nil
 							} else if len(lines) == 1 {
@@ -165,7 +165,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 						}
 						fields = append(fields, &discordgo.MessageEmbedField{Name: f.Type().Field(j).Name, Value: desc, Inline: false})
 
-						lines := GetSubStruct(arg, f, j, info)
+						lines := getSubStruct(arg, f, j, info)
 						if len(lines) == 0 {
 							dump = append(dump, fmt.Sprintf("%s: [empty]", f.Type().Field(j).Name))
 						} else if len(lines) == 1 {
