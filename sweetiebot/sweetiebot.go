@@ -21,10 +21,10 @@ import (
 var ChannelRegex = regexp.MustCompile("<#([0-9]+)>")
 
 // UserRegex matches any valid user or nickname ping
-var UserRegex = regexp.MustCompile("<@!?([0-9]+)>")
+var UserRegex = regexp.MustCompile("<\\\\?@!?([0-9]+)>")
 
 // RoleRegex matches any valid role ping
-var RoleRegex = regexp.MustCompile("<@&([0-9]+)>")
+var RoleRegex = regexp.MustCompile("<\\\\?@&([0-9]+)>")
 
 var mentionRegex = regexp.MustCompile("<@(!|&)?[0-9]+>")
 var discriminantregex = regexp.MustCompile(".*#[0-9][0-9][0-9]+")
@@ -1002,7 +1002,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
-			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- Autosilencing now include a reason for the silence\n- Filters can now add pressure when triggered, and can be configured to not remove the message at all. Check the documentation for details\n- Filters are no longer applied to bots/mods/admins.\n- Ownership changes are properly tracked\n- RemoveEvent now works on repeating events",
+			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- Autosilencing now include a reason for the silence\n- Filters can now add pressure when triggered, and can be configured to not remove the message at all. Check the documentation for details\n- Filters are no longer applied to bots/mods/admins.\n- Ownership changes are properly tracked\n- RemoveEvent now works on repeating events\n- Sweetiebot now accepts escaped user pings and role mentions in the form <\\@12345> or <\\@&12345>. This won't ping the role/user, but still allows you to specify an exact ID.",
 			AssembleVersion(0, 9, 9, 14): "- Fuck Daylight Savings\n- Also, fuck timezones\n- Prevent silenced members from using emoji reactions.\n- Removed main instance status loop (still available on selfhost instances)\n- Can no longer search for a user that is not in your server. If you need to search for a banned user, ping them using the ID or specify username#1234. This makes searches much faster.",
 			AssembleVersion(0, 9, 9, 13): "- Made some error messages more clear\n- Fixed database cleanup functions\n- Sweetiebot now deletes all information about guilds she hasn't been on for 3 days.",
 			AssembleVersion(0, 9, 9, 12): "- Fix crash on !setfilter",
