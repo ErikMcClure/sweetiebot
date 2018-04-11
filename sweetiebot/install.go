@@ -128,7 +128,7 @@ dgretry:
 	fmt.Println("Waiting for all downloads to finish...")
 
 	if err = <-dl; err == nil {
-		files := []string{"updater.exe", "sweetiebot.sql", "sweetiebot_tz.sql", "legacy_migrate.sql", "web.html", "web.css", "sweetiebot.svg"}
+		files := []string{"updater" + getExt(runtime.GOOS), "sweetiebot.sql", "sweetiebot_tz.sql", "legacy_migrate.sql", "web.html", "web.css", "sweetiebot.svg"}
 		for _, v := range files {
 			if err = DownloadFile(UpdateEndpoint(v, NewDiscordUser(userid), 0), v, true); err != nil {
 				break
