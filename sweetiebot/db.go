@@ -571,11 +571,9 @@ func (db *BotDB) GetTableCounts() string {
 }
 
 // AddTranscript is used to construct the markov chain
-func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string, text string) {
+func (db *BotDB) AddTranscript(season int, episode int, line int, speaker string, text string) error {
 	_, err := db.sqlAddTranscript.Exec(season, episode, line, speaker, text)
-	if err != nil {
-		db.log.Log("AddTranscript error: ", err.Error(), "\nS", season, "E", episode, ":", line, " ", speaker, ": ", text)
-	}
+	return err
 }
 
 // Transcript describes a single line from the transcript

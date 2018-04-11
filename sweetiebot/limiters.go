@@ -76,17 +76,6 @@ func CheckRateLimit(prevtime *int64, interval int64, curtime int64) bool {
 	return curtime-(*prevtime) > interval
 }
 
-// RateLimit checks the rate limit, returns false if it was violated, and updates the rate limit
-func RateLimit(prevtime *int64, interval int64, curtime int64) bool {
-	d := (*prevtime) // perform a read so it doesn't change on us
-	if curtime-d > interval {
-		*prevtime = curtime // CompareAndSwapInt64 doesn't work on x86, temporarily removing this
-		return true
-		//return atomic.CompareAndSwapInt64(prevtime, d, t) // If the swapped failed, it means another thread already sent a message and swapped it out, so don't send a message.
-	}
-	return false
-}
-
 // AtomicBool represents an atomic boolean that can be set to true or false
 type AtomicBool struct {
 	flag uint32

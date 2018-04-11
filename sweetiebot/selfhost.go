@@ -316,6 +316,10 @@ func getMD5Hash(url string) (md5body []byte, err error) {
 	var resp *http.Response
 	if resp, err = http.Get(md5url); err == nil {
 		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			err = errors.New(resp.Status)
+			return
+		}
 		md5body, err = ioutil.ReadAll(resp.Body)
 	}
 	return
@@ -323,31 +327,35 @@ func getMD5Hash(url string) (md5body []byte, err error) {
 
 // DownloadFile downloads a file from the url and attempts to get a *.md5 to check it against if checkMD5 is true
 func DownloadFile(url string, file string, checkMD5 bool) error {
-	out, err := os.Create(file)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
 	var md5body []byte
 	if checkMD5 {
-		md5body, err = getMD5Hash(url)
+		md5body, _ = getMD5Hash(url)
 		if len(md5body) > 0 && checkHash(file, md5body) {
 			return nil // If the hash is nonzero and matches the file, we don't need to download it
 		}
 	}
 
 	os.Remove(file) // Otherwise, delete any existing file
+	out, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
 
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode != 200 {
+		return errors.New(resp.Status)
+	}
 	_, err = io.Copy(out, resp.Body)
+
+	out.Close()
+	if err == nil {
+		out, err = os.OpenFile(file, os.O_RDONLY, 0666)
+	}
 	if err == nil && len(md5body) > 0 {
-		out.Seek(0, 0)
 		h := md5.New()
 		if _, err = io.Copy(h, out); err != nil {
 			return err
@@ -366,6 +374,10 @@ func HTTPRequestData(url string) (body []byte, err error) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		err = errors.New(resp.Status)
+		return
+	}
 
 	body, err = ioutil.ReadAll(resp.Body)
 	return

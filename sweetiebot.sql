@@ -73,7 +73,7 @@ END IF;
 RETURN @id;
 END//
 
-CREATE FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(64), `_phrase` VARCHAR(64)) RETURNS bigint(20)
+CREATE FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(128), `_phrase` VARCHAR(64)) RETURNS bigint(20)
     MODIFIES SQL DATA
     DETERMINISTIC
 BEGIN
@@ -321,13 +321,13 @@ IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN
 END IF;
 
 SET @prev = GetMarkov(@prev);
-SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = 'ACTION');
+SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = '');
 SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @prev);
 SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
 SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
 SET @max = 0;
 
-IF @speaker = 'ACTION' THEN
+IF @speaker = '' THEN
 	IF @phrase = '' THEN RETURN CONCAT('|', @prev); END IF;
 	SET line = CONCAT('[', @phrase);
 ELSE
@@ -356,7 +356,7 @@ markov_loop: LOOP
 	END IF;
 END LOOP markov_loop;
 
-IF @speaker = 'ACTION' THEN
+IF @speaker = '' THEN
 	SET line = CONCAT(line, ']');
 END IF;
 RETURN CONCAT(line, '|', @prev);
@@ -375,7 +375,7 @@ IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev AND Prev2
 END IF;
 
 SET @next = GetMarkov2(@prev, @prev2);
-SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = 'ACTION');
+SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = '');
 SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
 SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
 SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @next);
@@ -383,7 +383,7 @@ SET @max = 0;
 SET @prev2 = @prev;
 SET @prev = @next;
 
-IF @speaker = 'ACTION' THEN
+IF @speaker = '' THEN
 	IF @phrase = '' THEN RETURN CONCAT('|', @prev, '|', @prev2); END IF;
 	SET line = CONCAT('[', @phrase);
 ELSE
@@ -413,7 +413,7 @@ markov_loop: LOOP
 	END IF;
 END LOOP markov_loop;
 
-IF @speaker = 'ACTION' THEN
+IF @speaker = '' THEN
 	SET line = CONCAT(line, ']');
 END IF;
 RETURN CONCAT(line, '|', @prev, '|', @prev2);
@@ -468,8 +468,8 @@ CREATE TABLE IF NOT EXISTS `itemtags` (
 -- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.markov_transcripts_speaker
 CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
-  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `Speaker` varchar(64) NOT NULL,
+  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `Speaker` varchar(128) NOT NULL,
   PRIMARY KEY (`ID`),
   UNIQUE KEY `INDEX_SPEAKER` (`Speaker`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
@@ -477,8 +477,8 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
 -- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.markov_transcripts
 CREATE TABLE IF NOT EXISTS `markov_transcripts` (
-  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `SpeakerID` bigint(20) unsigned NOT NULL DEFAULT 0,
+  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `SpeakerID` int(10) unsigned NOT NULL DEFAULT 0,
   `Phrase` varchar(64) NOT NULL,
   PRIMARY KEY (`ID`),
   UNIQUE KEY `INDEX_SPEAKER_PHRASE` (`SpeakerID`,`Phrase`),
@@ -488,10 +488,10 @@ CREATE TABLE IF NOT EXISTS `markov_transcripts` (
 -- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.markov_transcripts_map
 CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
-  `Prev` bigint(20) unsigned NOT NULL,
-  `Prev2` bigint(20) unsigned NOT NULL,
-  `Next` bigint(20) unsigned NOT NULL,
-  `Count` int(10) unsigned NOT NULL DEFAULT 1,
+  `Prev` int(10) unsigned NOT NULL,
+  `Prev2` int(10) unsigned NOT NULL,
+  `Next` int(10) unsigned NOT NULL,
+  `Count` smallint(5) unsigned NOT NULL DEFAULT 1,
   PRIMARY KEY (`Prev`,`Next`,`Prev2`),
   KEY `FK_NEXT` (`Next`),
   KEY `INDEX_PREV` (`Prev`),
@@ -584,14 +584,14 @@ CREATE PROCEDURE `ResetMarkov`()
 BEGIN
 
 SET foreign_key_checks = 0;
-DELETE FROM markov_transcripts;
-DELETE FROM markov_transcripts_speaker;
-DELETE FROM markov_transcripts_map;
+TRUNCATE markov_transcripts;
+TRUNCATE markov_transcripts_speaker;
+TRUNCATE markov_transcripts_map;
 SET foreign_key_checks = 1;
 ALTER TABLE `markov_transcripts` AUTO_INCREMENT=0;
 ALTER TABLE `markov_transcripts_speaker` AUTO_INCREMENT=0;
 INSERT INTO markov_transcripts_speaker (Speaker)
-VALUES ('ACTION');
+VALUES ('');
 INSERT INTO markov_transcripts (ID, SpeakerID, Phrase)
 VALUES (0, 1, '');
 UPDATE markov_transcripts SET ID = 0 WHERE ID = 1;
@@ -618,7 +618,7 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
   `Season` int(10) unsigned NOT NULL,
   `Episode` int(10) unsigned NOT NULL,
   `Line` int(10) unsigned NOT NULL,
-  `Speaker` varchar(64) NOT NULL,
+  `Speaker` varchar(128) NOT NULL,
   `Text` varchar(2000) NOT NULL,
   PRIMARY KEY (`Season`,`Episode`,`Line`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
@@ -685,6 +685,6 @@ SET SQL_MODE=@OLDTMP_SQL_MODE//
 
 -- Dumping structure for view sweetiebot.randomwords
 -- Removing temporary table and create final VIEW structure
-DROP TABLE IF EXISTS `randomwords`;
+DROP TABLE IF EXISTS `randomwords`//
 CREATE ALGORITHM=MERGE VIEW `randomwords` AS select `markov_transcripts`.`Phrase` AS `Phrase` from `markov_transcripts` where `markov_transcripts`.`Phrase` <> '.' and `markov_transcripts`.`Phrase` <> '!' and `markov_transcripts`.`Phrase` <> '?' and `markov_transcripts`.`Phrase` <> 'the' and `markov_transcripts`.`Phrase` <> 'of' and `markov_transcripts`.`Phrase` <> 'a' and `markov_transcripts`.`Phrase` <> 'to' and `markov_transcripts`.`Phrase` <> 'too' and `markov_transcripts`.`Phrase` <> 'as' and `markov_transcripts`.`Phrase` <> 'at' and `markov_transcripts`.`Phrase` <> 'an' and `markov_transcripts`.`Phrase` <> 'am' and `markov_transcripts`.`Phrase` <> 'and' and `markov_transcripts`.`Phrase` <> 'be' and `markov_transcripts`.`Phrase` <> 'he' and `markov_transcripts`.`Phrase` <> 'she' and `markov_transcripts`.`Phrase` <> '' 
  WITH LOCAL CHECK OPTION //
