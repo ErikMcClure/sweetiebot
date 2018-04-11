@@ -77,18 +77,29 @@ DROP PROCEDURE IF EXISTS `SawUser`//
 DROP TRIGGER IF EXISTS `members_before_update`//
 
 DROP PROCEDURE IF EXISTS `AddChat`//
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddChat`(IN `_id` BIGINT, IN `_author` BIGINT, IN `_message` VARCHAR(2000), IN `_channel` BIGINT, IN `_everyone` BIT, IN `_guild` BIGINT)
-    MODIFIES SQL DATA
+CREATE PROCEDURE `AddChat`(
+	IN `_id` BIGINT,
+	IN `_author` BIGINT,
+	IN `_username` VARCHAR(128),
+	IN `_message` VARCHAR(2000),
+	IN `_channel` BIGINT,
+	IN `_guild` BIGINT
+
+)
+MODIFIES SQL DATA
 BEGIN
 
 INSERT INTO users (ID, Username, Avatar, LastSeen, LastNameChange) 
-VALUES (_author, '', '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+VALUES (_author, _username, '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP();
 
-INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
-VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _everyone, _guild)
+INSERT IGNORE INTO aliases (`User`, Alias, Duration, `Timestamp`)
+VALUES (_id, _username, 0, UTC_TIMESTAMP());
+
+INSERT INTO chatlog (ID, Author, Message, Timestamp, Channel, Guild)
+VALUES (_id, _author, _message, UTC_TIMESTAMP(), _channel, _guild)
 ON DUPLICATE KEY UPDATE /* This prevents a race condition from causing a serious error */
-Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP(), Everyone=_everyone;
+Message = _message COLLATE 'utf8mb4_general_ci', Timestamp = UTC_TIMESTAMP();
 
 END//
 
@@ -107,7 +118,7 @@ RETURN @id;
 END//
 
 DROP FUNCTION IF EXISTS `AddMarkov`//
-CREATE DEFINER=`root`@`localhost` FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(64), `_phrase` VARCHAR(64)) RETURNS bigint(20)
+CREATE DEFINER=`root`@`localhost` FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(128), `_phrase` VARCHAR(64)) RETURNS bigint(20)
     MODIFIES SQL DATA
     DETERMINISTIC
 BEGIN
@@ -145,24 +156,53 @@ ON DUPLICATE KEY UPDATE
 FirstSeen=GetMinDate(_firstseen,FirstSeen), Nickname=_nickname//
 
 DROP PROCEDURE IF EXISTS `AddUser`//
-CREATE DEFINER=`root`@`localhost` PROCEDURE `AddUser`(IN `_id` BIGINT, IN `_username` VARCHAR(512), IN `_discriminator` INT, IN `_avatar` VARCHAR(512), IN `_isonline` BIT)
-	LANGUAGE SQL
-	NOT DETERMINISTIC
-	MODIFIES SQL DATA
-	SQL SECURITY DEFINER
-	COMMENT ''
+CREATE PROCEDURE `AddUser`(
+	IN `_id` BIGINT,
+	IN `_username` VARCHAR(128),
+	IN `_discriminator` INT,
+	IN `_avatar` VARCHAR(512),
+	IN `_isonline` BIT
+)
+    MODIFIES SQL DATA
+BEGIN
+
+DECLARE oldname VARCHAR(128) DEFAULT '';
+SELECT Username INTO oldname
+FROM users
+WHERE ID = _id FOR UPDATE;
+
 INSERT INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) 
 VALUES (_id, _username, _discriminator, _avatar, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
-Username=_username, Discriminator=_discriminator, Avatar=_avatar, LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen)//
+Username=IF(_username = '', Username, _username),
+Discriminator=IF(_discriminator = 0, Discriminator, _discriminator),
+Avatar=IF(_avatar = '', Avatar, _avatar),
+LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen),
+LastNameChange=IF(_username = '', LastNameChange, IF(_username != `Username`, UTC_TIMESTAMP(), LastNameChange));
+
+IF _username != '' THEN
+	IF oldname != '' THEN
+		INSERT INTO aliases (`User`, Alias, Duration, `Timestamp`)
+		VALUES (_id, oldname, 0, UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE `Duration` = `Duration` + (UNIX_TIMESTAMP(UTC_TIMESTAMP()) - UNIX_TIMESTAMP(`Timestamp`)), `Timestamp` = UTC_TIMESTAMP(); 
+	END IF;
+	
+	IF _username != oldname THEN
+		INSERT INTO aliases (`User`, Alias, Duration, `Timestamp`)
+		VALUES (_id, _username, 0, UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE `Timestamp` = UTC_TIMESTAMP(); 
+	END IF;
+END IF;
+
+END//
 
 DROP TRIGGER IF EXISTS `chatlog_before_delete`//
 CREATE TRIGGER `chatlog_before_delete` BEFORE DELETE ON `chatlog` FOR EACH ROW DELETE FROM editlog WHERE ID = OLD.ID//
 
 DROP TRIGGER IF EXISTS `chatlog_before_update`//
-CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, Author, Message, Timestamp, Channel, Everyone, Guild)
-VALUES (OLD.ID, OLD.Author, OLD.Message, OLD.Timestamp, OLD.Channel, OLD.Everyone, OLD.Guild)
-ON DUPLICATE KEY UPDATE ID = OLD.ID//
+CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Guild)
+VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Guild)
+ON DUPLICATE KEY UPDATE `Timestamp` = OLD.`Timestamp`, Message = OLD.Message//
 
 CREATE TABLE IF NOT EXISTS `itemtags` (
   `Item` bigint(20) unsigned NOT NULL,
@@ -192,26 +232,26 @@ DROP TRIGGER IF EXISTS `tags_before_delete`//
 CREATE TRIGGER `tags_before_delete` BEFORE DELETE ON `tags` FOR EACH ROW DELETE FROM itemtags WHERE Tag = OLD.ID//
 
 DROP TRIGGER IF EXISTS `users_before_update`//
-CREATE TRIGGER `users_before_update` BEFORE UPDATE ON `users` FOR EACH ROW BEGIN
 
-IF NEW.Username = '' THEN
-SET NEW.Username = OLD.Username;
-END IF;
+ALTER TABLE `chatlog`
+	DROP COLUMN IF EXISTS `Everyone`//
 
-IF NEW.Discriminator = 0 THEN
-SET NEW.Discriminator = OLD.Discriminator;
-END IF;
+ALTER TABLE `editlog`
+	DROP COLUMN IF EXISTS `Everyone`//
+  
+DROP PROCEDURE IF EXISTS `RemoveGuild`//
+CREATE PROCEDURE `RemoveGuild`(
+	IN `_guild` BIGINT UNSIGNED
+)
+    MODIFIES SQL DATA
+BEGIN
 
-IF NEW.Avatar = '' THEN
-SET NEW.Avatar = OLD.Avatar;
-END IF;
-
-IF NEW.Username != OLD.Username THEN
-SET NEW.LastNameChange = UTC_TIMESTAMP();
-SET @diff = UNIX_TIMESTAMP(NEW.LastNameChange) - UNIX_TIMESTAMP(OLD.LastNameChange);
-INSERT INTO aliases (User, Alias, Duration)
-VALUES (OLD.ID, OLD.Username, @diff)
-ON DUPLICATE KEY UPDATE Duration = Duration + @diff;
-END IF;
+DELETE FROM `members` WHERE Guild = _guild;
+DELETE FROM `polls` WHERE Guild = _guild;
+DELETE FROM `schedule` WHERE Guild = _guild;
+DELETE FROM `chatlog` WHERE Guild = _guild;
+DELETE FROM `debuglog` WHERE Guild = _guild;
+DELETE FROM `editlog` WHERE Guild = _guild;
+DELETE FROM `tags` WHERE Guild = _guild;
 
 END//

@@ -442,3 +442,90 @@ func FindRole(name string, guild *discordgo.Guild) (s []*discordgo.Role) {
 func ReturnError(err error) (string, bool, *discordgo.MessageEmbed) {
 	return "```\nError: " + err.Error() + "```", false, nil
 }
+
+/*
+type transcriptLine struct {
+	Character string `json:"character"`
+	Text      string `json:"text"`
+}
+
+func (sb *SweetieBot) ingestTranscript(data []byte) error {
+	transcript := make(map[int]map[int][]transcriptLine)
+	if err := json.Unmarshal(data, &transcript); err != nil {
+		return err
+	}
+	for season, v := range transcript {
+		for episode, lines := range v {
+			for i := 0; i < len(lines); i++ {
+				if err := sb.DB.AddTranscript(season, episode, i, lines[i].Character, lines[i].Text); err != nil {
+					fmt.Printf("Error at S%vE%v:%v %v:%v", season, episode, i, lines[i].Character, lines[i].Text)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func splitSpeaker(speaker string) []string {
+	if len(speaker) == 0 {
+		return []string{""}
+	}
+	speakers := strings.Split(strings.Replace(speaker, ", and", " and", -1), " and ")
+	speakers = append(strings.Split(speakers[0], ","), speakers[1:]...)
+	for i, s := range speakers {
+		speakers[i] = strings.Trim(strings.TrimSpace(strings.Replace(s, "Young", "", -1)), "\"")
+	}
+	return speakers
+}
+
+func (sb *SweetieBot) buildMarkov(seasonStart int, seasonEnd int) {
+	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
+
+	sb.DB.sqlResetMarkov.Exec()
+
+	var cur uint64
+	var prev uint64
+	var prev2 uint64
+	for season := seasonStart; season <= seasonEnd; season++ {
+		for episode := 1; episode <= 26; episode++ {
+			if season == 3 && episode > 13 {
+				break
+			}
+			fmt.Println("Begin Episode", episode, "Season", season)
+			prev = 0
+			prev2 = 0
+			lines := sb.DB.GetTranscript(season, episode, 0, 999999)
+			fmt.Println("Got", len(lines), "lines")
+
+			for i := range lines {
+				words := regex.FindAllString(lines[i].Text, -1)
+				speakers := splitSpeaker(lines[i].Speaker)
+				for _, speaker := range speakers {
+					for j := range words {
+						l := len(words[j])
+						ch := words[j][l-1]
+						switch ch {
+						case '.', '!', '?':
+							words[j] = words[j][:l-1]
+						}
+						if sb.DB.GetMarkovWord(speaker, words[j]) != words[j] {
+							words[j] = strings.ToLower(words[j])
+						}
+						//fmt.Println("AddMarkov: ", prev, prev2, speaker, words[j])
+						cur = sb.DB.AddMarkov(prev, prev2, speaker, words[j])
+						prev2 = prev
+						prev = cur
+
+						switch ch {
+						case '.', '!', '?':
+							//fmt.Println("AddMarkov: ", prev, prev2, speaker, string(ch))
+							cur = sb.DB.AddMarkov(prev, prev2, speaker, string(ch))
+							prev2 = 0
+							prev = 0
+						}
+					}
+				}
+			}
+		}
+	}
+}*/
