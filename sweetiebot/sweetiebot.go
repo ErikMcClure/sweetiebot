@@ -35,7 +35,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 16}
+var BotVersion = Version{0, 9, 9, 17}
 
 const (
 	MaxPublicLines  = 12
@@ -925,17 +925,23 @@ const heartbeatInterval time.Duration = 20 * time.Second
 func (sb *SweetieBot) deadlockDetector() {
 	var counter = sb.heartbeat
 	var missed = 0
+	var info *GuildInfo
 	time.Sleep(heartbeatInterval) // Give sweetie time to load everything first before initiating heartbeats
-	for atomic.LoadUint32(&sb.quit) != QuitNow {
+
+	for {
 		sb.GuildsLock.RLock()
-		info, ok := sb.Guilds[sb.MainGuildID]
+		info, _ = sb.Guilds[sb.MainGuildID]
 		sb.GuildsLock.RUnlock()
 
-		if !ok {
-			fmt.Println(sb.MainGuildID, "MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
-			time.Sleep(heartbeatInterval)
-			continue
+		if info != nil {
+			break
 		}
+
+		fmt.Println(sb.MainGuildID, "MAIN GUILD CANNOT BE FOUND! Deadlock detector is nonfunctional until this is addressed.")
+		time.Sleep(heartbeatInterval)
+	}
+
+	for atomic.LoadUint32(&sb.quit) != QuitNow {
 		m := discordgo.MessageCreate{
 			&discordgo.Message{ChannelID: "heartbeat", Content: info.Config.Basic.CommandPrefix + "about",
 				Author: &discordgo.User{
@@ -1003,6 +1009,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 17): "- Fix potential detection failure in deadlock detector.",
 			AssembleVersion(0, 9, 9, 16): "- Fix installer on linux\n- Upgrade transcripts in database\n- Better 64-bit support",
 			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- Autosilencing now include a reason for the silence\n- Filters can now add pressure when triggered, and can be configured to not remove the message at all. Check the documentation for details\n- Filters are no longer applied to bots/mods/admins.\n- Ownership changes are properly tracked\n- RemoveEvent now works on repeating events\n- Sweetiebot now accepts escaped user pings and role mentions in the form <\\@12345> or <\\@&12345>. This won't ping the role/user, but still allows you to specify an exact ID.\n- Now has a 200ms delay before deleting messages to prevent ghost messages.\n- Ensure any user who sends a message will always have their username as an alias, even if it was missed before.",
 			AssembleVersion(0, 9, 9, 14): "- Fuck Daylight Savings\n- Also, fuck timezones\n- Prevent silenced members from using emoji reactions.\n- Removed main instance status loop (still available on selfhost instances)\n- Can no longer search for a user that is not in your server. If you need to search for a banned user, ping them using the ID or specify username#1234. This makes searches much faster.",
