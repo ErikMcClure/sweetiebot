@@ -183,7 +183,7 @@ DELETE FROM debuglog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY)
 END//
 
 CREATE EVENT `CleanUsers` ON SCHEDULE EVERY 1 DAY STARTS '2018-01-22 15:50:17' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM users WHERE `ID` NOT IN (SELECT DISTINCT ID FROM members);
+DELETE FROM users WHERE `ID` NOT IN (SELECT DISTINCT ID FROM members) AND `ID` NOT IN (SELECT DISTINCT ID FROM chatlog) AND `ID` NOT IN (SELECT DISTINCT ID FROM editlog);
 END//
 
 CREATE EVENT `CleanAliases`
@@ -673,11 +673,9 @@ SET SQL_MODE=@OLDTMP_SQL_MODE//
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `users_before_delete` BEFORE DELETE ON `users` FOR EACH ROW BEGIN
 
--- Note: You cannot delete a user unless they have no entries in the members table
+-- Note: You cannot delete a user unless they have no entries in the members, editlog or chatlog tables
 DELETE FROM aliases WHERE `User` = OLD.ID;
-DELETE FROM chatlog WHERE `Author` = OLD.ID;
 DELETE FROM debuglog WHERE `User` = OLD.ID;
-DELETE FROM editlog WHERE `Author` = OLD.ID;
 DELETE FROM votes WHERE `User` = OLD.ID;
 
 END//
