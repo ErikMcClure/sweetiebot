@@ -64,8 +64,8 @@ func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 		updater.Process([]string{}, m, []int{}, info)
 	}
 
-	go func() { // Getting the user list takes forever because of discord API limits, so we do this on a new thread
-		if info.Bot.IsMainGuild(info) && t.Unix()-w.lastclean > CleanInterval {
+	if info.Bot.IsMainGuild(info) && t.Unix()-w.lastclean > CleanInterval {
+		go func() { // Getting the user list takes forever because of discord API limits, so we do this on a new thread
 			fmt.Println("CLEANING GUILDS")
 			w.lastclean = t.Unix()
 
@@ -136,8 +136,8 @@ func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 }
 
 type echoCommand struct {
