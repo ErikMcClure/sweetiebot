@@ -35,7 +35,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 17}
+var BotVersion = Version{0, 9, 9, 18}
 
 const (
 	MaxPublicLines  = 12
@@ -1009,6 +1009,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 18): "- Fix database cleanup to preserve banned user comments.",
 			AssembleVersion(0, 9, 9, 17): "- Fix potential detection failure in deadlock detector.",
 			AssembleVersion(0, 9, 9, 16): "- Fix installer on linux\n- Upgrade transcripts in database\n- Better 64-bit support",
 			AssembleVersion(0, 9, 9, 15): "- No longer attempts to track embed message updates\n- Ignores new member join messages and other special messages\n- Re-added echoembed command\n- Autosilencing now include a reason for the silence\n- Filters can now add pressure when triggered, and can be configured to not remove the message at all. Check the documentation for details\n- Filters are no longer applied to bots/mods/admins.\n- Ownership changes are properly tracked\n- RemoveEvent now works on repeating events\n- Sweetiebot now accepts escaped user pings and role mentions in the form <\\@12345> or <\\@&12345>. This won't ping the role/user, but still allows you to specify an exact ID.\n- Now has a 200ms delay before deleting messages to prevent ghost messages.\n- Ensure any user who sends a message will always have their username as an alias, even if it was missed before.",
