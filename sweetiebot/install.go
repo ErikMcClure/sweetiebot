@@ -62,7 +62,7 @@ func Install(path string, selfhoster *Selfhost) {
 		case "windows":
 			fmt.Println("In that case, I'll start downloading mariadb for you. While that's downloading...")
 			go func() {
-				dl <- DownloadFile(`https://downloads.mariadb.org/f/mariadb-10.2.11/winx64-packages/mariadb-10.2.11-winx64.msi/from/http%3A//nyc2.mirrors.digitalocean.com/mariadb/?serve`, "mariadb-10.2.11-winx64.msi", false)
+				dl <- DownloadFile(fmt.Sprintf("https://sweetiebot.io/update/%s/%s/%s", runtime.GOOS, runtime.GOARCH, "mariadb-10.msi"), "mariadb.msi", false)
 			}()
 		case "linux":
 			url := "https://downloads.mariadb.org/mariadb/repositories/#mirror=nodesdirect"
@@ -162,7 +162,7 @@ dgretry:
 		case "windows":
 			fmt.Print("\nWhere should I install to? If you don't care, leave it blank. The path cannot have spaces.\n> ")
 			fmt.Scanln(&location)
-			properties := []string{"/i", "mariadb-10.2.11-winx64.msi", "SERVICENAME=MySQL", "UTF8=1", "PASSWORD=" + password}
+			properties := []string{"/i", "mariadb.msi", "SERVICENAME=MySQL", "UTF8=1", "PASSWORD=" + password}
 			if len(location) > 0 {
 				properties = append(properties, "INSTALLDIR="+location)
 			}

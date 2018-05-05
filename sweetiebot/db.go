@@ -87,16 +87,6 @@ type BotDB struct {
 	sqlGetUserGuilds          *sql.Stmt
 	sqlFindEvent              *sql.Stmt
 	sqlSetDefaultServer       *sql.Stmt
-	sqlGetPolls               *sql.Stmt
-	sqlGetPoll                *sql.Stmt
-	sqlGetOptions             *sql.Stmt
-	sqlGetOption              *sql.Stmt
-	sqlGetResults             *sql.Stmt
-	sqlAddPoll                *sql.Stmt
-	sqlAddOption              *sql.Stmt
-	sqlAppendOption           *sql.Stmt
-	sqlAddVote                *sql.Stmt
-	sqlRemovePoll             *sql.Stmt
 	sqlCheckOption            *sql.Stmt
 	sqlSentMessage            *sql.Stmt
 	sqlGetNewcomers           *sql.Stmt
@@ -238,7 +228,7 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sqlGetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
 	db.sqlGetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
-	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nPolls: ', (SELECT COUNT(*) FROM polls), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
+	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
 	db.sqlCountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sqlAudit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
 	db.sqlGetAuditRows, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
@@ -266,17 +256,6 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetUserGuilds, err = db.Prepare("SELECT Guild FROM members WHERE ID = ?")
 	db.sqlFindEvent, err = db.Prepare("SELECT ID FROM `schedule` WHERE `Type` = ? AND `Data` = ? AND `Guild` = ?")
 	db.sqlSetDefaultServer, err = db.Prepare("UPDATE users SET DefaultServer = ? WHERE ID = ?")
-	db.sqlGetPolls, err = db.Prepare("SELECT Name, Description FROM polls WHERE Guild = ? ORDER BY ID DESC")
-	db.sqlGetPoll, err = db.Prepare("SELECT ID, Description FROM polls WHERE Name = ? AND Guild = ?")
-	db.sqlGetOptions, err = db.Prepare("SELECT `Index`, `Option` FROM polloptions WHERE Poll = ? ORDER BY `Index` ASC")
-	db.sqlGetOption, err = db.Prepare("SELECT `Index` FROM polloptions WHERE poll = ? AND `Option` = ?")
-	db.sqlGetResults, err = db.Prepare("SELECT `Option`,COUNT(user) FROM `votes` WHERE `Poll` = ? GROUP BY `Option` ORDER BY `Option` ASC")
-	db.sqlAddPoll, err = db.Prepare("INSERT INTO polls(Name, Description, Guild) VALUES (?, ?, ?)")
-	db.sqlAddOption, err = db.Prepare("INSERT INTO polloptions(Poll, `Index`, `Option`) VALUES (?, ?, ?)")
-	db.sqlAppendOption, err = db.Prepare("INSERT INTO polloptions(Poll, `Index`, `Option`) SELECT Poll, MAX(`index`)+1, ? FROM polloptions WHERE poll = ?")
-	db.sqlAddVote, err = db.Prepare("INSERT INTO votes (Poll, User, `Option`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `Option` = ?")
-	db.sqlRemovePoll, err = db.Prepare("DELETE FROM polls WHERE Name = ? AND Guild = ?")
-	db.sqlCheckOption, err = db.Prepare("SELECT `Option` FROM polloptions WHERE poll = ? AND `Index` = ?")
 	db.sqlSentMessage, err = db.Prepare("UPDATE `members` SET `FirstMessage` = UTC_TIMESTAMP() WHERE ID = ? AND Guild = ? AND `FirstMessage` IS NULL")
 	db.sqlGetNewcomers, err = db.Prepare("SELECT ID FROM `members` WHERE `Guild` = ? AND `FirstMessage` > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)")
 	db.sqlAddItem, err = db.Prepare("SELECT AddItem(?)")
@@ -987,136 +966,6 @@ func (db *BotDB) FindEvent(user string, guild uint64, ty uint8) *uint64 {
 func (db *BotDB) SetDefaultServer(userID uint64, guild uint64) error {
 	_, err := db.sqlSetDefaultServer.Exec(guild, userID)
 	return db.CheckError("SetDefaultServer", err)
-}
-
-// PollData contains the poll name and description
-type PollData struct {
-	Name        string
-	Description string
-}
-
-// GetPolls returns all polls for a given guild
-func (db *BotDB) GetPolls(guild uint64) []PollData {
-	q, err := db.sqlGetPolls.Query(guild)
-	if db.CheckError("GetPolls", err) != nil {
-		return []PollData{}
-	}
-	defer q.Close()
-	r := make([]PollData, 0, 2)
-	for q.Next() {
-		var s PollData
-		if err := q.Scan(&s.Name, &s.Description); err == nil {
-			r = append(r, s)
-		}
-	}
-	return r
-}
-
-// GetPoll gets the poll ID with the given name
-func (db *BotDB) GetPoll(name string, guild uint64) (uint64, string) {
-	var id uint64
-	var desc string
-	err := db.sqlGetPoll.QueryRow(name, guild).Scan(&id, &desc)
-	if err == sql.ErrNoRows || db.CheckError("GetPoll", err) != nil {
-		return 0, ""
-	}
-	return id, desc
-}
-
-// PollOptionStruct contains the option index and text
-type PollOptionStruct struct {
-	Index  uint64
-	Option string
-}
-
-// GetOptions returns all options for a given poll ID
-func (db *BotDB) GetOptions(poll uint64) []PollOptionStruct {
-	q, err := db.sqlGetOptions.Query(poll)
-	if db.CheckError("GetOptions", err) != nil {
-		return []PollOptionStruct{}
-	}
-	defer q.Close()
-	r := make([]PollOptionStruct, 0, 2)
-	for q.Next() {
-		var s PollOptionStruct
-		if err := q.Scan(&s.Index, &s.Option); err == nil {
-			r = append(r, s)
-		}
-	}
-	return r
-}
-
-// GetOption returns any option for a given poll ID that contains a string
-func (db *BotDB) GetOption(poll uint64, option string) *uint64 {
-	var id uint64
-	err := db.sqlGetOption.QueryRow(poll, option).Scan(&id)
-	if err == sql.ErrNoRows || db.CheckError("GetOption", err) != nil {
-		return nil
-	}
-	return &id
-}
-
-// PollResultStruct is an index+count pair
-type PollResultStruct struct {
-	Index uint64
-	Count uint64
-}
-
-// GetResults returns the results of a poll ID
-func (db *BotDB) GetResults(poll uint64) []PollResultStruct {
-	q, err := db.sqlGetResults.Query(poll)
-	if db.CheckError("GetResults", err) != nil {
-		return []PollResultStruct{}
-	}
-	defer q.Close()
-	r := make([]PollResultStruct, 0, 2)
-	for q.Next() {
-		var s PollResultStruct
-		if err := q.Scan(&s.Index, &s.Count); err == nil {
-			r = append(r, s)
-		}
-	}
-	return r
-}
-
-// AddPoll creates a poll
-func (db *BotDB) AddPoll(name string, description string, guild uint64) error {
-	_, err := db.sqlAddPoll.Exec(name, description, guild)
-	return db.standardErr(err)
-}
-
-// AddOption adds an option to an existing poll with a specific index
-func (db *BotDB) AddOption(poll uint64, index uint64, option string) error {
-	_, err := db.sqlAddOption.Exec(poll, index, option)
-	return db.standardErr(err)
-}
-
-// AppendOption appends an option to the end of an existing poll
-func (db *BotDB) AppendOption(poll uint64, option string) error {
-	_, err := db.sqlAppendOption.Exec(option, poll)
-	return db.standardErr(err)
-}
-
-// AddVote adds or reassigns a users vote on a poll
-func (db *BotDB) AddVote(user uint64, poll uint64, option uint64) error {
-	_, err := db.sqlAddVote.Exec(poll, user, option, option)
-	return db.standardErr(err)
-}
-
-// RemovePoll deletes a poll
-func (db *BotDB) RemovePoll(name string, guild uint64) error {
-	_, err := db.sqlRemovePoll.Exec(name, guild)
-	return db.standardErr(err)
-}
-
-// CheckOption checks if an option exists
-func (db *BotDB) CheckOption(poll uint64, option uint64) bool {
-	var name string
-	err := db.sqlCheckOption.QueryRow(poll, option).Scan(&name)
-	if err == sql.ErrNoRows || db.CheckError("CheckOption", err) != nil {
-		return false
-	}
-	return true
 }
 
 // SentMessage doesn't log a message, but sets a user's "firstseen" and "lastseen" values if necessary
