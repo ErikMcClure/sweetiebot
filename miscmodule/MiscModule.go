@@ -31,6 +31,7 @@ func (w *MiscModule) Commands() []bot.Command {
 		&rollCommand{},
 		&showrollCommand{},
 		&snowflakeTimeCommand{},
+		&pollCommand{},
 	}
 }
 

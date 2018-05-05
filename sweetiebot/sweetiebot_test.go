@@ -279,7 +279,7 @@ func mockBotDB() (*BotDB, sqlmock.Sqlmock) {
 		driver:      "mysql",
 		conn:        "",
 	}
-	for i := 0; i < 87; i++ {
+	for i := 0; i < 76; i++ {
 		mock.ExpectPrepare(".*")
 	}
 	botdb.Status.Set(botdb.LoadStatements() == nil)
