@@ -10,7 +10,6 @@ import (
 	"../filtermodule"
 	"../markovmodule"
 	"../miscmodule"
-	"../pollmodule"
 	"../quotemodule"
 	"../rolesmodule"
 	"../schedulermodule"
@@ -33,7 +32,6 @@ func loader(guild *sweetiebot.GuildInfo) []sweetiebot.Module {
 	modules = append(modules, tagmodule.New())
 	modules = append(modules, schedulermodule.New())
 	modules = append(modules, rolesmodule.New())
-	modules = append(modules, pollmodule.New())
 	modules = append(modules, markovmodule.New())
 	modules = append(modules, quotemodule.New())
 	modules = append(modules, bucketmodule.New())

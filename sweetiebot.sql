@@ -516,29 +516,6 @@ CREATE TABLE IF NOT EXISTS `members` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
--- Dumping structure for table sweetiebot.polls
-CREATE TABLE IF NOT EXISTS `polls` (
-  `ID` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `Guild` bigint(20) unsigned NOT NULL,
-  `Name` varchar(50) NOT NULL,
-  `Description` varchar(2048) NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `Index 2` (`Name`,`Guild`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Data exporting was unselected.
--- Dumping structure for table sweetiebot.polloptions
-CREATE TABLE IF NOT EXISTS `polloptions` (
-  `Poll` bigint(20) unsigned NOT NULL,
-  `Index` bigint(20) unsigned NOT NULL,
-  `Option` varchar(128) NOT NULL,
-  PRIMARY KEY (`Poll`,`Index`),
-  UNIQUE KEY `OPTION_INDEX` (`Option`,`Poll`),
-  KEY `POLL_INDEX` (`Poll`),
-  CONSTRAINT `FK_options_polls` FOREIGN KEY (`Poll`) REFERENCES `polls` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Data exporting was unselected.
 -- Dumping structure for view sweetiebot.randomwords
 -- Creating temporary table to overcome VIEW dependency errors
 CREATE TABLE `randomwords` (
@@ -552,7 +529,6 @@ CREATE PROCEDURE `RemoveGuild`(
 BEGIN
 
 DELETE FROM `members` WHERE Guild = _guild;
-DELETE FROM `polls` WHERE Guild = _guild;
 DELETE FROM `schedule` WHERE Guild = _guild;
 DELETE FROM `chatlog` WHERE Guild = _guild;
 DELETE FROM `debuglog` WHERE Guild = _guild;
@@ -623,19 +599,6 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
   PRIMARY KEY (`Season`,`Episode`,`Line`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
--- Data exporting was unselected.
--- Dumping structure for table sweetiebot.votes
-CREATE TABLE IF NOT EXISTS `votes` (
-  `Poll` bigint(20) unsigned NOT NULL,
-  `User` bigint(20) unsigned NOT NULL,
-  `Option` bigint(20) unsigned NOT NULL,
-  PRIMARY KEY (`Poll`,`User`),
-  KEY `FK_votes_users` (`User`),
-  KEY `FK_votes_options` (`Poll`,`Option`),
-  CONSTRAINT `FK_votes_options` FOREIGN KEY (`Poll`, `Option`) REFERENCES `polloptions` (`Poll`, `Index`),
-  CONSTRAINT `FK_votes_users` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
 -- Dumping structure for trigger sweetiebot.chatlog_before_update
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Guild)
@@ -654,16 +617,6 @@ END IF;
 END//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
 
--- Dumping structure for trigger sweetiebot.polloptions_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `polloptions_before_delete` BEFORE DELETE ON `polloptions` FOR EACH ROW DELETE FROM votes WHERE Poll = OLD.Poll AND `Option` = OLD.`Index`//
-SET SQL_MODE=@OLDTMP_SQL_MODE//
-
--- Dumping structure for trigger sweetiebot.polls_before_delete
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `polls_before_delete` BEFORE DELETE ON `polls` FOR EACH ROW DELETE FROM polloptions WHERE Poll = OLD.ID//
-SET SQL_MODE=@OLDTMP_SQL_MODE//
-
 -- Dumping structure for trigger sweetiebot.tags_before_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `tags_before_delete` BEFORE DELETE ON `tags` FOR EACH ROW DELETE FROM itemtags WHERE Tag = OLD.ID//
@@ -676,7 +629,6 @@ CREATE TRIGGER `users_before_delete` BEFORE DELETE ON `users` FOR EACH ROW BEGIN
 -- Note: You cannot delete a user unless they have no entries in the members, editlog or chatlog tables
 DELETE FROM aliases WHERE `User` = OLD.ID;
 DELETE FROM debuglog WHERE `User` = OLD.ID;
-DELETE FROM votes WHERE `User` = OLD.ID;
 
 END//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
