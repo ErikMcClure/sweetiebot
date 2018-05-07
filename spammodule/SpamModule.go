@@ -19,8 +19,7 @@ type userPressure struct {
 
 // SpamModule detects banned emotes and deletes them
 type SpamModule struct {
-	sync.Mutex
-	tracker      map[bot.DiscordUser]*userPressure
+	tracker      sync.Map                    //map[bot.DiscordUser]*userPressure
 	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
 	lastlockdown time.Time
 }
@@ -28,7 +27,6 @@ type SpamModule struct {
 // New spam module
 func New() *SpamModule {
 	w := &SpamModule{
-		tracker:  make(map[bot.DiscordUser]*userPressure),
 		lockdown: -1,
 	}
 	return w
@@ -65,12 +63,12 @@ func (w *SpamModule) OnTick(info *bot.GuildInfo, t time.Time) {
 func silenceMember(user *discordgo.User, info *bot.GuildInfo) int8 {
 	defer info.Bot.DG.GuildMemberRoleAdd(info.ID, user.ID, info.Config.Basic.SilenceRole.String()) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
 	m := info.Bot.DG.GetMemberCreate(user, info.ID)
-	info.Bot.DG.State.Lock()         // Manually set our internal state to say this spammer is silent to prevent race conditions
-	defer info.Bot.DG.State.Unlock() // this defer will execute BEFORE our doDiscordSilence defer, minimizing lock time
 	if bot.MemberHasRole(m, info.Config.Basic.SilenceRole) {
 		return 1
 	}
-	m.Roles = append(m.Roles, info.Config.Basic.SilenceRole.String())
+	nroles := make([]string, len(m.Roles)) // We set this to a new slice so we can atomically replace it on x86 architectures, avoiding a lock
+	copy(nroles, m.Roles)
+	m.Roles = append(nroles, info.Config.Basic.SilenceRole.String())
 
 	return 0
 }
@@ -153,13 +151,8 @@ func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message,
 
 // TrackUser gets or creates the user tracking object for a given author
 func (w *SpamModule) TrackUser(author bot.DiscordUser, timestamp time.Time) *userPressure {
-	w.Lock()
-	defer w.Unlock()
-	_, ok := w.tracker[author]
-	if !ok {
-		w.tracker[author] = &userPressure{0, timestamp.Unix()*1000 + int64(timestamp.Nanosecond()/1000000), ""}
-	}
-	return w.tracker[author]
+	v, _ := w.tracker.LoadOrStore(author, &userPressure{0, timestamp.Unix()*1000 + int64(timestamp.Nanosecond()/1000000), ""})
+	return v.(*userPressure)
 }
 
 // AddPressure to a user and checks to see if it goes over the limit. Used to supplement spam module via filter module
@@ -529,13 +522,11 @@ func (c *getPressureCommand) Process(args []string, msg *discordgo.Message, indi
 		return bot.ReturnError(err)
 	}
 
-	c.s.Lock()
-	u, ok := c.s.tracker[user]
-	c.s.Unlock()
+	u, ok := c.s.tracker.Load(user)
 	if !ok {
 		return "0", false, nil
 	}
-	return fmt.Sprint(u.pressure), false, nil
+	return fmt.Sprint(u.(*userPressure).pressure), false, nil
 }
 func (c *getPressureCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{

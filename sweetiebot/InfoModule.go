@@ -184,7 +184,7 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		},
 		Color: 0x3e92e5,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Author", Value: "Blackhole#8270", Inline: true},
+			{Name: "Author", Value: "Blackhole#0173", Inline: true},
 			{Name: "Library", Value: "discordgo", Inline: true},
 			{Name: "Owner ID", Value: info.Bot.Owner.String(), Inline: true},
 			{Name: "Presence", Value: Pluralize(int64(len(info.Bot.Guilds)), " server"), Inline: true},

@@ -33,9 +33,8 @@ type SelfhostBase struct {
 // Selfhost stores selfhost update state
 type Selfhost struct {
 	SelfhostBase
-	sync.RWMutex
 	ready  AtomicBool
-	Donors map[DiscordUser]bool
+	Donors sync.Map //map[DiscordUser]bool
 }
 
 // UpdateStatus stores the version and additional files to download
