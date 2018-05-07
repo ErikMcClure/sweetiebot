@@ -342,13 +342,12 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		MainGuildID:    NewDiscordGuild(TestServer | 0),
 		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
 		Guilds:         make(map[DiscordGuild]*GuildInfo),
-		LastMessages:   make(map[DiscordChannel]int64),
 		MaxConfigSize:  1000000,
 		MaxUniqueItems: 25000,
 		StartTime:      time.Now().UTC().Unix(),
 		heartbeat:      4294967290,
 		memberChan:     make(chan *GuildInfo, 1500),
-		Selfhoster:     &Selfhost{SelfhostBase{BotVersion.Integer()}, sync.RWMutex{}, AtomicBool{0}, make(map[DiscordUser]bool)},
+		Selfhoster:     &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}},
 	}
 	sb.EmptyGuild = NewGuildInfo(sb, &discordgo.Guild{})
 	sb.EmptyGuild.Config.FillConfig()
@@ -360,7 +359,7 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 			ID:           guild.ID,
 			Name:         guild.Name,
 			OwnerID:      DiscordUser(guild.OwnerID),
-			commandLast:  make(map[DiscordChannel]map[CommandID]int64),
+			commandLast:  make(map[string]int64),
 			commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 			commands:     make(map[CommandID]Command),
 			commandmap:   make(map[CommandID]ModuleID),
