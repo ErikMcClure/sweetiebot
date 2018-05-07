@@ -190,7 +190,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	if err == sql.ErrNoRows {
 		return "```\nError: Expected 1 row, but got no rows!```", false, nil
 	} else if info.Bot.DB.CheckError("Search Command", err) != nil {
-		return "```Error counting search results.```", false, nil
+		return "```\nError counting search results.```", false, nil
 	}
 
 	if count == 0 {

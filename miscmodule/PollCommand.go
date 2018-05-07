@@ -55,12 +55,12 @@ func (c *pollCommand) Process(args []string, msg *discordgo.Message, indices []i
 	} else {
 		var err error
 		if target, err = info.Bot.DG.ChannelMessage(msg.ChannelID, strings.TrimSpace(args[0])); err != nil {
-			return "```Error retrieving message, are you sure that message is in this channel? It can't be a message from another channel.```", false, nil
+			return "```\nError retrieving message, are you sure that message is in this channel? It can't be a message from another channel.```", false, nil
 		}
 	}
 
 	if target == nil {
-		return "```Error: could not find any recent message in this channel with emoji reactions.```", false, nil
+		return "```\nError: could not find any recent message in this channel with emoji reactions.```", false, nil
 	}
 	max := 0
 	for _, v := range target.Reactions {
