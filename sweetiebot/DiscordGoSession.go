@@ -282,9 +282,10 @@ type DiscordGoSession struct {
 func (s *DiscordGoSession) RemoveRole(guildID string, userID DiscordUser, role DiscordRole) error {
 	m, err := s.GetMember(userID, guildID)
 	if err == nil {
-		s.State.Lock()
-		RemoveSliceString(&m.Roles, role.String())
-		s.State.Unlock()
+		nroles := make([]string, len(m.Roles)) // We set this to a new slice so we can atomically replace it on x86 architectures, avoiding a lock
+		copy(nroles, m.Roles)
+		RemoveSliceString(&nroles, role.String())
+		m.Roles = nroles
 	}
 
 	return s.GuildMemberRoleRemove(guildID, userID.String(), role.String())

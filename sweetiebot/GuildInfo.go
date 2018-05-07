@@ -25,7 +25,7 @@ type GuildInfo struct {
 	lastlogerr   int64
 	LastRaid     int64 // Last time a raid was recorded by the spam module (or any other module that records raids)
 	commandLock  sync.RWMutex
-	commandLast  map[DiscordChannel]map[CommandID]int64
+	commandLast  map[string]int64
 	commandlimit *SaturationLimit
 	ConfigLock   sync.RWMutex
 	Config       BotConfig
@@ -51,7 +51,7 @@ func NewGuildInfo(sb *SweetieBot, g *discordgo.Guild) *GuildInfo {
 		ID:           g.ID,
 		Name:         g.Name,
 		OwnerID:      DiscordUser(g.OwnerID),
-		commandLast:  make(map[DiscordChannel]map[CommandID]int64),
+		commandLast:  make(map[string]int64),
 		commandlimit: &SaturationLimit{[]int64{}, 0, AtomicFlag{0}},
 		commands:     make(map[CommandID]Command),
 		commandmap:   make(map[CommandID]ModuleID),
@@ -418,8 +418,6 @@ func (info *GuildInfo) GetRoles(command CommandID) string {
 		return ""
 	}
 
-	info.Bot.DG.State.RLock()
-	defer info.Bot.DG.State.RUnlock()
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k := range m {
@@ -443,8 +441,6 @@ func (info *GuildInfo) GetChannels(command CommandID) string {
 		return ""
 	}
 
-	info.Bot.DG.State.RLock()
-	defer info.Bot.DG.State.RUnlock()
 	_, reverse := m["!"]
 	s := make([]string, 0, len(m))
 	for k := range m {

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 19}
+var BotVersion = Version{0, 9, 9, 20}
 
 const (
 	MaxPublicLines  = 12
@@ -61,41 +62,40 @@ type deferPair struct {
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
-	DB               *BotDB
-	DG               *DiscordGoSession
-	Debug            bool `json:"debug"`
-	changelog        map[int]string
-	SelfID           DiscordUser
-	SelfAvatar       string
-	SelfName         string
-	AppID            uint64
-	AppName          string
-	Owner            DiscordUser
-	Token            string                          `json:"token"`
-	DBAuth           string                          `json:"dbauth"`
-	MainGuildID      DiscordGuild                    `json:"mainguildid"`
-	DebugChannels    map[DiscordGuild]DiscordChannel `json:"debugchannels"`
-	quit             uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
-	Guilds           map[DiscordGuild]*GuildInfo
-	GuildsLock       sync.RWMutex
-	LastMessages     map[DiscordChannel]int64
-	LastMessagesLock sync.RWMutex
-	MaxConfigSize    int    `json:"maxconfigsize"`
-	MaxUniqueItems   uint64 `json:"maxuniqueitems"`
-	StartTime        int64
-	MessageCount     uint32 // 32-bit so we can do atomic ops on a 32-bit platform
-	heartbeat        uint32 // perpetually incrementing heartbeat counter to detect deadlock
-	locknumber       uint32
-	loader           func(*GuildInfo) []Module
-	memberChan       chan *GuildInfo
-	deferChan        chan deferPair
-	Selfhoster       *Selfhost
-	IsUserMode       bool       `json:"runasuser"` // True if running as a user for some godawful reason
-	WebSecure        bool       `json:"websecure"`
-	WebDomain        string     `json:"webdomain"`
-	WebPort          string     `json:"webport"`
-	EmptyGuild       *GuildInfo // Holds an empty GuildInfo for running server independent commands
-	UpdateLock       AtomicFlag
+	DB             *BotDB
+	DG             *DiscordGoSession
+	Debug          bool `json:"debug"`
+	changelog      map[int]string
+	SelfID         DiscordUser
+	SelfAvatar     string
+	SelfName       string
+	AppID          uint64
+	AppName        string
+	Owner          DiscordUser
+	Token          string                          `json:"token"`
+	DBAuth         string                          `json:"dbauth"`
+	MainGuildID    DiscordGuild                    `json:"mainguildid"`
+	DebugChannels  map[DiscordGuild]DiscordChannel `json:"debugchannels"`
+	quit           uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
+	Guilds         map[DiscordGuild]*GuildInfo
+	GuildsLock     sync.RWMutex
+	LastMessages   sync.Map
+	MaxConfigSize  int    `json:"maxconfigsize"`
+	MaxUniqueItems uint64 `json:"maxuniqueitems"`
+	StartTime      int64
+	MessageCount   uint32 // 32-bit so we can do atomic ops on a 32-bit platform
+	heartbeat      uint32 // perpetually incrementing heartbeat counter to detect deadlock
+	locknumber     uint32
+	loader         func(*GuildInfo) []Module
+	memberChan     chan *GuildInfo
+	deferChan      chan deferPair
+	Selfhoster     *Selfhost
+	IsUserMode     bool       `json:"runasuser"` // True if running as a user for some godawful reason
+	WebSecure      bool       `json:"websecure"`
+	WebDomain      string     `json:"webdomain"`
+	WebPort        string     `json:"webport"`
+	EmptyGuild     *GuildInfo // Holds an empty GuildInfo for running server independent commands
+	UpdateLock     AtomicFlag
 }
 
 // IsMainGuild returns true if that guild is considered the main (default) guild
@@ -160,9 +160,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.Guilds[DiscordGuild(g.ID)]
 	sb.GuildsLock.RUnlock()
 	if exists {
-		sb.GuildsLock.RLock()
 		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
-		sb.GuildsLock.RUnlock()
 		guild.ProcessGuild(g)
 		return
 	}
@@ -422,18 +420,16 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 
 			cmdlimit := info.Config.Modules.CommandLimits[cmdname]
 			if !isfree && cmdlimit > 0 && !bypass {
+				cmdhash := channelID.String() + string(cmdname)
 				info.commandLock.RLock()
-				lastcmd := info.commandLast[channelID][cmdname]
+				lastcmd := info.commandLast[cmdhash]
 				info.commandLock.RUnlock()
 				if !RateLimit(&lastcmd, cmdlimit, t) {
 					info.SendError(channelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), sb.getAddMsg(info)), t)
 					return
 				}
 				info.commandLock.Lock()
-				if len(info.commandLast[channelID]) == 0 {
-					info.commandLast[channelID] = make(map[CommandID]int64)
-				}
-				info.commandLast[channelID][cmdname] = t
+				info.commandLast[cmdhash] = t
 				info.commandLock.Unlock()
 			}
 
@@ -486,9 +482,7 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 
 	channelID := DiscordChannel(m.ChannelID)
 	t := GetTimestamp(m.Message).Unix()
-	sb.LastMessagesLock.Lock()
-	sb.LastMessages[channelID] = t
-	sb.LastMessagesLock.Unlock()
+	sb.LastMessages.Store(m.ChannelID, t)
 
 	_, private := sb.ChannelIsPrivate(channelID)
 	var info *GuildInfo
@@ -525,10 +519,10 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 	} else {
 		sb.GuildsLock.RLock()
 		info, _ = sb.Guilds[sb.MainGuildID]
+		sb.GuildsLock.RUnlock()
 		if info == nil {
 			fmt.Println("Failed to get main guild during heartbeat test!")
 		}
-		sb.GuildsLock.RUnlock()
 	}
 
 	sb.ProcessCommand(m.Message, info, t, isdebug, private)
@@ -596,9 +590,7 @@ func (sb *SweetieBot) GuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate
 		return
 	}
 	fmt.Println("Guild update detected, updating", m.Name)
-	sb.GuildsLock.RLock()
 	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(info.ID): info})
-	sb.GuildsLock.RUnlock()
 	info.ProcessGuild(m.Guild)
 
 	for _, h := range info.hooks.OnGuildUpdate {
@@ -638,12 +630,12 @@ func (sb *SweetieBot) GuildMemberRemove(s *discordgo.Session, m *discordgo.Guild
 	sb.DB.RemoveMember(userID.Convert(), SBatoi(info.ID))
 
 	if info.ID == SilverServerID {
-		sb.Selfhoster.Lock() // Lock for the donor deletion
-		if _, check := sb.Selfhoster.Donors[userID]; check {
-			delete(sb.Selfhoster.Donors, userID)
+		if _, check := sb.Selfhoster.Donors.Load(m.User.ID); check {
+			sb.Selfhoster.Donors.Delete(m.User.ID)
+			sb.GuildsLock.RLock()
 			sb.Selfhoster.CheckGuilds(sb.Guilds)
+			sb.GuildsLock.RUnlock()
 		}
-		sb.Selfhoster.Unlock()
 	}
 
 	for _, h := range info.hooks.OnGuildMemberRemove {
@@ -865,11 +857,9 @@ func (sb *SweetieBot) idleCheck(info *GuildInfo, guild *discordgo.Guild) {
 		if ch.GuildID != guild.ID {
 			break // Don't allow OnIdle to trigger on channels that aren't in this server
 		}
-		sb.LastMessagesLock.RLock()
-		t, exists := sb.LastMessages[DiscordChannel(ch.ID)]
-		sb.LastMessagesLock.RUnlock()
+		t, exists := sb.LastMessages.Load(ch.ID)
 		if exists {
-			diff := tm.Sub(time.Unix(t, 0))
+			diff := tm.Sub(time.Unix(t.(int64), 0))
 
 			for _, h := range info.hooks.OnIdle {
 				if info.ProcessModule(DiscordChannel(ch.ID), h) && diff >= (time.Duration(h.IdlePeriod(info))*time.Second) {
@@ -965,6 +955,16 @@ func (sb *SweetieBot) deadlockDetector() {
 		}
 		if missed >= 5 {
 			fmt.Println("FATAL ERROR: DEADLOCK DETECTED! (", sb.locknumber, ") TERMINATING PROGRAM...")
+			name := fmt.Sprintf("stacktrace_%v.txt", time.Now().UTC().Unix())
+			if f, err := os.Create(name); err == nil {
+				pprof.Lookup("goroutine").WriteTo(f, 1)
+				f.Close()
+			}
+
+			if ch, e := sb.DG.UserChannelCreate(sb.Owner.String()); e == nil {
+				sb.DG.ChannelMessageSend(ch.ID, "Deadlock occured, stacktrace written to "+name)
+			}
+
 			os.Exit(-1)
 		}
 	}
@@ -973,7 +973,7 @@ func (sb *SweetieBot) deadlockDetector() {
 // New creates and initializes a new instance of Sweetiebot that's ready to connect. Returns nil on error.
 func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	path, _ := GetCurrentDir()
-	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, sync.RWMutex{}, AtomicBool{0}, make(map[DiscordUser]bool)}
+	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}}
 	rand.Seed(time.Now().UTC().Unix())
 
 	hostfile, gerr := ioutil.ReadFile("selfhost.json")
@@ -996,7 +996,6 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		AppName:        "Sweetie Bot",
 		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
 		Guilds:         make(map[DiscordGuild]*GuildInfo),
-		LastMessages:   make(map[DiscordChannel]int64),
 		MaxConfigSize:  1000000,
 		MaxUniqueItems: 25000,
 		StartTime:      time.Now().UTC().Unix(),
@@ -1009,6 +1008,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 20): "- Improve locking situation, begin concentrated effort to find and eliminate deadlocks via stacktraces\n- The bot now yells at you if you try to set your timezone to Etc/GMT±00",
 			AssembleVersion(0, 9, 9, 19): "- Fix installer and silver permissions handling\n- Removed polls module, replaced with !poll command in the Misc module that analyzes emoji reaction polls instead.",
 			AssembleVersion(0, 9, 9, 18): "- Fix database cleanup to preserve banned user comments.",
 			AssembleVersion(0, 9, 9, 17): "- Fix potential detection failure in deadlock detector.",

@@ -70,13 +70,12 @@ func (w *UsersModule) OnGuildMemberRemove(info *bot.GuildInfo, m *discordgo.Memb
 func assignRoleMember(info *bot.GuildInfo, userID bot.DiscordUser, roleID bot.DiscordRole) (int8, error) {
 	m, merr := info.Bot.DG.GetMember(userID, info.ID)
 	if merr == nil { // Manually set our internal state to say this role is set to prevent race conditions
-		info.Bot.DG.State.Lock()
 		if bot.MemberHasRole(m, roleID) {
-			info.Bot.DG.State.Unlock()
 			return 1, info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, userID.String(), roleID.String()))
 		}
-		m.Roles = append(m.Roles, roleID.String())
-		info.Bot.DG.State.Unlock()
+		nroles := make([]string, len(m.Roles)) // We set this to a new slice so we can atomically replace it on x86 architectures, avoiding a lock
+		copy(nroles, m.Roles)
+		m.Roles = append(nroles, roleID.String())
 	}
 
 	return 0, info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, userID.String(), roleID.String()))
@@ -282,7 +281,7 @@ type banNewcomersCommand struct {
 
 func (c *banNewcomersCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:      "bannewcomers",
+		Name:      "BanNewcomers",
 		Usage:     "Bans everyone who has recently spoken for the first time.",
 		Sensitive: true,
 	}
@@ -364,14 +363,10 @@ type setTimeZoneCommand struct {
 
 func (c *setTimeZoneCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:  "settimezone",
+		Name:  "SetTimezone",
 		Usage: "Set your local timezone.",
 	}
 }
-func (c *setTimeZoneCommand) Name() string {
-	return "settimezone"
-}
-
 func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !info.Bot.DB.CheckStatus() {
 		return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
@@ -388,6 +383,9 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 			return "```\nCould not parse offset. Note that timezones do not have spaces - use underscores (_) instead. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you could search for \"America -7\".```", false, nil
 		}
 		tz = info.Bot.DB.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
+	}
+	if strings.Contains(args[0], "GMT") || (len(tz) == 1 && strings.Contains(tz[0], "GMT")) {
+		return "```\nStop. Just stop. That's not going to work for daylight savings. You have to provide a timezone LOCATION, like 'America/Los_Angeles'. If you aren't sure what timezone location to use, check what your operating system is set to.```", false, nil
 	}
 
 	if len(tz) < 1 {

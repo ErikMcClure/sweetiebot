@@ -123,7 +123,7 @@ func (c *createRoleCommand) Process(args []string, msg *discordgo.Message, indic
 		r, err = info.Bot.DG.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
 	}
 	if err != nil {
-		return "```Could not create role! " + err.Error() + "```", false, nil
+		return "```\nCould not create role! " + err.Error() + "```", false, nil
 	}
 	info.Config.Users.Roles[bot.DiscordRole(r.ID)] = true
 	info.SaveConfig()
@@ -265,10 +265,11 @@ func (c *listRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	if err != nil {
 		return "```\nGuild not in state?!```", false, nil
 	}
-	info.Bot.DG.State.RLock()
-	defer info.Bot.DG.State.RUnlock()
+	info.Bot.DG.State.RLock() // We can't just extract the pointer here because append() is used on guild.Members, so we copy the entire slice instead
+	members := append([]*discordgo.Member{}, guild.Members...)
+	info.Bot.DG.State.RUnlock()
 	out := []string{}
-	for _, v := range guild.Members {
+	for _, v := range members {
 		if info.UserHasRole(bot.DiscordUser(v.User.ID), bot.DiscordRole(r.ID)) {
 			if len(v.Nick) > 0 {
 				out = append(out, v.Nick)

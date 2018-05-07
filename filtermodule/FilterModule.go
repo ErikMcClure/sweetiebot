@@ -209,7 +209,7 @@ func (c *addFilterCommand) Process(args []string, msg *discordgo.Message, indice
 	m, ok := info.Config.Filter.Filters[filter]
 	if !ok {
 		info.ConfigLock.Unlock()
-		return fmt.Sprintf("```The %s filter does not exist!```", filter), false, nil
+		return fmt.Sprintf("```\nThe %s filter does not exist!```", filter), false, nil
 	}
 	if len(m) == 0 {
 		info.Config.Filter.Filters[filter] = make(map[string]bool)

@@ -192,20 +192,20 @@ func (c *echoEmbedCommand) Info() *CommandInfo {
 }
 func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
-		return "```You have to tell me to say something, silly!```", false, nil
+		return "```\nYou have to tell me to say something, silly!```", false, nil
 	}
 	arg := args[0]
 	channel := msg.ChannelID
 	i := 0
 	if ChannelRegex.MatchString(arg) {
 		if len(args) < 2 {
-			return "```You have to tell me to say something, silly!```", false, nil
+			return "```\nYou have to tell me to say something, silly!```", false, nil
 		}
 		channel = arg[2 : len(arg)-1]
 		i++
 	}
 	if i >= len(args) {
-		return "```A URL is mandatory or discord won't send the embed message for some stupid reason.```", false, nil
+		return "```\nA URL is mandatory or discord won't send the embed message for some stupid reason.```", false, nil
 	}
 	url := args[i]
 	i++
@@ -213,7 +213,7 @@ func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 	if i < len(args) {
 		if colorregex.MatchString(args[i]) {
 			if len(args) < i+2 {
-				return "```You have to tell me to say something, silly!```", false, nil
+				return "```\nYou have to tell me to say something, silly!```", false, nil
 			}
 			color, _ = strconv.ParseUint(args[i][2:], 16, 64)
 			i++
@@ -223,7 +223,7 @@ func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 	for i < len(args) {
 		s := strings.SplitN(args[i], ":", 2)
 		if len(s) < 2 {
-			return "```Malformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
+			return "```\nMalformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
 		}
 		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
 		i++
@@ -375,7 +375,7 @@ func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices [
 	case -1:
 		return buySelfhosting, false, nil
 	case 0:
-		return "```" + info.GetBotName() + " is currently up-to-date.```", false, nil
+		return "```\n" + info.GetBotName() + " is currently up-to-date.```", false, nil
 	case 1:
 		info.SendMessage(DiscordChannel(msg.ChannelID), "```\nAn update to v."+VersionInt(update.Version).String()+" is available, downloading files now. The bot will restart when the download is complete (or after any active raids have subsided)```")
 	}
