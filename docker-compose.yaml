@@ -1,0 +1,20 @@
+version: '3'
+services:
+  web:
+    build: 
+        context: .
+        dockerfile: Dockerfile
+    restart: always
+    ports:
+     - "80:80"
+     - "443:443"
+  mariadb:
+    build: 
+        context: .
+        dockerfile: Dockerfile.mariadb
+    expose:
+     - "3306"
+    restart: always
+    environment:
+     - MYSQL_ROOT_PASSWORD=<YOUR PASSWORD>
+    

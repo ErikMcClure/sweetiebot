@@ -1,0 +1,1 @@
+{"token": "<YOUR TOKEN>", "dbauth": "root:<YOUR PASSWORD>@tcp(mariadb:3306)/sweetiebot?parseTime=true&collation=utf8mb4_general_ci", "mainguildid": "<YOUR SERVER ID>", "maxconfigsize": 1000000, "maxuniqueitems": 25000} 

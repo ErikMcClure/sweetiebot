@@ -384,7 +384,7 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 		}
 		tz = info.Bot.DB.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
 	}
-	if strings.Contains(args[0], "GMT") || (len(tz) == 1 && strings.Contains(tz[0], "GMT")) {
+	if strings.Contains(strings.ToLower(args[0]), "gmt") || (len(tz) == 1 && strings.Contains(strings.ToLower(tz[0]), "gmt")) {
 		return "```\nStop. Just stop. That's not going to work for daylight savings. You have to provide a timezone LOCATION, like 'America/Los_Angeles'. If you aren't sure what timezone location to use, check what your operating system is set to.```", false, nil
 	}
 
