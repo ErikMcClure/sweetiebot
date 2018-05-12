@@ -83,6 +83,12 @@ Some maplists are whitelists of channels or roles. To change them into a blackli
 ## Error Recovery
 Sweetie Bot can function with no database, but most commands will no longer function, and it will be impossible to respond to PMs. While in this state, there will be no errors in the log about failed database operations, because Sweetie Bot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also has a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if Sweetie Bot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
 
+## Docker Instance
+
+Sweetiebot can be run in a docker instance. Clone the repo, then edit the example `selfhost.json` file provided in the root directory. Provide a token from [https://discordapp.com/developers/applications/me](https://discordapp.com/developers/applications/me), provide the mysql root password, and put in the ID of your server. Remember to first add the bot to your server before attempting to start it from your [https://discordapp.com/developers/applications/me](application page). Once you've filled out `selfhost.json`, simply run `docker build .` to build a working image of sweetiebot.
+
+If you are using docker compose, follow all the previous steps, but also edit `docker-compose.yaml`. Replace  `<YOUR PASSWORD>` with the same mysql root password you used in `selfhost.json`. Then simply run `docker-compose up` and it will build the images. When first booting up, sweetiebot will fail to connect to the database while it's being built - simply wait a minute or two, and the bot will automatically re-establish a connection once it exists. When sweetie exits, the updater will run, and then the container will terminate. Docker-compose has been set to automatically restart it for you, but you can change this and any other options to suit your needs.
+
 ******
 
 ©2018 Erik McClure
