@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 21}
+var BotVersion = Version{0, 9, 9, 22}
 
 const (
 	MaxPublicLines  = 12
@@ -981,8 +981,9 @@ func (sb *SweetieBot) deadlockDetector() {
 			}
 
 			if ch, e := sb.DG.UserChannelCreate(sb.Owner.String()); e == nil {
-				sb.DG.ChannelMessageSend(ch.ID, "Deadlock occured, stacktrace written to "+name)
+				go sb.DG.ChannelMessageSend(ch.ID, "Deadlock occured, stacktrace written to "+name)
 			}
+			time.Sleep(1 * time.Second)
 
 			os.Exit(-1)
 		}
@@ -1028,6 +1029,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 22): "- Fixed crash in RolesModule and FilterModule",
 			AssembleVersion(0, 9, 9, 21): "- Put lastmessages back on a lock for better performance\n- Fix docker-specific bugs, add docker self-hosting image, because docker is cool now.",
 			AssembleVersion(0, 9, 9, 20): "- Improve locking situation, begin concentrated effort to find and eliminate deadlocks via stacktraces\n- The bot now yells at you if you try to set your timezone to Etc/GMT±00",
 			AssembleVersion(0, 9, 9, 19): "- Fix installer and silver permissions handling\n- Removed polls module, replaced with !poll command in the Misc module that analyzes emoji reaction polls instead.",
