@@ -159,7 +159,13 @@ func (c *setFilterCommand) Process(args []string, msg *discordgo.Message, indice
 		add = "Created %s, set response and excluded channels."
 	}
 	if len(args) > 1 {
+		if len(info.Config.Filter.Responses) == 0 {
+			info.Config.Filter.Responses = make(map[string]string)
+		}
 		info.Config.Filter.Responses[filter] = args[1]
+	}
+	if len(info.Config.Filter.Channels) == 0 {
+		info.Config.Filter.Channels = make(map[string]map[bot.DiscordChannel]bool)
 	}
 	info.Config.Filter.Channels[filter] = make(map[bot.DiscordChannel]bool)
 	g, _ := info.GetGuild()

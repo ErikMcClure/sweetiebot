@@ -125,6 +125,9 @@ func (c *createRoleCommand) Process(args []string, msg *discordgo.Message, indic
 	if err != nil {
 		return "```\nCould not create role! " + err.Error() + "```", false, nil
 	}
+	if len(info.Config.Users.Roles) == 0 {
+		info.Config.Users.Roles = make(map[bot.DiscordRole]bool)
+	}
 	info.Config.Users.Roles[bot.DiscordRole(r.ID)] = true
 	info.SaveConfig()
 	return fmt.Sprintf("```Created the %s role. By default, it has no permissions and can be pinged by users, but you can change these settings if you like. Use "+info.Config.Basic.CommandPrefix+"deleterole to delete it.```", r.Name), false, nil
