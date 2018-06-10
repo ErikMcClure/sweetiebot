@@ -2,7 +2,6 @@
 FROM golang:alpine as builder
 ENV GOOS=linux GOARCH=amd64 CGO_ENABLED=0
 ADD . /go
-RUN rm sweetiebot/override.go
 RUN apk add --no-cache git
 RUN go get github.com/blackhole12/discordgo
 RUN cd src/github.com/blackhole12/discordgo/;git checkout develop
