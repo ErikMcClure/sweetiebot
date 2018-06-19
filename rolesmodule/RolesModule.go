@@ -177,6 +177,9 @@ func (c *addRoleCommand) Process(args []string, msg *discordgo.Message, indices 
 	}
 	for _, v := range roles {
 		if role.Equals(v.ID) {
+			if len(info.Config.Users.Roles) == 0 {
+				info.Config.Users.Roles = make(map[bot.DiscordRole]bool)
+			}
 			info.Config.Users.Roles[role] = true
 			info.SaveConfig()
 			return "```\n" + v.Name + " is now a user-assignable role. You can change the name or permissions of the role without worrying about messing something up.```", false, nil
