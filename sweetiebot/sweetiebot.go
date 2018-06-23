@@ -36,23 +36,24 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 23}
+var BotVersion = Version{0, 9, 9, 24}
 
 const (
-	MaxPublicLines  = 12
-	maxPublicRules  = 6
-	SilverServerID  = "105443346608095232"
-	PatreonURL      = "https://www.patreon.com/erikmcclure"
-	QuitNone        = 0
-	QuitNow         = 1
-	QuitRaid        = 2
-	UpdateGrace     = 120
-	MaxUpdateGrace  = 600
-	UpdateInterval  = 300
-	CleanInterval   = 3600
-	ExpireTime      = 3600 * 72
-	MaxScheduleRows = 5000
-	DelayTime       = time.Duration(200 * time.Millisecond)
+	MaxPublicLines    = 12
+	maxPublicRules    = 6
+	SilverServerID    = "105443346608095232"
+	PatreonURL        = "https://www.patreon.com/erikmcclure"
+	QuitNone          = 0
+	QuitNow           = 1
+	QuitRaid          = 2
+	UpdateGrace       = 120
+	MaxUpdateGrace    = 600
+	UpdateInterval    = 300
+	CleanInterval     = 3600
+	ExpireTime        = 3600 * 72
+	MaxScheduleRows   = 5000
+	DelayTime         = time.Duration(200 * time.Millisecond)
+	heartbeatInterval = time.Duration(20 * time.Second)
 )
 
 type deferPair struct {
@@ -373,6 +374,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				info = sb.EmptyGuild
 			}
 		}
+
 		c, ok := info.commands[arg] // First, we check if this matches an existing command so you can't alias yourself into a hole
 		if !ok {
 			if alias, aliasok := info.Config.Basic.Aliases[string(arg)]; aliasok {
@@ -403,10 +405,15 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				_, ok = cch[channelID]
 				ignore = ignore || ok == reverse
 			}
+
 			bypass, err := info.UserCanUseCommand(DiscordUser(m.Author.ID), c, ignore) // Bypass is true for administrators, mods, and the bot owner
-			if err == errDisabled || err == errIgnored || err == errSilenced || err == errMainGuild {
+			if m.ChannelID == "heartbeat" {                                            // The heartbeat can never be ignored or disabled
+				bypass = true
+				err = nil
+			} else if err == errDisabled || err == errIgnored || err == errSilenced || err == errMainGuild {
 				return
 			}
+
 			if !isdebug && !isfree && !bypass && info.Config.Modules.CommandPerDuration > 0 { // debug channels aren't limited
 				if len(info.commandlimit.times) < info.Config.Modules.CommandPerDuration*2 { // Check if we need to re-allocate the array because the configuration changed
 					info.commandlimit.times = make([]int64, info.Config.Modules.CommandPerDuration*2, info.Config.Modules.CommandPerDuration*2)
@@ -929,8 +936,6 @@ func (sb *SweetieBot) deadlockTestFunc(s *discordgo.Session, m *discordgo.Messag
 	sb.MessageCreate(&sb.DG.Session, m)
 }
 
-const heartbeatInterval time.Duration = 20 * time.Second
-
 func (sb *SweetieBot) deadlockDetector() {
 	var counter = sb.heartbeat
 	var missed = 0
@@ -1029,6 +1034,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 24): "- Fix updater issue on linux\n- provide zip files instead of raw files for downloads\n- Fix timezones on windows without go installations\n- more idiotproofing",
 			AssembleVersion(0, 9, 9, 23): "- Fixed crash in RolesModule",
 			AssembleVersion(0, 9, 9, 22): "- Fixed crash in RolesModule and FilterModule",
 			AssembleVersion(0, 9, 9, 21): "- Put lastmessages back on a lock for better performance\n- Fix docker-specific bugs, add docker self-hosting image, because docker is cool now.",

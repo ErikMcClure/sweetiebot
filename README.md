@@ -11,15 +11,15 @@ Sweetie Bot is an administration bot for Discord servers whose primary function 
 
 ## Installing Sweetie Bot
 
-A limited version of Sweetie Bot can be added to any server via [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390). For [$5 a month](https://www.patreon.com/erikmcclure), you can install your own instance of sweetie bot anywhere you want, with all features unlocked, which will automatically keep itself up-to-date. Download the selfhost executable for your operating system and run it from the directory you want the bot to be in. Follow the installation instructions provided and the bot will be up and running in no time. Note: You may have to use `chmod a+x sweetie` on linux in order to execute the file.
+A limited version of Sweetie Bot can be added to any server via [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390). For [$5 a month](https://www.patreon.com/erikmcclure), you can install your own instance of sweetie bot anywhere you want, with all features unlocked, which will automatically keep itself up-to-date. Download the selfhost executable for your operating system and run it from the directory you want the bot to be in. Follow the installation instructions provided and the bot will be up and running in no time.
 
-[Windows (64-bit)](https://sweetiebot.io/update/windows/amd64/sweetie.exe)
+[Windows (64-bit)](https://sweetiebot.io/update/windows/amd64/sweetie.zip)
 
-[Windows (32-bit)](https://sweetiebot.io/update/windows/386/sweetie.exe)
+[Windows (32-bit)](https://sweetiebot.io/update/windows/386/sweetie.zip)
 
-[Linux (64-bit)](https://sweetiebot.io/update/linux/amd64/sweetie)
+[Linux (64-bit)](https://sweetiebot.io/update/linux/amd64/sweetie.tar.gz)
 
-[Linux (32-bit)](https://sweetiebot.io/update/linux/386/sweetie)
+[Linux (32-bit)](https://sweetiebot.io/update/linux/386/sweetie.tar.gz)
 
 ## Sweetiebot Silver
 

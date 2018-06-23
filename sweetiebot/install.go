@@ -136,6 +136,7 @@ dgretry:
 		}
 	}
 
+	os.Chmod("updater"+getExt(runtime.GOOS), 0777)
 	if err != nil {
 		panic("Download error: " + err.Error())
 	}

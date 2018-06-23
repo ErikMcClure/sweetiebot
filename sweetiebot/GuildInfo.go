@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"4d63.com/tz"
 	"github.com/blackhole12/discordgo"
 )
 
@@ -571,7 +572,7 @@ func (info *GuildInfo) GetTimezone(user DiscordUser) *time.Location {
 			return loc
 		}
 	}
-	if loc, err := time.LoadLocation(info.Config.Users.TimezoneLocation); err == nil {
+	if loc, err := tz.LoadLocation(info.Config.Users.TimezoneLocation); err == nil {
 		return loc
 	}
 	return time.UTC
