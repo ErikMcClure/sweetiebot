@@ -89,7 +89,11 @@ func (b *SelfhostBase) SelfUpdate(ownerid DiscordUser) error {
 		return err
 	}
 	if version < BotVersion.Integer() {
-		return DownloadFile(UpdateEndpoint("updater"+getExt(runtime.GOOS), ownerid, 0), "updater"+getExt(runtime.GOOS), true)
+		name := "updater" + getExt(runtime.GOOS)
+		if err = DownloadFile(UpdateEndpoint(name, ownerid, 0), name, true); err == nil {
+			err = os.Chmod(name, 0777)
+		}
+		return err
 	}
 	return nil
 }
@@ -150,6 +154,7 @@ func (b *SelfhostBase) DoUpdate(dbauth string, token string) error {
 		}
 		os.Rename("~sweetie.exe", "sweetie.exe")
 		os.Rename("~sweetie", "sweetie")
+		os.Chmod("sweetie", 0777)
 	}
 	return nil
 }

@@ -6,6 +6,7 @@ RUN apk add --no-cache git
 RUN go get github.com/blackhole12/discordgo
 RUN cd src/github.com/blackhole12/discordgo/;git checkout develop
 RUN go get github.com/go-sql-driver/mysql
+RUN go get "4d63.com/tz"
 RUN go build -a -installsuffix cgo -o sweetie.out ./sweetie
 RUN go build -a -installsuffix cgo -o updater.out ./updater
 

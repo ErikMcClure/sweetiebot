@@ -8,6 +8,7 @@ import (
 	"time"
 
 	bot "../sweetiebot"
+	"4d63.com/tz"
 	"github.com/blackhole12/discordgo"
 )
 
@@ -374,31 +375,31 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 	if len(args) < 1 {
 		return "```\nYou have to specify what your timezone is!```", false, nil
 	}
-	tz := []string{}
+	zone := []string{}
 	if len(args) < 2 {
-		tz = info.Bot.DB.FindTimeZone("%" + args[0] + "%")
+		zone = info.Bot.DB.FindTimeZone("%" + args[0] + "%")
 	} else {
 		offset, err := strconv.Atoi(args[1])
 		if err != nil {
 			return "```\nCould not parse offset. Note that timezones do not have spaces - use underscores (_) instead. The second argument should be your time difference from GMT in hours. For example, PDT is GMT-7, so you could search for \"America -7\".```", false, nil
 		}
-		tz = info.Bot.DB.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
+		zone = info.Bot.DB.FindTimeZoneOffset("%"+args[0]+"%", offset*60)
 	}
-	if strings.Contains(strings.ToLower(args[0]), "gmt") || (len(tz) == 1 && strings.Contains(strings.ToLower(tz[0]), "gmt")) {
+	if strings.Contains(strings.ToLower(args[0]), "gmt") || (len(zone) == 1 && strings.Contains(strings.ToLower(zone[0]), "gmt")) {
 		return "```\nStop. Just stop. That's not going to work for daylight savings. You have to provide a timezone LOCATION, like 'America/Los_Angeles'. If you aren't sure what timezone location to use, check what your operating system is set to.```", false, nil
 	}
 
-	if len(tz) < 1 {
+	if len(zone) < 1 {
 		if len(args) < 2 {
 			return "```\nCould not find any timezone locations that match that string. Try broadening your search (for example, search for 'America' or 'Pacific').```", false, nil
 		}
 		return "```\nCould not find any timezone locations that match that string and offset combination. Try broadening your search, or leaving out the timezone offset parameter.```", false, nil
 	}
-	if len(tz) > 1 {
-		return "Could be any of the following timezones:\n" + strings.Join(tz, "\n"), len(tz) > 6, nil
+	if len(zone) > 1 {
+		return "Could be any of the following timezones:\n" + strings.Join(zone, "\n"), len(zone) > 6, nil
 	}
 
-	loc, err := time.LoadLocation(tz[0])
+	loc, err := tz.LoadLocation(zone[0])
 	if err != nil {
 		return "```\nCould not load location! Is the timezone data missing or corrupt? Error: " + err.Error() + "```", false, nil
 	}

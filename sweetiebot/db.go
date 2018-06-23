@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"4d63.com/tz"
 	"github.com/blackhole12/discordgo"
 	"github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
 )
@@ -869,7 +870,7 @@ func (db *BotDB) GetScheduleDate(guild uint64, ty uint8, data string) *time.Time
 
 func evalTimeZone(loc sql.NullString) *time.Location {
 	if loc.Valid && len(loc.String) > 0 {
-		l, err := time.LoadLocation(loc.String)
+		l, err := tz.LoadLocation(loc.String)
 		if err == nil {
 			return l
 		}
