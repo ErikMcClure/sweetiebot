@@ -50,7 +50,7 @@ func (w *FilterModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *FilterModule) Description() string {
-	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure.\n\nIf you just want a basic word filter that respects spaces, use this template: `(^| )%%($| )`"
+	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure.\n\nIf you just want a basic case-insensitive word filter that respects spaces, use `!setconfig filter.templates` with your filter name and this template: `(?i)(^| )%%($| )`"
 }
 
 func (w *FilterModule) matchFilter(info *bot.GuildInfo, m *discordgo.Message) bool {
