@@ -168,8 +168,9 @@ type incrementCommand struct {
 
 func (c *incrementCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:  "Increment",
-		Usage: "Increments a given counter by 1.",
+		Name:      "Increment",
+		Usage:     "Increments a given counter by 1.",
+		Sensitive: true,
 	}
 }
 func (c *incrementCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {

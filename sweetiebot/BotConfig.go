@@ -1305,6 +1305,9 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 			guild.Config.Spam.RaidSilence = legacy.Spam.AutoSilence
 		}
 		guild.renameCommand("autosilence", "raidsilence")
+		restrictCommand("increment", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
+		restrictCommand("addcounter", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
+		restrictCommand("removecounter", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 	}
 
 	if guild.Config.Version != ConfigVersion {
