@@ -351,6 +351,7 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 	}
 	sb.EmptyGuild = NewGuildInfo(sb, &discordgo.Guild{})
 	sb.EmptyGuild.Config.FillConfig()
+	sb.EmptyGuild.Config.SetupDone = true
 
 	mock = NewMock(t)
 
@@ -387,6 +388,7 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		info.Config.Basic.ModChannel = NewDiscordChannel(TestChannelMod | i)
 		info.Config.Basic.SilenceRole = NewDiscordRole(TestRoleSilence | i)
 		info.Config.Users.WelcomeChannel = NewDiscordChannel(TestChannelJail | i)
+		info.Config.SetupDone = true
 	}
 	sb.Guilds[NewDiscordGuild(uint64(TestServer|2))].Silver.Set(true)
 
@@ -425,15 +427,18 @@ func TestProcessCommand(t *testing.T) {
 		fnguild(v)
 	}
 
+	Check(mock.Check(), true, t)
 	dbmock.ExpectQuery("SELECT .* FROM users.*").WillReturnRows(sqlmock.NewRows([]string{"ID", "Username", "Discriminator", "Avatar", "LastSeen", "Location", "DefaultServer"}).AddRow(0, "", 0, "", time.Now(), "", TestServer))
 	dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.Expect(sb.DG.ChannelMessageSendEmbed, strconv.Itoa(TestChannelPrivate), MockAny{})
 	sb.ProcessCommand(MockMessage("!about", TestChannelPrivate, 1000, TestUserBoring, 0), nil, 1000, false, false)
+	Check(mock.Check(), true, t)
 	dbmock.ExpectQuery("SELECT .* FROM users.*").WillReturnRows(sqlmock.NewRows([]string{}))
 	dbmock.ExpectQuery("SELECT Guild FROM members*").WithArgs(TestUserBoring).WillReturnRows(sqlmock.NewRows([]string{"Guild"}).AddRow(TestServer))
 	dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.Expect(sb.DG.ChannelMessageSendEmbed, strconv.Itoa(TestChannelPrivate), MockAny{})
 	sb.ProcessCommand(MockMessage("!about", TestChannelPrivate, 20001, TestUserBoring, 0), nil, 20001, false, true)
+	Check(mock.Check(), true, t)
 	dbmock.ExpectQuery("SELECT .* FROM users.*").WillReturnRows(sqlmock.NewRows([]string{}))
 	dbmock.ExpectQuery("SELECT Guild FROM members*").WithArgs(TestUserBoring).WillReturnRows(sqlmock.NewRows([]string{"Guild"}))
 	dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))

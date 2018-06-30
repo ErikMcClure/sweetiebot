@@ -54,6 +54,11 @@ func (config *BotConfig) internalSetConfig(info *GuildInfo, s ...string) (string
 	args, indices := ParseArguments(message[1:])
 	return config.SetConfig(info, args, indices, message)
 }
+func TestFillConfig(t *testing.T) {
+	config := BotConfig{}
+	config.FillConfig()
+	config.Counters.Map["test"] = 0
+}
 
 func TestSetConfig(t *testing.T) {
 	t.Parallel()
@@ -200,6 +205,9 @@ func TestSetConfig(t *testing.T) {
 				case map[string]float32:
 					v, _ := m["1"]
 					Check(v, float32(1.0), t)
+				case map[string]int64:
+					v, _ := m["1"]
+					Check(v, int64(1), t)
 				case map[DiscordChannel]bool:
 					_, ok := m["1"]
 					Check(ok, true, t)

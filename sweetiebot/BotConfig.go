@@ -57,8 +57,9 @@ type BotConfig struct {
 		IgnoreRole         DiscordRole                `json:"ignorerole"`
 		RaidTime           int64                      `json:"maxraidtime"`
 		RaidSize           int                        `json:"raidsize"`
-		AutoSilence        int                        `json:"autosilence"`
+		RaidSilence        int                        `json:"raidsilence"`
 		LockdownDuration   int                        `json:"lockdownduration"`
+		SilenceTimeout     int64                      `json:"silencetimeout"`
 	} `json:"spam"`
 	Users struct {
 		TimezoneLocation string               `json:"timezonelocation"`
@@ -118,6 +119,10 @@ type BotConfig struct {
 	Quote struct {
 		Quotes map[DiscordUser][]string `json:"quotes"`
 	} `json:"quote"`
+	Counters struct {
+		Map          map[string]int64  `json:"map"`
+		Descriptions map[string]string `json:"counterdescriptions"`
+	} `json:"counters"`
 }
 
 // ConfigHelp is a map of help strings for the configuration options above
@@ -158,8 +163,9 @@ var ConfigHelp = map[string]map[string]string{
 		"ignorerole":         "If set, the bot will exclude anyone with this role from spam detection. Use with caution.",
 		"raidtime":           "In order to trigger a raid alarm, at least `spam.raidsize` people must join the chat within this many seconds of each other.",
 		"raidsize":           "Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.",
-		"autosilence":        "Gets the current autosilence state. Use the `!autosilence` command to set this.",
+		"raidsilence":        "Gets the current raidsilence state. Use the `!RaidSilence` command to set this.",
 		"lockdownduration":   "Determines how long the server's verification mode will temporarily be increased to tableflip levels after a raid is detected. If set to 0, disables lockdown entirely.",
+		"silencetimeout":     "If greater than 0, any members silenced by sweetie (not by the `!silence` command) will be automatically unsilenced after this many seconds. This includes anyone silenced during a raid.",
 	},
 	"bucket": {
 		"maxitems":       "Determines the maximum number of items that can be carried in the bucket. If set to 0, the bucket is disabled.",
@@ -176,8 +182,8 @@ var ConfigHelp = map[string]map[string]string{
 	},
 	"users": {
 		"timezonelocation": "Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.",
-		"welcomechannel":   "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for silenced members. If autosilence is enabled, new users will be sent to this channel.",
-		"welcomemessage":   "If autosilence is enabled, this message will be sent to a new user upon joining.",
+		"welcomechannel":   "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for silenced members. If RaidSilence is enabled, new users will be sent to this channel.",
+		"welcomemessage":   "If RaidSilence is enabled, this message will be sent to a new user upon joining.",
 		"silencemessage":   "This message will be sent to users that have been silenced by the `!silence` command.",
 		"roles":            "A list of all user-assignable roles. Manage it via !addrole and !removerole",
 		"notifychannel":    "If set to a channel ID other than zero, sends a message to that channel whenever a new user joins the server.",
@@ -222,6 +228,10 @@ var ConfigHelp = map[string]map[string]string{
 	"quote": {
 		"quotes": "This is a map of quotes, which should be managed via `!addquote` and `!removequote`.",
 	},
+	"counters": {
+		"map":          "This is a map of counters, which should be managed via `!addcounter` and `!removecounter`.",
+		"descriptions": "These are descriptions for each counter in map, which should be managed via `!addcounter` and `!removecounter`.",
+	},
 }
 
 func getConfigHelp(module string, option string) (string, bool) {
@@ -234,7 +244,7 @@ func getConfigHelp(module string, option string) (string, bool) {
 }
 
 // ConfigVersion is the latest version of the config file
-var ConfigVersion = 26
+var ConfigVersion = 27
 
 // DefaultConfig returns a default BotConfig struct. We can't define this as a variable because you can't initialize nested structs in a sane way in Go
 func DefaultConfig() *BotConfig {
@@ -259,7 +269,7 @@ func DefaultConfig() *BotConfig {
 	config.Spam.MaxRemoveLookback = 4
 	config.Spam.RaidTime = 240
 	config.Spam.RaidSize = 4
-	config.Spam.AutoSilence = 1 // Default to raid mode
+	config.Spam.RaidSilence = 1 // Default to raid mode
 	config.Spam.LockdownDuration = 120
 	config.Bucket.MaxItems = 10
 	config.Bucket.MaxItemLength = 100
@@ -316,7 +326,11 @@ func FixRequest(arg string, t reflect.Value) (string, error) {
 func setConfigValue(f reflect.Value, value string, info *GuildInfo) error {
 	switch f.Interface().(type) {
 	case string:
-		f.SetString(value)
+		if value == "\"\"" {
+			f.SetString("")
+		} else {
+			f.SetString(value)
+		}
 	case DiscordRole:
 		g, _ := info.GetGuild()
 		s, err := ParseRole(value, g)
@@ -499,7 +513,7 @@ func (config *BotConfig) SetConfig(info *GuildInfo, args []string, indices []int
 							default:
 								return name + " must be set to either 'true' or 'false'", false
 							}
-						case map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[string]float32:
+						case map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[string]float32, map[string]int64:
 							if len(indices) < 2 {
 								return "No key parameter given", false
 							}
@@ -607,7 +621,7 @@ func (config *BotConfig) GetConfig(f reflect.Value, state *discordgo.State, guil
 	switch f.Interface().(type) {
 	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool:
 		s = append(s, getConfigValue(f, state, guild))
-	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool, map[string]float32:
+	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool, map[string]float32, map[string]int64:
 		s = getConfigList(f, state, guild)
 	case map[string]map[DiscordChannel]bool, map[CommandID]map[DiscordRole]bool, map[string]map[string]bool, map[DiscordUser][]string, map[CommandID]map[DiscordChannel]bool, map[ModuleID]map[DiscordChannel]bool:
 		s = getConfigMapList(f, state, guild)
@@ -642,68 +656,23 @@ func (config *BotConfig) IsCommandDisabled(command Command) (str string) {
 
 // FillConfig ensures root maps are not nil
 func (config *BotConfig) FillConfig() {
-	if len(config.Basic.FreeChannels) == 0 {
-		config.Basic.FreeChannels = make(map[DiscordChannel]bool)
-	}
-	if len(config.Basic.Aliases) == 0 {
-		config.Basic.Aliases = make(map[string]string)
-	}
-	if len(config.Modules.Channels) == 0 {
-		config.Modules.Channels = make(map[ModuleID]map[DiscordChannel]bool)
-	}
-	if len(config.Modules.Disabled) == 0 {
-		config.Modules.Disabled = make(map[ModuleID]bool)
-	}
-	if len(config.Modules.CommandRoles) == 0 {
-		config.Modules.CommandRoles = make(map[CommandID]map[DiscordRole]bool)
-	}
-	if len(config.Modules.CommandChannels) == 0 {
-		config.Modules.CommandChannels = make(map[CommandID]map[DiscordChannel]bool)
-	}
-	if len(config.Modules.CommandLimits) == 0 {
-		config.Modules.CommandLimits = make(map[CommandID]int64)
-	}
-	if len(config.Modules.CommandDisabled) == 0 {
-		config.Modules.CommandDisabled = make(map[CommandID]bool)
-	}
-	if len(config.Spam.MaxChannelPressure) == 0 {
-		config.Spam.MaxChannelPressure = make(map[DiscordChannel]float32)
-	}
-	if len(config.Users.Roles) == 0 {
-		config.Users.Roles = make(map[DiscordRole]bool)
-	}
-	if len(config.Bucket.Items) == 0 {
-		config.Bucket.Items = make(map[string]bool)
-	}
-	if len(config.Filter.Filters) == 0 {
-		config.Filter.Filters = make(map[string]map[string]bool)
-	}
-	if len(config.Filter.Channels) == 0 {
-		config.Filter.Channels = make(map[string]map[DiscordChannel]bool)
-	}
-	if len(config.Filter.Responses) == 0 {
-		config.Filter.Responses = make(map[string]string)
-	}
-	if len(config.Filter.Templates) == 0 {
-		config.Filter.Templates = make(map[string]string)
-	}
-	if len(config.Filter.Pressure) == 0 {
-		config.Filter.Pressure = make(map[string]float32)
-	}
-	if len(config.Bored.Commands) == 0 {
-		config.Bored.Commands = map[string]bool{"!quote": true, "!drop": true}
-	}
-	if len(config.Information.Rules) == 0 {
-		config.Information.Rules = make(map[int]string)
-	}
-	if len(config.Witty.Responses) == 0 {
-		config.Witty.Responses = make(map[string]string)
-	}
-	if len(config.Status.Lines) == 0 {
-		config.Status.Lines = make(map[string]bool)
-	}
-	if len(config.Quote.Quotes) == 0 {
-		config.Quote.Quotes = make(map[DiscordUser][]string)
+
+	t := reflect.ValueOf(config).Elem()
+	n := t.NumField()
+
+	for i := 0; i < n; i++ {
+		switch t.Field(i).Kind() {
+		case reflect.Struct:
+			f := t.Field(i)
+			for j := 0; j < f.NumField(); j++ {
+				switch f.Field(j).Kind() {
+				case reflect.Map:
+					if f.Field(j).Len() == 0 {
+						f.Field(j).Set(reflect.MakeMap(f.Field(j).Type()))
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -810,12 +779,48 @@ type legacyBotConfigV20 struct {
 	} `json:"schedule"`
 }
 
+type legacyBotConfigV26 struct {
+	Spam struct {
+		AutoSilence int `json:"autosilence"`
+	} `json:"spam"`
+}
+
 func restrictCommand(v string, roles map[CommandID]map[DiscordRole]bool, modrole DiscordRole) {
 	id := CommandID(v)
 	_, ok := roles[id]
 	if !ok && modrole != "" {
 		roles[id] = make(map[DiscordRole]bool)
 		roles[id][modrole] = true
+	}
+}
+
+func (guild *GuildInfo) renameCommand(old CommandID, new CommandID) {
+	if val, ok := guild.Config.Modules.CommandRoles[old]; ok {
+		guild.Config.Modules.CommandRoles[new] = val
+		delete(guild.Config.Modules.CommandRoles, old)
+	}
+
+	if val, ok := guild.Config.Modules.CommandChannels[old]; ok {
+		guild.Config.Modules.CommandChannels[new] = val
+		delete(guild.Config.Modules.CommandChannels, old)
+	}
+
+	if val, ok := guild.Config.Modules.CommandLimits[old]; ok {
+		guild.Config.Modules.CommandLimits[new] = val
+		delete(guild.Config.Modules.CommandLimits, old)
+	}
+
+	if val, ok := guild.Config.Modules.CommandDisabled[old]; ok {
+		guild.Config.Modules.CommandDisabled[new] = val
+		delete(guild.Config.Modules.CommandDisabled, old)
+	}
+
+	// Migrate aliases by substituting old command name for new command name
+	for k, v := range guild.Config.Basic.Aliases {
+		target := strings.SplitN(v, " ", 2)
+		if strings.ToLower(target[0]) == strings.ToLower(string(old)) {
+			guild.Config.Basic.Aliases[k] = strings.ToLower(string(new)) + " " + target[1]
+		}
 	}
 }
 
@@ -920,7 +925,7 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 		for key := range legacy.Module_disabled {
 			guild.Config.Modules.Disabled[ModuleID(key)] = true
 		}
-		guild.Config.Spam.AutoSilence = legacy.AutoSilence
+		guild.Config.Spam.RaidSilence = legacy.AutoSilence
 		//guild.Config.Spam.MaxAttach = legacy.MaxAttachSpam
 		//guild.Config.Spam.MaxImages = legacy.MaxImageSpam
 		//guild.Config.Spam.MaxMessages = legacy.MaxMessageSpam
@@ -1179,13 +1184,13 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 				}
 			}
 
-			if guild.Config.Spam.AutoSilence == -2 {
+			if guild.Config.Spam.RaidSilence == -2 {
 				guild.Config.Users.NotifyChannel = guild.Config.Log.Channel
-			} else if guild.Config.Spam.AutoSilence != 0 {
+			} else if guild.Config.Spam.RaidSilence != 0 {
 				guild.Config.Users.NotifyChannel = guild.Config.Basic.ModChannel
 			}
-			if guild.Config.Spam.AutoSilence < 0 {
-				guild.Config.Spam.AutoSilence = 0
+			if guild.Config.Spam.RaidSilence < 0 {
+				guild.Config.Spam.RaidSilence = 0
 			}
 
 			if spoilers, ok := legacy.Collections["spoiler"]; (ok && len(spoilers) > 0) || len(legacy.Spoiler.Channels) > 0 {
@@ -1291,6 +1296,15 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 
 	if guild.Config.Version <= 25 {
 		restrictCommand("echoembed", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
+	}
+
+	if guild.Config.Version <= 26 {
+		legacy := legacyBotConfigV26{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			guild.Config.Spam.RaidSilence = legacy.Spam.AutoSilence
+		}
+		guild.renameCommand("autosilence", "raidsilence")
 	}
 
 	if guild.Config.Version != ConfigVersion {
