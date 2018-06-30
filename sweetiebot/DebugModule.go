@@ -51,6 +51,7 @@ func (w *DebugModule) Description() string {
 	return "Contains various debugging commands and checks for updates. Some of these commands can only be run by the bot owner."
 }
 
+// OnTick event hook
 func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 	if info.Bot.IsMainGuild(info) && t.Unix()-w.lastcheck > UpdateInterval {
 		w.lastcheck = t.Unix()
