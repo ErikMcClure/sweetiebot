@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 24}
+var BotVersion = Version{0, 9, 9, 25}
 
 const (
 	MaxPublicLines    = 12
@@ -393,6 +393,10 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				sb.DB.Audit(AuditTypeCommand, m.Author, m.Content, SBatoi(info.ID))
 			}
 			cmdname := CommandID(strings.ToLower(c.Info().Name))
+			if m.ChannelID != "heartbeat" && !info.Config.SetupDone && cmdname != CommandID("setup") {
+				info.SendError(channelID, "You haven't set up the bot yet! Run the !setup command first and follow the instructions.", t)
+				return
+			}
 
 			ignore := false
 			if !private {
@@ -454,7 +458,6 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				targetchannel := channelID
 				if usepm && !private {
 					channel, err := sb.DG.UserChannelCreate(m.Author.ID)
-					info.LogError("Error opening private channel: ", err)
 					if err == nil {
 						targetchannel = DiscordChannel(channel.ID)
 						private = true
@@ -463,6 +466,8 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 						} else {
 							info.SendMessage(channelID, "```\nCheck your Private Messages for my reply!```")
 						}
+					} else {
+						info.SendError(channelID, "I tried to send you a Private Message, but it failed! Try PMing me the command directly.", t)
 					}
 				}
 
@@ -1034,6 +1039,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 25): "- Changed !autosilence command to !raidsilence and migrated any existing aliases.\n- The bot now tells the user if a PM failed to be sent.\n- The bot now yells at you if you haven't set it up on the server yet.\n- Added a silence timeout even though this is a bad idea becuase you all wanted it so damn bad.\n- Added a counter module for all your counting needs.\n- Setting a config string value to \"\" will now actually delete the string value.",
 			AssembleVersion(0, 9, 9, 24): "- Fix updater issue on linux\n- provide zip files instead of raw files for downloads\n- Fix timezones on windows without go installations\n- more idiotproofing",
 			AssembleVersion(0, 9, 9, 23): "- Fixed crash in RolesModule",
 			AssembleVersion(0, 9, 9, 22): "- Fixed crash in RolesModule and FilterModule",
@@ -1187,6 +1193,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	sb.EmptyGuild = NewGuildInfo(sb, &discordgo.Guild{})
 
 	sb.EmptyGuild.Config.FillConfig()
+	sb.EmptyGuild.Config.SetupDone = true
 	sb.EmptyGuild.Modules = sb.loader(sb.EmptyGuild)
 	sort.Sort(moduleArray(sb.EmptyGuild.Modules))
 

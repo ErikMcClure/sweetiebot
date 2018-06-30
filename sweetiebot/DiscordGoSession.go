@@ -17,9 +17,16 @@ var errNotChannel = errors.New("string is not a valid channel")
 var errNotRole = errors.New("string is not a valid role")
 var errNotUser = errors.New("string is not a valid user")
 
+// DiscordChannel stores a channel ID
 type DiscordChannel string
+
+// DiscordRole stores a role ID
 type DiscordRole string
+
+// DiscordUser stores a user ID
 type DiscordUser string
+
+// DiscordGuild stores a guild ID
 type DiscordGuild string
 
 const (
@@ -102,6 +109,7 @@ func (g DiscordGuild) String() string {
 	return string(g)
 }
 
+// UnmarshalJSON is a custom unmarshal function for JSON
 func (ch *DiscordChannel) UnmarshalJSON(d []byte) error {
 	s := ""
 	err := json.Unmarshal(d, &s)
@@ -117,6 +125,7 @@ func (ch *DiscordChannel) UnmarshalJSON(d []byte) error {
 	return err
 }
 
+// UnmarshalJSON is a custom unmarshal function for JSON
 func (r *DiscordRole) UnmarshalJSON(d []byte) error {
 	s := ""
 	err := json.Unmarshal(d, &s)
@@ -152,22 +161,27 @@ func (g DiscordGuild) Equals(s string) bool {
 	return g != GuildEmpty && string(g) == s
 }
 
+// NewDiscordChannel constructs a new DiscordChannel from an integer
 func NewDiscordChannel(i uint64) DiscordChannel {
 	return DiscordChannel(strconv.FormatUint(i, 10))
 }
 
+// NewDiscordRole constructs a new DiscordRole from an integer
 func NewDiscordRole(i uint64) DiscordRole {
 	return DiscordRole(strconv.FormatUint(i, 10))
 }
 
+// NewDiscordUser constructs a new DiscordUser from an integer
 func NewDiscordUser(i uint64) DiscordUser {
 	return DiscordUser(strconv.FormatUint(i, 10))
 }
 
+// NewDiscordGuild constructs a new DiscordGuild from an integer
 func NewDiscordGuild(i uint64) DiscordGuild {
 	return DiscordGuild(strconv.FormatUint(i, 10))
 }
 
+// ParseChannel resolves multiple different channel tagging formats
 func ParseChannel(s string, guild *discordgo.Guild) (DiscordChannel, error) {
 	if len(s) == 0 {
 		return ChannelEmpty, nil
@@ -206,6 +220,7 @@ func ParseChannel(s string, guild *discordgo.Guild) (DiscordChannel, error) {
 	return DiscordChannel(s), nil
 }
 
+// ParseRole resolves multiple different role tagging formats
 func ParseRole(s string, guild *discordgo.Guild) (DiscordRole, error) {
 	if len(s) == 0 {
 		return RoleEmpty, nil
@@ -244,6 +259,7 @@ func ParseRole(s string, guild *discordgo.Guild) (DiscordRole, error) {
 	return DiscordRole(s), nil
 }
 
+// ParseUser resolves multiple different user tagging formats
 func ParseUser(s string, info *GuildInfo) (DiscordUser, error) {
 	if len(s) == 0 {
 		return UserEmpty, errNotUser
