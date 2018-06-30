@@ -5,6 +5,7 @@ import (
 
 	"../boredmodule"
 	"../bucketmodule"
+	"../countersmodule"
 	"../filtermodule"
 	"../markovmodule"
 	"../miscmodule"
@@ -34,6 +35,7 @@ func loader(guild *sweetiebot.GuildInfo) []sweetiebot.Module {
 	modules = append(modules, bucketmodule.New())
 	modules = append(modules, boredmodule.New())
 	modules = append(modules, miscmodule.New())
+	modules = append(modules, countersmodule.New())
 	modules = append(modules, wittymodule.New(guild))
 	spam := spammodule.New()
 	modules = append(modules, spam)

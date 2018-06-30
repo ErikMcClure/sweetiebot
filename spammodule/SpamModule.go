@@ -1,6 +1,7 @@
 package spammodule
 
 import (
+	"container/heap"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,18 +18,46 @@ type userPressure struct {
 	lastcache   string
 }
 
+type userTimeout struct {
+	user bot.DiscordUser
+	time time.Time
+}
+
+type userTimeoutHeap []userTimeout
+
+func (h userTimeoutHeap) Len() int           { return len(h) }
+func (h userTimeoutHeap) Less(i, j int) bool { return h[i].time.Before(h[j].time) }
+func (h userTimeoutHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h userTimeoutHeap) Peek() *userTimeout { return &h[0] }
+
+func (h *userTimeoutHeap) Push(x interface{}) {
+	*h = append(*h, x.(userTimeout))
+}
+
+func (h *userTimeoutHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	item := old[n-1]
+	*h = old[0 : n-1]
+	return item
+}
+
 // SpamModule detects banned emotes and deletes them
 type SpamModule struct {
 	tracker      sync.Map                    //map[bot.DiscordUser]*userPressure
 	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
 	lastlockdown time.Time
+	timeouts     *userTimeoutHeap
+	timeoutLock  sync.Mutex
 }
 
 // New spam module
 func New() *SpamModule {
 	w := &SpamModule{
 		lockdown: -1,
+		timeouts: &userTimeoutHeap{},
 	}
+	heap.Init(w.timeouts)
 	return w
 }
 
@@ -40,7 +69,7 @@ func (w *SpamModule) Name() string {
 // Commands in the module
 func (w *SpamModule) Commands() []bot.Command {
 	return []bot.Command{
-		&autoSilenceCommand{w},
+		&raidSilenceCommand{w},
 		&wipeCommand{},
 		&getPressureCommand{w},
 		&getRaidCommand{w},
@@ -58,6 +87,16 @@ func (w *SpamModule) OnTick(info *bot.GuildInfo, t time.Time) {
 	if w.lockdown != -1 && t.Sub(w.lastlockdown) > (time.Duration(info.Config.Spam.LockdownDuration)*time.Second) {
 		w.DisableLockdown(info)
 	}
+	w.timeoutLock.Lock()
+	for w.timeouts.Len() > 0 && w.timeouts.Peek().time.Before(t) {
+		u := heap.Pop(w.timeouts).(userTimeout).user
+		err := info.Bot.DG.RemoveRole(info.ID, u, info.Config.Basic.SilenceRole)
+		if err != nil {
+			info.SendMessage(info.Config.Basic.ModChannel, "```\nError unsilencing member: "+err.Error()+"```")
+		}
+		info.SendMessage(info.Config.Basic.ModChannel, "```\nUnsilenced "+info.GetUserName(u)+".```")
+	}
+	w.timeoutLock.Unlock()
 }
 
 func silenceMember(user *discordgo.User, info *bot.GuildInfo) int8 {
@@ -73,7 +112,7 @@ func silenceMember(user *discordgo.User, info *bot.GuildInfo) int8 {
 	return 0
 }
 
-func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
+func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
 	// Before anything else happens, we delete this message. This ensures that even if we get rate-limited, we can still delete any new messages
 	if info.Config.Spam.MaxRemoveLookback >= 0 {
 		time.Sleep(bot.DelayTime)
@@ -142,7 +181,15 @@ func killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message,
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
-		info.SendMessage(info.Config.Basic.ModChannel, "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate.") // Alert admins
+		addmsg := "."
+		if info.Config.Spam.SilenceTimeout > 0 {
+			timeout := time.Duration(info.Config.Spam.SilenceTimeout) * time.Second
+			addmsg = ", or they will be unsilenced automatically in " + bot.TimeDiff(timeout)
+			w.timeoutLock.Lock()
+			heap.Push(w.timeouts, userTimeout{bot.DiscordUser(u.ID), timestamp.Add(timeout)})
+			w.timeoutLock.Unlock()
+		}
+		info.SendMessage(info.Config.Basic.ModChannel, "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate"+addmsg) // Alert admins
 		info.Log(logmsg)
 	} else {
 		info.Log("Killing spammer " + u.Username)
@@ -165,9 +212,8 @@ func (w *SpamModule) AddPressure(info *bot.GuildInfo, m *discordgo.Message, trac
 	}
 
 	track.pressure += p
-	//fmt.Println("Current Pressure: ", track.pressure)
 	if track.pressure > info.Config.Spam.MaxPressure {
-		killSpammer(m.Author, info, m, reason, old, track.pressure)
+		w.killSpammer(m.Author, info, m, reason, old, track.pressure)
 		return true
 	}
 	return false
@@ -286,7 +332,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 
 		for _, v := range r {
 			s = append(s, v.User.Username+"  (joined: "+info.ApplyTimezone(v.FirstSeen, bot.UserEmpty).Format(time.ANSIC)+")")
-			if info.Config.Spam.AutoSilence >= 1 {
+			if info.Config.Spam.RaidSilence >= 1 {
 				silenceMember(v.User, info)
 			}
 		}
@@ -294,9 +340,9 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 		if info.Bot.Debug {
 			ch, _ = info.Bot.DebugChannels[bot.DiscordGuild(info.ID)]
 		}
-		message := "Use `" + info.Config.Basic.CommandPrefix + "autosilence all` to silence them!"
-		if info.Config.Spam.AutoSilence > 0 {
-			message = "Autosilence has been engaged and the following users silenced:"
+		message := "Use `" + info.Config.Basic.CommandPrefix + "raidsilence all` to silence them!"
+		if info.Config.Spam.RaidSilence > 0 {
+			message = "RaidSilence has been engaged and the following users silenced:"
 		}
 		go info.SendMessage(ch, info.Config.Basic.ModRole.Display()+" Possible Raid Detected! "+message+"\n```"+strings.Join(s, "\n")+"```")
 		if info.Config.Spam.LockdownDuration > 0 {
@@ -313,7 +359,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 				if err != nil {
 					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given "+info.GetBotName()+" the Manage Server permission, or disable the lockdown entirely via `"+info.Config.Basic.CommandPrefix+"setconfig spam.lockdownduration 0`.")
 				} else {
-					info.SendMessage(ch, fmt.Sprintf("Lockdown engaged! Server verification level will be reset in %v seconds. This lockdown can be manually ended via `"+info.Config.Basic.CommandPrefix+"autosilence off/alert/log`.", info.Config.Spam.LockdownDuration))
+					info.SendMessage(ch, fmt.Sprintf("Lockdown engaged! Server verification level will be reset in %v seconds. This lockdown can be manually ended via `"+info.Config.Basic.CommandPrefix+"raidsilence off/alert/log`.", info.Config.Spam.LockdownDuration))
 				}
 			}
 			// Otherwise just reset the timer
@@ -324,7 +370,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 
 // OnGuildMemberAdd discord hook
 func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
-	if info.Config.Spam.AutoSilence >= 2 || (info.Config.Spam.AutoSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
+	if info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
 		silenceMember(m.User, info)
 		if len(info.Config.Users.WelcomeMessage) > 0 {
 			info.SendMessage(info.Config.Users.WelcomeChannel, "<@"+m.User.ID+"> "+info.Config.Users.WelcomeMessage)
@@ -345,30 +391,30 @@ func (w *SpamModule) isRecentRaid(info *bot.GuildInfo, t time.Time) bool {
 	return info.LastRaid+info.Config.Spam.RaidTime*2 > t.Unix()
 }
 
-type autoSilenceCommand struct {
+type raidSilenceCommand struct {
 	s *SpamModule
 }
 
-func (c *autoSilenceCommand) Info() *bot.CommandInfo {
+func (c *raidSilenceCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:      "AutoSilence",
-		Usage:     "Toggle auto silence.",
+		Name:      "RaidSilence",
+		Usage:     "Toggle raid silencing.",
 		Sensitive: true,
 	}
 }
-func (c *autoSilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must provide an auto silence level (either all, raid, or off).```", false, nil
+		return "```\nYou must provide a raid silence level (either all, raid, or off).```", false, nil
 	}
 	timestamp := bot.GetTimestamp(msg)
 
 	switch strings.ToLower(args[0]) {
 	case "all":
-		info.Config.Spam.AutoSilence = 2
+		info.Config.Spam.RaidSilence = 2
 	case "raid":
-		info.Config.Spam.AutoSilence = 1
+		info.Config.Spam.RaidSilence = 1
 	case "off":
-		info.Config.Spam.AutoSilence = 0
+		info.Config.Spam.RaidSilence = 0
 	/*case "debug":
 	var subtract int64
 	if len(args) > 1 {
@@ -377,20 +423,20 @@ func (c *autoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 	info.LastRaid = timestamp.Unix() - subtract
 	fmt.Println(time.Unix(info.LastRaid, 0))*/
 	default:
-		return "```\nOnly all, raid, and off are valid auto silence levels.```", false, nil
+		return "```\nOnly all, raid, and off are valid raid silence levels.```", false, nil
 	}
 
 	info.SaveConfig()
 
-	if info.Config.Spam.AutoSilence <= 0 {
+	if info.Config.Spam.RaidSilence <= 0 {
 		c.s.DisableLockdown(info)
 	} else if c.s.isRecentRaid(info, timestamp) { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		c.s.lastlockdown = timestamp // Reset lockdown timer just in case
 		if !info.Bot.DB.CheckStatus() {
-			return "```\nAutosilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
+			return "```\nRaidSilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
 		}
 		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
-		go info.SendMessage(bot.DiscordChannel(msg.ChannelID), "```\nSet the auto silence level to "+strings.ToLower(args[0])+".```")
+		go info.SendMessage(bot.DiscordChannel(msg.ChannelID), "```\nSet the raid silence level to "+strings.ToLower(args[0])+".```")
 		r := c.s.getRaidUsers(info)
 		s := make([]string, 0, len(r))
 		s = append(s, "```\nDetected a recent raid. All users from the raid have been silenced:")
@@ -400,13 +446,13 @@ func (c *autoSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		}
 		return strings.Join(s, "\n") + "```", false, nil
 	}
-	return "```\nSet the auto silence level to " + strings.ToLower(args[0]) + ".```", false, nil
+	return "```\nSet the raid silence level to " + strings.ToLower(args[0]) + ".```", false, nil
 }
-func (c *autoSilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
+func (c *raidSilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Toggles the auto silencer for raids. This does not affect spam detection, only new members joining the server.",
+		Desc: "Toggles silencing new members during raids. This does not affect spam detection, only new members joining the server.",
 		Params: []bot.CommandUsageParam{
-			{Name: "all/raid/off", Desc: "`all` will autosilence all new members. `raid` will turn on autosilence if a raid is detected and silence any raiders automatically, then disengage it after `spam.raidtime*2` seconds. `off` disables auto-silence.", Optional: false},
+			{Name: "all/raid/off", Desc: "`all` will always silence all new members. `raid` will only silence new members if a raid is detected, up to `spam.raidtime*2` seconds after the raid is detected. `off` disables raid silencing.", Optional: false},
 		},
 	}
 }
