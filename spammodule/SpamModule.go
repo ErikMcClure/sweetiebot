@@ -504,14 +504,32 @@ func (c *wipeCommand) WipeMessages(ch *discordgo.Channel, num int, seconds int, 
 	return ret, nil
 }
 func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if len(args) < 2 {
-		return "```\nYou must specify the channel and the duration.```", false, nil
+	if len(args) < 1 {
+		return "```\nYou must specify the duration.```", false, nil
 	}
 
-	g, _ := info.GetGuild()
-	ch, err := bot.ParseChannel(args[0], g)
-	if err != nil {
-		return bot.ReturnError(err)
+	var err error
+	messages := false
+	ch := bot.DiscordChannel(msg.ChannelID)
+	num := 0
+	if len(args) > 1 {
+		if strings.ToLower(args[1]) == "messages" {
+			messages = true
+			num, err = strconv.Atoi(args[0])
+		} else {
+			g, _ := info.GetGuild()
+			ch, err = bot.ParseChannel(args[0], g)
+			if err == nil {
+				num, err = strconv.Atoi(args[1])
+			}
+
+			if len(args) > 2 {
+				messages = strings.ToLower(args[2]) == "messages"
+			}
+		}
+		if err != nil {
+			return bot.ReturnError(err)
+		}
 	}
 	channel, private := info.Bot.ChannelIsPrivate(ch)
 	if private {
@@ -520,12 +538,11 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if channel == nil || channel.GuildID != info.ID {
 		return "```\nThat channel isn't on this server!```", false, nil
 	}
-	num, err := strconv.Atoi(args[1])
 	timestamp := bot.GetTimestamp(msg)
-	if err != nil || num <= 0 {
+	if num <= 0 {
 		return "```\nThere's no point deleting 0 messages!.```", false, nil
 	}
-	if len(args) > 2 && strings.ToLower(args[2]) == "messages" {
+	if messages {
 		num, err = c.WipeMessages(channel, num, 0, timestamp, info)
 	} else {
 		num, err = c.WipeMessages(channel, 9999, num, timestamp, info)
@@ -539,7 +556,7 @@ func (c *wipeCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Removes all messages in a channel sent within the last N seconds, or simply removes the last N messages if \"messages\" is appended.",
 		Params: []bot.CommandUsageParam{
-			{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work.", Optional: false},
+			{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work. If omitted, uses the current channel", Optional: true},
 			{Name: "seconds", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago.", Optional: false},
 			{Name: "MESSAGES", Desc: "If you append \"MESSAGES\" to the end of the command, it will remove that many messages, instead of looking back that many seconds.", Optional: true},
 		},
