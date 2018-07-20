@@ -1,6 +1,7 @@
 DELIMITER //
 
 SET NAMES utf8mb4//
+SET GLOBAL log_bin_trust_function_creators = 1//
 
 -- Dumping database structure for sweetiebot
 CREATE DATABASE IF NOT EXISTS `sweetiebot` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci//
