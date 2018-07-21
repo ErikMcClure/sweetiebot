@@ -572,7 +572,7 @@ func (info *GuildInfo) GetTimezone(user DiscordUser) *time.Location {
 			return loc
 		}
 	}
-	if loc, err := tz.LoadLocation(info.Config.Users.TimezoneLocation); err == nil {
+	if loc, err := tz.LoadLocation(string(info.Config.Users.TimezoneLocation)); err == nil {
 		return loc
 	}
 	return time.UTC
