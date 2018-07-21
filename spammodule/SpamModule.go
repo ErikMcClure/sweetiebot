@@ -513,7 +513,7 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	ch := bot.DiscordChannel(msg.ChannelID)
 	num := 0
 	if len(args) > 1 {
-		if strings.ToLower(args[1]) == "messages" {
+		if strings.ToLower(args[1]) == "messages" || strings.ToLower(args[1]) == "message" {
 			messages = true
 			num, err = strconv.Atoi(args[0])
 		} else {
@@ -524,12 +524,14 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 			}
 
 			if len(args) > 2 {
-				messages = strings.ToLower(args[2]) == "messages"
+				messages = strings.ToLower(args[2]) == "messages" || strings.ToLower(args[2]) == "message"
 			}
 		}
-		if err != nil {
-			return bot.ReturnError(err)
-		}
+	} else {
+		num, err = strconv.Atoi(args[0])
+	}
+	if err != nil {
+		return bot.ReturnError(err)
 	}
 	channel, private := info.Bot.ChannelIsPrivate(ch)
 	if private {

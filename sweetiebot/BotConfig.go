@@ -334,10 +334,10 @@ func setConfigValue(f reflect.Value, value string, info *GuildInfo) error {
 			f.SetString(value)
 		}
 	case TimeLocation:
-		value = strings.ToLower(value)
-		loc, err := tz.LoadLocation(value)
-		if err != nil || loc == nil {
-			return fmt.Errorf("%s is not a valid timezone location!", value)
+		value = strings.TrimSpace(value)
+		_, err := tz.LoadLocation(value)
+		if err != nil {
+			return fmt.Errorf("%s is not a valid timezone location! The location is CASE-SENSITIVE, use !settimezone to find the exact string you want.", value)
 		}
 		f.SetString(value)
 	case DiscordRole:
@@ -500,7 +500,7 @@ func (config *BotConfig) SetConfig(info *GuildInfo, args []string, indices []int
 					if strings.ToLower(t.Field(i).Type().Field(j).Name) == names[1] {
 						f := t.Field(i).Field(j)
 						switch f.Interface().(type) {
-						case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser:
+						case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, TimeLocation:
 							value := ""
 							if len(indices) > 1 {
 								value = message[indices[1]:]
@@ -628,7 +628,7 @@ func getConfigMapList(f reflect.Value, state *discordgo.State, guild string) (s 
 
 func (config *BotConfig) GetConfig(f reflect.Value, state *discordgo.State, guild string) (s []string) {
 	switch f.Interface().(type) {
-	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool:
+	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool, TimeLocation:
 		s = append(s, getConfigValue(f, state, guild))
 	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool, map[string]float32, map[string]int64:
 		s = getConfigList(f, state, guild)
