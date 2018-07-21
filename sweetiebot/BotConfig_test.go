@@ -180,6 +180,12 @@ func TestSetConfig(t *testing.T) {
 					config.internalSetConfig(info, path, "true")
 					Check(p.Field(i).Field(j).Interface().(bool), true, t)
 					continue
+				case TimeLocation:
+					config.internalSetConfig(info, path, "1")
+					Check(fmt.Sprint(p.Field(i).Field(j).Interface()), "", t)
+					config.internalSetConfig(info, path, "America/Toronto")
+					Check(fmt.Sprint(p.Field(i).Field(j).Interface()), "America/Toronto", t)
+					continue
 				}
 
 				config.internalSetConfig(info, path, "1", "1")
