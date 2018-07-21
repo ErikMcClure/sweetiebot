@@ -9,11 +9,13 @@ import (
 	"strconv"
 	"strings"
 
+	"4d63.com/tz"
 	"github.com/blackhole12/discordgo"
 )
 
 type ModuleID string
 type CommandID string
+type TimeLocation string
 
 // BotConfig lists all bot configuration options, grouped into structs
 type BotConfig struct {
@@ -62,7 +64,7 @@ type BotConfig struct {
 		SilenceTimeout     int64                      `json:"silencetimeout"`
 	} `json:"spam"`
 	Users struct {
-		TimezoneLocation string               `json:"timezonelocation"`
+		TimezoneLocation TimeLocation         `json:"timezonelocation"`
 		WelcomeChannel   DiscordChannel       `json:"welcomechannel"`
 		WelcomeMessage   string               `json:"welcomemessage"`
 		SilenceMessage   string               `json:"silencemessage"`
@@ -331,6 +333,13 @@ func setConfigValue(f reflect.Value, value string, info *GuildInfo) error {
 		} else {
 			f.SetString(value)
 		}
+	case TimeLocation:
+		value = strings.TrimSpace(value)
+		_, err := tz.LoadLocation(value)
+		if err != nil {
+			return fmt.Errorf("%s is not a valid timezone location! The location is CASE-SENSITIVE, use !settimezone to find the exact string you want.", value)
+		}
+		f.SetString(value)
 	case DiscordRole:
 		g, _ := info.GetGuild()
 		s, err := ParseRole(value, g)
@@ -491,7 +500,7 @@ func (config *BotConfig) SetConfig(info *GuildInfo, args []string, indices []int
 					if strings.ToLower(t.Field(i).Type().Field(j).Name) == names[1] {
 						f := t.Field(i).Field(j)
 						switch f.Interface().(type) {
-						case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser:
+						case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, TimeLocation:
 							value := ""
 							if len(indices) > 1 {
 								value = message[indices[1]:]
@@ -619,7 +628,7 @@ func getConfigMapList(f reflect.Value, state *discordgo.State, guild string) (s 
 
 func (config *BotConfig) GetConfig(f reflect.Value, state *discordgo.State, guild string) (s []string) {
 	switch f.Interface().(type) {
-	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool:
+	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, float32, float64, uint64, DiscordChannel, DiscordRole, DiscordUser, ModuleID, CommandID, bool, TimeLocation:
 		s = append(s, getConfigValue(f, state, guild))
 	case map[DiscordChannel]bool, map[string]bool, map[DiscordRole]bool, map[string]string, map[CommandID]int64, map[DiscordChannel]float32, map[int]string, map[CommandID]bool, map[ModuleID]bool, map[string]float32, map[string]int64:
 		s = getConfigList(f, state, guild)
@@ -941,7 +950,7 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 		guild.Config.Markov.MaxPMlines = legacy.MaxPMlines
 		guild.Config.Markov.MaxLines = legacy.Maxquotelines
 		guild.Config.Markov.UseMemberNames = legacy.UseMemberNames
-		guild.Config.Users.TimezoneLocation = legacy.TimezoneLocation
+		guild.Config.Users.TimezoneLocation = TimeLocation(legacy.TimezoneLocation)
 		guild.Config.Users.WelcomeChannel = NewDiscordChannel(legacy.WelcomeChannel)
 		guild.Config.Users.WelcomeMessage = legacy.WelcomeMessage
 		guild.Config.Users.SilenceMessage = legacy.SilenceMessage
