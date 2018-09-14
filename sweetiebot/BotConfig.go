@@ -71,6 +71,8 @@ type BotConfig struct {
 		Roles            map[DiscordRole]bool `json:"userroles"`
 		NotifyChannel    DiscordChannel       `json:"joinchannel"`
 		TrackUserLeft    bool                 `json:"trackuserleft"`
+		NewUserRole      DiscordRole          `json:"newuserrole"`
+		NewUserDuration  int64                `json:"newuserduration"`
 	} `json:"users"`
 	Bucket struct {
 		MaxItems       int             `json:"maxbucket"`
@@ -136,7 +138,7 @@ var ConfigHelp = map[string]map[string]string{
 		"modchannel":            "This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.",
 		"freechannels":          "This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.",
 		"botchannel":            "This allows you to designate a particular channel to point users if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
-		"aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii \"pick cute\"` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
+		"aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii pick cute` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 		"listentobots":          "If true, processes messages from other bots and allows them to run commands. Bots can never trigger anti-spam. Defaults to false.",
 		"commandprefix":         "Determines the SINGLE ASCII CHARACTER prefix used to denote bot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, it defaults to `!`.",
 		"silencerole":           "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.",
@@ -190,6 +192,8 @@ var ConfigHelp = map[string]map[string]string{
 		"roles":            "A list of all user-assignable roles. Manage it via !addrole and !removerole",
 		"notifychannel":    "If set to a channel ID other than zero, sends a message to that channel whenever a new user joins the server.",
 		"trackuserleft":    "If true, tracks users that leave the server if notifychannel is set.",
+		"newuserrole":      "If this is set and `newuserduration` is nonzero, this role is given to any new user that joins, regardless of raid settings. It is automatically removed after `newuserduration` seconds.",
+		"newuserduration":  "The number of seconds a new user will have the `newuserrole` role. If zero, `newuserrole` won't be given to any new user.",
 	},
 	"filter": {
 		"filters":   "A collection of word lists for each filter. These are combined into a single regex of the form `(word1|word2|etc...)`, depending on the filter template.",

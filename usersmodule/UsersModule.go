@@ -55,6 +55,14 @@ func (w *UsersModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member,
 		if info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
 			created += " and was silenced"
 		}
+		if info.Config.Users.NewUserRole != bot.RoleEmpty && info.Config.Users.NewUserDuration > 0 {
+			assignRoleMember(info, bot.DiscordUser(m.User.ID), info.Config.Users.NewUserRole)
+
+			gID := bot.SBatoi(info.ID)
+			if err := info.Bot.DB.AddSchedule(gID, time.Now().Add(time.Second*time.Duration(info.Config.Users.NewUserDuration)), 9, m.User.ID+"|"+info.Config.Users.NewUserRole.String()); err != nil {
+				info.LogError("Failed to add NewUserRole to schedule: ", err)
+			}
+		}
 		info.SendMessage(info.Config.Users.NotifyChannel, "<@"+m.User.ID+"> "+created+".")
 	}
 }
@@ -476,7 +484,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		m.JoinedAt = dbmember.JoinedAt
 	}
 	authortz := info.GetTimezone(bot.DiscordUser(msg.Author.ID))
-	joinedat, err := time.Parse(time.RFC3339, m.JoinedAt)
+	joinedat, err := m.JoinedAt.Parse()
 	joined := ""
 	if err == nil {
 		joined = bot.TimeDiff(timestamp.Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
@@ -567,7 +575,7 @@ func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	}
 
 	if !guilds[0].Config.SetupDone {
-		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run !setup on that server first.```", guilds[0].Name), false, nil
+		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run !setup on that server first. Go here for instructions: https://sweetiebot.io```", guilds[0].Name), false, nil
 	}
 
 	target := bot.SBatoi(guilds[0].ID)

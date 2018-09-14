@@ -11,7 +11,7 @@ import (
 )
 
 func (s *DiscordGoSession) AddHandler(handler interface{}) func() {
-	mock.Input(s.AddHandler, handler)
+	mock.Input(interface{}(s.AddHandler), handler)
 	return func() {}
 }
 func (s *DiscordGoSession) Channel(channelID string) (st *discordgo.Channel, err error) {
@@ -35,83 +35,83 @@ func (s *DiscordGoSession) Channel(channelID string) (st *discordgo.Channel, err
 			NSFW:    false,
 		}, nil
 	}
-	mock.Input(s.Channel, channelID)
+	mock.Input(interface{}(s.Channel), channelID)
 	return s.State.Channel(channelID)
 }
 func (s *DiscordGoSession) ChannelMessages(channelID string, limit int, beforeID, afterID, aroundID string) (st []*discordgo.Message, err error) {
-	mock.Input(s.ChannelMessages, channelID, limit, beforeID, afterID, aroundID)
+	mock.Input(interface{}(s.ChannelMessages), channelID, limit, beforeID, afterID, aroundID)
 	return
 }
 func (s *DiscordGoSession) ChannelMessage(channelID, messageID string) (st *discordgo.Message, err error) {
-	mock.Input(s.ChannelMessage, channelID, messageID)
+	mock.Input(interface{}(s.ChannelMessage), channelID, messageID)
 	return
 }
 func (s *DiscordGoSession) ChannelMessageSend(channelID string, content string) (st *discordgo.Message, err error) {
-	mock.Input(s.ChannelMessageSend, channelID, content)
+	mock.Input(interface{}(s.ChannelMessageSend), channelID, content)
 	return
 }
 func (s *DiscordGoSession) ChannelMessageSendComplex(channelID string, data *discordgo.MessageSend) (st *discordgo.Message, err error) {
-	mock.Input(s.ChannelMessageSendComplex, channelID, data)
+	mock.Input(interface{}(s.ChannelMessageSendComplex), channelID, data)
 	return
 }
 func (s *DiscordGoSession) ChannelMessagesBulkDelete(channelID string, messages []string) (err error) {
-	mock.Input(s.ChannelMessagesBulkDelete, channelID, messages)
+	mock.Input(interface{}(s.ChannelMessagesBulkDelete), channelID, messages)
 	return nil
 }
 
 func (s *DiscordGoSession) ChannelMessageDelete(channelID, messageID string) (err error) {
-	mock.Input(s.ChannelMessageDelete, channelID, messageID)
+	mock.Input(interface{}(s.ChannelMessageDelete), channelID, messageID)
 	return nil
 }
 func (s *DiscordGoSession) ChannelMessageSendEmbed(channelID string, embed *discordgo.MessageEmbed) (m *discordgo.Message, err error) {
-	mock.Input(s.ChannelMessageSendEmbed, channelID, embed)
+	mock.Input(interface{}(s.ChannelMessageSendEmbed), channelID, embed)
 	return
 }
 func (s *DiscordGoSession) ChannelPermissionSet(channelID, targetID, targetType string, allow, deny int) (err error) {
-	mock.Input(s.ChannelPermissionSet, channelID, targetID, targetType, allow, deny)
+	mock.Input(interface{}(s.ChannelPermissionSet), channelID, targetID, targetType, allow, deny)
 	return
 }
 func (s *DiscordGoSession) Guild(guildID string) (st *discordgo.Guild, err error) {
-	mock.Input(s.Guild, guildID)
+	mock.Input(interface{}(s.Guild), guildID)
 	return s.State.Guild(guildID)
 }
 func (s *DiscordGoSession) GuildEdit(guildID string, g discordgo.GuildParams) (st *discordgo.Guild, err error) {
-	mock.Input(s.GuildEdit, guildID, g)
+	mock.Input(interface{}(s.GuildEdit), guildID, g)
 	return
 }
 
 func (s *DiscordGoSession) GuildBanCreate(guildID, userID string, days int) (err error) {
-	mock.Input(s.GuildBanCreate, guildID, userID, days)
+	mock.Input(interface{}(s.GuildBanCreate), guildID, userID, days)
 	return nil
 }
 func (s *DiscordGoSession) GuildBanCreateWithReason(guildID, userID, reason string, days int) (err error) {
-	mock.Input(s.GuildBanCreateWithReason, guildID, userID, reason, days)
+	mock.Input(interface{}(s.GuildBanCreateWithReason), guildID, userID, reason, days)
 	return nil
 }
 
 func (s *DiscordGoSession) GuildBanDelete(guildID, userID string) (err error) {
-	mock.Input(s.GuildBanDelete, guildID, userID)
+	mock.Input(interface{}(s.GuildBanDelete), guildID, userID)
 	return nil
 }
 func (s *DiscordGoSession) GuildMembers(guildID string, after string, limit int) (st []*discordgo.Member, err error) {
-	mock.Input(s.GuildMembers, guildID, after, limit)
+	mock.Input(interface{}(s.GuildMembers), guildID, after, limit)
 	return
 }
 
 func (s *DiscordGoSession) GuildMember(guildID, userID string) (st *discordgo.Member, err error) {
-	mock.Input(s.GuildMember, guildID, userID)
+	mock.Input(interface{}(s.GuildMember), guildID, userID)
 	return s.State.Member(guildID, userID)
 }
 func (s *DiscordGoSession) GuildMemberRoleAdd(guildID, userID, roleID string) (err error) {
-	mock.Input(s.GuildMemberRoleAdd, guildID, userID, roleID)
+	mock.Input(interface{}(s.GuildMemberRoleAdd), guildID, userID, roleID)
 	return
 }
 func (s *DiscordGoSession) GuildMemberRoleRemove(guildID, userID, roleID string) (err error) {
-	mock.Input(s.GuildMemberRoleRemove, guildID, userID, roleID)
+	mock.Input(interface{}(s.GuildMemberRoleRemove), guildID, userID, roleID)
 	return
 }
 func (s *DiscordGoSession) GuildChannels(guildID string) (st []*discordgo.Channel, err error) {
-	mock.Input(s.GuildChannels, guildID)
+	mock.Input(interface{}(s.GuildChannels), guildID)
 	var g *discordgo.Guild
 	g, err = s.State.Guild(guildID)
 	if err == nil {
@@ -120,7 +120,7 @@ func (s *DiscordGoSession) GuildChannels(guildID string) (st []*discordgo.Channe
 	return
 }
 func (s *DiscordGoSession) GuildRoles(guildID string) (st []*discordgo.Role, err error) {
-	mock.Input(s.GuildRoles, guildID)
+	mock.Input(interface{}(s.GuildRoles), guildID)
 	var g *discordgo.Guild
 	g, err = s.State.Guild(guildID)
 	if err == nil {
@@ -129,20 +129,20 @@ func (s *DiscordGoSession) GuildRoles(guildID string) (st []*discordgo.Role, err
 	return
 }
 func (s *DiscordGoSession) GuildRoleCreate(guildID string) (st *discordgo.Role, err error) {
-	mock.Input(s.GuildRoleCreate, guildID)
+	mock.Input(interface{}(s.GuildRoleCreate), guildID)
 	return
 }
 func (s *DiscordGoSession) GuildRoleEdit(guildID, roleID, name string, color int, hoist bool, perm int, mention bool) (st *discordgo.Role, err error) {
-	mock.Input(s.GuildRoleEdit, guildID, roleID, name, color, hoist, perm, mention)
+	mock.Input(interface{}(s.GuildRoleEdit), guildID, roleID, name, color, hoist, perm, mention)
 	return
 }
 func (s *DiscordGoSession) GuildRoleDelete(guildID, roleID string) (err error) {
-	mock.Input(s.GuildRoleDelete, guildID, roleID)
+	mock.Input(interface{}(s.GuildRoleDelete), guildID, roleID)
 	return
 }
 
 func (s *DiscordGoSession) User(userID string) (st *discordgo.User, err error) {
-	mock.Input(s.User, userID)
+	mock.Input(interface{}(s.User), userID)
 	for _, g := range s.State.Guilds {
 		for _, m := range g.Members {
 			if m.User.ID == userID {
@@ -153,31 +153,31 @@ func (s *DiscordGoSession) User(userID string) (st *discordgo.User, err error) {
 	return nil, discordgo.ErrStateNotFound
 }
 func (s *DiscordGoSession) UserUpdate(email, password, username, avatar, newPassword string) (st *discordgo.User, err error) {
-	mock.Input(s.UserUpdate, email, password, username, avatar, newPassword)
+	mock.Input(interface{}(s.UserUpdate), email, password, username, avatar, newPassword)
 	return
 }
 func (s *DiscordGoSession) UserChannelCreate(recipientID string) (st *discordgo.Channel, err error) {
-	mock.Input(s.UserChannelCreate, recipientID)
+	mock.Input(interface{}(s.UserChannelCreate), recipientID)
 	return &discordgo.Channel{
 		ID:   recipientID + "10",
 		Type: discordgo.ChannelTypeDM,
 	}, nil
 }
 func (s *DiscordGoSession) UpdateStatus(idle int, game string) (err error) {
-	mock.Input(s.UpdateStatus, idle, game)
+	mock.Input(interface{}(s.UpdateStatus), idle, game)
 	return nil
 }
 func (s *DiscordGoSession) Open() (err error) {
-	mock.Input(s.Open)
+	mock.Input(interface{}(s.Open))
 	return nil
 }
 func (s *DiscordGoSession) Close() (err error) {
-	mock.Input(s.Close)
+	mock.Input(interface{}(s.Close))
 	return nil
 }
 func (s *DiscordGoSession) RequestWithLockedBucket(method, urlStr, contentType string, b []byte, bucket *discordgo.Bucket, sequence int) (response []byte, err error) {
 	defer bucket.Unlock()
-	mock.Input(s.RequestWithLockedBucket, method, urlStr, contentType, b, bucket, sequence)
+	mock.Input(interface{}(s.RequestWithLockedBucket), method, urlStr, contentType, b, bucket, sequence)
 	return
 }
 
