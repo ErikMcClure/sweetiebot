@@ -97,6 +97,7 @@ func BuildWhereClause(arg string) (string, []string) {
 	arg = strings.Replace(arg, "-", " NOT ", -1)
 	arg = strings.Replace(arg, "+", " AND ", -1)
 	arg = strings.Replace(arg, "|", " OR ", -1)
+	arg = strings.Replace(arg, "Tag = ?) OR M.Item IN (SELECT Item FROM itemtags WHERE", "Tag = ? OR", -1)
 	return arg, args
 }
 

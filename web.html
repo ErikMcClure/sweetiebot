@@ -81,14 +81,23 @@ Documentation</p></a></li>
 <p>Upon being added to a server, Sweetie Bot will begin with all commands and modules disabled. <b>Only users with admin rights can setup a server.</b> Sweetie Bot will send the owner of the server a PM when she is first added with instructions on how to run the <code>!setup</code> command. In case you missed it, <code>!setup</code> takes the following parameters, in order:</p>
 
 <dl>
-  <dd><p>Mod Role</p> should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.</dd>
-  <dd><p>Mod Channel</p> should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.</dd>
-  <dd><p>Log Channel</p><span> (optional) </span>should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.</dd>
+  <dd><p>Mod Role</p> should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules. Sensitive commands will be restricted so only users with the moderator role can use them, but as the server owner, you will ALWAYS be able to run any command, no matter what.</dd>
+  <dd><p>Mod Channel</p> should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.</dd>
+  <dd><p>Log Channel</p><span> (optional) </span>should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often the bot's last resort for notifying you about potential errors</dd>
 </dl>
 
 <p>For example: <code>!setup @Mods #staff-lounge #bot-log</code></p>
 
 <p><code>!setup</code> will automatically restrict all sensitive commands to <code>modrole</code> and enable a default set of modules. <b>Running the setup twice will <i>delete everything</i> and reset all configuration values.</b> Specify an additional <code>OVERRIDE</code> parameter if this is your intent.</p>
+
+<p>After you've completed the basic setup, there are some additional features you can enable. For additional help, type <code>!help</code> for a list of commands and modules, or <code>!getconfig</code> with no arguments for a list of configuration options. Using <code>!help <module></code> will display detailed help for that module and all its commands. Using <code>!getconfig &lt;group&gt;</code> will display detailed help for all the configuration options in that configuration group. See below for details on how to use <code>!setconfig</code>.</p>
+
+<dl>
+  <dd><p>Bucket</p> If you'd like to enable the bucket, use the command <code>!enable Bucket</code>. It defaults to carrying a maximum of 10 items, but you can change this via the <code>Bucket.MaxItems</code> option.</dd>
+  <dd><p>Bored Module</p> If you'd like the bot to perform actions when the chat in a certain channel hasn't been active for a period of time, use <code>!enable bored</code> followed by <code>!setconfig modules.channels bored #yourchannel</code>, where <code>#yourchannel</code> is your general chat channel. The commands picked from are stored in <code>bored.commands</code>. By default, it will quote someone or attempt to throw an item out of the bucket.</dd>
+  <dd><p>Free Channels</p> If you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called <code>#bot</code> for this, you can disable all command restrictions by using the command <code>!setconfig basic.freechannels #bot</code></dd>
+  <dd><p>Spam Zones</p> If you really want to, you can exclude one or more channels from <b>all</b> spam protection, using this command: <code>!setconfig modules.channels spam ! #channel1 #channel2</code>
+</dl>
 
 <h2>Configuration</h2>
 <p>Basic configuration parameters can be set with <code>!setconfig &lt;parameter name&gt; &lt;value&gt;</code>. To get a list of configuration parameters, use <code>!getconfig</code>. To output the current value of a parameter, use <code>!getconfig &lt;paramater name&gt;</code>.</p>
