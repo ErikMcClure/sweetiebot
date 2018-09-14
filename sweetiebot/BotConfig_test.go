@@ -39,11 +39,6 @@ func TestDisabledCheck(t *testing.T) {
 	Check(config.IsModuleDisabled(mockModule("bar")), "", t)
 }
 
-/*Aliases               map[string]string `json:"aliases"`
-Channels           map[string]map[string]bool `json:"modulechannels"`
-CommandLimits      map[string]int64           `json:"Commandlimits"`
-*/
-
 func (config *BotConfig) internalSetConfig(info *GuildInfo, s ...string) (string, bool) {
 	for k := range s {
 		if len(s[k]) == 0 {
