@@ -58,8 +58,8 @@ func (w *TagModule) prepStatement(query string, tags string, db *bot.BotDB) (*sq
 		var err error
 		stmt, err = db.Prepare(query)
 		if err != nil {
-			//return nil, fmt.Errorf("```Invalid tag expression: %s```", err.Error())
-			return nil, fmt.Errorf("```Invalid tag expression: %s```", tags)
+			//return nil, fmt.Errorf("Invalid tag expression: %s", err.Error())
+			return nil, fmt.Errorf("Invalid tag expression: %s", tags)
 		}
 		w.Cache[query] = stmt
 	}
@@ -88,6 +88,22 @@ func getTagIDs(tags []string, guild uint64, db *bot.BotDB) ([]uint64, error) {
 		tagIDs[k] = id
 	}
 	return tagIDs, nil
+}
+
+// ValidateWhereClause ensures that all parentheses are properly closed in a given string
+func ValidateWhereClause(arg string) bool {
+	count := 0
+	for _, v := range arg {
+		if v == '(' {
+			count++
+		} else if v == ')' {
+			count--
+		}
+		if count < 0 {
+			return false
+		}
+	}
+	return count == 0
 }
 
 // BuildWhereClause returns a valid mySQL WHERE clause and argument list from a logical tag expression
@@ -348,6 +364,9 @@ func (c *tagsCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 
 	arg := msg.Content[indices[0]:]
+	if !ValidateWhereClause(arg) {
+		return "```\nMismatched parentheses!```", false, nil
+	}
 	clause, tags := BuildWhereClause(arg)
 	gID := bot.SBatoi(info.ID)
 	tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
@@ -428,6 +447,9 @@ func (c *pickCommand) Process(args []string, msg *discordgo.Message, indices []i
 	} else {
 		//arg = msg.Content[indices[0]:]
 		arg = args[0]
+		if !ValidateWhereClause(arg) {
+			return "```\nMismatched parentheses!```", false, nil
+		}
 		clause, tags := BuildWhereClause(arg)
 		tagIDs, err := getTagIDs(tags, gID, info.Bot.DB)
 		if err != nil {
@@ -569,6 +591,9 @@ func (c *searchTagsCommand) Process(args []string, msg *discordgo.Message, indic
 	clause := "1=1"
 	tags := []string{}
 	if arg != "*" {
+		if !ValidateWhereClause(arg) {
+			return "```\nMismatched parentheses!```", false, nil
+		}
 		clause, tags = BuildWhereClause(arg)
 	}
 
