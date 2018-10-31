@@ -36,11 +36,11 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 27}
+var BotVersion = Version{0, 9, 9, 28}
 
 const (
 	MaxPublicLines    = 12
-	maxPublicRules    = 6
+	maxPublicRules    = 15
 	SilverServerID    = "105443346608095232"
 	PatreonURL        = "https://www.patreon.com/erikmcclure"
 	QuitNone          = 0
@@ -1039,6 +1039,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 28): "- Increase max rules\n- add mismatched parentheses check.",
 			AssembleVersion(0, 9, 9, 27): "- Update documentation\n- Updated the server and dependencies\n- Optimized tag queries with lots of OR statements\n- Added 'new member' role to the users module, a role that is added to all new members for a limited time after joining.",
 			AssembleVersion(0, 9, 9, 26): "- Fixed crash in !search.\n- Fixed installer SQL script.\n- !setconfig timezonelocation now verifies the value and warns you if it is invalid.\n- Omitting the channel in !wipe now simply defaults to the current channel.",
 			AssembleVersion(0, 9, 9, 25): "- Changed !autosilence command to !raidsilence and migrated any existing aliases.\n- The bot now tells the user if a PM failed to be sent.\n- The bot now yells at you if you haven't set it up on the server yet.\n- Added a silence timeout even though this is a bad idea becuase you all wanted it so damn bad.\n- Added a counter module for all your counting needs.\n- Setting a config string value to \"\" will now actually delete the string value.",
