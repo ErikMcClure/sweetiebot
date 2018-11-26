@@ -279,7 +279,7 @@ func mockBotDB() (*BotDB, sqlmock.Sqlmock) {
 		driver:      "mysql",
 		conn:        "",
 	}
-	for i := 0; i < 76; i++ {
+	for i := 0; i < 67; i++ {
 		mock.ExpectPrepare(".*")
 	}
 	botdb.Status.Set(botdb.LoadStatements() == nil)
@@ -371,11 +371,16 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		info.Config.FillConfig()
 		id := DiscordGuild(guild.ID)
 		sb.Guilds[id] = info
-		args := make([]driver.Value, 4*len(guild.Members), 4*len(guild.Members))
+		args := make([]driver.Value, 3*len(guild.Members), 3*len(guild.Members))
 		for k := range args {
 			args[k] = sqlmock.AnyArg()
 		}
 		dbmock.ExpectExec("INSERT IGNORE INTO users.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
+
+		args = make([]driver.Value, 4*len(guild.Members), 4*len(guild.Members))
+		for k := range args {
+			args[k] = sqlmock.AnyArg()
+		}
 		dbmock.ExpectExec("INSERT IGNORE INTO members.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
 		info.ProcessGuild(guild)
 		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{id: info})
@@ -428,7 +433,7 @@ func TestProcessCommand(t *testing.T) {
 	}
 
 	Check(mock.Check(), true, t)
-	dbmock.ExpectQuery("SELECT .* FROM users.*").WillReturnRows(sqlmock.NewRows([]string{"ID", "Username", "Discriminator", "Avatar", "LastSeen", "Location", "DefaultServer"}).AddRow(0, "", 0, "", time.Now(), "", TestServer))
+	dbmock.ExpectQuery("SELECT .* FROM users.*").WillReturnRows(sqlmock.NewRows([]string{"ID", "Username", "Discriminator", "LastSeen", "Location", "DefaultServer"}).AddRow(0, "", 0, time.Now(), "", TestServer))
 	dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.Expect(sb.DG.ChannelMessageSendEmbed, strconv.Itoa(TestChannelPrivate), MockAny{})
 	sb.ProcessCommand(MockMessage("!about", TestChannelPrivate, 1000, TestUserBoring, 0), nil, 1000, false, false)

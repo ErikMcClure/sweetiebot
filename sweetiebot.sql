@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   `ID` bigint(20) unsigned NOT NULL,
   `Username` varchar(128) NOT NULL DEFAULT '',
   `Discriminator` int(10) unsigned NOT NULL DEFAULT 0,
-  `Avatar` varchar(512) NOT NULL DEFAULT '',
   `LastSeen` datetime NOT NULL,
   `LastNameChange` datetime NOT NULL,
   `Location` varchar(40) DEFAULT NULL,
@@ -46,8 +45,8 @@ CREATE PROCEDURE `AddChat`(
 MODIFIES SQL DATA
 BEGIN
 
-INSERT INTO users (ID, Username, Avatar, LastSeen, LastNameChange) 
-VALUES (_author, _username, '', UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+INSERT INTO users (ID, Username, LastSeen, LastNameChange) 
+VALUES (_author, _username, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE LastSeen=UTC_TIMESTAMP();
 
 INSERT IGNORE INTO aliases (`User`, Alias, Duration, `Timestamp`)
@@ -74,31 +73,6 @@ END IF;
 RETURN @id;
 END//
 
-CREATE FUNCTION `AddMarkov`(`_prev` BIGINT, `_prev2` BIGINT, `_speaker` VARCHAR(128), `_phrase` VARCHAR(64)) RETURNS bigint(20)
-    MODIFIES SQL DATA
-    DETERMINISTIC
-BEGIN
-
-INSERT INTO markov_transcripts_speaker (Speaker)
-VALUES (_speaker)
-ON DUPLICATE KEY UPDATE ID = ID;
-
-SET @speakerid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = _speaker);
-
-INSERT INTO markov_transcripts (SpeakerID, Phrase)
-VALUES (@speakerid, _phrase)
-ON DUPLICATE KEY UPDATE Phrase = _phrase;
-
-/*LAST_UPDATE_ID() doesn't work here because of the duplicate key possibility */
-SET @ret = (SELECT ID FROM markov_transcripts WHERE SpeakerID = @speakerid AND Phrase = _phrase);
-
-INSERT INTO markov_transcripts_map (Prev, Prev2, Next)
-VALUES (_prev, _prev2, @ret)
-ON DUPLICATE KEY UPDATE Count = Count + 1;
-
-RETURN @ret;
-END//
-
 CREATE PROCEDURE `AddMember`(IN `_id` BIGINT, IN `_guild` BIGINT, IN `_firstseen` DATETIME, IN `_nickname` VARCHAR(128))
     MODIFIES SQL DATA
 INSERT INTO members (ID, Guild, FirstSeen, Nickname)
@@ -110,7 +84,6 @@ CREATE PROCEDURE `AddUser`(
 	IN `_id` BIGINT,
 	IN `_username` VARCHAR(128),
 	IN `_discriminator` INT,
-	IN `_avatar` VARCHAR(512),
 	IN `_isonline` BIT
 )
     MODIFIES SQL DATA
@@ -121,12 +94,11 @@ SELECT Username INTO oldname
 FROM users
 WHERE ID = _id FOR UPDATE;
 
-INSERT INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) 
-VALUES (_id, _username, _discriminator, _avatar, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
+INSERT INTO users (ID, Username, Discriminator, LastSeen, LastNameChange) 
+VALUES (_id, _username, _discriminator, UTC_TIMESTAMP(), UTC_TIMESTAMP()) 
 ON DUPLICATE KEY UPDATE 
 Username=IF(_username = '', Username, _username),
 Discriminator=IF(_discriminator = 0, Discriminator, _discriminator),
-Avatar=IF(_avatar = '', Avatar, _avatar),
 LastSeen=IF(_isonline > 0, UTC_TIMESTAMP(), LastSeen),
 LastNameChange=IF(_username = '', LastNameChange, IF(_username != `Username`, UTC_TIMESTAMP(), LastNameChange));
 
@@ -150,7 +122,7 @@ END//
 CREATE TABLE IF NOT EXISTS `aliases` (
   `User` bigint(20) unsigned NOT NULL,
   `Alias` varchar(128) NOT NULL,
-  `Timestamp` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `Timestamp` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `Duration` bigint(20) unsigned NOT NULL,
   PRIMARY KEY (`User`,`Alias`),
   KEY `ALIASES_USERS` (`User`),
@@ -174,18 +146,6 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   CONSTRAINT `CHATLOG_USERS` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A log of all the messages from all the chatrooms.'//
 
-CREATE EVENT `CleanChatlog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:04:34' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM chatlog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY);
-DELETE FROM editlog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY);
-END//
-
-CREATE EVENT `CleanDebugLog` ON SCHEDULE EVERY 1 DAY STARTS '2016-01-29 17:30:36' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM debuglog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY);
-END//
-
-CREATE EVENT `CleanUsers` ON SCHEDULE EVERY 1 DAY STARTS '2018-01-22 15:50:17' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
-DELETE FROM users WHERE `ID` NOT IN (SELECT DISTINCT ID FROM members) AND `ID` NOT IN (SELECT DISTINCT ID FROM chatlog) AND `ID` NOT IN (SELECT DISTINCT ID FROM editlog);
-END//
 
 CREATE EVENT `CleanAliases`
 	ON SCHEDULE
@@ -194,6 +154,10 @@ CREATE EVENT `CleanAliases`
 	ENABLE
 	COMMENT ''
 	DO BEGIN
+  
+DELETE FROM chatlog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY);
+DELETE FROM debuglog WHERE Timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY);
+DELETE FROM users WHERE `ID` NOT IN (SELECT DISTINCT ID FROM members) AND `ID` NOT IN (SELECT DISTINCT Author FROM chatlog);
 
 Block1: BEGIN
 DECLARE done INT DEFAULT 0;
@@ -224,7 +188,6 @@ UNTIL done END REPEAT;
 CLOSE c_1;
 END Block1;
 
-
 END//
 
 -- Dumping structure for table sweetiebot.debuglog
@@ -240,186 +203,6 @@ CREATE TABLE IF NOT EXISTS `debuglog` (
   KEY `debuglog_Users` (`User`),
   CONSTRAINT `debuglog_Users` FOREIGN KEY (`User`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Dumping structure for table sweetiebot.editlog
-CREATE TABLE IF NOT EXISTS `editlog` (
-  `ID` BIGINT(20) UNSIGNED NOT NULL,
-  `Timestamp` DATETIME NOT NULL,
-  `Author` BIGINT(20) UNSIGNED NOT NULL,
-  `Message` VARCHAR(2000) NOT NULL,
-  `Channel` BIGINT(20) UNSIGNED NOT NULL,
-  `Guild` BIGINT(20) UNSIGNED NOT NULL,
-  PRIMARY KEY (`ID`, `Timestamp`),
-  INDEX `INDEX_TIMESTAMP` (`Timestamp`),
-  INDEX `INDEX_CHANNEL` (`Channel`),
-  INDEX `CHATLOG_USERS` (`Author`),
-  CONSTRAINT `EDITLOG_CHATLOG` FOREIGN KEY (`ID`) REFERENCES `chatlog` (`ID`),
-  CONSTRAINT `editlog_ibfk_1` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ROW_FORMAT=COMPACT COMMENT='A log of all the messages from all the chatrooms.'//
-
-CREATE FUNCTION `GetMarkov`(`_prev` BIGINT) RETURNS bigint(20)
-    READS SQL DATA
-BEGIN
-
-DECLARE n, c, t, weight_sum, weight INT;
-DECLARE cur1 CURSOR FOR SELECT Next, Count FROM markov_transcripts_map WHERE Prev = _prev;
-SET weight_sum = (SELECT SUM(Count) FROM markov_transcripts_map WHERE Prev = _prev);
-SET weight = ROUND(((weight_sum - 1) * RAND() + 1), 0);
-SET t = 0;
-
-OPEN cur1;
-
-WHILE t < weight DO
-FETCH cur1 INTO n, c;
-SET t = t + c;
-END WHILE;
-
-return n;
-
-/*SET @next = 0;
-SET @i = 0;
-SET @s = '';
-
-SET @next = (SELECT t1.Next
-FROM markov_transcripts_map t1, markov_transcripts_map t2
-WHERE t1.Prev = 0 AND t2.Prev = 0 AND t1.Next >= t2.Next
-GROUP BY t1.Next
-HAVING SUM(t2.Count) >= @weight
-ORDER BY t1.Next
-LIMIT 1);*/
-
-END//
-
-CREATE FUNCTION `GetMarkov2`(`_prev` BIGINT, `_prev2` BIGINT) RETURNS bigint(20)
-    READS SQL DATA
-BEGIN
-
-DECLARE n, c, t, weight_sum, weight INT;
-DECLARE cur1 CURSOR FOR SELECT Next, Count FROM markov_transcripts_map WHERE Prev = _prev AND Prev2 = _prev2;
-SET weight_sum = (SELECT SUM(Count) FROM markov_transcripts_map WHERE Prev = _prev AND Prev2 = _prev2);
-SET weight = ROUND(((weight_sum - 1) * RAND() + 1), 0);
-SET t = 0;
-
-OPEN cur1;
-
-WHILE t < weight DO
-FETCH cur1 INTO n, c;
-SET t = t + c;
-END WHILE;
-
-return n;
-
-END//
-
-CREATE FUNCTION `GetMarkovLine`(`_prev` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
-    READS SQL DATA
-BEGIN
-
-DECLARE line VARCHAR(1024) DEFAULT '|';
-SET @prev = _prev;
-IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN
-	RETURN '|';
-END IF;
-
-SET @prev = GetMarkov(@prev);
-SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = '');
-SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @prev);
-SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
-SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
-SET @max = 0;
-
-IF @speaker = '' THEN
-	IF @phrase = '' THEN RETURN CONCAT('|', @prev); END IF;
-	SET line = CONCAT('[', @phrase);
-ELSE
-	SET line = CONCAT('**', @speaker, ':** ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
-END IF;
-
-markov_loop: LOOP
-	IF @max > 300 OR NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev) THEN LEAVE markov_loop; END IF;
-	SET @max = @max + 1;
-	SET @capitalize = @phrase = '.' OR @phrase = '!' OR @phrase = '?';
-	
-	SET @next = GetMarkov(@prev);
-	SET @ns = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
-	IF @speakerid != @ns THEN LEAVE markov_loop; END IF;
-	SET @prev = @next;
-	
-	SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
-	IF @phrase = '.' OR @phrase = '!' OR @phrase = '?' OR @phrase = ',' THEN
-		SET line = CONCAT(line, @phrase);
-	ELSE
-		IF @capitalize THEN
-			SET line = CONCAT(line, ' ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
-		ELSE
-			SET line = CONCAT(line, ' ', @phrase);
-		END IF;
-	END IF;
-END LOOP markov_loop;
-
-IF @speaker = '' THEN
-	SET line = CONCAT(line, ']');
-END IF;
-RETURN CONCAT(line, '|', @prev);
-
-END//
-
-CREATE FUNCTION `GetMarkovLine2`(`_prev` BIGINT, `_prev2` BIGINT) RETURNS varchar(1024) CHARSET utf8mb4
-    READS SQL DATA
-BEGIN
-
-DECLARE line VARCHAR(1024) DEFAULT '|';
-SET @prev = _prev;
-SET @prev2 = _prev2;
-IF NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev AND Prev2 = @prev2) THEN
-	RETURN '|';
-END IF;
-
-SET @next = GetMarkov2(@prev, @prev2);
-SET @actionid = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = '');
-SET @speakerid = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
-SET @speaker = (SELECT Speaker FROM markov_transcripts_speaker WHERE ID = @speakerid);
-SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @next);
-SET @max = 0;
-SET @prev2 = @prev;
-SET @prev = @next;
-
-IF @speaker = '' THEN
-	IF @phrase = '' THEN RETURN CONCAT('|', @prev, '|', @prev2); END IF;
-	SET line = CONCAT('[', @phrase);
-ELSE
-	SET line = CONCAT('**', @speaker, ':** ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
-END IF;
-
-markov_loop: LOOP
-	IF @max > 300 OR NOT EXISTS (SELECT 1 FROM markov_transcripts_map WHERE Prev = @prev AND Prev2 = @prev2) THEN LEAVE markov_loop; END IF;
-	SET @max = @max + 1;
-	SET @capitalize = @phrase = '.' OR @phrase = '!' OR @phrase = '?';
-	
-	SET @next = GetMarkov2(@prev, @prev2);
-	SET @ns = (SELECT SpeakerID FROM markov_transcripts WHERE ID = @next);
-	IF @speakerid != @ns THEN LEAVE markov_loop; END IF;
-  SET @prev2 = @prev;
-	SET @prev = @next;
-	
-	SET @phrase = (SELECT Phrase FROM markov_transcripts WHERE ID = @prev);
-	IF @phrase = '.' OR @phrase = '!' OR @phrase = '?' OR @phrase = ',' THEN
-		SET line = CONCAT(line, @phrase);
-	ELSE
-		IF @capitalize THEN
-			SET line = CONCAT(line, ' ', CONCAT(UCASE(LEFT(@phrase, 1)), SUBSTRING(@phrase, 2)));
-		ELSE
-			SET line = CONCAT(line, ' ', @phrase);
-		END IF;
-	END IF;
-END LOOP markov_loop;
-
-IF @speaker = '' THEN
-	SET line = CONCAT(line, ']');
-END IF;
-RETURN CONCAT(line, '|', @prev, '|', @prev2);
-
-END//
 
 CREATE FUNCTION `GetMinDate`(`date1` DATETIME, `date2` DATETIME) RETURNS datetime
     NO SQL
@@ -467,42 +250,6 @@ CREATE TABLE IF NOT EXISTS `itemtags` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
 -- Data exporting was unselected.
--- Dumping structure for table sweetiebot.markov_transcripts_speaker
-CREATE TABLE IF NOT EXISTS `markov_transcripts_speaker` (
-  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `Speaker` varchar(128) NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `INDEX_SPEAKER` (`Speaker`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Data exporting was unselected.
--- Dumping structure for table sweetiebot.markov_transcripts
-CREATE TABLE IF NOT EXISTS `markov_transcripts` (
-  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `SpeakerID` int(10) unsigned NOT NULL DEFAULT 0,
-  `Phrase` varchar(64) NOT NULL,
-  PRIMARY KEY (`ID`),
-  UNIQUE KEY `INDEX_SPEAKER_PHRASE` (`SpeakerID`,`Phrase`),
-  CONSTRAINT `FK_TRANSCRIPTS_SPEAKER` FOREIGN KEY (`SpeakerID`) REFERENCES `markov_transcripts_speaker` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Data exporting was unselected.
--- Dumping structure for table sweetiebot.markov_transcripts_map
-CREATE TABLE IF NOT EXISTS `markov_transcripts_map` (
-  `Prev` int(10) unsigned NOT NULL,
-  `Prev2` int(10) unsigned NOT NULL,
-  `Next` int(10) unsigned NOT NULL,
-  `Count` smallint(5) unsigned NOT NULL DEFAULT 1,
-  PRIMARY KEY (`Prev`,`Next`,`Prev2`),
-  KEY `FK_NEXT` (`Next`),
-  KEY `INDEX_PREV` (`Prev`),
-  KEY `FK_PREV2` (`Prev2`),
-  CONSTRAINT `FK_NEXT` FOREIGN KEY (`Next`) REFERENCES `markov_transcripts` (`ID`),
-  CONSTRAINT `FK_PREV` FOREIGN KEY (`Prev`) REFERENCES `markov_transcripts` (`ID`),
-  CONSTRAINT `FK_PREV2` FOREIGN KEY (`Prev2`) REFERENCES `markov_transcripts` (`ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
-
--- Data exporting was unselected.
 -- Dumping structure for table sweetiebot.members
 CREATE TABLE IF NOT EXISTS `members` (
   `ID` bigint(20) unsigned NOT NULL,
@@ -516,13 +263,6 @@ CREATE TABLE IF NOT EXISTS `members` (
   CONSTRAINT `FK_members_users` FOREIGN KEY (`ID`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
--- Data exporting was unselected.
--- Dumping structure for view sweetiebot.randomwords
--- Creating temporary table to overcome VIEW dependency errors
-CREATE TABLE `randomwords` (
-	`Phrase` VARCHAR(64) NOT NULL COLLATE 'utf8mb4_general_ci'
-) ENGINE=MyISAM//
-
 CREATE PROCEDURE `RemoveGuild`(
 	IN `_guild` BIGINT UNSIGNED
 )
@@ -533,7 +273,6 @@ DELETE FROM `members` WHERE Guild = _guild;
 DELETE FROM `schedule` WHERE Guild = _guild;
 DELETE FROM `chatlog` WHERE Guild = _guild;
 DELETE FROM `debuglog` WHERE Guild = _guild;
-DELETE FROM `editlog` WHERE Guild = _guild;
 DELETE FROM `tags` WHERE Guild = _guild;
 
 END//
@@ -554,25 +293,6 @@ CASE (SELECT `RepeatInterval` FROM `schedule` WHERE ID = _id)
 	WHEN 8 THEN UPDATE `schedule` SET Date = DATE_ADD(Date, INTERVAL `Repeat` YEAR) WHERE ID = _id;
 	ELSE BEGIN END;
 END CASE;
-END//
-
-CREATE PROCEDURE `ResetMarkov`()
-    MODIFIES SQL DATA
-BEGIN
-
-SET foreign_key_checks = 0;
-TRUNCATE markov_transcripts;
-TRUNCATE markov_transcripts_speaker;
-TRUNCATE markov_transcripts_map;
-SET foreign_key_checks = 1;
-ALTER TABLE `markov_transcripts` AUTO_INCREMENT=0;
-ALTER TABLE `markov_transcripts_speaker` AUTO_INCREMENT=0;
-INSERT INTO markov_transcripts_speaker (Speaker)
-VALUES ('');
-INSERT INTO markov_transcripts (ID, SpeakerID, Phrase)
-VALUES (0, 1, '');
-UPDATE markov_transcripts SET ID = 0 WHERE ID = 1;
-
 END//
 
 -- Dumping structure for table sweetiebot.schedule
@@ -600,13 +320,6 @@ CREATE TABLE IF NOT EXISTS `transcripts` (
   PRIMARY KEY (`Season`,`Episode`,`Line`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4//
 
--- Dumping structure for trigger sweetiebot.chatlog_before_update
-SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
-CREATE TRIGGER `chatlog_before_update` BEFORE UPDATE ON `chatlog` FOR EACH ROW INSERT INTO editlog (ID, `Timestamp`, Author, Message, Channel, Guild)
-VALUES (OLD.ID, OLD.`Timestamp`, OLD.Author, OLD.Message, OLD.Channel, OLD.Guild)
-ON DUPLICATE KEY UPDATE `Timestamp` = OLD.`Timestamp`, Message = OLD.Message//
-SET SQL_MODE=@OLDTMP_SQL_MODE//
-
 -- Dumping structure for trigger sweetiebot.itemtags_after_delete
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `itemtags_after_delete` AFTER DELETE ON `itemtags` FOR EACH ROW BEGIN
@@ -627,15 +340,9 @@ SET SQL_MODE=@OLDTMP_SQL_MODE//
 SET @OLDTMP_SQL_MODE=@@SQL_MODE, SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'//
 CREATE TRIGGER `users_before_delete` BEFORE DELETE ON `users` FOR EACH ROW BEGIN
 
--- Note: You cannot delete a user unless they have no entries in the members, editlog or chatlog tables
+-- Note: You cannot delete a user unless they have no entries in the members or chatlog tables
 DELETE FROM aliases WHERE `User` = OLD.ID;
 DELETE FROM debuglog WHERE `User` = OLD.ID;
 
 END//
 SET SQL_MODE=@OLDTMP_SQL_MODE//
-
--- Dumping structure for view sweetiebot.randomwords
--- Removing temporary table and create final VIEW structure
-DROP TABLE IF EXISTS `randomwords`//
-CREATE ALGORITHM=MERGE VIEW `randomwords` AS select `markov_transcripts`.`Phrase` AS `Phrase` from `markov_transcripts` where `markov_transcripts`.`Phrase` <> '.' and `markov_transcripts`.`Phrase` <> '!' and `markov_transcripts`.`Phrase` <> '?' and `markov_transcripts`.`Phrase` <> 'the' and `markov_transcripts`.`Phrase` <> 'of' and `markov_transcripts`.`Phrase` <> 'a' and `markov_transcripts`.`Phrase` <> 'to' and `markov_transcripts`.`Phrase` <> 'too' and `markov_transcripts`.`Phrase` <> 'as' and `markov_transcripts`.`Phrase` <> 'at' and `markov_transcripts`.`Phrase` <> 'an' and `markov_transcripts`.`Phrase` <> 'am' and `markov_transcripts`.`Phrase` <> 'and' and `markov_transcripts`.`Phrase` <> 'be' and `markov_transcripts`.`Phrase` <> 'he' and `markov_transcripts`.`Phrase` <> 'she' and `markov_transcripts`.`Phrase` <> '' 
- WITH LOCAL CHECK OPTION //

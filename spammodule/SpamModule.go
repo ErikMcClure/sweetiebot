@@ -513,21 +513,21 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	ch := bot.DiscordChannel(msg.ChannelID)
 	num := 0
 	if len(args) > 1 {
-		if strings.ToLower(args[1]) == "messages" || strings.ToLower(args[1]) == "message" {
-			messages = true
-			num, err = strconv.Atoi(args[0])
-		} else {
-			g, _ := info.GetGuild()
-			ch, err = bot.ParseChannel(args[0], g)
-			if err == nil {
-				num, err = strconv.Atoi(args[1])
-			}
+		g, _ := info.GetGuild()
+		ch, err = bot.ParseChannel(args[0], g)
 
-			if len(args) > 2 {
-				messages = strings.ToLower(args[2]) == "messages" || strings.ToLower(args[2]) == "message"
+		if err == nil {
+			if args[1][len(args[1])-1] == 'm' {
+				messages = true
+				args[1] = args[1][:len(args[1])-1]
 			}
+			num, err = strconv.Atoi(args[1])
 		}
 	} else {
+		if args[0][len(args[0])-1] == 'm' {
+			messages = true
+			args[0] = args[0][:len(args[0])-1]
+		}
 		num, err = strconv.Atoi(args[0])
 	}
 	if err != nil {
@@ -556,11 +556,10 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 }
 func (c *wipeCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Removes all messages in a channel sent within the last N seconds, or simply removes the last N messages if \"messages\" is appended.",
+		Desc: "Removes all messages in a channel sent within the last N seconds, or remove the last N messages if 'm' is appended to the number. Examples: ```\n!wipe 23m``` ```\n!wipe #channel 10```",
 		Params: []bot.CommandUsageParam{
 			{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work. If omitted, uses the current channel", Optional: true},
-			{Name: "seconds", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago.", Optional: false},
-			{Name: "MESSAGES", Desc: "If you append \"MESSAGES\" to the end of the command, it will remove that many messages, instead of looking back that many seconds.", Optional: true},
+			{Name: "seconds/messages", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago. If you append 'm' to this number, it will instead delete exactly that many messages.", Optional: false},
 		},
 	}
 }
