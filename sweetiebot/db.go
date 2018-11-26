@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"4d63.com/tz"
@@ -44,22 +43,14 @@ type BotDB struct {
 	sqlAddTranscript          *sql.Stmt
 	sqlGetTranscript          *sql.Stmt
 	sqlRemoveTranscript       *sql.Stmt
-	sqlAddMarkov              *sql.Stmt
-	sqlGetMarkovLine          *sql.Stmt
-	sqlGetMarkovLine2         *sql.Stmt
-	sqlGetMarkovWord          *sql.Stmt
 	sqlGetRandomQuoteInt      *sql.Stmt
 	sqlGetRandomQuote         *sql.Stmt
 	sqlGetSpeechQuoteInt      *sql.Stmt
 	sqlGetSpeechQuote         *sql.Stmt
 	sqlGetCharacterQuoteInt   *sql.Stmt
 	sqlGetCharacterQuote      *sql.Stmt
-	sqlGetRandomSpeakerInt    *sql.Stmt
-	sqlGetRandomSpeaker       *sql.Stmt
 	sqlGetRandomMemberInt     *sql.Stmt
 	sqlGetRandomMember        *sql.Stmt
-	sqlGetRandomWordInt       *sql.Stmt
-	sqlGetRandomWord          *sql.Stmt
 	sqlGetTableCounts         *sql.Stmt
 	sqlCountNewUsers          *sql.Stmt
 	sqlAudit                  *sql.Stmt
@@ -67,7 +58,6 @@ type BotDB struct {
 	sqlGetAuditRowsUser       *sql.Stmt
 	sqlGetAuditRowsString     *sql.Stmt
 	sqlGetAuditRowsUserString *sql.Stmt
-	sqlResetMarkov            *sql.Stmt
 	sqlAddSchedule            *sql.Stmt
 	sqlAddScheduleRepeat      *sql.Stmt
 	sqlGetSchedule            *sql.Stmt
@@ -198,45 +188,36 @@ func (db *BotDB) CheckStatus() bool {
 func (db *BotDB) LoadStatements() error {
 	var err error
 	db.sqlAddMessage, err = db.Prepare("CALL AddChat(?,?,?,?,?,?)")
-	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?,?)")
+	db.sqlAddUser, err = db.Prepare("CALL AddUser(?,?,?,?)")
 	db.sqlAddMember, err = db.Prepare("CALL AddMember(?,?,?,?)")
 	db.sqlSawUser, err = db.Prepare("UPDATE users SET LastSeen = UTC_TIMESTAMP() WHERE ID = ?")
 	db.sqlSetUserAlias, err = db.Prepare("INSERT IGNORE INTO aliases (`User`, Alias, Duration, `Timestamp`)	VALUES (?, ?, 0, UTC_TIMESTAMP())")
 	db.sqlRemoveMember, err = db.Prepare("DELETE FROM `members` WHERE Guild = ? AND ID = ?")
-	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, Avatar, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
-	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.Avatar, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
+	db.sqlGetUser, err = db.Prepare("SELECT ID, Username, Discriminator, LastSeen, Location, DefaultServer FROM users WHERE ID = ?")
+	db.sqlGetMember, err = db.Prepare("SELECT U.ID, U.Username, U.Discriminator, U.LastSeen, M.Nickname, M.FirstSeen, M.FirstMessage FROM members M RIGHT OUTER JOIN users U ON U.ID = M.ID WHERE M.ID = ? AND M.Guild = ?")
 	db.sqlFindGuildUsers, err = db.Prepare("SELECT DISTINCT M.ID FROM members M LEFT OUTER JOIN aliases A ON A.User = M.ID WHERE M.Guild = ? AND (M.Nickname LIKE ? OR A.Alias LIKE ?) LIMIT ? OFFSET ?")
 	db.sqlFindUser, err = db.Prepare("SELECT DISTINCT U.ID FROM users U WHERE U.Discriminator = ? and U.Username LIKE ? LIMIT ? OFFSET ?")
-	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
-	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Username, U.Avatar FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
+	db.sqlGetNewestUsers, err = db.Prepare("SELECT U.ID, U.Username, M.FirstSeen FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? ORDER BY M.FirstSeen DESC LIMIT ?")
+	db.sqlGetRecentUsers, err = db.Prepare("SELECT U.ID, U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? AND M.FirstSeen > ? ORDER BY M.FirstSeen DESC")
 	db.sqlGetAliases, err = db.Prepare("SELECT Alias FROM aliases WHERE User = ? ORDER BY Duration DESC LIMIT 10")
 	db.sqlAddTranscript, err = db.Prepare("INSERT INTO transcripts (Season, Episode, Line, Speaker, Text) VALUES (?,?,?,?,?)")
 	db.sqlGetTranscript, err = db.Prepare("SELECT Season, Episode, Line, Speaker, Text FROM transcripts WHERE Season = ? AND Episode = ? AND Line >= ? AND LINE <= ?")
 	db.sqlRemoveTranscript, err = db.Prepare("DELETE FROM transcripts WHERE Season = ? AND Episode = ? AND Line = ?")
-	db.sqlAddMarkov, err = db.Prepare("SELECT AddMarkov(?,?,?,?)")
-	db.sqlGetMarkovLine, err = db.Prepare("SELECT GetMarkovLine(?)")
-	db.sqlGetMarkovLine2, err = db.Prepare("SELECT GetMarkovLine2(?,?)")
-	db.sqlGetMarkovWord, err = db.Prepare("SELECT Phrase FROM markov_transcripts WHERE SpeakerID = (SELECT ID FROM markov_transcripts_speaker WHERE Speaker = ?) AND Phrase = ?")
 	db.sqlGetRandomQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Text != ''))")
 	db.sqlGetRandomQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Text != '' LIMIT 1 OFFSET ?")
 	db.sqlGetSpeechQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker != 'ACTION' AND Text != ''))")
 	db.sqlGetSpeechQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker != 'ACTION' AND Text != '' LIMIT 1 OFFSET ?")
 	db.sqlGetCharacterQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker = ? AND Text != ''))")
 	db.sqlGetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
-	db.sqlGetRandomSpeakerInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM markov_transcripts_speaker))")
-	db.sqlGetRandomSpeaker, err = db.Prepare("SELECT Speaker FROM markov_transcripts_speaker LIMIT 1 OFFSET ?")
 	db.sqlGetRandomMemberInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM members WHERE Guild = ?))")
 	db.sqlGetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
-	db.sqlGetRandomWordInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM randomwords))")
-	db.sqlGetRandomWord, err = db.Prepare("SELECT Phrase FROM randomwords LIMIT 1 OFFSET ?;")
-	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows', '\nEditlog: ', (SELECT COUNT(*) FROM editlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
+	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
 	db.sqlCountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sqlAudit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
 	db.sqlGetAuditRows, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
 	db.sqlGetAuditRowsUser, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.User = ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
 	db.sqlGetAuditRowsString, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.Message LIKE ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
 	db.sqlGetAuditRowsUserString, err = db.Prepare("SELECT U.Username, D.Message, D.Timestamp, U.ID FROM debuglog D INNER JOIN users U ON D.User = U.ID WHERE D.Type = ? AND D.Guild = ? AND D.User = ? AND D.Message LIKE ? ORDER BY D.Timestamp DESC LIMIT ? OFFSET ?")
-	db.sqlResetMarkov, err = db.Prepare("CALL ResetMarkov()")
 	db.sqlAddSchedule, err = db.Prepare("INSERT INTO schedule (Guild, Date, Type, Data) VALUES (?, ?, ?, ?)")
 	db.sqlAddScheduleRepeat, err = db.Prepare("INSERT INTO schedule (Guild, Date, `RepeatInterval`, `Repeat`, Type, Data) VALUES (?, ?, ?, ?, ?, ?)")
 	db.sqlGetSchedule, err = db.Prepare("SELECT ID, Date, Type, Data FROM schedule WHERE Guild = ? AND Date <= UTC_TIMESTAMP() ORDER BY Date ASC")
@@ -323,8 +304,8 @@ type PingContext struct {
 }
 
 // AddUser adds or updates user information
-func (db *BotDB) AddUser(id uint64, username string, discriminator int, avatar string, isonline bool) {
-	_, err := db.sqlAddUser.Exec(id, username, discriminator, avatar, isonline)
+func (db *BotDB) AddUser(id uint64, username string, discriminator int, isonline bool) {
+	_, err := db.sqlAddUser.Exec(id, username, discriminator, isonline)
 	db.CheckError("AddUser", err)
 }
 
@@ -360,7 +341,7 @@ func (db *BotDB) GetUser(id uint64) (*discordgo.User, time.Time, *time.Location,
 	var loc sql.NullString
 	var guild sql.NullInt64
 	var discriminator int
-	err := db.sqlGetUser.QueryRow(id).Scan(&u.ID, &u.Username, &discriminator, &u.Avatar, &lastseen, &loc, &guild)
+	err := db.sqlGetUser.QueryRow(id).Scan(&u.ID, &u.Username, &discriminator, &lastseen, &loc, &guild)
 	if discriminator > 0 {
 		u.Discriminator = strconv.Itoa(discriminator)
 	}
@@ -382,7 +363,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	var firstmessage *time.Time
 	var joinedat time.Time
 	var discriminator int
-	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Username, &discriminator, &m.User.Avatar, &lastseen, &m.Nick, &joinedat, &firstmessage)
+	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Username, &discriminator, &lastseen, &m.Nick, &joinedat, &firstmessage)
 	if !joinedat.IsZero() {
 		m.JoinedAt = discordgo.Timestamp(joinedat.Format(time.RFC3339))
 	}
@@ -456,7 +437,7 @@ func (db *BotDB) GetNewestUsers(maxresults int, guild uint64) []struct {
 			User      *discordgo.User
 			FirstSeen time.Time
 		}{&discordgo.User{}, time.Now().UTC()}
-		if err := q.Scan(&p.User.ID, &p.User.Username, &p.User.Avatar, &p.FirstSeen); err == nil {
+		if err := q.Scan(&p.User.ID, &p.User.Username, &p.FirstSeen); err == nil {
 			r = append(r, p)
 		}
 	}
@@ -473,7 +454,7 @@ func (db *BotDB) GetRecentUsers(since time.Time, guild uint64) []*discordgo.User
 	r := make([]*discordgo.User, 0, 2)
 	for q.Next() {
 		p := &discordgo.User{}
-		if err := q.Scan(&p.ID, &p.Username, &p.Avatar); err == nil {
+		if err := q.Scan(&p.ID, &p.Username); err == nil {
 			r = append(r, p)
 		}
 	}
@@ -592,53 +573,6 @@ func (db *BotDB) RemoveTranscript(season int, episode int, line int) {
 	db.CheckError("RemoveTranscript", err)
 }
 
-// AddMarkov adds a line to the markov chain
-func (db *BotDB) AddMarkov(last uint64, last2 uint64, speaker string, text string) uint64 {
-	var id uint64
-	err := db.sqlAddMarkov.QueryRow(last, last2, speaker, text).Scan(&id)
-	db.CheckError("AddMarkov", err)
-	return id
-}
-
-// GetMarkovLine generates a line from the markov chain
-func (db *BotDB) GetMarkovLine(last uint64) (string, uint64) {
-	var r sql.NullString
-	err := db.sqlGetMarkovLine.QueryRow(last).Scan(&r)
-	if db.CheckError("GetMarkovLine", err) != nil || !r.Valid {
-		return "", 0
-	}
-	str := strings.SplitN(r.String, "|", 2) // Being unable to call stored procedures makes this unnecessarily complex
-	if len(str) < 2 || len(str[1]) < 1 {
-		return str[0], 0
-	}
-	return str[0], SBatoi(str[1])
-}
-
-// GetMarkovLine2 generates a line from the markov chain
-func (db *BotDB) GetMarkovLine2(last uint64, last2 uint64) (string, uint64, uint64) {
-	var r sql.NullString
-	err := db.sqlGetMarkovLine2.QueryRow(last, last2).Scan(&r)
-	if db.CheckError("GetMarkovLine2", err) != nil || !r.Valid {
-		return "", 0, 0
-	}
-	str := strings.SplitN(r.String, "|", 3) // Being unable to call stored procedures makes this unnecessarily complex
-	if len(str) < 3 || len(str[1]) < 1 || len(str[2]) < 1 {
-		return str[0], 0, 0
-	}
-	return str[0], SBatoi(str[1]), SBatoi(str[2])
-}
-
-// GetMarkovWord generates a word from the markov chain
-func (db *BotDB) GetMarkovWord(speaker string, phrase string) string {
-	var r string
-	err := db.sqlGetMarkovWord.QueryRow(speaker, phrase).Scan(&r)
-	if err == sql.ErrNoRows {
-		return phrase
-	}
-	db.CheckError("GetMarkovWord", err)
-	return r
-}
-
 // GetRandomQuote gets a random quote from the transcript
 func (db *BotDB) GetRandomQuote() Transcript {
 	var i uint64
@@ -677,18 +611,6 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 	return p
 }
 
-// GetRandomSpeaker gets a random speaker from the transcript
-func (db *BotDB) GetRandomSpeaker() string {
-	var i uint64
-	err := db.sqlGetRandomSpeakerInt.QueryRow().Scan(&i)
-	var p string
-	if db.CheckError("GetRandomSpeakerInt", err) == nil {
-		err = db.sqlGetRandomSpeaker.QueryRow(i).Scan(&p)
-		db.CheckError("GetRandomSpeaker", err)
-	}
-	return p
-}
-
 // GetRandomMember gets a random user from the guild
 func (db *BotDB) GetRandomMember(guild uint64) string {
 	var i uint64
@@ -697,18 +619,6 @@ func (db *BotDB) GetRandomMember(guild uint64) string {
 	if db.CheckError("GetRandomMemberInt", err) == nil {
 		err = db.sqlGetRandomMember.QueryRow(guild, i).Scan(&p)
 		db.CheckError("GetRandomMember", err)
-	}
-	return p
-}
-
-// GetRandomWord gets a random word from the markov chain
-func (db *BotDB) GetRandomWord() string {
-	var i uint64
-	err := db.sqlGetRandomWordInt.QueryRow().Scan(&i)
-	var p string
-	if db.CheckError("GetRandomWordInt", err) == nil {
-		err = db.sqlGetRandomWord.QueryRow(i).Scan(&p)
-		db.CheckError("GetRandomWord", err)
 	}
 	return p
 }

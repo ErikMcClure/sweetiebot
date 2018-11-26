@@ -97,6 +97,10 @@ func (info *GuildInfo) SendEmbed(channelID DiscordChannel, embed *discordgo.Mess
 		return errInvalidChannel
 	}
 
+	if perms, err := info.Bot.DG.State.UserChannelPermissions(info.Bot.SelfID.String(), channelID.String()); err == nil && (perms&discordgo.PermissionEmbedLinks) == 0 {
+		return info.SendMessage(channelID, "```\nFailed to send embedded message! Make sure the bot has EmbedLink permissions on this channel. Embed description: "+embed.Description+"```")
+	}
+
 	fields := embed.Fields
 	for len(fields) > 25 {
 		embed.Fields = fields[:25]
@@ -256,12 +260,12 @@ func (info *GuildInfo) userBulkUpdate(members []*discordgo.Member) {
 	valueStrings := make([]string, 0, len(members))
 
 	for _, m := range members {
-		valueStrings = append(valueStrings, "(?,?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
+		valueStrings = append(valueStrings, "(?,?,?,UTC_TIMESTAMP(), UTC_TIMESTAMP())")
 		discriminator, _ := strconv.Atoi(m.User.Discriminator)
-		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Username, discriminator, m.User.Avatar)
+		valueArgs = append(valueArgs, SBatoi(m.User.ID), m.User.Username, discriminator)
 	}
 
-	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Username, Discriminator, Avatar, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
+	stmt := fmt.Sprintf("INSERT IGNORE INTO users (ID, Username, Discriminator, LastSeen, LastNameChange) VALUES %s", strings.Join(valueStrings, ","))
 	_, err := info.Bot.DB.db.Exec(stmt, valueArgs...)
 	info.LogError("Error in UserBulkUpdate", err)
 }

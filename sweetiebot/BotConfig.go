@@ -96,6 +96,7 @@ type BotConfig struct {
 	} `json:"filter"`
 	Bored struct {
 		Cooldown int64           `json:"maxbored"`
+		Exponent float64         `json:"exponent"`
 		Commands map[string]bool `json:"boredcommands"`
 	}
 	Information struct {
@@ -204,6 +205,7 @@ var ConfigHelp = map[string]map[string]string{
 	},
 	"bored": {
 		"cooldown": "The bored cooldown timer, in seconds. This is the length of time a channel must be inactive before a bored message is posted.",
+		"exponent": "The exponential increase in time between bored posts if no one other than sweetie is posting. A value of about 1.41 doubles the amount of time between bored posts until someone else says something. Defaults to 1, which means no increase. The actual formula is (2^n + n).",
 		"commands": "This determines what commands will be run when nothing has been said in a channel for a while. One command will be chosen from this list at random.\n\nExample: `!setconfig bored.commands !drop \"!pick bored\"`",
 	},
 	"information": {
@@ -250,7 +252,7 @@ func getConfigHelp(module string, option string) (string, bool) {
 }
 
 // ConfigVersion is the latest version of the config file
-var ConfigVersion = 27
+var ConfigVersion = 28
 
 // DefaultConfig returns a default BotConfig struct. We can't define this as a variable because you can't initialize nested structs in a sane way in Go
 func DefaultConfig() *BotConfig {
@@ -286,6 +288,7 @@ func DefaultConfig() *BotConfig {
 	config.Markov.DefaultLines = 5
 	config.Markov.UseMemberNames = true
 	config.Bored.Cooldown = 500
+	config.Bored.Exponent = 1
 	config.Log.Cooldown = 4
 	config.Witty.Cooldown = 180
 	config.Miscellaneous.MaxSearchResults = 10
@@ -689,69 +692,6 @@ func (config *BotConfig) FillConfig() {
 	}
 }
 
-type legacyBotConfig struct {
-	Version               int                        `json:"version"`
-	LastVersion           int                        `json:"lastversion"`
-	Maxerror              int64                      `json:"maxerror"`
-	Maxwit                int64                      `json:"maxwit"`
-	Maxbored              int64                      `json:"maxbored"`
-	BoredCommands         map[string]bool            `json:"boredcommands"`
-	MaxPMlines            int                        `json:"maxpmlines"`
-	Maxquotelines         int                        `json:"maxquotelines"`
-	Maxsearchresults      int                        `json:"maxsearchresults"`
-	Defaultmarkovlines    int                        `json:"defaultmarkovlines"`
-	Commandperduration    int                        `json:"commandperduration"`
-	Commandmaxduration    int64                      `json:"commandmaxduration"`
-	StatusDelayTime       int                        `json:"statusdelaytime"`
-	MaxRaidTime           int64                      `json:"maxraidtime"`
-	RaidSize              int                        `json:"raidsize"`
-	Witty                 map[string]string          `json:"witty"`
-	Aliases               map[string]string          `json:"aliases"`
-	MaxBucket             int                        `json:"maxbucket"`
-	MaxBucketLength       int                        `json:"maxbucketlength"`
-	MaxFightHP            int                        `json:"maxfighthp"`
-	MaxFightDamage        int                        `json:"maxfightdamage"`
-	MaxImageSpam          int                        `json:"maximagespam"`
-	MaxAttachSpam         int                        `json:"maxattachspam"`
-	MaxPingSpam           int                        `json:"maxpingspam"`
-	MaxMessageSpam        map[int64]int              `json:"maxmessagespam"`
-	MaxSpamRemoveLookback int                        `json:maxspamremovelookback`
-	IgnoreInvalidCommands bool                       `json:"ignoreinvalidcommands"`
-	UseMemberNames        bool                       `json:"usemembernames"`
-	Importable            bool                       `json:"importable"`
-	HideNegativeRules     bool                       `json:"hidenegativerules"`
-	Timezone              int                        `json:"timezone"`
-	TimezoneLocation      string                     `json:"timezonelocation"`
-	AutoSilence           int                        `json:"autosilence"`
-	AlertRole             uint64                     `json:"alertrole"`
-	SilentRole            uint64                     `json:"silentrole"`
-	LogChannel            uint64                     `json:"logchannel"`
-	ModChannel            uint64                     `json:"modchannel"`
-	WelcomeChannel        uint64                     `json:"welcomechannel"`
-	WelcomeMessage        string                     `json:"welcomemessage"`
-	SilenceMessage        string                     `json:"silencemessage"`
-	BirthdayRole          uint64                     `json:"birthdayrole"`
-	SpoilChannels         []uint64                   `json:"spoilchannels"`
-	FreeChannels          map[string]bool            `json:"freechannels"`
-	Command_roles         map[string]map[string]bool `json:"command_roles"`
-	Command_channels      map[string]map[string]bool `json:"command_channels"`
-	Command_limits        map[string]int64           `json:command_limits`
-	Command_disabled      map[string]bool            `json:command_disabled`
-	Module_disabled       map[string]bool            `json:module_disabled`
-	Module_channels       map[string]map[string]bool `json:module_channels`
-	Collections           map[string]map[string]bool `json:"collections"`
-	Groups                map[string]map[string]bool `json:"groups"`
-	Quotes                map[uint64][]string        `json:"quotes"`
-	Rules                 map[int]string             `json:"rules"`
-}
-
-type legacyBotConfigV10 struct {
-	Basic struct {
-		Commandperduration int   `json:"commandperduration"`
-		Commandmaxduration int64 `json:"commandmaxduration"`
-	} `json:"basic"`
-}
-
 type legacyBotConfigV12 struct {
 	Spam struct {
 		MaxImages int `json:"maximagespam"`
@@ -842,158 +782,6 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 	err := json.Unmarshal(config, &guild.Config)
 	if err != nil {
 		return err
-	}
-
-	if guild.Config.Version < 10 {
-		legacy := legacyBotConfig{}
-		err := json.Unmarshal(config, &legacy)
-		if err != nil {
-			return err
-		}
-
-		if legacy.Version == 0 {
-			if len(legacy.Command_roles) == 0 {
-				legacy.Command_roles = make(map[string]map[string]bool)
-			}
-			legacy.MaxImageSpam = 3
-			legacy.MaxAttachSpam = 1
-			legacy.MaxPingSpam = 24
-			legacy.MaxMessageSpam = make(map[int64]int)
-			legacy.MaxMessageSpam[1] = 4
-			legacy.MaxMessageSpam[9] = 10
-			legacy.MaxMessageSpam[12] = 15
-		}
-
-		if legacy.Version <= 1 {
-			if len(legacy.Aliases) == 0 {
-				legacy.Aliases = make(map[string]string)
-			}
-			legacy.Aliases["cute"] = "pick cute"
-		}
-
-		if legacy.Version <= 3 {
-			legacy.BoredCommands = make(map[string]bool)
-		}
-
-		if legacy.Version <= 5 {
-			legacy.TimezoneLocation = "Etc/GMT"
-			if legacy.Timezone < 0 {
-				legacy.TimezoneLocation += "+"
-			}
-			legacy.TimezoneLocation += strconv.Itoa(-legacy.Timezone) // Etc has the sign reversed
-		}
-
-		guild.Config.Basic.ModRole = NewDiscordRole(legacy.AlertRole)
-		guild.Config.Basic.Aliases = legacy.Aliases
-		guild.Config.Filter.Filters = legacy.Collections
-		guild.Config.Basic.FreeChannels = make(map[DiscordChannel]bool)
-		for k, v := range legacy.FreeChannels {
-			if ch, err := ParseChannel(k, nil); err == nil {
-				guild.Config.Basic.FreeChannels[ch] = v
-			}
-		}
-		guild.Config.Basic.IgnoreInvalidCommands = legacy.IgnoreInvalidCommands
-		guild.Config.Basic.Importable = legacy.Importable
-		guild.Config.Basic.ModChannel = NewDiscordChannel(legacy.ModChannel)
-		guild.Config.Basic.SilenceRole = NewDiscordRole(legacy.SilentRole)
-		guild.Config.Modules.CommandChannels = make(map[CommandID]map[DiscordChannel]bool)
-		for key := range legacy.Command_channels {
-			guild.Config.Modules.CommandChannels[CommandID(key)] = make(map[DiscordChannel]bool)
-			for k, v := range legacy.Command_channels[key] {
-				if ch, err := ParseChannel(k, nil); err == nil {
-					guild.Config.Modules.CommandChannels[CommandID(key)][ch] = v
-				}
-			}
-		}
-		guild.Config.Modules.CommandDisabled = make(map[CommandID]bool)
-		for key := range legacy.Command_disabled {
-			guild.Config.Modules.CommandDisabled[CommandID(key)] = true
-		}
-		guild.Config.Modules.CommandLimits = make(map[CommandID]int64)
-		for key, v := range legacy.Command_limits {
-			guild.Config.Modules.CommandLimits[CommandID(key)] = v
-		}
-		guild.Config.Modules.CommandRoles = make(map[CommandID]map[DiscordRole]bool)
-		for key := range legacy.Command_roles {
-			guild.Config.Modules.CommandRoles[CommandID(key)] = make(map[DiscordRole]bool)
-			for k, v := range legacy.Command_roles[key] {
-				if r, err := ParseRole(k, nil); err == nil {
-					guild.Config.Modules.CommandRoles[CommandID(key)][r] = v
-				}
-			}
-		}
-
-		guild.Config.Modules.CommandMaxDuration = legacy.Commandmaxduration
-		guild.Config.Modules.CommandPerDuration = legacy.Commandperduration
-		guild.Config.Modules.Channels = make(map[ModuleID]map[DiscordChannel]bool)
-		for key := range legacy.Module_channels {
-			guild.Config.Modules.Channels[ModuleID(key)] = make(map[DiscordChannel]bool)
-			for k, v := range legacy.Module_channels[key] {
-				if ch, err := ParseChannel(k, nil); err == nil {
-					guild.Config.Modules.Channels[ModuleID(key)][ch] = v
-				}
-			}
-		}
-		guild.Config.Modules.Disabled = make(map[ModuleID]bool)
-		for key := range legacy.Module_disabled {
-			guild.Config.Modules.Disabled[ModuleID(key)] = true
-		}
-		guild.Config.Spam.RaidSilence = legacy.AutoSilence
-		//guild.Config.Spam.MaxAttach = legacy.MaxAttachSpam
-		//guild.Config.Spam.MaxImages = legacy.MaxImageSpam
-		//guild.Config.Spam.MaxMessages = legacy.MaxMessageSpam
-		//guild.Config.Spam.MaxPings = legacy.MaxPingSpam
-		guild.Config.Spam.RaidTime = legacy.MaxRaidTime
-		guild.Config.Spam.MaxRemoveLookback = legacy.MaxSpamRemoveLookback
-		guild.Config.Spam.RaidSize = legacy.RaidSize
-		guild.Config.Bucket.MaxItems = legacy.MaxBucket
-		guild.Config.Bucket.MaxItemLength = legacy.MaxBucketLength
-		guild.Config.Bucket.MaxFightDamage = legacy.MaxFightDamage
-		guild.Config.Bucket.MaxFightHP = legacy.MaxFightHP
-		guild.Config.Markov.DefaultLines = legacy.Defaultmarkovlines
-		guild.Config.Markov.MaxPMlines = legacy.MaxPMlines
-		guild.Config.Markov.MaxLines = legacy.Maxquotelines
-		guild.Config.Markov.UseMemberNames = legacy.UseMemberNames
-		guild.Config.Users.TimezoneLocation = TimeLocation(legacy.TimezoneLocation)
-		guild.Config.Users.WelcomeChannel = NewDiscordChannel(legacy.WelcomeChannel)
-		guild.Config.Users.WelcomeMessage = legacy.WelcomeMessage
-		guild.Config.Users.SilenceMessage = legacy.SilenceMessage
-		guild.Config.Bored.Commands = legacy.BoredCommands
-		guild.Config.Bored.Cooldown = legacy.Maxbored
-		guild.Config.Information.HideNegativeRules = legacy.HideNegativeRules
-		guild.Config.Information.Rules = legacy.Rules
-		guild.Config.Log.Channel = NewDiscordChannel(legacy.LogChannel)
-		guild.Config.Log.Cooldown = legacy.Maxerror
-		guild.Config.Witty.Cooldown = legacy.Maxwit
-		guild.Config.Witty.Responses = legacy.Witty
-		guild.Config.Scheduler.BirthdayRole = NewDiscordRole(legacy.BirthdayRole)
-		guild.Config.Miscellaneous.MaxSearchResults = legacy.Maxsearchresults
-		guild.Config.Filter.Channels = make(map[string]map[DiscordChannel]bool)
-		guild.Config.Filter.Channels["spoiler"] = make(map[DiscordChannel]bool)
-		for _, v := range legacy.SpoilChannels {
-			guild.Config.Filter.Channels["spoiler"][NewDiscordChannel(v)] = true
-		}
-		guild.Config.Status.Cooldown = legacy.StatusDelayTime
-		guild.Config.Quote.Quotes = make(map[DiscordUser][]string)
-		for k, v := range legacy.Quotes {
-			guild.Config.Quote.Quotes[NewDiscordUser(k)] = v
-		}
-
-		newcommands := []string{"addevent", "addbirthday", "autosilence", "silence", "unsilence", "wipewelcome", "new", "addquote", "removequote", "removealias", "delete", "createpoll", "deletepoll", "addoption"}
-		for _, v := range newcommands {
-			restrictCommand(v, guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
-		}
-	}
-
-	if guild.Config.Version == 10 {
-		legacy := legacyBotConfigV10{}
-		err := json.Unmarshal(config, &legacy)
-		if err == nil {
-			guild.Config.Modules.CommandMaxDuration = legacy.Basic.Commandmaxduration
-			guild.Config.Modules.CommandPerDuration = legacy.Basic.Commandperduration
-		} else {
-			fmt.Println(err.Error())
-		}
 	}
 
 	if guild.Config.Version <= 11 {
@@ -1321,6 +1109,10 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 		restrictCommand("increment", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 		restrictCommand("addcounter", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 		restrictCommand("removecounter", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
+	}
+
+	if guild.Config.Version <= 27 {
+		guild.Config.Bored.Exponent = 1
 	}
 
 	if guild.Config.Version != ConfigVersion {

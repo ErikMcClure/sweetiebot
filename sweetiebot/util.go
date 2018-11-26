@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -462,7 +463,7 @@ func (sb *SweetieBot) ingestTranscript(data []byte) error {
 		}
 	}
 	return nil
-}
+}*/
 
 func splitSpeaker(speaker string) []string {
 	if len(speaker) == 0 {
@@ -476,29 +477,70 @@ func splitSpeaker(speaker string) []string {
 	return speakers
 }
 
-func (sb *SweetieBot) buildMarkov(seasonStart int, seasonEnd int) {
+func (sb *SweetieBot) buildMarkov() {
 	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
 
-	sb.DB.sqlResetMarkov.Exec()
+	markov := &markovChain{
+		Speakers: make([]string, 0, 50),
+		Phrases:  make([]string, 0, 50),
+		Mapping:  make([]uint64, 0, 50),
+		Chain:    make(map[uint64]map[uint32]int),
+	}
 
-	var cur uint64
-	var prev uint64
-	var prev2 uint64
-	for season := seasonStart; season <= seasonEnd; season++ {
-		for episode := 1; episode <= 26; episode++ {
-			if season == 3 && episode > 13 {
-				break
-			}
-			fmt.Println("Begin Episode", episode, "Season", season)
+	speakerhash := make(map[string]uint32)
+	wordhash := make(map[string]uint32)
+	maphash := make(map[uint64]uint32)
+
+	addmarkov := func(prev uint32, prev2 uint32, speaker string, word string) uint32 {
+		word = strings.ToLower(word)
+		if _, exists := wordhash[word]; !exists {
+			wordhash[word] = uint32(len(markov.Phrases))
+			markov.Phrases = append(markov.Phrases, word)
+		}
+
+		s := speakerhash[speaker]
+		w := wordhash[word]
+		id := uint64(s)<<32 | uint64(w)
+		if _, ok := maphash[id]; !ok {
+			maphash[id] = uint32(len(markov.Mapping))
+			markov.Mapping = append(markov.Mapping, id)
+		}
+
+		p := uint64(prev2)<<32 | uint64(prev)
+		cur := maphash[id]
+		if _, ok := markov.Chain[p]; !ok {
+			markov.Chain[p] = make(map[uint32]int)
+		}
+		if _, ok := markov.Chain[p][cur]; !ok {
+			markov.Chain[p][cur] = 0
+		}
+		markov.Chain[p][cur]++
+
+		return cur
+	}
+
+	var cur uint32
+	var prev uint32
+	var prev2 uint32
+
+	for season := 1; season <= 15; season++ {
+		for episode := 1; episode <= 99; episode++ {
 			prev = 0
 			prev2 = 0
 			lines := sb.DB.GetTranscript(season, episode, 0, 999999)
-			fmt.Println("Got", len(lines), "lines")
+			if len(lines) == 0 {
+				break
+			}
 
 			for i := range lines {
 				words := regex.FindAllString(lines[i].Text, -1)
 				speakers := splitSpeaker(lines[i].Speaker)
 				for _, speaker := range speakers {
+					if _, exists := speakerhash[speaker]; !exists {
+						speakerhash[speaker] = uint32(len(markov.Speakers))
+						markov.Speakers = append(markov.Speakers, speaker)
+					}
+
 					for j := range words {
 						l := len(words[j])
 						ch := words[j][l-1]
@@ -506,18 +548,16 @@ func (sb *SweetieBot) buildMarkov(seasonStart int, seasonEnd int) {
 						case '.', '!', '?':
 							words[j] = words[j][:l-1]
 						}
-						if sb.DB.GetMarkovWord(speaker, words[j]) != words[j] {
-							words[j] = strings.ToLower(words[j])
-						}
+
 						//fmt.Println("AddMarkov: ", prev, prev2, speaker, words[j])
-						cur = sb.DB.AddMarkov(prev, prev2, speaker, words[j])
+						cur = addmarkov(prev, prev2, speaker, words[j])
 						prev2 = prev
 						prev = cur
 
 						switch ch {
 						case '.', '!', '?':
 							//fmt.Println("AddMarkov: ", prev, prev2, speaker, string(ch))
-							cur = sb.DB.AddMarkov(prev, prev2, speaker, string(ch))
+							cur = addmarkov(prev, prev2, speaker, string(ch))
 							prev2 = 0
 							prev = 0
 						}
@@ -526,4 +566,6 @@ func (sb *SweetieBot) buildMarkov(seasonStart int, seasonEnd int) {
 			}
 		}
 	}
-}*/
+
+	sb.Markov = markov
+}
