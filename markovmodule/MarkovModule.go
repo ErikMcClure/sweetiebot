@@ -2,6 +2,7 @@ package markovmodule
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -50,21 +51,40 @@ func (c *episodeGenCommand) Info() *bot.CommandInfo {
 func (c *episodeGenCommand) Name() string {
 	return "episodegen"
 }
-func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !info.Bot.DB.CheckStatus() {
-		return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
+
+func getMarkovWord(info *bot.GuildInfo, prev uint32, prev2 uint32) (uint32, uint32, uint32) {
+	p := uint64(prev2)<<32 | uint64(prev)
+	if table, ok := info.Bot.Markov.Chain[p]; ok {
+		total := 0
+		for _, v := range table {
+			total += v
+		}
+
+		total = rand.Intn(total)
+
+		for k, v := range table {
+			if total -= v; total < 0 {
+				pair := info.Bot.Markov.Mapping[k]
+				return uint32(pair >> 32), uint32(pair), k
+			}
+		}
 	}
+
+	return math.MaxUint32, math.MaxUint32, math.MaxUint32
+}
+
+func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if c.lock.TestAndSet() {
 		return "```\nSorry, I'm busy processing another request right now. Please try again later!```", false, nil
 	}
 	defer c.lock.Clear()
+	if info.Bot.Markov == nil {
+		return "```\nMarkov chain has not been created yet!```", false, nil
+	}
+
 	maxlines := info.Config.Markov.DefaultLines
-	double := true
 	if len(args) > 0 {
 		maxlines, _ = strconv.Atoi(args[0])
-	}
-	if len(args) > 1 {
-		double = (strings.ToLower(args[1]) != "single")
 	}
 	if maxlines > 50 {
 		maxlines = 50
@@ -72,18 +92,57 @@ func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 	if maxlines <= 0 {
 		maxlines = 1
 	}
-	var prev uint64
-	var prev2 uint64
+	var prev uint32
+	var prev2 uint32
 	prev = 0
 	prev2 = 0
 	lines := make([]string, 0, maxlines)
-	line := ""
-	for i := 0; i < maxlines && info.Bot.DB.Status.Get(); i++ {
-		if double {
-			line, prev, prev2 = info.Bot.DB.GetMarkovLine2(prev, prev2)
-		} else {
-			line, prev = info.Bot.DB.GetMarkovLine(prev)
+
+	for i := 0; i < maxlines; i++ {
+		speakerID, wordID, next := getMarkovWord(info, prev, prev2)
+		if wordID == math.MaxUint32 || speakerID == math.MaxUint32 {
+			break
 		}
+
+		word := info.Bot.Markov.Phrases[wordID]
+		speaker := info.Bot.Markov.Speakers[speakerID]
+		prev2 = prev
+		prev = next
+		line := "[" + word
+
+		if len(speaker) != 0 {
+			line = "**" + speaker + ":** " + strings.ToUpper(word[:1]) + word[1:]
+		}
+
+		for max := 0; max < 300; max++ {
+			capitalize := word == "." || word == "!" || word == "?"
+
+			s, w, n := getMarkovWord(info, prev, prev2)
+			if w == math.MaxUint32 || n == math.MaxUint32 || s != speakerID {
+				prev = 0
+				prev2 = 0
+				break
+			}
+			prev2 = prev
+			prev = n
+			word := info.Bot.Markov.Phrases[w]
+
+			switch word {
+			case ".", "!", "?", ",":
+				line += word
+			default:
+				if capitalize {
+					line += " " + strings.ToUpper(word[:1]) + word[1:]
+				} else {
+					line += " " + word
+				}
+			}
+		}
+
+		if len(speaker) == 0 {
+			line += "]"
+		}
+
 		if len(line) > 0 {
 			lines = append(lines, line)
 		}
@@ -93,10 +152,9 @@ func (c *episodeGenCommand) Process(args []string, msg *discordgo.Message, indic
 }
 func (c *episodeGenCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of `lines`. Will be sent via PM if the line count exceeds 5.",
+		Desc: "Randomly generates a my little pony episode using a markov chain, up to a maximum line count of `lines`.",
 		Params: []bot.CommandUsageParam{
 			{Name: "lines", Desc: "Number of dialogue lines to generate", Optional: true},
-			{Name: "single", Desc: "The markov chain uses double-lookback by default, if this is specified, will revert to single-lookback, which produces much more chaotic results.", Optional: true},
 		},
 	}
 }
@@ -200,9 +258,11 @@ func (c *shipCommand) Process(args []string, msg *discordgo.Message, indices []i
 	if info.Config.Markov.UseMemberNames {
 		a = info.Bot.DB.GetRandomMember(bot.SBatoi(info.ID))
 		b = info.Bot.DB.GetRandomMember(bot.SBatoi(info.ID))
+	} else if info.Bot.Markov != nil && len(info.Bot.Markov.Speakers) > 0 {
+		a = info.Bot.Markov.Speakers[rand.Intn(len(info.Bot.Markov.Speakers))]
+		b = info.Bot.Markov.Speakers[rand.Intn(len(info.Bot.Markov.Speakers))]
 	} else {
-		a = info.Bot.DB.GetRandomSpeaker()
-		b = info.Bot.DB.GetRandomSpeaker()
+		return "```\nNo speakers to choose from on Markov table!```", false, nil
 	}
 	s := ""
 	if len(args) > 0 {
