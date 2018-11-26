@@ -245,11 +245,12 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	sb.GuildsLock.Lock()
 	sb.Guilds[DiscordGuild(g.ID)] = guild
 	guild.ProcessGuild(g) // This can be done outside of the guild lock, but it puts a lot of pressure on the database
+	sb.GuildsLock.Unlock()
 	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
-	if atomic.LoadUint32(&sb.quit) == QuitNone { // Check this inside the GuildsLock to ensure we cannot ever send a message to a closed channel
+
+	if atomic.LoadUint32(&sb.quit) == QuitNone { // We can't check this inside the guild lock because it can deadlock if we run out of channel buffer, so we just run the risk of crashing while closing instead of closing nicely
 		sb.memberChan <- guild // Do this concurrently because it just has to happen eventually.
 	}
-	sb.GuildsLock.Unlock()
 
 	guild.Modules = sb.loader(guild)
 	sort.Sort(moduleArray(guild.Modules))
@@ -1015,7 +1016,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		StartTime:      time.Now().UTC().Unix(),
 		heartbeat:      4294967290,
 		loader:         loader,
-		memberChan:     make(chan *GuildInfo, 1500),
+		memberChan:     make(chan *GuildInfo, 2500),
 		deferChan:      make(chan deferPair, 2000),
 		Selfhoster:     selfhoster,
 		WebSecure:      false,
