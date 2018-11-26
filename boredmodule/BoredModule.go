@@ -2,6 +2,8 @@ package boredmodule
 
 import (
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	bot "../sweetiebot"
@@ -10,12 +12,14 @@ import (
 
 // BoredModule picks a random action to do whenever a channel has been idle for several minutes (configurable)
 type BoredModule struct {
-	lastmessage int64 // Ensures discord screwing up doesn't make us spam the chatroom.
+	lastmessage  int64                        // Ensures discord screwing up doesn't make us spam the chatroom.
+	lastactivity map[bot.DiscordChannel]int64 // Last time a channel room had activity other than sweetiebot.
+	count        map[bot.DiscordChannel]int   // Count of consecutive bored messages per channel
 }
 
 // New instance of BoredModule
 func New() *BoredModule {
-	return &BoredModule{0}
+	return &BoredModule{0, make(map[bot.DiscordChannel]int64), make(map[bot.DiscordChannel]int)}
 }
 
 // Name of the module
@@ -31,11 +35,10 @@ func (w *BoredModule) Description() string {
 	return "After the chat is inactive for a given amount of time, chooses a random action from the `boredcommands` configuration option to run, such posting a link from the bored collection or throwing an item from the bucket."
 }
 
-// OnIdle discord hook
-func (w *BoredModule) OnIdle(info *bot.GuildInfo, c *discordgo.Channel, t time.Time) {
-	id := c.ID
-	if bot.RateLimit(&w.lastmessage, w.IdlePeriod(info), t.Unix()) && len(info.Config.Bored.Commands) > 0 {
-		m := &discordgo.Message{ChannelID: id, Content: bot.MapGetRandomItem(info.Config.Bored.Commands),
+func (w *BoredModule) idle(info *bot.GuildInfo, id bot.DiscordChannel, t time.Time) {
+	w.count[id]++
+	if bot.RateLimit(&w.lastmessage, info.Config.Bored.Cooldown, t.Unix()) && len(info.Config.Bored.Commands) > 0 {
+		m := &discordgo.Message{ChannelID: id.String(), Content: bot.MapGetRandomItem(info.Config.Bored.Commands),
 			Author: &discordgo.User{
 				ID:       info.Bot.SelfID.String(),
 				Username: "Sweetie",
@@ -50,7 +53,26 @@ func (w *BoredModule) OnIdle(info *bot.GuildInfo, c *discordgo.Channel, t time.T
 	}
 }
 
-// IdlePeriod discord hook
-func (w *BoredModule) IdlePeriod(info *bot.GuildInfo) int64 {
-	return info.Config.Bored.Cooldown
+// OnTick discord hook
+func (w *BoredModule) OnTick(info *bot.GuildInfo, t time.Time) {
+	channels := info.Config.Modules.Channels[bot.ModuleID(strings.ToLower(w.Name()))]
+	for ch := range channels {
+		last, exists := info.Bot.GetLastMessage(ch)
+
+		if exists {
+			if _, ok := w.lastactivity[ch]; !ok {
+				w.lastactivity[ch] = 0
+			}
+			if w.lastactivity[ch] != last {
+				w.lastactivity[ch] = last
+				w.count[ch] = 0
+			}
+			diff := t.Sub(time.Unix(last, 0))
+			idle := int64(math.Floor(float64(info.Config.Bored.Cooldown) * (math.Pow(info.Config.Bored.Exponent, float64(w.count[ch])) + float64(w.count[ch]))))
+
+			if diff >= (time.Duration(idle) * time.Second) {
+				w.idle(info, ch, t)
+			}
+		}
+	}
 }

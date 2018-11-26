@@ -9,9 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
-
 	"github.com/blackhole12/discordgo"
+	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
 func TestAddCommand(t *testing.T) {
@@ -227,7 +226,7 @@ func TestProcessMember(t *testing.T) {
 	sb, dbmock, _ := MockSweetieBot(t)
 	for _, v := range sb.Guilds {
 		m := mockDiscordMember(TestUserAssigned, 0)
-		dbmock.ExpectExec("CALL AddUser\\(\\?,\\?,\\?,\\?,\\?\\)").WithArgs(TestUserAssigned, m.User.Username, SBatoi(m.User.Discriminator), m.User.Avatar, false).WillReturnResult(sqlmock.NewResult(0, 0))
+		dbmock.ExpectExec("CALL AddUser\\(\\?,\\?,\\?,\\?\\)").WithArgs(TestUserAssigned, m.User.Username, SBatoi(m.User.Discriminator), false).WillReturnResult(sqlmock.NewResult(0, 0))
 		dbmock.ExpectExec("CALL AddMember\\(\\?,\\?,\\?,\\?\\)").WithArgs(TestUserAssigned, SBatoi(v.ID), sqlmock.AnyArg(), sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 0))
 		v.ProcessMember(m)
 	}
@@ -241,8 +240,13 @@ func TestProcessGuild(t *testing.T) {
 		args[k] = sqlmock.AnyArg()
 	}
 
+	args2 := make([]driver.Value, 3*len(g.Members), 3*len(g.Members))
+	for k := range args2 {
+		args2[k] = sqlmock.AnyArg()
+	}
+
 	for _, v := range sb.Guilds {
-		dbmock.ExpectExec("INSERT IGNORE INTO users.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
+		dbmock.ExpectExec("INSERT IGNORE INTO users.*").WithArgs(args2...).WillReturnResult(sqlmock.NewResult(0, 0))
 		dbmock.ExpectExec("INSERT IGNORE INTO members.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
 		v.ProcessGuild(g)
 		Check(v.Name, "Test Server 12", t)

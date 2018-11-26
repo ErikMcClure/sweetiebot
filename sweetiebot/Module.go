@@ -95,13 +95,6 @@ type ModuleOnCommand interface {
 	OnCommand(*GuildInfo, *discordgo.Message) bool
 }
 
-// ModuleOnIdle hook interface, also defines an IdlePeriod() that returns how long a period of inactivity is needed to count as "idle"
-type ModuleOnIdle interface {
-	Module
-	OnIdle(*GuildInfo, *discordgo.Channel, time.Time)
-	IdlePeriod(*GuildInfo) int64
-}
-
 // ModuleOnTick hook interface
 type ModuleOnTick interface {
 	Module
@@ -153,7 +146,6 @@ type moduleHooks struct {
 	OnGuildBanRemove    []ModuleOnGuildBanRemove
 	OnGuildRoleDelete   []ModuleOnGuildRoleDelete
 	OnCommand           []ModuleOnCommand
-	OnIdle              []ModuleOnIdle
 	OnTick              []ModuleOnTick
 }
 
@@ -194,9 +186,6 @@ func (info *GuildInfo) RegisterModule(m Module) {
 	}
 	if h, ok := m.(ModuleOnCommand); ok {
 		info.hooks.OnCommand = append(info.hooks.OnCommand, h)
-	}
-	if h, ok := m.(ModuleOnIdle); ok {
-		info.hooks.OnIdle = append(info.hooks.OnIdle, h)
 	}
 	if h, ok := m.(ModuleOnTick); ok {
 		info.hooks.OnTick = append(info.hooks.OnTick, h)

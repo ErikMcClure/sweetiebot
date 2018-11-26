@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 28}
+var BotVersion = Version{0, 9, 9, 29}
 
 const (
 	MaxPublicLines    = 12
@@ -98,6 +98,14 @@ type SweetieBot struct {
 	WebPort         string     `json:"webport"`
 	EmptyGuild      *GuildInfo // Holds an empty GuildInfo for running server independent commands
 	UpdateLock      AtomicFlag
+	Markov          *markovChain
+}
+
+type markovChain struct {
+	Speakers []string                  `json:"speakers"`
+	Phrases  []string                  `json:"phrases"`
+	Mapping  []uint64                  `json:"mapping"` // speakerid in top 32 bits, phraseid in bottom 32 bits
+	Chain    map[uint64]map[uint32]int `json:"chain"`   // prev in top 32 bits, prev2 in bottom 32 bits
 }
 
 // IsMainGuild returns true if that guild is considered the main (default) guild
@@ -175,7 +183,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 			guild.ProcessGuild(g)
 			sb.GuildsLock.Unlock()
 			sb.memberChan <- guild
-			fmt.Println("Processed", g.Name)*/
+			//fmt.Println("Processed", g.Name)*/
 			return
 		}
 	}
@@ -324,6 +332,13 @@ func (sb *SweetieBot) getAddMsg(info *GuildInfo) string {
 		}
 	}
 	return ""
+}
+
+func (sb *SweetieBot) GetLastMessage(id DiscordChannel) (int64, bool) {
+	sb.LastMessageLock.RLock()
+	t, exists := sb.LastMessages[id]
+	sb.LastMessageLock.RUnlock()
+	return t, exists
 }
 
 // ProcessCommand processes a command given to sweetiebot in the form "!command"
@@ -503,9 +518,11 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 
 	channelID := DiscordChannel(m.ChannelID)
 	t := GetTimestamp(m.Message).Unix()
-	sb.LastMessageLock.Lock()
-	sb.LastMessages[channelID] = t
-	sb.LastMessageLock.Unlock()
+	if m.Author.ID != sb.SelfID.String() {
+		sb.LastMessageLock.Lock()
+		sb.LastMessages[channelID] = t
+		sb.LastMessageLock.Unlock()
+	}
 
 	_, private := sb.ChannelIsPrivate(channelID)
 	var info *GuildInfo
@@ -815,7 +832,7 @@ func (sb *SweetieBot) ProcessUser(u *discordgo.User) uint64 {
 	id := SBatoi(u.ID)
 	discriminator, _ := strconv.Atoi(u.Discriminator)
 	if sb.DB.CheckStatus() {
-		sb.DB.AddUser(id, u.Username, discriminator, u.Avatar, false)
+		sb.DB.AddUser(id, u.Username, discriminator, false)
 	}
 	return id
 }
@@ -826,7 +843,7 @@ func (sb *SweetieBot) memberIngestionLoop() {
 		if !more {
 			return
 		}
-		fmt.Println("Member processing for: " + guild.Name)
+		//fmt.Println("Member processing for: " + guild.Name)
 		members := []*discordgo.Member{}
 		lastid := ""
 		for {
@@ -849,6 +866,7 @@ func (sb *SweetieBot) memberIngestionLoop() {
 			members[i].GuildID = guild.ID
 			sb.DG.State.MemberAdd(members[i])
 		}
+		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(guild.ID): guild})
 	}
 }
 
@@ -868,43 +886,6 @@ func (sb *SweetieBot) deferProcessing() {
 		}
 	}
 }
-func (sb *SweetieBot) idleCheck(info *GuildInfo, guild *discordgo.Guild) {
-	sb.DG.State.RLock()
-	channels := guild.Channels
-	sb.DG.State.RUnlock()
-	if sb.Debug { // override this in debug mode
-		c, err := sb.DG.State.Channel(sb.DebugChannels[DiscordGuild(info.ID)].String())
-		if err == nil {
-			channels = []*discordgo.Channel{c}
-		} else {
-			channels = []*discordgo.Channel{}
-		}
-	}
-	tm := time.Now().UTC()
-	for _, ch := range channels {
-		if ch.GuildID != guild.ID {
-			break // Don't allow OnIdle to trigger on channels that aren't in this server
-		}
-		sb.LastMessageLock.RLock()
-		t, exists := sb.LastMessages[DiscordChannel(ch.ID)]
-		sb.LastMessageLock.RUnlock()
-		if exists {
-			diff := tm.Sub(time.Unix(t, 0))
-
-			for _, h := range info.hooks.OnIdle {
-				if info.ProcessModule(DiscordChannel(ch.ID), h) && diff >= (time.Duration(h.IdlePeriod(info))*time.Second) {
-					h.OnIdle(info, ch, tm)
-				}
-			}
-		}
-	}
-
-	for _, h := range info.hooks.OnTick {
-		if info.ProcessModule("", h) {
-			h.OnTick(info, tm)
-		}
-	}
-}
 
 func (sb *SweetieBot) idleCheckLoop() {
 	for atomic.LoadUint32(&sb.quit) != QuitNow {
@@ -915,15 +896,17 @@ func (sb *SweetieBot) idleCheckLoop() {
 			infos = append(infos, v)
 		}
 		sb.GuildsLock.RUnlock()
+		tm := time.Now()
+
 		for _, info := range infos {
-			guild, err := sb.DG.State.Guild(info.ID)
-			if err != nil {
-				continue
+			for _, h := range info.hooks.OnTick {
+				if info.ProcessModule("", h) {
+					h.OnTick(info, tm)
+				}
 			}
-			sb.idleCheck(info, guild)
 		}
 
-		fmt.Println("Idle Check: ", time.Now())
+		fmt.Println("Idle Check: ", tm)
 		time.Sleep(20 * time.Second)
 	}
 }
@@ -1039,6 +1022,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 29): "- Moved markov chain to in-memory representation.\n- Cleaned up database\n- Add exponential backoff option to bored module.\n- Detects if it can't send an embed to a channel and sends a warning instead.\n- All edits show up in message log search\n- Changed how !wipe parses it's arguments. Please check !help wipe\n- Added season 8 transcripts\n- Any administrator can now grant server silver.",
 			AssembleVersion(0, 9, 9, 28): "- Increase max rules\n- add mismatched parentheses check.",
 			AssembleVersion(0, 9, 9, 27): "- Update documentation\n- Updated the server and dependencies\n- Optimized tag queries with lots of OR statements\n- Added 'new member' role to the users module, a role that is added to all new members for a limited time after joining.",
 			AssembleVersion(0, 9, 9, 26): "- Fixed crash in !search.\n- Fixed installer SQL script.\n- !setconfig timezonelocation now verifies the value and warns you if it is invalid.\n- Omitting the channel in !wipe now simply defaults to the current channel.",
@@ -1271,6 +1255,7 @@ func (sb *SweetieBot) Connect() int {
 	go sb.deadlockDetector()
 	go sb.memberIngestionLoop()
 	go sb.ServeWeb()
+	go sb.buildMarkov()
 
 	err := sb.DG.Open()
 	if err == nil {
