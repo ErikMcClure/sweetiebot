@@ -669,8 +669,9 @@ type importCommand struct {
 
 func (c *importCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
-		Name:  "Import",
-		Usage: "Imports all items matching a tag from another server.",
+		Name:      "Import",
+		Usage:     "Imports all items matching a tag from another server.",
+		Sensitive: true,
 	}
 }
 

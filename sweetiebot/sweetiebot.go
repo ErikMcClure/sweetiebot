@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 29}
+var BotVersion = Version{0, 9, 9, 30}
 
 const (
 	MaxPublicLines    = 12
@@ -1023,6 +1023,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 30): "- Fixed permissions error on import",
 			AssembleVersion(0, 9, 9, 29): "- Moved markov chain to in-memory representation.\n- Cleaned up database\n- Add exponential backoff option to bored module.\n- Detects if it can't send an embed to a channel and sends a warning instead.\n- All edits show up in message log search\n- Changed how !wipe parses it's arguments. Please check !help wipe\n- Added season 8 transcripts\n- Any administrator can now grant server silver.",
 			AssembleVersion(0, 9, 9, 28): "- Increase max rules\n- add mismatched parentheses check.",
 			AssembleVersion(0, 9, 9, 27): "- Update documentation\n- Updated the server and dependencies\n- Optimized tag queries with lots of OR statements\n- Added 'new member' role to the users module, a role that is added to all new members for a limited time after joining.",

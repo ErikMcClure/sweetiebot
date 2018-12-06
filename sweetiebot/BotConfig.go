@@ -137,7 +137,7 @@ var ConfigHelp = map[string]map[string]string{
 		"importable":            "If true, the collections on this server will be importable into another server.",
 		"modrole":               "This is intended to point at a moderator role shared by all admins and moderators of the server for notification purposes.",
 		"modchannel":            "This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.",
-		"freechannels":          "This is a list of all channels that are exempt from rate limiting. Usually set to the dedicated `#botabuse` channel in a server.",
+		"freechannels":          "This is a list of all channels that are exempt from bot command rate limiting. Usually set to the dedicated `#botabuse` channel in a server. Does not affect anti-spam. To exclude anti-spam from a channel, use `!setconfig modules.channels spam ! #yourchannel`.",
 		"botchannel":            "This allows you to designate a particular channel to point users if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
 		"aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii pick cute` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 		"listentobots":          "If true, processes messages from other bots and allows them to run commands. Bots can never trigger anti-spam. Defaults to false.",
@@ -252,7 +252,7 @@ func getConfigHelp(module string, option string) (string, bool) {
 }
 
 // ConfigVersion is the latest version of the config file
-var ConfigVersion = 28
+var ConfigVersion = 29
 
 // DefaultConfig returns a default BotConfig struct. We can't define this as a variable because you can't initialize nested structs in a sane way in Go
 func DefaultConfig() *BotConfig {
@@ -1113,6 +1113,10 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 
 	if guild.Config.Version <= 27 {
 		guild.Config.Bored.Exponent = 1
+	}
+
+	if guild.Config.Version <= 28 {
+		restrictCommand("import", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 	}
 
 	if guild.Config.Version != ConfigVersion {
