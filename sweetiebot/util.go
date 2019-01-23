@@ -395,7 +395,7 @@ func GetTimestamp(m *discordgo.Message) time.Time {
 
 // GetJoinedAt returns either the time the member joined or time.Now() if there is an error
 func GetJoinedAt(m *discordgo.Member) time.Time {
-	if t, err := m.JoinedAt.Parse(); err == nil {
+	if t, err := discordgo.Timestamp(m.JoinedAt).Parse(); err == nil {
 		return t
 	}
 	return time.Now().UTC()

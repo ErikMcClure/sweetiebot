@@ -484,7 +484,7 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		m.JoinedAt = dbmember.JoinedAt
 	}
 	authortz := info.GetTimezone(bot.DiscordUser(msg.Author.ID))
-	joinedat, err := m.JoinedAt.Parse()
+	joinedat, err := discordgo.Timestamp(m.JoinedAt).Parse()
 	joined := ""
 	if err == nil {
 		joined = bot.TimeDiff(timestamp.Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
