@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 30}
+var BotVersion = Version{0, 9, 9, 31}
 
 const (
 	MaxPublicLines    = 12
@@ -63,42 +63,44 @@ type deferPair struct {
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
-	DB              *BotDB
-	DG              *DiscordGoSession
-	Debug           bool `json:"debug"`
-	changelog       map[int]string
-	SelfID          DiscordUser
-	SelfAvatar      string
-	SelfName        string
-	AppID           uint64
-	AppName         string
-	Owner           DiscordUser
-	Token           string                          `json:"token"`
-	DBAuth          string                          `json:"dbauth"`
-	MainGuildID     DiscordGuild                    `json:"mainguildid"`
-	DebugChannels   map[DiscordGuild]DiscordChannel `json:"debugchannels"`
-	quit            uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
-	Guilds          map[DiscordGuild]*GuildInfo
-	GuildsLock      sync.RWMutex
-	LastMessages    map[DiscordChannel]int64
-	LastMessageLock sync.RWMutex
-	MaxConfigSize   int    `json:"maxconfigsize"`
-	MaxUniqueItems  uint64 `json:"maxuniqueitems"`
-	StartTime       int64
-	MessageCount    uint32 // 32-bit so we can do atomic ops on a 32-bit platform
-	heartbeat       uint32 // perpetually incrementing heartbeat counter to detect deadlock
-	locknumber      uint32
-	loader          func(*GuildInfo) []Module
-	memberChan      chan *GuildInfo
-	deferChan       chan deferPair
-	Selfhoster      *Selfhost
-	IsUserMode      bool       `json:"runasuser"` // True if running as a user for some godawful reason
-	WebSecure       bool       `json:"websecure"`
-	WebDomain       string     `json:"webdomain"`
-	WebPort         string     `json:"webport"`
-	EmptyGuild      *GuildInfo // Holds an empty GuildInfo for running server independent commands
-	UpdateLock      AtomicFlag
-	Markov          *markovChain
+	DB                  *BotDB
+	DG                  *DiscordGoSession
+	Debug               bool `json:"debug"`
+	changelog           map[int]string
+	SelfID              DiscordUser
+	SelfAvatar          string
+	SelfName            string
+	AppID               uint64
+	AppName             string
+	Owner               DiscordUser
+	Token               string                          `json:"token"`
+	DBAuth              string                          `json:"dbauth"`
+	MainGuildID         DiscordGuild                    `json:"mainguildid"`
+	DebugChannels       map[DiscordGuild]DiscordChannel `json:"debugchannels"`
+	quit                uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
+	Guilds              map[DiscordGuild]*GuildInfo
+	GuildsLock          sync.RWMutex
+	LastMessages        map[DiscordChannel]int64
+	LastMessageLock     sync.RWMutex
+	MaxConfigSize       int    `json:"maxconfigsize"`
+	MaxUniqueItems      uint64 `json:"maxuniqueitems"`
+	StartTime           int64
+	MessageCount        uint32 // 32-bit so we can do atomic ops on a 32-bit platform
+	heartbeat           uint32 // perpetually incrementing heartbeat counter to detect deadlock
+	locknumber          uint32
+	loader              func(*GuildInfo) []Module
+	memberChan          chan *GuildInfo
+	deferChan           chan deferPair
+	Selfhoster          *Selfhost
+	IsUserMode          bool              `json:"runasuser"` // True if running as a user for some godawful reason
+	WebSecure           bool              `json:"websecure"`
+	WebDomain           string            `json:"webdomain"`
+	WebPort             string            `json:"webport"`
+	ModuleDescriptions  map[string]string `json:"moduledescriptions"`
+	CommandDescriptions map[string]string `json:"commanddescriptions"`
+	EmptyGuild          *GuildInfo        // Holds an empty GuildInfo for running server independent commands
+	UpdateLock          AtomicFlag
+	Markov              *markovChain
 }
 
 type markovChain struct {
@@ -654,6 +656,7 @@ func (sb *SweetieBot) GuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMem
 		sb.Selfhoster.CheckGuilds(sb.Guilds)
 		sb.GuildsLock.RUnlock()
 	}
+
 	for _, h := range info.hooks.OnGuildMemberAdd {
 		if info.ProcessModule("", h) {
 			h.OnGuildMemberAdd(info, m.Member, time.Now().UTC())
@@ -701,9 +704,11 @@ func (sb *SweetieBot) GuildMemberUpdate(s *discordgo.Session, m *discordgo.Guild
 	if info == nil {
 		return
 	}
+
 	if sb.SelfID.Equals(m.User.ID) && len(m.Nick) > 0 {
 		info.BotNick = m.Nick
 	}
+
 	sb.deferChan <- deferPair{m, info}
 	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
 		sb.GuildsLock.RLock()
@@ -1023,6 +1028,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 31): "- Fixed crash bug\n- Added language override file\n- No longer allow leaving and rejoining a server to clear silence status",
 			AssembleVersion(0, 9, 9, 30): "- Fixed permissions error on import",
 			AssembleVersion(0, 9, 9, 29): "- Moved markov chain to in-memory representation.\n- Cleaned up database\n- Add exponential backoff option to bored module.\n- Detects if it can't send an embed to a channel and sends a warning instead.\n- All edits show up in message log search\n- Changed how !wipe parses it's arguments. Please check !help wipe\n- Added season 8 transcripts\n- Any administrator can now grant server silver.",
 			AssembleVersion(0, 9, 9, 28): "- Increase max rules\n- add mismatched parentheses check.",
@@ -1192,6 +1198,13 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 			if command.Info().ServerIndependent {
 				sb.EmptyGuild.AddCommand(command, v)
 			}
+		}
+	}
+
+	// Load language override
+	if configHelpFile, err := ioutil.ReadFile("confighelp.json"); err == nil {
+		if err = json.Unmarshal(configHelpFile, &ConfigHelp); err != nil {
+			fmt.Println("Error loading config help replacement file: ", err)
 		}
 	}
 

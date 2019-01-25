@@ -191,7 +191,7 @@ func (info *GuildInfo) SendMessage(channelID DiscordChannel, message string) err
 		atomic.AddUint32(&info.Bot.heartbeat, 1)
 		return nil
 	}
-	if ch, private := info.Bot.ChannelIsPrivate(channelID); !private && (ch == nil || ch.GuildID != info.ID) {
+	if ch, private := info.Bot.ChannelIsPrivate(channelID); !private && (ch == nil || ch.GuildID != info.ID || ch.Type == discordgo.ChannelTypeGuildVoice || ch.Type == discordgo.ChannelTypeGuildCategory) {
 		return errInvalidChannel
 	}
 
@@ -485,6 +485,11 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 		fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name + opt, Value: v.Desc, Inline: false})
 	}
 
+	description, exists := info.Bot.CommandDescriptions[string(name)]
+	if !exists {
+		description = usage.Desc
+	}
+
 	if len(ch) > 0 {
 		ch = fmt.Sprintf("Available on: %s", ch)
 	}
@@ -497,7 +502,7 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 		},
 		Color:       0xaaaaaa,
-		Description: fmt.Sprintf("```\n%s```\n%s\n\n%s", use, usage.Desc, ch),
+		Description: fmt.Sprintf("```\n%s```\n%s\n\n%s", use, description, ch),
 		Fields:      fields,
 	}
 

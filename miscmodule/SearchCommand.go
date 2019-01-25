@@ -63,7 +63,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 						rangeend, _ = strconv.Atoi(s[0])
 					}
 				}
-			case v[0] == '@' || (v[0] == '<' && v[1] == '@'):
+			case v[0] == '@' || (len(v) > 1 && v[0] == '<' && v[1] == '@'):
 				if len(v) < 2 {
 					return "```\nError: No users specified```", false, nil
 				}
@@ -78,7 +78,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 					}
 					channels = append(channels, ch.Convert())
 				}
-			case (v[0] == '<' && v[1] == '#'):
+			case (len(v) > 1 && v[0] == '<' && v[1] == '#'):
 				if len(v) < 2 {
 					return "```\nError: No channels specified```", false, nil
 				}
