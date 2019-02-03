@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 32}
+var BotVersion = Version{0, 9, 9, 33}
 
 const (
 	MaxPublicLines    = 12
@@ -63,44 +63,42 @@ type deferPair struct {
 
 // SweetieBot is the primary bot object containing the bot state
 type SweetieBot struct {
-	DB                  *BotDB
-	DG                  *DiscordGoSession
-	Debug               bool `json:"debug"`
-	changelog           map[int]string
-	SelfID              DiscordUser
-	SelfAvatar          string
-	SelfName            string
-	AppID               uint64
-	AppName             string
-	Owner               DiscordUser
-	Token               string                          `json:"token"`
-	DBAuth              string                          `json:"dbauth"`
-	MainGuildID         DiscordGuild                    `json:"mainguildid"`
-	DebugChannels       map[DiscordGuild]DiscordChannel `json:"debugchannels"`
-	quit                uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
-	Guilds              map[DiscordGuild]*GuildInfo
-	GuildsLock          sync.RWMutex
-	LastMessages        map[DiscordChannel]int64
-	LastMessageLock     sync.RWMutex
-	MaxConfigSize       int    `json:"maxconfigsize"`
-	MaxUniqueItems      uint64 `json:"maxuniqueitems"`
-	StartTime           int64
-	MessageCount        uint32 // 32-bit so we can do atomic ops on a 32-bit platform
-	heartbeat           uint32 // perpetually incrementing heartbeat counter to detect deadlock
-	locknumber          uint32
-	loader              func(*GuildInfo) []Module
-	memberChan          chan *GuildInfo
-	deferChan           chan deferPair
-	Selfhoster          *Selfhost
-	IsUserMode          bool              `json:"runasuser"` // True if running as a user for some godawful reason
-	WebSecure           bool              `json:"websecure"`
-	WebDomain           string            `json:"webdomain"`
-	WebPort             string            `json:"webport"`
-	ModuleDescriptions  map[string]string `json:"moduledescriptions"`
-	CommandDescriptions map[string]string `json:"commanddescriptions"`
-	EmptyGuild          *GuildInfo        // Holds an empty GuildInfo for running server independent commands
-	UpdateLock          AtomicFlag
-	Markov              *markovChain
+	DB              *BotDB
+	DG              *DiscordGoSession
+	Debug           bool `json:"debug"`
+	changelog       map[int]string
+	SelfID          DiscordUser
+	SelfAvatar      string
+	SelfName        string
+	AppID           uint64
+	AppName         string
+	Owner           DiscordUser
+	Token           string                          `json:"token"`
+	DBAuth          string                          `json:"dbauth"`
+	MainGuildID     DiscordGuild                    `json:"mainguildid"`
+	DebugChannels   map[DiscordGuild]DiscordChannel `json:"debugchannels"`
+	quit            uint32                          // QuitNone means to keep running. QuitNow means to quit immediately. QuitRaid means to wait until no raids have occurred before quitting
+	Guilds          map[DiscordGuild]*GuildInfo
+	GuildsLock      sync.RWMutex
+	LastMessages    map[DiscordChannel]int64
+	LastMessageLock sync.RWMutex
+	MaxConfigSize   int    `json:"maxconfigsize"`
+	MaxUniqueItems  uint64 `json:"maxuniqueitems"`
+	StartTime       int64
+	MessageCount    uint32 // 32-bit so we can do atomic ops on a 32-bit platform
+	heartbeat       uint32 // perpetually incrementing heartbeat counter to detect deadlock
+	locknumber      uint32
+	loader          func(*GuildInfo) []Module
+	memberChan      chan *GuildInfo
+	deferChan       chan deferPair
+	Selfhoster      *Selfhost
+	IsUserMode      bool       `json:"runasuser"` // True if running as a user for some godawful reason
+	WebSecure       bool       `json:"websecure"`
+	WebDomain       string     `json:"webdomain"`
+	WebPort         string     `json:"webport"`
+	EmptyGuild      *GuildInfo // Holds an empty GuildInfo for running server independent commands
+	UpdateLock      AtomicFlag
+	Markov          *markovChain
 }
 
 type markovChain struct {
@@ -370,12 +368,12 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			gIDs := []uint64{}
 			if _, independent := sb.EmptyGuild.commands[arg]; !independent {
 				if !sb.DB.Status.Get() {
-					sb.DG.ChannelMessageSend(m.ChannelID, "```\nA temporary database error means I can't process any private message commands right now.```")
+					sb.DG.ChannelMessageSend(m.ChannelID, StringMap[STRING_DATABASE_ERROR])
 					return
 				}
 				gIDs = sb.DB.GetUserGuilds(authorid)
 				if len(gIDs) != 1 {
-					sb.DG.ChannelMessageSend(m.ChannelID, "```\nCannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```")
+					sb.DG.ChannelMessageSend(m.ChannelID, StringMap[STRING_NO_SERVER])
 					return
 				}
 			} else if sb.DB.Status.Get() {
@@ -441,7 +439,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 					info.commandlimit.times = make([]int64, info.Config.Modules.CommandPerDuration*2, info.Config.Modules.CommandPerDuration*2)
 				}
 				if info.commandlimit.check(info.Config.Modules.CommandPerDuration, info.Config.Modules.CommandMaxDuration, t) { // if we've hit the saturation limit, post an error (which itself will only post if the error saturation limit hasn't been hit)
-					info.SendError(channelID, fmt.Sprintf("You can't input more than %v commands every %s!%s", info.Config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.Config.Modules.CommandMaxDuration)*time.Second), sb.getAddMsg(info)), t)
+					info.SendError(channelID, fmt.Sprintf(StringMap[STRING_COMMANDS_LIMIT], info.Config.Modules.CommandPerDuration, TimeDiff(time.Duration(info.Config.Modules.CommandMaxDuration)*time.Second), sb.getAddMsg(info)), t)
 					return
 				}
 				info.commandlimit.append(t)
@@ -463,7 +461,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				lastcmd := info.commandLast[cmdhash]
 				info.commandLock.RUnlock()
 				if !RateLimit(&lastcmd, cmdlimit, t) {
-					info.SendError(channelID, fmt.Sprintf("You can only run that command once every %s!%s", TimeDiff(time.Duration(cmdlimit)*time.Second), sb.getAddMsg(info)), t)
+					info.SendError(channelID, fmt.Sprintf(StringMap[STRING_COMMAND_LIMIT], TimeDiff(time.Duration(cmdlimit)*time.Second), sb.getAddMsg(info)), t)
 					return
 				}
 				info.commandLock.Lock()
@@ -482,10 +480,10 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 						if rand.Float32() < 0.01 {
 							info.SendMessage(channelID, "Check your ~~privilege~~ Private Messages for my reply!")
 						} else {
-							info.SendMessage(channelID, "```\nCheck your Private Messages for my reply!```")
+							info.SendMessage(channelID, StringMap[STRING_CHECK_PM])
 						}
 					} else {
-						info.SendError(channelID, "I tried to send you a Private Message, but it failed! Try PMing me the command directly.", t)
+						info.SendError(channelID, StringMap[STRING_PM_FAILURE], t)
 					}
 				}
 
@@ -499,7 +497,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 		} else if !info.Config.Basic.IgnoreInvalidCommands {
 			if private || !info.checkOnCommand(m) {
-				info.SendError(channelID, "Sorry, "+args[0]+" is not a valid command.\nFor a list of valid commands, type !help.", t)
+				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_INVALID_COMMAND], args[0]), t)
 			}
 		}
 	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
@@ -1028,6 +1026,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 33): "- Changed how language override works",
 			AssembleVersion(0, 9, 9, 32): "- Security hotfix",
 			AssembleVersion(0, 9, 9, 31): "- Fixed crash bug\n- Added language override file\n- No longer allow leaving and rejoining a server to clear silence status",
 			AssembleVersion(0, 9, 9, 30): "- Fixed permissions error on import",
@@ -1206,6 +1205,12 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	if configHelpFile, err := ioutil.ReadFile("confighelp.json"); err == nil {
 		if err = json.Unmarshal(configHelpFile, &ConfigHelp); err != nil {
 			fmt.Println("Error loading config help replacement file: ", err)
+		}
+	}
+
+	if stringsFile, err := ioutil.ReadFile("strings.json"); err == nil {
+		if err = json.Unmarshal(stringsFile, &StringMap); err != nil {
+			fmt.Println("Error loading strings replacement file: ", err)
 		}
 	}
 

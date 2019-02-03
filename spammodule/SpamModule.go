@@ -83,7 +83,7 @@ func (w *SpamModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *SpamModule) Description() string {
-	return "Tracks all channels it is active on for spammers. Each message someone sends generates \"pressure\", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid."
+	return bot.StringMap[bot.STRING_SPAM_DESCRIPTION]
 }
 
 // OnTick discord hook
@@ -96,9 +96,9 @@ func (w *SpamModule) OnTick(info *bot.GuildInfo, t time.Time) {
 		u := heap.Pop(w.timeouts).(userTimeout).user
 		err := info.Bot.DG.RemoveRole(info.ID, u, info.Config.Basic.SilenceRole)
 		if err != nil {
-			info.SendMessage(info.Config.Basic.ModChannel, "```\nError unsilencing member: "+err.Error()+"```")
+			info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_ERROR_UNSILENCING], err.Error()))
 		}
-		info.SendMessage(info.Config.Basic.ModChannel, "```\nUnsilenced "+info.GetUserName(u)+".```")
+		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_UNSILENCING], info.GetUserName(u)))
 	}
 	w.timeoutLock.Unlock()
 }
@@ -126,7 +126,7 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 	timestamp := bot.GetTimestamp(msg)
 	msgembeds := ""
 	if len(msg.Embeds) > 0 {
-		msgembeds = "\nEmbedded URLs: "
+		msgembeds = bot.StringMap[bot.STRING_SPAM_EMBEDDED_URLS]
 		for _, v := range msg.Embeds {
 			msgembeds += "\n<" + v.URL + ">"
 		}
@@ -144,14 +144,14 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 		if len(lastmsg) > 300 {
 			lastmsg = lastmsg[:300]
 		}
-		lastmsg += "... [truncated]"
+		lastmsg += bot.StringMap[bot.STRING_SPAM_TRUNCATED]
 	} else if len(lastmsg) > 300 {
-		lastmsg = lastmsg[:300] + "... [truncated]"
+		lastmsg = lastmsg[:300] + bot.StringMap[bot.STRING_SPAM_TRUNCATED]
 	}
-	logmsg := fmt.Sprintf("Killing spammer %s (pressure: %v -> %v). Last message sent on #%s in %s: \n%s%s", u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
+	logmsg := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_KILLING_SPAMMER_DETAIL], u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
 	if info.Config.Users.WelcomeChannel.Equals(msg.ChannelID) {
-		info.Bot.DG.GuildBanCreateWithReason(info.ID, u.ID, "Autobanned for "+reason+" in the welcome channel.", 1)
-		info.SendMessage(info.Config.Basic.ModChannel, "Alert: <@"+u.ID+"> was banned for "+reason+" in the welcome channel.")
+		info.Bot.DG.GuildBanCreateWithReason(info.ID, u.ID, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_AUTOBANNED_REASON], reason), 1)
+		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BAN_ALERT], u.ID, reason))
 		info.Log(logmsg)
 		return
 	}
@@ -165,7 +165,7 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 	EndLoop: // Even though this label is defined above the for loop, breaking to this label will actually skip the for loop entirely. Don't ask.
 		for {
 			messages, err := info.Bot.DG.ChannelMessages(msg.ChannelID, 99, lastid, "", "")
-			info.LogError("Error encountered while attempting to retrieve messages: ", err)
+			info.LogError(bot.StringMap[bot.STRING_SPAM_ERROR_RETRIEVE_MESSAGES], err)
 			if len(messages) == 0 || err != nil {
 				break
 			}
@@ -188,15 +188,15 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 		addmsg := "."
 		if info.Config.Spam.SilenceTimeout > 0 {
 			timeout := time.Duration(info.Config.Spam.SilenceTimeout) * time.Second
-			addmsg = ", or they will be unsilenced automatically in " + bot.TimeDiff(timeout)
+			addmsg = fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WILL_BE_UNSILENCED], bot.TimeDiff(timeout))
 			w.timeoutLock.Lock()
 			heap.Push(w.timeouts, userTimeout{bot.DiscordUser(u.ID), timestamp.Add(timeout)})
 			w.timeoutLock.Unlock()
 		}
-		info.SendMessage(info.Config.Basic.ModChannel, "Alert: <@"+u.ID+"> was silenced for "+reason+". Please investigate"+addmsg) // Alert admins
+		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_SILENCE_ALERT], u.ID, reason, addmsg)) // Alert admins
 		info.Log(logmsg)
 	} else {
-		info.Log("Killing spammer " + u.Username)
+		info.Log(fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_KILLING_SPAMMER], u.Username))
 	}
 }
 
@@ -252,26 +252,26 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 			track.pressure = 0
 		}
 
-		if w.AddPressure(info, m, track, info.Config.Spam.BasePressure, "spamming too many messages") {
+		if w.AddPressure(info, m, track, info.Config.Spam.BasePressure, bot.StringMap[bot.STRING_SPAM_REASON_MESSAGES]) {
 			return true
 		}
-		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Attachments)), "attaching too many files") {
+		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Attachments)), bot.StringMap[bot.STRING_SPAM_REASON_FILES]) {
 			return true
 		}
-		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Embeds)), "spamming too many images") {
+		if w.AddPressure(info, m, track, info.Config.Spam.ImagePressure*float32(len(m.Embeds)), bot.StringMap[bot.STRING_SPAM_REASON_IMAGES]) {
 			return true
 		}
-		if w.AddPressure(info, m, track, info.Config.Spam.PingPressure*float32(len(m.Mentions)), "pinging too many people") {
+		if w.AddPressure(info, m, track, info.Config.Spam.PingPressure*float32(len(m.Mentions)), bot.StringMap[bot.STRING_SPAM_REASON_PINGS]) {
 			return true
 		}
-		if w.AddPressure(info, m, track, info.Config.Spam.LengthPressure*float32(len(m.Content)), "sending a really long message") {
+		if w.AddPressure(info, m, track, info.Config.Spam.LengthPressure*float32(len(m.Content)), bot.StringMap[bot.STRING_SPAM_REASON_LENGTH]) {
 			return true
 		}
-		if w.AddPressure(info, m, track, info.Config.Spam.LinePressure*float32(strings.Count(m.Content, "\n")), "Using too many newlines") {
+		if w.AddPressure(info, m, track, info.Config.Spam.LinePressure*float32(strings.Count(m.Content, "\n")), bot.StringMap[bot.STRING_SPAM_REASON_NEWLINES]) {
 			return true
 		}
 		if len(m.Content) > 0 && strings.ToLower(m.Content) == track.lastcache {
-			if w.AddPressure(info, m, track, info.Config.Spam.RepeatPressure, "copy+pasting the same message") {
+			if w.AddPressure(info, m, track, info.Config.Spam.RepeatPressure, bot.StringMap[bot.STRING_SPAM_REASON_COPY]) {
 				return true
 			}
 		}
@@ -299,9 +299,9 @@ func (w *SpamModule) DisableLockdown(info *bot.GuildInfo) {
 		}
 		guild, err := info.GetGuild()
 		if err != nil {
-			info.SendMessage(modchan, "Guild cannot be found in state?!")
+			info.SendMessage(modchan, bot.StringMap[bot.STRING_SPAM_GUILD_NOT_FOUND])
 		} else if guild.VerificationLevel != discordgo.VerificationLevelHigh {
-			info.SendMessage(modchan, fmt.Sprintf("The verification level is at %v instead of %v, which means it was manually changed by someone other than "+info.GetBotName()+", so it has not been restored.", guild.VerificationLevel, discordgo.VerificationLevelHigh))
+			info.SendMessage(modchan, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_VERIFICATION_LEVEL_ERROR], guild.VerificationLevel, discordgo.VerificationLevelHigh, info.GetBotName()))
 		} else {
 			g := discordgo.GuildParams{
 				Name:                        "",
@@ -317,9 +317,9 @@ func (w *SpamModule) DisableLockdown(info *bot.GuildInfo) {
 			_, err = info.Bot.DG.GuildEdit(info.ID, g)
 		}
 		if err != nil {
-			info.SendMessage(modchan, "Could not disengage lockdown! Make sure you've given the "+info.Bot.AppName+" role the Manage Server permission, you'll have to manually restore it yourself this time.")
+			info.SendMessage(modchan, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_LOCKDOWN_DISENGAGE_FAILURE], info.Bot.AppName))
 		} else {
-			info.SendMessage(modchan, "Lockdown disengaged, server verification levels restored.")
+			info.SendMessage(modchan, bot.StringMap[bot.STRING_SPAM_LOCKDOWN_DISENGAGE])
 		}
 		w.lockdown = -1
 	}
@@ -335,7 +335,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 		s := make([]string, 0, len(r))
 
 		for _, v := range r {
-			s = append(s, v.User.Username+"  (joined: "+info.ApplyTimezone(v.FirstSeen, bot.UserEmpty).Format(time.ANSIC)+")")
+			s = append(s, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_USER_JOINED], v.User.Username, info.ApplyTimezone(v.FirstSeen, bot.UserEmpty).Format(time.ANSIC)))
 			if info.Config.Spam.RaidSilence >= 1 {
 				silenceMember(v.User, info)
 			}
@@ -344,11 +344,11 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 		if info.Bot.Debug {
 			ch, _ = info.Bot.DebugChannels[bot.DiscordGuild(info.ID)]
 		}
-		message := "Use `" + info.Config.Basic.CommandPrefix + "raidsilence all` to silence them!"
+		message := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_ALL_POSTFIX], info.Config.Basic.CommandPrefix)
 		if info.Config.Spam.RaidSilence > 0 {
-			message = "RaidSilence has been engaged and the following users silenced:"
+			message = bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_ENGAGED]
 		}
-		go info.SendMessage(ch, info.Config.Basic.ModRole.Display()+" Possible Raid Detected! "+message+"\n```"+strings.Join(s, "\n")+"```")
+		go info.SendMessage(ch, info.Config.Basic.ModRole.Display()+bot.StringMap[bot.STRING_SPAM_RAID_DETECTED]+message+"\n```"+strings.Join(s, "\n")+"```")
 		if info.Config.Spam.LockdownDuration > 0 {
 			if w.lockdown == -1 { // Only engage lockdown if it wasn't already engaged
 				guild, err := info.GetGuild()
@@ -361,9 +361,9 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", ""}
 				_, err = info.Bot.DG.GuildEdit(info.ID, g)
 				if err != nil {
-					info.SendMessage(ch, "Could not engage lockdown! Make sure you've given "+info.GetBotName()+" the Manage Server permission, or disable the lockdown entirely via `"+info.Config.Basic.CommandPrefix+"setconfig spam.lockdownduration 0`.")
+					info.SendMessage(ch, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_LOCKDOWN_ENGAGE_FAILURE], info.GetBotName(), info.Config.Basic.CommandPrefix))
 				} else {
-					info.SendMessage(ch, fmt.Sprintf("Lockdown engaged! Server verification level will be reset in %v seconds. This lockdown can be manually ended via `"+info.Config.Basic.CommandPrefix+"raidsilence off/alert/log`.", info.Config.Spam.LockdownDuration))
+					info.SendMessage(ch, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_LOCKDOWN_ENGAGE], info.Config.Spam.LockdownDuration, info.Config.Basic.CommandPrefix))
 				}
 			}
 			// Otherwise just reset the timer
@@ -424,13 +424,13 @@ type raidSilenceCommand struct {
 func (c *raidSilenceCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "RaidSilence",
-		Usage:     "Toggle raid silencing.",
+		Usage:     bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_USAGE],
 		Sensitive: true,
 	}
 }
 func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must provide a raid silence level (either all, raid, or off).```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_ARGS_ERROR], false, nil
 	}
 	timestamp := bot.GetTimestamp(msg)
 
@@ -449,7 +449,7 @@ func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 	info.LastRaid = timestamp.Unix() - subtract
 	fmt.Println(time.Unix(info.LastRaid, 0))*/
 	default:
-		return "```\nOnly all, raid, and off are valid raid silence levels.```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_ARGS], false, nil
 	}
 
 	info.SaveConfig()
@@ -459,26 +459,26 @@ func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 	} else if c.s.isRecentRaid(info, timestamp) { // If there has recently been a raid, silence everyone who joined or theoretically could have joined since the beginning of the raid.
 		c.s.lastlockdown = timestamp // Reset lockdown timer just in case
 		if !info.Bot.DB.CheckStatus() {
-			return "```\nRaidSilence was engaged, but a database error prevents me from retroactively applying it!```", false, nil
+			return bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DATABASE_ERROR], false, nil
 		}
 		// BEFORE we make any calls to discord, which could take some time, immediately respond with a silence set message so the admins know the command is functioning
-		go info.SendMessage(bot.DiscordChannel(msg.ChannelID), "```\nSet the raid silence level to "+strings.ToLower(args[0])+".```")
+		go info.SendMessage(bot.DiscordChannel(msg.ChannelID), fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_SET_RAID], strings.ToLower(args[0])))
 		r := c.s.getRaidUsers(info)
 		s := make([]string, 0, len(r))
-		s = append(s, "```\nDetected a recent raid. All users from the raid have been silenced:")
+		s = append(s, bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DETECTION])
 		for _, v := range r {
 			s = append(s, v.Username)
 			silenceMember(v, info)
 		}
 		return strings.Join(s, "\n") + "```", false, nil
 	}
-	return "```\nSet the raid silence level to " + strings.ToLower(args[0]) + ".```", false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_SET], strings.ToLower(args[0])), false, nil
 }
 func (c *raidSilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Toggles silencing new members during raids. This does not affect spam detection, only new members joining the server.",
+		Desc: bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DESCRIPTION],
 		Params: []bot.CommandUsageParam{
-			{Name: "all/raid/off", Desc: "`all` will always silence all new members. `raid` will only silence new members if a raid is detected, up to `spam.raidtime*2` seconds after the raid is detected. `off` disables raid silencing.", Optional: false},
+			{Name: "all/raid/off", Desc: bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DESCRIPTION_NAME], Optional: false},
 		},
 	}
 }
@@ -489,7 +489,7 @@ type wipeCommand struct {
 func (c *wipeCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "Wipe",
-		Usage:     "Wipes a given channel",
+		Usage:     bot.StringMap[bot.STRING_SPAM_WIPE_USAGE],
 		Sensitive: true,
 	}
 }
@@ -531,7 +531,7 @@ func (c *wipeCommand) WipeMessages(ch *discordgo.Channel, num int, seconds int, 
 }
 func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must specify the duration.```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_WIPE_ARG_ERROR], false, nil
 	}
 
 	var err error
@@ -561,14 +561,14 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 	}
 	channel, private := info.Bot.ChannelIsPrivate(ch)
 	if private {
-		return "```\nCan't delete messages in a PM!```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_WIPE_PM_ERROR], false, nil
 	}
 	if channel == nil || channel.GuildID != info.ID {
-		return "```\nThat channel isn't on this server!```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_WIPE_CHANNEL_ERROR], false, nil
 	}
 	timestamp := bot.GetTimestamp(msg)
 	if num <= 0 {
-		return "```\nThere's no point deleting 0 messages!.```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_WIPE_NO_MESSAGES], false, nil
 	}
 	if messages {
 		num, err = c.WipeMessages(channel, num, 0, timestamp, info)
@@ -576,16 +576,16 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 		num, err = c.WipeMessages(channel, 9999, num, timestamp, info)
 	}
 	if err != nil {
-		return "```\nError retrieving messages. Are you sure you gave " + info.GetBotName() + " a channel that exists? This won't work in PMs! " + err.Error() + "```", false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WIPE_RETRIEVAL_ERROR], info.GetBotName(), err.Error()), false, nil
 	}
-	return fmt.Sprintf("Deleted %v messages in <#%s>.", num, ch), false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WIPE_DELETED], num, ch), false, nil
 }
 func (c *wipeCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Removes all messages in a channel sent within the last N seconds, or remove the last N messages if 'm' is appended to the number. Examples: ```\n!wipe 23m``` ```\n!wipe #channel 10```",
+		Desc: bot.StringMap[bot.STRING_SPAM_WIPE_DESCRIPTION],
 		Params: []bot.CommandUsageParam{
-			{Name: "channel", Desc: "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work. If omitted, uses the current channel", Optional: true},
-			{Name: "seconds/messages", Desc: "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago. If you append 'm' to this number, it will instead delete exactly that many messages.", Optional: false},
+			{Name: "channel", Desc: bot.StringMap[bot.STRING_SPAM_WIPE_CHANNEL], Optional: true},
+			{Name: "seconds/messages", Desc: bot.StringMap[bot.STRING_SPAM_WIPE_MESSAGES], Optional: false},
 		},
 	}
 }
@@ -597,14 +597,14 @@ type getPressureCommand struct {
 func (c *getPressureCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "GetPressure",
-		Usage:     "Gets a user's pressure.",
+		Usage:     bot.StringMap[bot.STRING_SPAM_PRESSURE_USAGE],
 		Sensitive: true,
 	}
 }
 
 func (c *getPressureCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must provide a user to search for.```", false, nil
+		return bot.StringMap[bot.STRING_SPAM_PRESSURE_ARG_ERROR], false, nil
 	}
 
 	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
@@ -620,9 +620,9 @@ func (c *getPressureCommand) Process(args []string, msg *discordgo.Message, indi
 }
 func (c *getPressureCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Gets the current spam pressure of a user.",
+		Desc: bot.StringMap[bot.STRING_SPAM_PRESSURE_DESCRIPTION],
 		Params: []bot.CommandUsageParam{
-			{Name: "user", Desc: "User to retrieve pressure from.", Optional: false},
+			{Name: "user", Desc: bot.StringMap[bot.STRING_SPAM_PRESSURE_USER], Optional: false},
 		},
 	}
 }
@@ -634,23 +634,23 @@ type getRaidCommand struct {
 func (c *getRaidCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "GetRaid",
-		Usage:     "Lists users in most recent raid.",
+		Usage:     bot.StringMap[bot.STRING_SPAM_RAID_USAGE],
 		Sensitive: true,
 	}
 }
 
 func (c *getRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !c.s.isRecentRaid(info, bot.GetTimestamp(msg)) {
-		return fmt.Sprintf("```\nNo raid has occurred within the past %s.```", bot.TimeDiff(time.Duration(info.Config.Spam.RaidTime*2)*time.Second)), false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAID_NONE], bot.TimeDiff(time.Duration(info.Config.Spam.RaidTime*2)*time.Second)), false, nil
 	}
-	s := []string{"Users in latest raid: "}
+	s := []string{bot.StringMap[bot.STRING_SPAM_RAID_USERS]}
 	for _, v := range c.s.getRaidUsers(info) {
 		s = append(s, v.Username+"#"+v.Discriminator)
 	}
 	return "```\n" + strings.Join(s, "\n") + "```", false, nil
 }
 func (c *getRaidCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
-	return &bot.CommandUsage{Desc: "Lists all users that are considered part of the most recent raid, if there was one."}
+	return &bot.CommandUsage{Desc: bot.StringMap[bot.STRING_SPAM_RAID_DESCRIPTION]}
 }
 
 type banRaidCommand struct {
@@ -660,21 +660,21 @@ type banRaidCommand struct {
 func (c *banRaidCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "BanRaid",
-		Usage:     "Bans all users in most recent raid.",
+		Usage:     bot.StringMap[bot.STRING_SPAM_BANRAID_USAGE],
 		Sensitive: true,
 	}
 }
 func (c *banRaidCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !c.s.isRecentRaid(info, bot.GetTimestamp(msg)) {
-		return fmt.Sprintf("```\nNo raid has occurred within the past %s.```", bot.TimeDiff(time.Duration(info.Config.Spam.RaidTime*2)*time.Second)), false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAID_NONE], bot.TimeDiff(time.Duration(info.Config.Spam.RaidTime*2)*time.Second)), false, nil
 	}
-	reason := fmt.Sprintf("Banned by %s#%s via the !banraid command.", msg.Author.Username, msg.Author.Discriminator)
+	reason := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BANRAID_REASON], msg.Author.Username, msg.Author.Discriminator)
 	users := c.s.getRaidUsers(info)
 	for _, v := range users {
 		info.Bot.DG.GuildBanCreateWithReason(info.ID, v.ID, reason, 1)
 	}
-	return fmt.Sprintf("```\nBanned %v users. The ban log will reflect who ran this command.```", len(users)), false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BANRAID_RESULT], len(users)), false, nil
 }
 func (c *banRaidCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
-	return &bot.CommandUsage{Desc: "Bans all users that are considered part of the most recent raid, if there was one. Use " + info.Config.Basic.CommandPrefix + "getraid to check who will be banned before using this command."}
+	return &bot.CommandUsage{Desc: fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BANRAID_DESCRIPTION], info.Config.Basic.CommandPrefix)}
 }
