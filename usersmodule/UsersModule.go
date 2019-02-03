@@ -601,14 +601,14 @@ type silenceCommand struct {
 func (c *silenceCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "Silence",
-		Usage:     "Silences a user.",
+		Usage:     bot.StringMap[bot.STRING_USERS_SILENCE_USAGE],
 		Sensitive: true,
 	}
 }
 
 func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must provide a user to silence.```", false, nil
+		return bot.StringMap[bot.STRING_USERS_SILENCE_ARG_ERROR], false, nil
 	}
 	index := len(args)
 	for i := 1; i < len(args); i++ {
@@ -631,31 +631,31 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 
 	code, err := assignRoleMember(info, user, info.Config.Basic.SilenceRole)
 	if code < 0 || err != nil {
-		return fmt.Sprintf("```\nError occurred trying to silence %s: %s```", info.GetUserName(user), info.ResolveRoleAddError(err).Error()), false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_ERROR], info.GetUserName(user), info.ResolveRoleAddError(err).Error()), false, nil
 	} else if code == 1 {
 		var t *time.Time
 		if info.Bot.DB.Status.Get() {
 			t = info.Bot.DB.GetScheduleDate(gID, 8, user.String())
 		}
 		if t == nil {
-			return "```\n" + info.GetUserName(user) + " is already silenced!```", false, nil
+			return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_ALREADY_SILENCED], info.GetUserName(user)), false, nil
 		}
-		return fmt.Sprintf("```\n%s is already silenced, and will be unsilenced in %s```", info.GetUserName(user), bot.TimeDiff(t.Sub(bot.GetTimestamp(msg)))), false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_WILL_BE_UNSILENCED], info.GetUserName(user), bot.TimeDiff(t.Sub(bot.GetTimestamp(msg)))), false, nil
 	}
 	if len(info.Config.Users.SilenceMessage) > 0 {
 		info.SendMessage(info.Config.Users.WelcomeChannel, user.Display()+info.Config.Users.SilenceMessage)
 	}
 	if len(reason) > 0 {
-		reason = " because " + reason
+		reason = fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_REASON], reason)
 	}
-	return fmt.Sprintf("```\nSilenced %s%s.```", info.GetUserName(user), reason), false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE], info.GetUserName(user), reason), false, nil
 }
 func (c *silenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Silences the given user.",
+		Desc: bot.StringMap[bot.STRING_USERS_SILENCE_DESCRIPTION],
 		Params: []bot.CommandUsageParam{
-			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
-			{Name: "for: duration", Desc: "If the keyword `for:` is used after the username, looks for a duration of the form `for: 50 MINUTES` and creates an unsilence event that will be fired after that much time has passed from now.", Optional: true},
+			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_USER], Optional: false},
+			{Name: "for: duration", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_DURATION], Optional: true},
 		},
 	}
 }
@@ -666,14 +666,14 @@ type unsilenceCommand struct {
 func (c *unsilenceCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "Unsilence",
-		Usage:     "Unsilences a user.",
+		Usage:     bot.StringMap[bot.STRING_USERS_UNSILENCE_USAGE],
 		Sensitive: true,
 	}
 }
 
 func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) < 1 {
-		return "```\nYou must provide a user to unsilence.```", false, nil
+		return bot.StringMap[bot.STRING_USERS_UNSILENCE_ARG_ERROR], false, nil
 	}
 	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
 	if err != nil {
@@ -682,15 +682,15 @@ func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 
 	err = info.Bot.DG.RemoveRole(info.ID, user, info.Config.Basic.SilenceRole)
 	if err != nil {
-		return "```\nError unsilencing member: " + err.Error() + "```", false, nil
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_ERROR], err.Error()), false, nil
 	}
-	return "```\nUnsilenced " + info.GetUserName(user) + ".```", false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE], info.GetUserName(user)), false, nil
 }
 func (c *unsilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Unsilences the given user.",
+		Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_DESCRIPTION],
 		Params: []bot.CommandUsageParam{
-			{Name: "user", Desc: "A ping of the user, or simply their name.", Optional: false},
+			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_USER], Optional: false},
 		},
 	}
 }
