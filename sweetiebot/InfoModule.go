@@ -111,11 +111,6 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 				color = 0xd54141
 			}
 
-			description, exists := info.Bot.ModuleDescriptions[strings.ToLower(v.Name())]
-			if !exists {
-				description = v.Description()
-			}
-
 			embed := &discordgo.MessageEmbed{
 				Type: "rich",
 				Author: &discordgo.MessageEmbedAuthor{
@@ -124,7 +119,7 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 					IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 				},
 				Color:       color,
-				Description: description,
+				Description: v.Description(),
 				Fields:      fields,
 				Footer: &discordgo.MessageEmbedFooter{
 					Text: "For more information on a specific command, type !help [command].",
