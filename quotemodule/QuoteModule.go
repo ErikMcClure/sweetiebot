@@ -35,7 +35,9 @@ func (w *QuoteModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *QuoteModule) Description() string { return "Manages the quoting system." }
+func (w *QuoteModule) Description() string {
+	return "Manages a database of quotes attributed to a specific user ID. These quotes will persist if the user leaves the server."
+}
 
 type quoteCommand struct {
 }
