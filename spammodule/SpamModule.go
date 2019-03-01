@@ -51,6 +51,7 @@ type SpamModule struct {
 	timeoutLock  sync.Mutex
 	silenced     map[bot.DiscordUser]bool // Users that have been silenced
 	resilence    map[bot.DiscordUser]bool // Users that left while silenced
+	silenceLock  sync.Mutex
 }
 
 // New spam module
@@ -385,6 +386,8 @@ func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, 
 
 // OnGuildMemberRemove discord hook
 func (w *SpamModule) OnGuildMemberRemove(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
+	w.silenceLock.Lock()
+	defer w.silenceLock.Unlock()
 	if _, ok := w.silenced[bot.DiscordUser(m.User.ID)]; ok {
 		w.resilence[bot.DiscordUser(m.User.ID)] = true
 		delete(w.silenced, bot.DiscordUser(m.User.ID))
@@ -396,6 +399,7 @@ func (w *SpamModule) OnGuildMemberUpdate(info *bot.GuildInfo, m *discordgo.Membe
 	// Discord sends an OnGuildMemberUpdate *before* the OnGuildMemberAdd event, and OnGuildMemberRemove does not
 	// include the roles of the member because the member has already been removed from the state, so we have to do
 	// all the resilence logic in here using two maps instead of just one.
+	w.silenceLock.Lock()
 	if _, ok := w.resilence[bot.DiscordUser(m.User.ID)]; ok {
 		delete(w.resilence, bot.DiscordUser(m.User.ID)) // Delete this first so the next OnGuildMemberUpdate will trigger the add/delete code path
 		defer info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.SilenceRole.String())
@@ -406,6 +410,7 @@ func (w *SpamModule) OnGuildMemberUpdate(info *bot.GuildInfo, m *discordgo.Membe
 			delete(w.silenced, bot.DiscordUser(m.User.ID))
 		}
 	}
+	w.silenceLock.Unlock()
 
 	w.checkRaid(info, m, t)
 }

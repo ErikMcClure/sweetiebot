@@ -49,6 +49,17 @@ Additional configuration is optional via `!setconfig` but usually isn't necessar
 ### Configuration
 Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use `!getconfig <paramater name>`. Do not use quotes on these values if they have spaces.
 
+#### Common Scenarios
+* **Changing the prefix:** `!setconfig commandprefix [prefix]`
+* **Make the anti-spam module ignore `#channelname`:** `!setconfig modules.channels spam ! #channelname`
+* **Make birthday announcements show up in `#channelname`:** `!setconfig modules.channels scheduler #channelname`
+* **Change the channel the bored module activates on:** `!setconfig modules.channels bored #yourchannel`
+* **Sweetiebot is silencing everyone?!** You messed up the spam module configuration. Either run `!setup` again to wipe your settings, or reset all her spam module values to the defaults listed here.
+* **Prevent Sweetiebot from saying "That's an invalid command":** `!setconfig IgnoreInvalidCommands true`
+* **Set the bored command list:** `!setconfig bored.commands "!command1" "!command2 arg"`
+* **Set up a basic word filter:** Check the [help page for the filter module](https://sweetiebot.io/help/filter/), which includes an example filter regex for this.
+
+#### Advanced Configuration
 Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values. In list parameters, *all values* must use quotes if they have spaces in them.
 
     !setconfig <list parameter> <value 1> <value 2> <value 3> <etc...>

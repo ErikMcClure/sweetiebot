@@ -45,14 +45,14 @@ body {
   padding: 0;
   margin: 0;
   width:100%;
-  background: #1d2023;
-  color: #f0f4f8;
+  background: #0d1013;
+  color: #e8eeed;
   font-size: 16px;
 }
 
 code, pre {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-  background: #202326;
+  background: #1a1c1e;
   padding: 0 0.4em;
   border-radius: 0.3em;
 }
@@ -97,6 +97,13 @@ a:visited {
 a:active {
   color: #2fafdf;
 }
+b, strong {
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: #000 1px 1px 0;
+  color: #f7f9ff;
+}
+
 header {
 	position:relative;
   background: #349752;
@@ -164,7 +171,7 @@ h2, h3, h4 {
 	font: 700 2rem "Lucida Grande","Lucida Sans Unicode",Helvetica,Arial,Verdana,sans-serif;
     letter-spacing: 2px;
 	padding-left: 0.5em;
-	color: #c7c9cc;
+	color: #f7f9ff;
 	margin-top: 0.75em;
 	text-shadow: 1px 1px #003;
 }
@@ -183,7 +190,7 @@ main section dl dd p {
 	text-shadow: 1px 1px #003;
 	padding: 0.1em 0.5em 0.1em 0.5em;
 	margin: 0 0.5em 0 0;
-	background: #232528;
+	background: #1a1c1e;
 	border-radius: 0.4em;
 }
 
@@ -236,7 +243,7 @@ main ul .target a:link, main ul .target a:visited {
 	color: #bbc;
 }
 main ul li a:hover {
-	background: #202326;
+	background: #101316;
 	border-radius: 0.5em;
 	border: 1px solid #40454f;
   box-shadow: 0 0 1px #002;
@@ -245,7 +252,7 @@ main ul li a:link, main ul li a:visited {
 	color:#fff;
 }
 .wrapper {
-  background: #2a2d32;
+  background: #262a2b;
 	box-shadow: 0px 0px 5px #000;
 }
 footer {
