@@ -37,7 +37,7 @@ func (w *MiscModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *MiscModule) Description() string {
-	return "A collection of miscellaneous commands that don't belong to a module."
+	return "A collection of miscellaneous commands that don't belong to a module. Review the help information on each command for more details."
 }
 
 type lastSeenCommand struct {

@@ -67,7 +67,7 @@ func (c *setStatusCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 	arg := msg.Content[indices[0]:]
 	info.Bot.DG.UpdateStatus(0, arg)
-	return "```\nSet status to " + arg + "```", false, nil
+	return "```\nStatus was set to " + arg + "```", false, nil
 }
 func (c *setStatusCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{

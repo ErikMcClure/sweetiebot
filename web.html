@@ -102,6 +102,17 @@ Documentation</p></a></li>
 <h2>Configuration</h2>
 <p>Basic configuration parameters can be set with <code>!setconfig &lt;parameter name&gt; &lt;value&gt;</code>. To get a list of configuration parameters, use <code>!getconfig</code>. To output the current value of a parameter, use <code>!getconfig &lt;paramater name&gt;</code>.</p>
 
+<h3>Common Scenarios</h3>
+<p><b>Changing the prefix:</b> <code>!setconfig commandprefix [prefix]</code></p>
+<p><b>Make the anti-spam module ignore <code>#channelname</code>:</b> <code>!setconfig modules.channels spam ! #channelname</code></p>
+<p><b>Make birthday announcements show up in <code>#channelname</code>:</b> <code>!setconfig modules.channels scheduler #channelname</code></p>
+<p><b>Change the channel the bored module activates on:</b> <code>!setconfig modules.channels bored #yourchannel</code></p>
+<p><b>Sweetiebot is silencing everyone?!</b> You messed up the <a href="help/spam/">spam module configuration</a>. Either run <code>!setup</code> again to wipe your settings, or reset all her spam module values to the defaults listed here.</p>
+<p><b>Prevent Sweetiebot from saying "That's an invalid command":</b> <code>!setconfig IgnoreInvalidCommands true</code></p>
+<p><b>Set the bored command list:</b> <code>!setconfig bored.commands "!command1" "!command2 arg"</code></p>
+<p><b>Set up a basic word filter:</b> Check the <a href="help/filter/">help page for the filter module</a>.</p>
+
+<h3>Advanced Configuration</h3>
 <p>Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using <code>!getconfig</code>. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will <i>replace</i> the current list of values. In list parameters, <i>all values</i> must use quotes if they have spaces in them.</p>
 
 <pre>!setconfig &lt;list parameter&gt; &lt;value 1&gt; &lt;value 2&gt; &lt;value 3&gt; &lt;etc...&gt;
@@ -140,13 +151,13 @@ Documentation</p></a></li>
 {{ with index .Modules .Index }}
 {{if .Description}}
 <h2>{{.Name}} Module</h2>
-<p>{{.Description}}</p>
+<p>{{.Description | parsemarkup}}</p>
 {{else}}
 <h2>{{.Name}} Configuration Category</h2>
 {{end}}
 
 {{if .Config }}
-{{if .Description}}<h3>Configuration</h3>{{end}}
+{{if .Description | parsemarkup}}<h3>Configuration</h3>{{end}}
 <dl>
 {{- range $name, $desc := .Config}}<dd><p id="{{(index $.Modules $.Index).URL}}.{{$name}}">{{(index $.Modules $.Index).URL}}.{{$name}}</p>{{$desc | parsemarkup}}</dd>{{- end }}
 </dl>

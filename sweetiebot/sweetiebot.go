@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 33}
+var BotVersion = Version{0, 9, 9, 34}
 
 const (
 	MaxPublicLines    = 12
@@ -400,6 +400,10 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 					m.Content = info.Config.Basic.CommandPrefix + alias
 				}
 				args, indices = ParseArguments(m.Content[1:])
+				if m.ChannelID != "heartbeat" && len(args) < 1 {
+					info.SendError(channelID, "The "+string(arg)+" alias resolves to a blank command! Don't you know how dangerous that is?! That kind of abuse crashes bots! Go to your room and don't come back down until you've fixed that alias using '"+info.Config.Basic.CommandPrefix+"setconfig basic.aliases "+string(arg)+" [something else]', or leave out the fourth argument entirely if you want to delete it!", t)
+					return
+				}
 				arg = CommandID(strings.ToLower(args[0]))
 				c, ok = info.commands[arg]
 			}
@@ -1026,6 +1030,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(0, 9, 9, 34): "- Fixed resilencer race condition\n- Fixed alias crash bug\n- Improved documentation.",
 			AssembleVersion(0, 9, 9, 33): "- Changed how language override works",
 			AssembleVersion(0, 9, 9, 32): "- Security hotfix",
 			AssembleVersion(0, 9, 9, 31): "- Fixed crash bug\n- Added language override file\n- No longer allow leaving and rejoining a server to clear silence status",

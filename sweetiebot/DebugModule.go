@@ -48,7 +48,7 @@ func (w *DebugModule) Commands() []Command {
 
 // Description of the module
 func (w *DebugModule) Description() string {
-	return "Contains various debugging commands and checks for updates. Some of these commands can only be run by the bot owner."
+	return "Contains various debugging commands and checks for updates. Some of these commands can only be run by the bot owner. If you are selfhosting sweetie bot, these commands can be used to debug the bot."
 }
 
 // OnTick event hook
@@ -187,7 +187,7 @@ type echoEmbedCommand struct {
 func (c *echoEmbedCommand) Info() *CommandInfo {
 	return &CommandInfo{
 		Name:      "EchoEmbed",
-		Usage:     "Makes Sweetie Bot echo a rich text embed in a given channel.",
+		Usage:     "Makes the bot echo a rich text embed in a given channel.",
 		Sensitive: true,
 	}
 }
@@ -244,7 +244,7 @@ func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 }
 func (c *echoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Makes Sweetie Bot assemble a rich text embed and echo it in the given channel",
+		Desc: "Makes the bot assemble a rich text embed and echo it in the given channel",
 		Params: []CommandUsageParam{
 			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
 			{Name: "URL", Desc: "URL for the author to link to.", Optional: false},

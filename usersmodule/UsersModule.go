@@ -45,7 +45,7 @@ func (w *UsersModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *UsersModule) Description() string {
-	return "Contains commands for getting and setting user information."
+	return "Contains commands for getting and setting user information, or manipulating user roles."
 }
 
 // OnGuildMemberAdd discord hook
@@ -415,7 +415,7 @@ func (c *setTimeZoneCommand) Process(args []string, msg *discordgo.Message, indi
 	if info.Bot.DB.SetTimeZone(bot.SBatoi(msg.Author.ID), loc) != nil {
 		return "```\nError: could not set timezone!```", false, nil
 	}
-	return "```\nSet your timezone to " + loc.String() + "```", false, nil
+	return "```\nYour timezone was set to " + loc.String() + "```", false, nil
 }
 func (c *setTimeZoneCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{

@@ -133,25 +133,25 @@ type BotConfig struct {
 // ConfigHelp is a map of help strings for the configuration options above
 var ConfigHelp = map[string]map[string]string{
 	"basic": {
-		"ignoreinvalidcommands": "If true, the bot won't display an error if a nonsensical command is used. This helps reduce confusion with other bots that also use the `!` prefix.",
+		"ignoreinvalidcommands": "If true, the bot won't display an error if a nonsensical command is used. This helps reduce confusion with other bots that use the same prefix.",
 		"importable":            "If true, the collections on this server will be importable into another server.",
 		"modrole":               "This is intended to point at a moderator role shared by all admins and moderators of the server for notification purposes.",
 		"modchannel":            "This should point at the hidden moderator channel, or whatever channel moderates want to be notified on.",
-		"freechannels":          "This is a list of all channels that are exempt from bot command rate limiting. Usually set to the dedicated `#botabuse` channel in a server. Does not affect anti-spam. To exclude anti-spam from a channel, use `!setconfig modules.channels spam ! #yourchannel`.",
-		"botchannel":            "This allows you to designate a particular channel to point users if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`",
+		"freechannels":          "This is a list of all channels that are exempt from bot command rate limiting. Usually set to the dedicated `#botabuse` channel in a server. Does NOT affect anti-spam! To exclude anti-spam from a channel, use `!setconfig modules.channels spam ! #yourchannel`.",
+		"botchannel":            "This allows you to designate a particular channel to point users if they are trying to run too many commands at once. Usually this channel will also be included in `basic.freechannels`. Again, this is for bot commands, not general spamming!",
 		"aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii pick cute` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 		"listentobots":          "If true, processes messages from other bots and allows them to run commands. Bots can never trigger anti-spam. Defaults to false.",
 		"commandprefix":         "Determines the SINGLE ASCII CHARACTER prefix used to denote bot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, it defaults to `!`.",
-		"silencerole":           "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them.",
+		"silencerole":           "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them. The bot usually manages this role for you, so you should almost never touch this value.",
 	},
 	"modules": {
 		"commandroles":       "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
 		"commandchannels":    "A map of which channels commands are allowed to run on. No entry means a command can be run anywhere. If `!` is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels.",
 		"commandlimits":      "A map of timeouts for commands. A value of 30 means the command can't be used more than once every 30 seconds.",
-		"commanddisabled":    "A list of disabled commands.",
+		"commanddisabled":    "A list of disabled commands. Disabled commands can still be run by administrators, but can't be run by the bot and will not function as a bored command.",
 		"commandperduration": "Maximum number of commands that can be run within `commandmaxduration` seconds. Default: 3",
 		"commandmaxduration": "Default: 20. This means that by default, at most 3 commands can be run every 20 seconds.",
-		"disabled":           "A list of disabled modules.",
+		"disabled":           "A list of disabled modules. This disables any hooks the modules normally process, and also disables all commands inside that module (although commands can be selectively re-enabled without enabling the module).",
 		"channels":           "A mapping of what channels a given module can operate on. If no mapping is given, a module operates on all channels. If `!` is included as a channel, it switches from a whitelist to a blacklist, enabling you to exclude certain channels instead of allow certain channels. Restricting a module to a channel DOES NOT restrict its commands to that channel.",
 	},
 	"spam": {
@@ -165,12 +165,12 @@ var ConfigHelp = map[string]map[string]string{
 		"maxchannelpressure": "Per-channel pressure override. If a channel's pressure is specified in this map, it will override the global maxpressure setting.",
 		"pressuredecay":      "The number of seconds it takes for a user to lose Spam.BasePressure from their pressure amount. Defaults to 2.5, so after sending 3 messages, it will take 7.5 seconds for their pressure to return to 0.",
 		"maxremovelookback":  "Number of seconds back the bot should delete messages of a silenced user on the channel they spammed on. If set to 0, the bot will only delete the message that caused the user to be silenced. If less than 0, the bot won't delete any messages.",
-		"ignorerole":         "If set, the bot will exclude anyone with this role from spam detection. Use with caution.",
+		"ignorerole":         "If set, the bot will exclude anyone with this role from spam detection. Use with caution. Does NOT prevent people from sending the bot commands.",
 		"raidtime":           "In order to trigger a raid alarm, at least `spam.raidsize` people must join the chat within this many seconds of each other.",
 		"raidsize":           "Specifies how many people must have joined the server within the `spam.raidtime` period to qualify as a raid.",
 		"raidsilence":        "Gets the current raidsilence state. Use the `!RaidSilence` command to set this.",
 		"lockdownduration":   "Determines how long the server's verification mode will temporarily be increased to tableflip levels after a raid is detected. If set to 0, disables lockdown entirely.",
-		"silencetimeout":     "If greater than 0, any members silenced by sweetie (not by the `!silence` command) will be automatically unsilenced after this many seconds. This includes anyone silenced during a raid.",
+		"silencetimeout":     "If greater than 0, any members silenced by the bot (not by the `!silence` command) will be automatically unsilenced after this many seconds. This includes anyone silenced during a raid.",
 	},
 	"bucket": {
 		"maxitems":       "Determines the maximum number of items that can be carried in the bucket. If set to 0, the bucket is disabled.",
@@ -199,13 +199,13 @@ var ConfigHelp = map[string]map[string]string{
 	"filter": {
 		"filters":   "A collection of word lists for each filter. These are combined into a single regex of the form `(word1|word2|etc...)`, depending on the filter template.",
 		"channels":  "A collection of channel exclusions for each filter.",
-		"responses": "The response message sent by each filter when triggered. If this is set to `!`, sweetie won't respond AND she won't delete the message, only the pressure will be added.",
+		"responses": "The response message sent by each filter when triggered. If this is set to `!`, the bot won't respond AND she won't delete the message, only the pressure will be added.",
 		"templates": "The template used to construct the regex. `%%` is replaced with `(word1|word2|etc...)` using the filter's word list. Example: `\\[\\]\\(\\/r?%%[-) \"]` is transformed into `\\[\\]\\(\\/r?(word1|word2)[-) \"]`",
 		"pressure":  "The amount of pressure added to the user when the filter is triggered (defaults to 0).",
 	},
 	"bored": {
 		"cooldown": "The bored cooldown timer, in seconds. This is the length of time a channel must be inactive before a bored message is posted.",
-		"exponent": "The exponential increase in time between bored posts if no one other than sweetie is posting. A value of about 1.41 doubles the amount of time between bored posts until someone else says something. Defaults to 1, which means no increase. The actual formula is (2^n + n).",
+		"exponent": "The exponential increase in time between bored posts if no one other than the bot is posting. A value of about 1.41 doubles the amount of time between bored posts until someone else says something. Defaults to 1, which means no increase. The actual formula is (2^n + n).",
 		"commands": "This determines what commands will be run when nothing has been said in a channel for a while. One command will be chosen from this list at random.\n\nExample: `!setconfig bored.commands !drop \"!pick bored\"`",
 	},
 	"information": {

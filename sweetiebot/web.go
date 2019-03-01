@@ -101,11 +101,18 @@ type webData struct {
 }
 
 var codeBlockRegex = regexp.MustCompile("`[^`]+`")
+var preBlockRegex = regexp.MustCompile("```[^`]+```")
+var boldRegex = regexp.MustCompile("\\*\\*[^*]+\\*\\*")
+var newLineRegex = regexp.MustCompile("\n\n")
 
 func (sb *SweetieBot) generateCache(webdir string) *template.Template {
 	t := template.Must(template.New("web.html").Funcs(template.FuncMap{
 		"parsemarkup": func(str string) template.HTML {
-			return template.HTML(codeBlockRegex.ReplaceAllStringFunc(str, func(s string) string { return "<code>" + s[1:len(s)-1] + "</code>" }))
+			str = strings.Replace(str, "\n\n", "<p>", -1)
+			str = preBlockRegex.ReplaceAllStringFunc(str, func(s string) string { return "<pre>" + s[3:len(s)-3] + "</pre>" })
+			str = codeBlockRegex.ReplaceAllStringFunc(str, func(s string) string { return "<code>" + s[1:len(s)-1] + "</code>" })
+			str = boldRegex.ReplaceAllStringFunc(str, func(s string) string { return "<b>" + s[2:len(s)-2] + "</b>" })
+			return template.HTML(str)
 		},
 	}).ParseFiles(filepath.Join(webdir, "web.html")))
 

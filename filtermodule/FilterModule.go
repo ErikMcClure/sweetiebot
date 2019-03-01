@@ -50,7 +50,7 @@ func (w *FilterModule) Commands() []bot.Command {
 
 // Description of the module
 func (w *FilterModule) Description() string {
-	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure.\n\nIf you just want a basic case-insensitive word filter that respects spaces, use `!setconfig filter.templates` with your filter name and this template: `(?i)(^| )%%($| )`"
+	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure.\n\nIf you just want a basic case-insensitive word filter that respects spaces, use `!setconfig filter.templates` with your filter name and this template: `(?i)(^| )%%($| )`. \n\nExample usage: \n```!setfilter badwords \"This is a christian server, no swearing allowed.\"\n!setconfig filter.templates badwords (?i)(^| )%%($| )\n!addfilter badwords hell\n!addfilter badwords \"jesus christ\"```"
 }
 
 func (w *FilterModule) matchFilter(info *bot.GuildInfo, m *discordgo.Message) bool {
@@ -148,7 +148,7 @@ func (c *setFilterCommand) Process(args []string, msg *discordgo.Message, indice
 	}
 
 	filter := args[0]
-	add := "Set %s response and excluded channels."
+	add := "%s response has been set and channels excluded."
 	info.ConfigLock.Lock()
 	m, _ := info.Config.Filter.Filters[filter]
 	if len(m) == 0 {
@@ -156,7 +156,7 @@ func (c *setFilterCommand) Process(args []string, msg *discordgo.Message, indice
 			info.Config.Filter.Filters = make(map[string]map[string]bool)
 		}
 		info.Config.Filter.Filters[filter] = make(map[string]bool)
-		add = "Created %s, set response and excluded channels."
+		add = "%s has been created, the response set, and excluded channels configured."
 	}
 	if len(args) > 1 {
 		if len(info.Config.Filter.Responses) == 0 {
@@ -233,7 +233,7 @@ func (c *addFilterCommand) Process(args []string, msg *discordgo.Message, indice
 
 	info.SaveConfig()
 	filter = info.Sanitize(filter, bot.CleanCodeBlock)
-	return fmt.Sprintf("```\n"+add+". Length of %s: %v```", info.Sanitize(arg, bot.CleanCodeBlock), filter, filter, strconv.Itoa(len(info.Config.Filter.Filters[filter]))), false, nil
+	return fmt.Sprintf("```\n"+add+" Length of %s: %v```", info.Sanitize(arg, bot.CleanCodeBlock), filter, filter, strconv.Itoa(len(info.Config.Filter.Filters[filter]))), false, nil
 }
 func (c *addFilterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{

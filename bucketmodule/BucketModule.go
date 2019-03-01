@@ -36,7 +36,9 @@ func (w *BucketModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *BucketModule) Description() string { return "Manages the bot's bucket functionality." }
+func (w *BucketModule) Description() string {
+	return "Manages the bot's bucket functionality. If the bucket isn't working, make sure you've enabled it via `!enable bucket` and ensure that her maximum bucket size is greater than 0."
+}
 
 type giveCommand struct {
 }
