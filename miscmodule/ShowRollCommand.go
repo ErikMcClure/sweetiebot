@@ -17,7 +17,7 @@ type showrollCommand struct {
 func (c *showrollCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:              "ShowRoll",
-		Usage:             "Evaluates a dice expression, returning indivual dice results.",
+		Usage:             "Evaluates a dice expression, returning individual dice results.",
 		ServerIndependent: true,
 	}
 }

@@ -32,7 +32,7 @@ func (w *BoredModule) Commands() []bot.Command { return []bot.Command{} }
 
 // Description of the module
 func (w *BoredModule) Description() string {
-	return "After the chat is inactive for a given amount of time, chooses a random action from the `boredcommands` configuration option to run, such posting a link from the bored collection or throwing an item from the bucket."
+	return "After the chat is inactive for a given amount of time, chooses a random action from the `bored.commands` configuration option to run, such posting a link from the bored collection or throwing an item from the bucket. To set what channels this module operates on, use `!setconfig modules.channels bored #channel1 #channel2...`. To set the list of bored commands, use `!setconfig bored.commands \"!command1\" \"!command2 arg\"...`."
 }
 
 func (w *BoredModule) idle(info *bot.GuildInfo, id bot.DiscordChannel, t time.Time) {
