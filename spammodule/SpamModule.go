@@ -150,7 +150,7 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 		lastmsg = lastmsg[:300] + bot.StringMap[bot.STRING_SPAM_TRUNCATED]
 	}
 	logmsg := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_KILLING_SPAMMER_DETAIL], u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
-	if info.Config.Users.WelcomeChannel.Equals(msg.ChannelID) {
+	if info.Config.Users.WelcomeChannel.Equals(msg.ChannelID) || info.Config.Users.JailChannel.Equals(msg.ChannelID) {
 		info.Bot.DG.GuildBanCreateWithReason(info.ID, u.ID, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_AUTOBANNED_REASON], reason), 1)
 		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BAN_ALERT], u.ID, reason))
 		info.Log(logmsg)
@@ -227,7 +227,7 @@ func (w *SpamModule) AddPressure(info *bot.GuildInfo, m *discordgo.Message, trac
 func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
 		author := bot.DiscordUser(m.Author.ID)
-		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.WelcomeChannel.Equals(m.ChannelID) {
+		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.JailChannel.Equals(m.ChannelID) {
 			ch, _ := info.Bot.DG.Channel(m.ChannelID)
 			time.Sleep(bot.DelayTime)
 			info.ChannelMessageDelete(ch, m.ID)
@@ -338,7 +338,11 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 		for _, v := range r {
 			s = append(s, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_USER_JOINED], v.User.Username, info.ApplyTimezone(v.FirstSeen, bot.UserEmpty).Format(time.ANSIC)))
 			if info.Config.Spam.RaidSilence >= 1 {
-				silenceMember(v.User, info)
+				if info.Config.Basic.MemberRole != bot.RoleEmpty {
+					info.Bot.DG.GuildMemberRoleRemove(info.ID, v.User.ID, info.Config.Basic.MemberRole.String())
+				} else {
+					silenceMember(v.User, info)
+				}
 			}
 		}
 		ch := info.Config.Basic.ModChannel
@@ -375,12 +379,19 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 
 // OnGuildMemberAdd discord hook
 func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
-	if info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
-		silenceMember(m.User, info)
-		if len(info.Config.Users.WelcomeMessage) > 0 {
-			info.SendMessage(info.Config.Users.WelcomeChannel, "<@"+m.User.ID+"> "+info.Config.Users.WelcomeMessage)
+	w.silenceLock.Lock()
+	if _, ok := w.resilence[bot.DiscordUser(m.User.ID)]; ok || info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
+		if info.Config.Basic.MemberRole == bot.RoleEmpty {
+			silenceMember(m.User, info)
 		}
+		if len(info.Config.Users.WelcomeMessage) > 0 {
+			defer info.SendMessage(info.Config.Users.WelcomeChannel, "<@"+m.User.ID+"> "+info.Config.Users.WelcomeMessage)
+		}
+	} else if info.Config.Basic.MemberRole != bot.RoleEmpty {
+		defer info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.MemberRole.String())
 	}
+	w.silenceLock.Unlock()
+
 	w.checkRaid(info, m, t)
 }
 
@@ -473,7 +484,11 @@ func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		s = append(s, bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DETECTION])
 		for _, v := range r {
 			s = append(s, v.Username)
-			silenceMember(v, info)
+			if info.Config.Basic.MemberRole != bot.RoleEmpty {
+				info.Bot.DG.GuildMemberRoleRemove(info.ID, v.ID, info.Config.Basic.MemberRole.String())
+			} else {
+				silenceMember(v, info)
+			}
 		}
 		return strings.Join(s, "\n") + "```", false, nil
 	}

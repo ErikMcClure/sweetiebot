@@ -55,15 +55,15 @@ func (w *UsersModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member,
 		if info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
 			created += " and was silenced"
 		}
-		if info.Config.Users.NewUserRole != bot.RoleEmpty && info.Config.Users.NewUserDuration > 0 {
-			assignRoleMember(info, bot.DiscordUser(m.User.ID), info.Config.Users.NewUserRole)
-
-			gID := bot.SBatoi(info.ID)
-			if err := info.Bot.DB.AddSchedule(gID, time.Now().Add(time.Second*time.Duration(info.Config.Users.NewUserDuration)), 9, m.User.ID+"|"+info.Config.Users.NewUserRole.String()); err != nil {
-				info.LogError("Failed to add NewUserRole to schedule: ", err)
-			}
-		}
 		info.SendMessage(info.Config.Users.NotifyChannel, "<@"+m.User.ID+"> "+created+".")
+	}
+	if info.Config.Users.NewUserRole != bot.RoleEmpty && info.Config.Users.NewUserDuration > 0 {
+		assignRoleMember(info, bot.DiscordUser(m.User.ID), info.Config.Users.NewUserRole)
+
+		gID := bot.SBatoi(info.ID)
+		if err := info.Bot.DB.AddSchedule(gID, time.Now().Add(time.Second*time.Duration(info.Config.Users.NewUserDuration)), 9, m.User.ID+"|"+info.Config.Users.NewUserRole.String()); err != nil {
+			info.LogError("Failed to add NewUserRole to schedule: ", err)
+		}
 	}
 }
 
@@ -643,7 +643,7 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_WILL_BE_UNSILENCED], info.GetUserName(user), bot.TimeDiff(t.Sub(bot.GetTimestamp(msg)))), false, nil
 	}
 	if len(info.Config.Users.SilenceMessage) > 0 {
-		info.SendMessage(info.Config.Users.WelcomeChannel, user.Display()+info.Config.Users.SilenceMessage)
+		info.SendMessage(info.Config.Users.JailChannel, user.Display()+info.Config.Users.SilenceMessage)
 	}
 	if len(reason) > 0 {
 		reason = fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_REASON], reason)

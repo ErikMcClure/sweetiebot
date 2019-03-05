@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{0, 9, 9, 34}
+var BotVersion = Version{1, 0, 0, 0}
 
 const (
 	MaxPublicLines    = 12
@@ -225,7 +225,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 			if perms&discordgo.PermissionManageServer == 0 {
 				warning = "\nWARNING: " + guild.GetBotName() + " cannot engage lockdown mode without the Manage Server role!" + warning
 			}
-			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added "+guild.GetBotName()+" to your server! To finish setting it up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. "+guild.GetBotName()+" will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. \n\n**> Mod Channel**\nThis is the channel "+guild.GetBotName()+" will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nAn optional channel where "+guild.GetBotName()+" will post errors and update notifications. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often "+guild.GetBotName()+"'s last resort for notifying you about potential errors.\n\nThat's it! Here is an example: ```!setup @Mods #staff-chat #bot-log```")
+			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added "+guild.GetBotName()+" to your server! To finish setting it up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel] [Member Role]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. "+guild.GetBotName()+" will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. \n\n**> Mod Channel**\nThis is the channel "+guild.GetBotName()+" will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nAn optional channel where "+guild.GetBotName()+" will post errors and update notifications. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often "+guild.GetBotName()+"'s last resort for notifying you about potential errors.\n\n**> Member Role**\nIf you already have a role that you assign to all members of your server, mention it here. Otherwise, leave this argument blank, and Sweetie will generate a new \"Member\" role and assign it to all your users.\n\nThat's it! Here is an example: ```!setup @Mods #staff-chat #bot-log @Member```")
 			if len(warning) > 0 {
 				sb.DG.ChannelMessageSend(ch.ID, warning)
 			}
@@ -1030,6 +1030,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 0, 0):  "- Fixed hidden newuserrole dependency.\n- Introduced Member role silencing, which solves rate limiting problems during raids. To enable this, use !help SetMemberRole for more information.",
 			AssembleVersion(0, 9, 9, 34): "- Fixed resilencer race condition\n- Fixed alias crash bug\n- Improved documentation.",
 			AssembleVersion(0, 9, 9, 33): "- Changed how language override works",
 			AssembleVersion(0, 9, 9, 32): "- Security hotfix",
