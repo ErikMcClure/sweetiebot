@@ -391,6 +391,10 @@ func (info *GuildInfo) UserCanUseCommand(userID DiscordUser, command Command, ig
 		err = errSilenced // Silenced users can never run commands
 		return
 	}
+	if info.Config.Basic.MemberRole != RoleEmpty && !info.UserHasRole(userID, info.Config.Basic.MemberRole) {
+		err = errSilenced // Non-member users can never run commands
+		return
+	}
 	if ignore && !isMod {
 		err = errIgnored
 		return
@@ -540,13 +544,14 @@ func (info *GuildInfo) ParseCommonTime(s string, user DiscordUser, timestamp tim
 }
 
 func (info *GuildInfo) setupSilenceRole() {
-	if info.Config.Basic.SilenceRole != RoleEmpty {
-		guild, err := info.GetGuild()
-		if err != nil {
-			info.Log("Failed to setup silence roles!")
-			return
-		}
-		for _, ch := range guild.Channels {
+	guild, err := info.GetGuild()
+	if err != nil {
+		info.Log("Failed to setup silence roles!")
+		return
+	}
+	for _, ch := range guild.Channels {
+		// If there is a silence role, override it on all channels
+		if info.Config.Basic.SilenceRole != RoleEmpty {
 			allow := 0
 			deny := 0
 			for _, v := range ch.PermissionOverwrites {
@@ -556,7 +561,7 @@ func (info *GuildInfo) setupSilenceRole() {
 					break
 				}
 			}
-			if !info.Config.Users.WelcomeChannel.Equals(ch.ID) {
+			if !info.Config.Users.JailChannel.Equals(ch.ID) {
 				allow &= (^discordgo.PermissionSendMessages)
 				deny |= discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
 			} else {
@@ -564,6 +569,22 @@ func (info *GuildInfo) setupSilenceRole() {
 				allow |= discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
 			}
 			info.ChannelPermissionSet(ch, info.Config.Basic.SilenceRole.String(), "role", allow, deny)
+		}
+
+		// If this is the welcome channel and we have a member role, ensure the everyone role can speak in it by overriding the channel permissions.
+		if info.Config.Basic.MemberRole != RoleEmpty && info.Config.Users.WelcomeChannel.Equals(ch.ID) {
+			allow := 0
+			deny := 0
+			for _, v := range ch.PermissionOverwrites {
+				if strings.ToLower(v.Type) == "role" && info.ID == v.ID {
+					allow = v.Allow
+					deny = v.Deny
+					break
+				}
+			}
+			deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionReadMessages))
+			allow |= discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
+			info.ChannelPermissionSet(ch, info.ID, "role", allow, deny)
 		}
 	}
 }

@@ -36,8 +36,9 @@ Upon being added to a server, Sweetie Bot will begin with all commands and modul
 * **Mod Role** should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.
 * **Mod Channel** should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc.
 * **Log Channel** [OPTIONAL] should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.
+* **Member Role** [OPTIONAL] if you already have a role that you've assigned to all members, specify it here. Otherwise, if this argument is omitted, Sweetie Bot will generate a new "Member" role and add everyone on the server to it, then disable all permissions on the everyone role. This ensures that if a massive raid happens, the new users won't have the ability to speak, even if the bot is overwhelmed or nonfunctional.
 
-For example: `!setup @Mods #staff-lounge #bot-log`
+For example: `!setup @Mods #staff-lounge #bot-log @Member`
 
 `!setup` will automatically restrict all sensitive commands to `modrole` and enable a default set of modules. 
 **Running the setup twice will *delete everything* and reset all configuration values.** Specify an additional `OVERRIDE` parameter if this is your intent.

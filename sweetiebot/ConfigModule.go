@@ -23,6 +23,7 @@ func (w *ConfigModule) Commands() []Command {
 		&setConfigCommand{},
 		&getConfigCommand{},
 		&setupCommand{},
+		&setMemberRole{},
 	}
 }
 
@@ -250,8 +251,8 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	if len(args) < 2 {
 		return "```\nYou must provide at least the Moderator Role and Mod Channel arguments to this function.```", false, nil
 	}
-	if len(args) > 3 {
-		return fmt.Sprintf("```\nThis function only accepts 3 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels? Alternatively, put your moderator role in \"quotes\".```", len(args)), false, nil
+	if len(args) > 4 {
+		return fmt.Sprintf("```\nThis function only accepts 4 arguments, but you put in %v! Are you actually using @Role for the mod role and #channel for the channels? Alternatively, put your moderator role in \"quotes\".```", len(args)), false, nil
 	}
 
 	info.Config.Basic.ModRole, err = ParseRole(args[0], guild)
@@ -268,6 +269,17 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 		if err != nil || info.Config.Log.Channel == ChannelEmpty || info.Config.Log.Channel == ChannelExclusion {
 			return args[2] + " is not a valid channel!", false, nil
 		}
+	}
+
+	if len(args) > 3 {
+		info.Config.Basic.MemberRole, err = ParseRole(args[3], guild)
+		if err != nil || info.Config.Basic.MemberRole == RoleEmpty || info.Config.Basic.MemberRole == RoleExclusion {
+			return args[3] + " is not a valid role!", false, nil
+		}
+	}
+
+	if e := setupMemberRole(info.Config.Basic.MemberRole, DiscordChannel(msg.ChannelID), info); e != "" {
+		return e, false, nil
 	}
 
 	silent, err := info.Bot.DG.GuildRoleCreate(info.ID)
@@ -310,7 +322,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	info.setupSilenceRole()
 	info.Config.SetupDone = true
 	info.SaveConfig()
-	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://sweetiebot.io/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", modname, modchannel, logchannel, info.GetBotName()), false, nil
+	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v\nMember Role: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://sweetiebot.io/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", modname, modchannel, logchannel, info.Config.Basic.MemberRole.Show(info), info.GetBotName()), false, nil
 }
 func (c *setupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -319,6 +331,105 @@ func (c *setupCommand) Usage(info *GuildInfo) *CommandUsage {
 			{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
 			{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
 			{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
+			{Name: "Member Role", Desc: "If you have an existing role that all users are assigned to, provide it here. Otherwise, the bot will create a new role called \"Member\" that it will assign to all users.", Optional: true},
 		},
 	}
+}
+
+type setMemberRole struct {
+}
+
+func (c *setMemberRole) Info() *CommandInfo {
+	return &CommandInfo{
+		Name:      "SetMemberRole",
+		Usage:     "Sets the member role and migrates the server.",
+		Sensitive: true,
+	}
+}
+func (c *setMemberRole) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) > 0 {
+		g, err := info.GetGuild()
+		var role DiscordRole
+		if role, err = ParseRole(msg.Content[indices[0]:], g); err != nil {
+			return fmt.Sprintf("```%s is not a valid role!```", msg.Content[indices[0]:]), false, nil
+		}
+		if err := setupMemberRole(role, DiscordChannel(msg.ChannelID), info); err != "" {
+			return err, false, nil
+		}
+	} else {
+		if err := setupMemberRole(RoleEmpty, DiscordChannel(msg.ChannelID), info); err != "" {
+			return err, false, nil
+		}
+	}
+
+	return "Added a member role to all users and removed all permissions from everyone role. If you haven't changed it, JailChannel will have been set to your old WelcomeChannel. Silenced users go to JailChannel, whereas users without Member will go to WelcomeChannel. Feel free to make them seperate channels or keep them as the same channel.", false, nil
+}
+func (c *setMemberRole) Usage(info *GuildInfo) *CommandUsage {
+	return &CommandUsage{
+		Desc: "Sets the member role and adds it to all the users before removing all permissions from the everyone role. If an existing role is specified, skips over members that already have it.",
+		Params: []CommandUsageParam{
+			{Name: "member role", Desc: "An existing role to use as the \"member role\". If not specified, the bot generates a role called \"Member\".", Optional: true},
+		},
+	}
+}
+
+func setupMemberRole(memberRole DiscordRole, channel DiscordChannel, info *GuildInfo) string {
+	if memberRole == RoleEmpty {
+		role, err := info.Bot.DG.GuildRoleCreate(info.ID)
+		if err != nil {
+			return fmt.Sprintf("```\nFailed to create the member role! %s```", err.Error())
+		}
+		everyone, err := info.Bot.DG.State.Role(info.ID, info.ID)
+		if err == nil {
+			_, err = info.Bot.DG.GuildRoleEdit(info.ID, role.ID, "Member", 0, false, everyone.Permissions, false)
+		}
+		if err != nil {
+			info.Bot.DG.GuildRoleDelete(info.ID, role.ID)
+			return fmt.Sprintf("```\nFailed to set up the member role! %s```", err.Error())
+		}
+		memberRole = DiscordRole(role.ID)
+	}
+
+	if memberRole == RoleEmpty {
+		return "```memberRole is somehow still empty, aborting!```"
+	}
+
+	info.Config.Basic.MemberRole = memberRole
+
+	if g, err := info.GetGuild(); err == nil {
+		count := g.MemberCount
+		if count < len(g.Members) {
+			count = len(g.Members)
+		}
+		info.SendMessage(channel, fmt.Sprintf("Adding %v to %v users. Given discord's average rate limit of 10 roles per 10 seconds, this will take approximately %v minutes. If this process is interrupted, you can restart by running this command with the existing Member role as an argument, and it will skip over members that already have it. You should get status updates every minute, or about every 60 users.", memberRole.Show(info), count, count/60))
+	} else {
+		return "```Error getting guild information, aborting!```"
+	}
+
+	count := 0
+	lastid := ""
+	for {
+		m, err := info.Bot.DG.GuildMembers(info.ID, lastid, 60)
+		if err != nil || len(m) == 0 {
+			break
+		}
+		for _, v := range m {
+			if !MemberHasRole(v, memberRole) {
+				info.Bot.DG.GuildMemberRoleAdd(info.ID, v.User.ID, memberRole.String())
+				count++
+			}
+		}
+
+		if count > 0 {
+			info.SendMessage(channel, fmt.Sprintf("%v users processed...", count))
+		}
+
+		lastid = m[len(m)-1].User.ID
+	}
+
+	if _, err := info.Bot.DG.GuildRoleEdit(info.ID, info.ID, "", 0, false, 0, false); err != nil {
+		return "```Failed to remove permissions from everyone role!```"
+	}
+
+	return ""
 }
