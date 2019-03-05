@@ -84,9 +84,10 @@ Documentation</p></a></li>
   <dd><p>Mod Role</p> should be set to a role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules. Sensitive commands will be restricted so only users with the moderator role can use them, but as the server owner, you will ALWAYS be able to run any command, no matter what.</dd>
   <dd><p>Mod Channel</p> should be set to whatever channel the moderators would like to recieve notifications on, such as potential raids, spammers being silenced, etc. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.</dd>
   <dd><p>Log Channel</p><span> (optional) </span>should be set to a channel that recieves log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often the bot's last resort for notifying you about potential errors</dd>
+  <dd><p>Member Role</p><span> (optional) </span>if you already have a role that you've assigned to all members, specify it here. Otherwise, if this argument is omitted, Sweetie Bot will generate a new "Member" role and add everyone on the server to it, then disable all permissions on the everyone role. This ensures that if a massive raid happens, the new users won't have the ability to speak, even if the bot is overwhelmed or nonfunctional.</dd>
 </dl>
 
-<p>For example: <code>!setup @Mods #staff-lounge #bot-log</code></p>
+<p>For example: <code>!setup @Mods #staff-lounge #bot-log @Member</code></p>
 
 <p><code>!setup</code> will automatically restrict all sensitive commands to <code>modrole</code> and enable a default set of modules. <b>Running the setup twice will <i>delete everything</i> and reset all configuration values.</b> Specify an additional <code>OVERRIDE</code> parameter if this is your intent.</p>
 
