@@ -258,7 +258,7 @@ func TestFindChannelID(t *testing.T) {
 	sb, _, _ := MockSweetieBot(t)
 
 	for k, v := range sb.Guilds {
-		channels := []int{TestChannel, TestChannelSpoil, TestChannelFree, TestChannelLog, TestChannelMod, TestChannelBored, TestChannelJail}
+		channels := []int{TestChannel, TestChannelSpoil, TestChannelFree, TestChannelLog, TestChannelMod, TestChannelBored, TestChannelJail, TestChannelWelcome}
 		i := int(k.Convert() & 0xFF)
 		for _, c := range channels {
 			Check(v.FindChannelID(mockDiscordChannel(c, i).Name), strconv.Itoa(c|i), t)
@@ -468,7 +468,7 @@ func TestSetupSilenceRole(t *testing.T) {
 	for _, v := range sb.DG.State.Guilds {
 		g := sb.Guilds[DiscordGuild(v.ID)]
 		for _, c := range v.Channels {
-			if g.Config.Users.WelcomeChannel.Equals(c.ID) {
+			if g.Config.Users.JailChannel.Equals(c.ID) {
 				allow := discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory
 				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", allow, 0)
 			} else {
@@ -477,6 +477,10 @@ func TestSetupSilenceRole(t *testing.T) {
 					deny = discordgo.PermissionAllText | discordgo.PermissionAddReactions
 				}
 				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", 0, deny)
+			}
+			if g.Config.Users.WelcomeChannel.Equals(c.ID) {
+				allow := discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
+				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.ID, "role", allow, 0)
 			}
 		}
 		g.setupSilenceRole()

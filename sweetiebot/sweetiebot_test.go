@@ -49,9 +49,11 @@ const (
 	TestUserBoring     = iota << MaxServers
 	TestUserSilence    = iota << MaxServers
 	TestUserBot        = iota << MaxServers
+	TestUserNew        = iota << MaxServers
 	TestRoleAdmin      = iota << MaxServers
 	TestRoleMod        = iota << MaxServers
 	TestRoleUser       = iota << MaxServers
+	TestRoleMember     = iota << MaxServers
 	TestRoleAssign     = iota << MaxServers
 	TestRoleAssign2    = iota << MaxServers
 	TestRoleSilence    = iota << MaxServers
@@ -64,6 +66,7 @@ const (
 	TestChannelMod     = iota << MaxServers
 	TestChannelBored   = iota << MaxServers
 	TestChannelJail    = iota << MaxServers
+	TestChannelWelcome = iota << MaxServers
 	TestChannelPrivate = iota << MaxServers
 	TestChannelGroupDM = iota << MaxServers
 	NumServers         = 3
@@ -82,6 +85,9 @@ func mockDiscordRole(role int, index int) *discordgo.Role {
 	case TestRoleUser:
 		name = "User Role"
 		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
+	case TestRoleMember:
+		name = "Member Role"
+		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
 	case TestRoleAssign2:
 		fallthrough
 	case TestRoleAssign:
@@ -117,21 +123,24 @@ func mockDiscordMember(member int, index int) *discordgo.Member {
 		roles = append(roles, strconv.Itoa(TestRoleMod|index), strconv.Itoa(TestRoleAdmin|index))
 	case TestAdmin:
 		name = "Admin User"
-		roles = append(roles, strconv.Itoa(TestRoleAdmin|index))
+		roles = append(roles, strconv.Itoa(TestRoleAdmin|index), strconv.Itoa(TestRoleMember|index))
 	case TestMod:
 		name = "Mod User"
-		roles = append(roles, strconv.Itoa(TestRoleMod|index))
+		roles = append(roles, strconv.Itoa(TestRoleMod|index), strconv.Itoa(TestRoleMember|index))
 	case TestUserNonAssign:
 		name = "User With Non user-assignable Role"
-		roles = append(roles, strconv.Itoa(TestRoleUser|index))
+		roles = append(roles, strconv.Itoa(TestRoleUser|index), strconv.Itoa(TestRoleMember|index))
 	case TestUserAssigned:
 		name = "User With user-assignable Role"
-		roles = append(roles, strconv.Itoa(TestRoleAssign|index))
+		roles = append(roles, strconv.Itoa(TestRoleAssign|index), strconv.Itoa(TestRoleMember|index))
 	case TestUserBoring:
 		name = "Boring User"
+		roles = append(roles, strconv.Itoa(TestRoleMember|index))
 	case TestUserSilence:
 		name = "Silenced User"
 		roles = append(roles, strconv.Itoa(TestRoleSilence|index))
+	case TestUserNew:
+		name = "New User"
 	case TestUserBot:
 		name = "Bot User"
 	}
@@ -199,6 +208,9 @@ func mockDiscordChannel(channel int, index int) *discordgo.Channel {
 	case TestChannelJail:
 		name = "Jail Channel"
 		perms = append(perms, disallowEveryone, allowSilence, allowMods)
+	case TestChannelWelcome:
+		name = "Welcome Channel"
+		perms = append(perms, disallowEveryone, allowSilence, allowMods)
 	}
 	return &discordgo.Channel{
 		ID:                   strconv.Itoa(channel | index),
@@ -223,6 +235,7 @@ func mockDiscordGuild(index int) *discordgo.Guild {
 			mockDiscordRole(TestRoleAdmin, index),
 			mockDiscordRole(TestRoleMod, index),
 			mockDiscordRole(TestRoleUser, index),
+			mockDiscordRole(TestRoleMember, index),
 			mockDiscordRole(TestRoleAssign, index),
 			mockDiscordRole(TestRoleAssign2, index),
 			mockDiscordRole(TestRoleSilence, index),
@@ -250,6 +263,7 @@ func mockDiscordGuild(index int) *discordgo.Guild {
 			mockDiscordChannel(TestChannelMod, index),
 			mockDiscordChannel(TestChannelBored, index),
 			mockDiscordChannel(TestChannelJail, index),
+			mockDiscordChannel(TestChannelWelcome, index),
 		},
 		VoiceStates: []*discordgo.VoiceState{},
 	}
@@ -392,10 +406,13 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		info.Config.Basic.FreeChannels[NewDiscordChannel(TestChannelFree|i)] = true
 		info.Config.Basic.ModChannel = NewDiscordChannel(TestChannelMod | i)
 		info.Config.Basic.SilenceRole = NewDiscordRole(TestRoleSilence | i)
-		info.Config.Users.WelcomeChannel = NewDiscordChannel(TestChannelJail | i)
+		info.Config.Basic.MemberRole = NewDiscordRole(TestRoleMember | i)
+		info.Config.Users.JailChannel = NewDiscordChannel(TestChannelJail | i)
+		info.Config.Users.WelcomeChannel = NewDiscordChannel(TestChannelWelcome | i)
 		info.Config.SetupDone = true
 	}
 	sb.Guilds[NewDiscordGuild(uint64(TestServer|2))].Silver.Set(true)
+	//sb.Guilds[NewDiscordGuild(uint64(TestServer|2))].Config.Basic.MemberRole = RoleEmpty
 
 	return sb, dbmock, mock
 }
@@ -601,6 +618,12 @@ func TestProcessCommand(t *testing.T) {
 		mock.Expect(sb.DG.RequestWithLockedBucket, "POST", MockAny{}, "application/json", MockAny{}, MockAny{}, 0)
 		dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))
 		sb.ProcessCommand(MockMessage("!help asdf", TestChannel, 3900036, TestUserBoring, i), v, 3900036, false, false)
+
+		mock.Expect(sb.DG.GuildMember, v.ID, strconv.Itoa(TestUserNew))
+		mock.Expect(sb.DG.GuildMember, v.ID, strconv.Itoa(TestUserNew))
+		mock.Expect(sb.DG.GuildMember, v.ID, strconv.Itoa(TestUserNew))
+		dbmock.ExpectExec("INSERT INTO debuglog .*").WillReturnResult(sqlmock.NewResult(1, 1))
+		sb.ProcessCommand(MockMessage("!about", TestChannel, 6005000, TestUserNew, 0), v, 6005000, false, false)
 
 		mock.Expect(sb.DG.UserChannelCreate, strconv.Itoa(TestUserBoring|i))
 		mock.Expect(sb.DG.RequestWithLockedBucket, "POST", MockAny{}, "application/json", MockAny{}, MockAny{}, 0)
