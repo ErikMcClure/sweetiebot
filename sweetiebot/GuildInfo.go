@@ -77,7 +77,7 @@ func (info *GuildInfo) SaveConfig() (err error) {
 			info.Log("Error saving config file: Config file is too large! Config files cannot exceed " + strconv.Itoa(info.Bot.MaxConfigSize) + " bytes.")
 			err = errConfigFileTooLarge
 		} else {
-			if err = ioutil.WriteFile(info.ID+".json", data, 0664); err != nil {
+			if err = ioutil.WriteFile("data/" + info.ID+".json", data, 0664); err != nil {
 				info.Log("Error saving config file: ", err.Error())
 			}
 		}

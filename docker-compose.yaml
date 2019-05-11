@@ -4,17 +4,23 @@ services:
     build: 
         context: .
         dockerfile: Dockerfile
+    depends_on:
+      - "mariadb"
+    volumes:
+      - ./data:/data
     restart: always
-    ports:
-     - "80:80"
-     - "443:443"
   mariadb:
     build: 
         context: .
         dockerfile: Dockerfile.mariadb
     expose:
      - "3306"
+    volumes:
+      - sweetiebot-db:/var/lib/mysql
     restart: always
     environment:
      - MYSQL_ROOT_PASSWORD=<YOUR PASSWORD>
     
+
+volumes:
+  sweetiebot-db:

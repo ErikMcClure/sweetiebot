@@ -195,7 +195,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 			guild.BotNick = m.Nick
 		}
 	}
-	config, err := ioutil.ReadFile(g.ID + ".json")
+	config, err := ioutil.ReadFile("data/" + g.ID + ".json")
 	disableall := false
 	if err != nil {
 		fmt.Println("New Guild Detected: " + g.Name)
@@ -997,7 +997,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}}
 	rand.Seed(time.Now().UTC().Unix())
 
-	hostfile, gerr := ioutil.ReadFile("selfhost.json")
+	hostfile, gerr := ioutil.ReadFile("data/selfhost.json")
 	if gerr != nil {
 
 		defer func() {
@@ -1208,13 +1208,13 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	}
 
 	// Load language override
-	if configHelpFile, err := ioutil.ReadFile("confighelp.json"); err == nil {
+	if configHelpFile, err := ioutil.ReadFile("data/confighelp.json"); err == nil {
 		if err = json.Unmarshal(configHelpFile, &ConfigHelp); err != nil {
 			fmt.Println("Error loading config help replacement file: ", err)
 		}
 	}
 
-	if stringsFile, err := ioutil.ReadFile("strings.json"); err == nil {
+	if stringsFile, err := ioutil.ReadFile("data/strings.json"); err == nil {
 		if err = json.Unmarshal(stringsFile, &StringMap); err != nil {
 			fmt.Println("Error loading strings replacement file: ", err)
 		}

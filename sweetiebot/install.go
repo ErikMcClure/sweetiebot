@@ -230,7 +230,7 @@ dbretry:
 	}
 
 	// Only create the selfhost file if the install succeeded
-	ioutil.WriteFile("selfhost.json", []byte(fmt.Sprintf(`{"token": "%s", "dbauth": "%s", "mainguildid": "%v"}`, token, dbauth, mainguild)), 0644)
+	ioutil.WriteFile("data/selfhost.json", []byte(fmt.Sprintf(`{"token": "%s", "dbauth": "%s", "mainguildid": "%v"}`, token, dbauth, mainguild)), 0644)
 
 	script := "run.sh"
 	switch runtime.GOOS {
