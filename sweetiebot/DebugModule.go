@@ -378,7 +378,7 @@ func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices [
 	case 0:
 		return "```\n" + info.GetBotName() + " is currently up-to-date.```", false, nil
 	case 1:
-		info.SendMessage(DiscordChannel(msg.ChannelID), "```\nAn update to v."+VersionInt(update.Version).String()+" is available, downloading files now. The bot will restart when the download is complete (or after any active raids have subsided)```")
+		info.SendMessage(DiscordChannel(msg.ChannelID), "```\nAn update to v"+VersionInt(update.Version).String()+" is available, downloading files now. The bot will restart when the download is complete (or after any active raids have subsided)```")
 	}
 
 	for _, file := range update.Files { // We ignore any errors here because the updater will re-attempt the downloads anyway
