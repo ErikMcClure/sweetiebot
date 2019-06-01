@@ -685,24 +685,37 @@ func (c *importCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	other := []*bot.GuildInfo{}
 	str := args[0]
-	exact := false
-	func() {
-		info.Bot.GuildsLock.RLock()
-		defer info.Bot.GuildsLock.RUnlock()
-		for _, v := range info.Bot.Guilds {
-			if strings.Compare(strings.ToLower(v.Name), strings.ToLower(str)) == 0 {
-				if !exact {
-					other = []*bot.GuildInfo{}
-					exact = true
+	matches := bot.UserRegex.FindStringSubmatch(str)
+	if len(matches) < 2 || len(matches[1]) == 0 {
+		exact := false
+		func() {
+			info.Bot.GuildsLock.RLock()
+			defer info.Bot.GuildsLock.RUnlock()
+			for _, v := range info.Bot.Guilds {
+				if strings.Compare(strings.ToLower(v.Name), strings.ToLower(str)) == 0 {
+					if !exact {
+						other = []*bot.GuildInfo{}
+						exact = true
+					}
+					other = append(other, v)
+				} else if !exact {
+					if strings.Contains(strings.ToLower(v.Name), strings.ToLower(str)) {
+						other = append(other, v)
+					}
 				}
-				other = append(other, v)
-			} else if !exact {
-				if strings.Contains(strings.ToLower(v.Name), strings.ToLower(str)) {
+			}
+		}()
+	} else {
+		func() {
+			info.Bot.GuildsLock.RLock()
+			defer info.Bot.GuildsLock.RUnlock()
+			for _, v := range info.Bot.Guilds {
+				if strings.Compare(v.ID, matches[1]) == 0 {
 					other = append(other, v)
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	if len(other) > 1 {
 		names := make([]string, len(other), len(other))
@@ -753,7 +766,7 @@ func (c *importCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: "Adds all elements from the source tag on the source server to the target tag on this server. If no target is specified, attempts to copy all items into a tag of the same name as the source. Example: ```" + info.Config.Basic.CommandPrefix + "import Manechat cool notcool```",
 		Params: []bot.CommandUsageParam{
-			{Name: "source server", Desc: "The exact name of the source server to copy from.", Optional: false},
+			{Name: "source server", Desc: "The exact name of the source server to copy from, or the server ID in the form <@9999999999>", Optional: false},
 			{Name: "source tag", Desc: "Name of the tag to copy from on the source server.", Optional: false},
 			{Name: "target tag", Desc: "The target tag to copy to on this server. If omitted, defaults to the source tag name.", Optional: true},
 		},
