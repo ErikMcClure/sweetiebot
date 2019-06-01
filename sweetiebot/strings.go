@@ -69,9 +69,11 @@ const (
 	STRING_SPAM_BANRAID_REASON               = iota
 	STRING_SPAM_BANRAID_RESULT               = iota
 	STRING_SPAM_BANRAID_DESCRIPTION          = iota
+	STRING_USERS_BAN_MOD_ERROR               = iota
 	STRING_USERS_SILENCE_USAGE               = iota
 	STRING_USERS_SILENCE_ARG_ERROR           = iota
 	STRING_USERS_SILENCE_ERROR               = iota
+	STRING_USERS_SILENCE_MOD_ERROR           = iota
 	STRING_USERS_SILENCE_ALREADY_SILENCED    = iota
 	STRING_USERS_SILENCE_WILL_BE_UNSILENCED  = iota
 	STRING_USERS_SILENCE_REASON              = iota
@@ -82,6 +84,7 @@ const (
 	STRING_USERS_UNSILENCE_USAGE             = iota
 	STRING_USERS_UNSILENCE_ARG_ERROR         = iota
 	STRING_USERS_UNSILENCE_ERROR             = iota
+	STRING_USERS_UNSILENCE_MOD_ERROR         = iota
 	STRING_USERS_UNSILENCE                   = iota
 	STRING_USERS_UNSILENCE_DESCRIPTION       = iota
 	STRING_USERS_UNSILENCE_USER              = iota
@@ -156,9 +159,11 @@ var StringMap = map[int]string{
 	STRING_SPAM_BANRAID_REASON:               "Banned by %s#%s via the !banraid command.",
 	STRING_SPAM_BANRAID_RESULT:               "```\nBanned %v users. The ban log will reflect who ran this command.```",
 	STRING_SPAM_BANRAID_DESCRIPTION:          "Bans all users that are considered part of the most recent raid, if there was one. Use %vgetraid to check who will be banned before using this command.",
+	STRING_USERS_BAN_MOD_ERROR:               "```\nCan't ban %s because they're a moderator or an admin!```",
 	STRING_USERS_SILENCE_USAGE:               "Silences a user.",
 	STRING_USERS_SILENCE_ARG_ERROR:           "```\nYou must provide a user to silence.```",
 	STRING_USERS_SILENCE_ERROR:               "```\nError occurred trying to silence %s: %s```",
+	STRING_USERS_SILENCE_MOD_ERROR:           "```\nCannot silence %s because they're a moderator or admin!```",
 	STRING_USERS_SILENCE_ALREADY_SILENCED:    "```\n%v is already silenced!```",
 	STRING_USERS_SILENCE_WILL_BE_UNSILENCED:  "```\n%s is already silenced, and will be unsilenced in %s```",
 	STRING_USERS_SILENCE_REASON:              " because %v",
@@ -169,6 +174,7 @@ var StringMap = map[int]string{
 	STRING_USERS_UNSILENCE_USAGE:             "Unsilences a user.",
 	STRING_USERS_UNSILENCE_ARG_ERROR:         "```\nYou must provide a user to unsilence.```",
 	STRING_USERS_UNSILENCE_ERROR:             "```\nError unsilencing member: %v```",
+	STRING_USERS_UNSILENCE_MOD_ERROR:         "```\nCannot unsilence %s because they are a mod or admin. Remove the status yourself!```",
 	STRING_USERS_UNSILENCE:                   "```\nUnsilenced %v.```",
 	STRING_USERS_UNSILENCE_DESCRIPTION:       "Unsilences the given user.",
 	STRING_USERS_UNSILENCE_USER:              "A ping of the user, or simply their name.",

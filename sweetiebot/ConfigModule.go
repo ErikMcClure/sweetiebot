@@ -273,13 +273,17 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 
 	if len(args) > 3 {
 		info.Config.Basic.MemberRole, err = ParseRole(args[3], guild)
-		if err != nil || info.Config.Basic.MemberRole == RoleEmpty || info.Config.Basic.MemberRole == RoleExclusion {
+		if err != nil || info.Config.Basic.MemberRole == RoleEmpty {
 			return args[3] + " is not a valid role!", false, nil
 		}
 	}
 
-	if e := setupMemberRole(info.Config.Basic.MemberRole, DiscordChannel(msg.ChannelID), info); e != "" {
-		return e, false, nil
+	if info.Config.Basic.MemberRole != RoleExclusion {
+		if e := setupMemberRole(info.Config.Basic.MemberRole, DiscordChannel(msg.ChannelID), info); e != "" {
+			return e, false, nil
+		}
+	} else {
+		info.Config.Basic.MemberRole = RoleEmpty
 	}
 
 	silent, err := info.Bot.DG.GuildRoleCreate(info.ID)
@@ -318,11 +322,21 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	modname := info.Config.Basic.ModRole.Show(info)
 	modchannel := info.Config.Basic.ModChannel.Show(info)
 	logchannel := info.Config.Log.Channel.Show(info)
+	membername := "[not used]"
+
+	if info.Config.Basic.MemberRole != RoleEmpty {
+		membername = info.Config.Basic.MemberRole.Show(info)
+	}
 
 	info.setupSilenceRole()
 	info.Config.SetupDone = true
 	info.SaveConfig()
-	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v\nMember Role: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://sweetiebot.io/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.", modname, modchannel, logchannel, info.Config.Basic.MemberRole.Show(info), info.GetBotName()), false, nil
+	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v\nMember Role: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://sweetiebot.io/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.",
+		modname,
+		modchannel,
+		logchannel,
+		membername,
+		info.GetBotName()), false, nil
 }
 func (c *setupCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
@@ -331,7 +345,7 @@ func (c *setupCommand) Usage(info *GuildInfo) *CommandUsage {
 			{Name: "Moderator Role", Desc: "A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.", Optional: false},
 			{Name: "Mod Channel", Desc: "Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.", Optional: false},
 			{Name: "Log Channel", Desc: "An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.", Optional: true},
-			{Name: "Member Role", Desc: "If you have an existing role that all users are assigned to, provide it here. Otherwise, the bot will create a new role called \"Member\" that it will assign to all users.", Optional: true},
+			{Name: "Member Role", Desc: "If you have an existing role that all users are assigned to, provide it here. Otherwise, the bot will create a new role called \"Member\" that it will assign to all users. If you don't want to use this feature, provide `!` here.", Optional: true},
 		},
 	}
 }
