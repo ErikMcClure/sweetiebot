@@ -227,17 +227,20 @@ func (w *SpamModule) AddPressure(info *bot.GuildInfo, m *discordgo.Message, trac
 func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 	if m.Author != nil {
 		author := bot.DiscordUser(m.Author.ID)
+
+		if info.UserIsMod(author) || info.UserIsAdmin(author) || m.Author.Bot {
+			return false
+		}
 		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.JailChannel.Equals(m.ChannelID) {
 			ch, _ := info.Bot.DG.Channel(m.ChannelID)
 			time.Sleep(bot.DelayTime)
 			info.ChannelMessageDelete(ch, m.ID)
 			return true
 		}
-		if info.UserIsMod(author) || info.UserIsAdmin(author) ||
-			(info.Config.Spam.IgnoreRole != bot.RoleEmpty && info.UserHasRole(author, info.Config.Spam.IgnoreRole)) ||
-			m.Author.Bot {
+		if info.Config.Spam.IgnoreRole != bot.RoleEmpty && info.UserHasRole(author, info.Config.Spam.IgnoreRole) {
 			return false
 		}
+
 		timestamp := bot.GetTimestamp(m)
 		track := w.TrackUser(author, timestamp)
 		last := track.lastmessage

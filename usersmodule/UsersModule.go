@@ -260,6 +260,11 @@ func (c *banCommand) Process(args []string, msg *discordgo.Message, indices []in
 	if err != nil {
 		return bot.ReturnError(err)
 	}
+
+	if info.UserIsMod(name) || info.UserIsAdmin(name) {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_BAN_MOD_ERROR], info.GetUserName(name)), false, nil
+	}
+
 	reason, err := processDurationAndReason(args[1:], msg, indices[1:], 0, name.String(), bot.SBatoi(info.ID), info.Bot.DB)
 	if err != nil {
 		return bot.ReturnError(err)
@@ -623,6 +628,10 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return bot.ReturnError(err)
 	}
 
+	if info.UserIsMod(user) || info.UserIsAdmin(user) {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_MOD_ERROR], info.GetUserName(user)), false, nil
+	}
+
 	gID := bot.SBatoi(info.ID)
 	reason, err := processDurationAndReason(args[index:], msg, indices[index:], 8, user.String(), gID, info.Bot.DB)
 	if err != nil {
@@ -678,6 +687,9 @@ func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indice
 	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
 	if err != nil {
 		return bot.ReturnError(info.ResolveRoleAddError(err))
+	}
+	if info.UserIsMod(user) || info.UserIsAdmin(user) {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_MOD_ERROR], info.GetUserName(user)), false, nil
 	}
 
 	err = info.Bot.DG.RemoveRole(info.ID, user, info.Config.Basic.SilenceRole)
