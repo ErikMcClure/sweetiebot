@@ -478,6 +478,10 @@ func splitSpeaker(speaker string) []string {
 }
 
 func (sb *SweetieBot) buildMarkov() {
+	if !sb.DB.Status.Get() {
+		return
+	}
+
 	regex := regexp.MustCompile("[^~!@#$%^&*()_+`=[\\];,./<>?\" \n\r\f\t\v]+[?!.]?")
 
 	markov := &markovChain{
