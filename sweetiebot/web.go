@@ -33,7 +33,7 @@ func (selfhost *Selfhost) helpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "GET" {
 		if len(parts) == 0 || (len(parts) == 1 && strings.ToLower(parts[0]) == "help") {
-			if f, err := os.Open("home.tcache"); err != nil {
+			if f, err := os.Open(filepath.Join(selfhost.GetWebDir(), "help", "home", "index.html")); err != nil {
 				http.Error(w, "File cache error", http.StatusInternalServerError)
 			} else {
 				defer f.Close()
@@ -57,7 +57,7 @@ func (selfhost *Selfhost) helpHandler(w http.ResponseWriter, r *http.Request) {
 				io.Copy(w, f)
 			}
 		} else if len(parts) == 2 {
-			if f, err := os.Open(strings.ToLower(parts[1]) + ".tcache"); err != nil {
+			if f, err := os.Open(filepath.Join(selfhost.GetWebDir(), "help", strings.ToLower(parts[1]), "index.html")); err != nil {
 				http.Error(w, "Page not found", http.StatusNotFound)
 			} else {
 				defer f.Close()
@@ -154,15 +154,31 @@ func (sb *SweetieBot) generateCache(webdir string) *template.Template {
 		data.Modules = append(data.Modules, module)
 	}
 
-	if home, err := os.Create("home.tcache"); err == nil {
+	os.MkdirAll(webdir+"/help/home", 0775)
+	if home, err := os.Create(webdir + "/help/home/index.html"); err == nil {
 		defer home.Close()
 		if err = t.ExecuteTemplate(home, "home", data); err != nil {
 			fmt.Println(err)
 		}
 	}
+	{
+		src, _ := os.Open(webdir + "/help/home/index.html")
+		dest, _ := os.Create(webdir + "/help/index.html")
+		defer src.Close()
+		defer dest.Close()
+		io.Copy(dest, src)
+	}
+	{
+		src, _ := os.Open(webdir + "/help/home/index.html")
+		dest, _ := os.Create(webdir + "/index.html")
+		defer src.Close()
+		defer dest.Close()
+		io.Copy(dest, src)
+	}
 
 	for k, m := range data.Modules {
-		if cache, err := os.Create(m.URL + ".tcache"); err == nil {
+		os.MkdirAll(webdir+"/help/"+m.URL, 0775)
+		if cache, err := os.Create(webdir + "/help/" + m.URL + "/index.html"); err == nil {
 			defer cache.Close()
 			data.Title = m.Name
 			data.Index = k

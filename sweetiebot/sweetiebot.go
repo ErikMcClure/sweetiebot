@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 0, 1}
+var BotVersion = Version{1, 0, 0, 2}
 
 const (
 	MaxPublicLines    = 12
@@ -881,16 +881,18 @@ func (sb *SweetieBot) memberIngestionLoop() {
 func (sb *SweetieBot) deferProcessing() {
 	for atomic.LoadUint32(&sb.quit) != QuitNow {
 		pair := <-sb.deferChan
-		switch v := pair.data.(type) {
-		case *discordgo.MessageCreate:
-			sb.DB.AddMessage(SBatoi(v.ID), v.Author, pair.info.Sanitize(v.Content, CleanMentions|CleanPings), SBatoi(v.ChannelID), SBatoi(pair.info.ID))
-		case *discordgo.User:
-			sb.DB.SentMessage(SBatoi(v.ID), SBatoi(pair.info.ID))
-			sb.DB.SawUser(SBatoi(v.ID), v.Username)
-		case *discordgo.UserUpdate:
-			sb.ProcessUser(v.User)
-		case *discordgo.GuildMemberUpdate:
-			pair.info.ProcessMember(v.Member)
+		if sb.DB.Status.Get() {
+			switch v := pair.data.(type) {
+			case *discordgo.MessageCreate:
+				sb.DB.AddMessage(SBatoi(v.ID), v.Author, pair.info.Sanitize(v.Content, CleanMentions|CleanPings), SBatoi(v.ChannelID), SBatoi(pair.info.ID))
+			case *discordgo.User:
+				sb.DB.SentMessage(SBatoi(v.ID), SBatoi(pair.info.ID))
+				sb.DB.SawUser(SBatoi(v.ID), v.Username)
+			case *discordgo.UserUpdate:
+				sb.ProcessUser(v.User)
+			case *discordgo.GuildMemberUpdate:
+				pair.info.ProcessMember(v.Member)
+			}
 		}
 	}
 }
@@ -1030,6 +1032,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 0, 2):  "- Removed selfhosting support until further notice\n- Sweetiebot now builds static version of the website.",
 			AssembleVersion(1, 0, 0, 1):  "- You can no longer !ban or !silence mods or admins.\n- !import now accepts server IDs instead of just names.\n- Using Member Role silencing is now optional when setting up a new server (but still highly recommended).",
 			AssembleVersion(1, 0, 0, 0):  "- Fixed hidden newuserrole dependency.\n- Introduced Member role silencing, which solves rate limiting problems during raids. To enable this, use !help SetMemberRole for more information.",
 			AssembleVersion(0, 9, 9, 34): "- Fixed resilencer race condition\n- Fixed alias crash bug\n- Improved documentation.",
