@@ -325,7 +325,7 @@ func (s *DiscordGoSession) GetMemberCreate(u *discordgo.User, guildID string) *d
 
 	m, err = s.GuildMember(guildID, u.ID)
 	if err != nil || m == nil {
-		m = &discordgo.Member{guildID, "", "", false, false, u, []string{}}
+		m = &discordgo.Member{guildID, "", "", false, false, u, []string{}, ""}
 	}
 	s.State.MemberAdd(m)
 	return m
