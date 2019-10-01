@@ -66,10 +66,10 @@ func DumpCommandsModules(info *GuildInfo, footer string, description string, msg
 				s = append(s, c.Info().Name+info.Config.IsCommandDisabled(c))
 			}
 			if disabled := info.Config.IsModuleDisabled(v); len(disabled) == 0 || len(s) > 0 || showdisabled {
-				fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name() + disabled, Value: strings.Join(s, "\n"), Inline: true})
+				fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + v.Name() + disabled + "**", Value: strings.Join(s, "\n"), Inline: true})
 			}
 		} else if disabled := info.Config.IsModuleDisabled(v); len(disabled) == 0 || showdisabled {
-			fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name() + disabled, Value: "*[no commands]*", Inline: true})
+			fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + v.Name() + disabled + "**", Value: "*[no commands]*", Inline: true})
 		}
 	}
 	name := info.Bot.AppName + " Commands"
@@ -103,7 +103,7 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 			fields := make([]*discordgo.MessageEmbedField, 0, len(cmds))
 			for _, c := range cmds {
 				if _, err := info.UserCanUseCommand(DiscordUser(msg.Author.ID), c, false); err == nil {
-					fields = append(fields, &discordgo.MessageEmbedField{Name: c.Info().Name + info.Config.IsCommandDisabled(c), Value: c.Info().Usage, Inline: false})
+					fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + c.Info().Name + "**" + info.Config.IsCommandDisabled(c), Value: c.Info().Usage, Inline: false})
 				}
 			}
 			color := 0x56d34f
@@ -184,15 +184,15 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		},
 		Color: 0x3e92e5,
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Author", Value: "Blackhole#0173", Inline: true},
-			{Name: "Library", Value: "discordgo", Inline: true},
-			{Name: "Owner ID", Value: info.Bot.Owner.String(), Inline: true},
-			{Name: "Presence", Value: Pluralize(int64(len(info.Bot.Guilds)), " server"), Inline: true},
-			{Name: "Uptime", Value: TimeDiff(time.Duration(GetTimestamp(msg).Unix()-info.Bot.StartTime) * time.Second), Inline: true},
-			{Name: "Messages Seen", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&info.Bot.MessageCount)), 10), Inline: true},
-			{Name: "Website", Value: "https://sweetiebot.io", Inline: false},
-			{Name: "Patreon", Value: PatreonURL, Inline: false},
-			{Name: "Terms of Service", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
+			{Name: "**Author**", Value: "Blackhole#0173", Inline: true},
+			{Name: "**Library**", Value: "discordgo", Inline: true},
+			{Name: "**Owner ID**", Value: info.Bot.Owner.String(), Inline: true},
+			{Name: "**Presence**", Value: Pluralize(int64(len(info.Bot.Guilds)), " server"), Inline: true},
+			{Name: "**Uptime**", Value: TimeDiff(time.Duration(GetTimestamp(msg).Unix()-info.Bot.StartTime) * time.Second), Inline: true},
+			{Name: "**Messages Seen**", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&info.Bot.MessageCount)), 10), Inline: true},
+			{Name: "**Website**", Value: "https://sweetiebot.io", Inline: false},
+			{Name: "**Patreon**", Value: PatreonURL, Inline: false},
+			{Name: "**Terms of Service**", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
 		},
 	}
 	return "", false, embed

@@ -486,7 +486,7 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 			opt = " (...) " + opt
 			use += "..."
 		}
-		fields = append(fields, &discordgo.MessageEmbedField{Name: v.Name + opt, Value: v.Desc, Inline: false})
+		fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + v.Name + "**" + opt, Value: v.Desc, Inline: false})
 	}
 
 	if len(ch) > 0 {

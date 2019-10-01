@@ -340,7 +340,7 @@ func ShowAllTags(message string, info *bot.GuildInfo) *discordgo.MessageEmbed {
 	fields := make(memberFields, len(tags), len(tags))
 
 	for k, v := range tags {
-		fields[k] = &discordgo.MessageEmbedField{Name: v.Name, Value: fmt.Sprintf("%v items", v.Count), Inline: true}
+		fields[k] = &discordgo.MessageEmbedField{Name: "**" + v.Name + "**", Value: fmt.Sprintf("%v items", v.Count), Inline: true}
 	}
 	sort.Sort(fields)
 	return &discordgo.MessageEmbed{
