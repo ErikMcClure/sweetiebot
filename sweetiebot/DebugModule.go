@@ -226,7 +226,7 @@ func (c *echoEmbedCommand) Process(args []string, msg *discordgo.Message, indice
 		if len(s) < 2 {
 			return "```\nMalformed key:value pair. If your key value pair has a space in it, remember to put it in parenthesis!```", false, nil
 		}
-		fields = append(fields, &discordgo.MessageEmbedField{Name: s[0], Value: s[1], Inline: true})
+		fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + s[0] + "**", Value: s[1], Inline: true})
 		i++
 	}
 	embed := &discordgo.MessageEmbed{
@@ -248,7 +248,7 @@ func (c *echoEmbedCommand) Usage(info *GuildInfo) *CommandUsage {
 		Params: []CommandUsageParam{
 			{Name: "#channel", Desc: "The channel to echo the message in. If omitted, message is sent to this channel.", Optional: true},
 			{Name: "URL", Desc: "URL for the author to link to.", Optional: false},
-			{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: true},
+			{Name: "0xC0L0R", Desc: "Color of the embed box.", Optional: false},
 			{Name: "key:value", Desc: "A key:value pair of fields to display in the embed. Remember to use quotes around the *entire* key:value pair if either the key or the value have spaces.", Optional: true, Variadic: true},
 		},
 	}

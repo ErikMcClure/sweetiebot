@@ -113,7 +113,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 					}
 					s = append(s, str)
 				}
-				fields = append(fields, &discordgo.MessageEmbedField{Name: t.Type().Field(i).Name, Value: strings.Join(s, "\n"), Inline: true})
+				fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + t.Type().Field(i).Name + "**", Value: strings.Join(s, "\n"), Inline: true})
 			}
 		}
 		embed := &discordgo.MessageEmbed{
@@ -164,7 +164,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 						if !ok {
 							desc = "\u200b"
 						}
-						fields = append(fields, &discordgo.MessageEmbedField{Name: f.Type().Field(j).Name, Value: desc, Inline: false})
+						fields = append(fields, &discordgo.MessageEmbedField{Name: "**" + f.Type().Field(j).Name + "**", Value: desc, Inline: false})
 
 						lines := getSubStruct(arg, f, j, info)
 						if len(lines) == 0 {

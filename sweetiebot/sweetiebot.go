@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 0, 2}
+var BotVersion = Version{1, 0, 0, 3}
 
 const (
 	MaxPublicLines    = 12
@@ -200,38 +200,52 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	if err != nil {
 		fmt.Println("New Guild Detected: " + g.Name)
 
+		perms, _ := guild.Bot.DG.UserPermissions(sb.SelfID, guild.ID)
+		warning := ""
+		if perms&discordgo.PermissionAdministrator != 0 {
+			warning = "\nWARNING: You have given " + guild.GetBotName() + " the Administrator role, which implicitly gives it all roles! " + guild.GetBotName() + " only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+		}
+		if perms&discordgo.PermissionMentionEveryone != 0 {
+			warning = "\nWARNING: You have given " + guild.GetBotName() + " the Mention Everyone role, which means users will be able to abuse it to ping everyone on the server! " + guild.GetBotName() + " does NOT attempt to filter @\u200Beveryone from it messages!" + warning
+		}
+		if perms&discordgo.PermissionBanMembers == 0 {
+			warning = "\nWARNING: " + guild.GetBotName() + " cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
+		}
+		if perms&discordgo.PermissionManageRoles == 0 {
+			warning = "\nWARNING: " + guild.GetBotName() + " cannot silence members or give birthday roles without the Manage Roles role!" + warning
+		}
+		if perms&discordgo.PermissionManageMessages == 0 {
+			warning = "\nWARNING: " + guild.GetBotName() + " cannot delete messages without the Manage Messages role!" + warning
+		}
+		if perms&discordgo.PermissionManageServer == 0 {
+			warning = "\nWARNING: " + guild.GetBotName() + " cannot engage lockdown mode without the Manage Server role!" + warning
+		}
+
+		welcome := "You've successfully added " + guild.GetBotName() + " to your server! To finish setting it up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel] [Member Role]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. " + guild.GetBotName() + " will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. \n\n**> Mod Channel**\nThis is the channel " + guild.GetBotName() + " will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nAn optional channel where " + guild.GetBotName() + " will post errors and update notifications. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often " + guild.GetBotName() + "'s last resort for notifying you about potential errors.\n\n**> Member Role**\nIf you already have a role that you assign to all members of your server, mention it here. Otherwise, leave this argument blank, and Sweetie will generate a new \"Member\" role and assign it to all your users.\n\nThat's it! Here is an example: ```!setup @Mods #staff-chat #bot-log @Member```"
+
 		ch, e := sb.DG.UserChannelCreate(g.OwnerID)
 		if e == nil {
 			if sb.DB.Status.Get() {
 				sb.DB.SetDefaultServer(SBatoi(g.OwnerID), SBatoi(g.ID)) // This ensures no one blows up another server by accident
 			}
-			perms, _ := guild.Bot.DG.UserPermissions(sb.SelfID, guild.ID)
-			warning := ""
-			if perms&discordgo.PermissionAdministrator != 0 {
-				warning = "\nWARNING: You have given " + guild.GetBotName() + " the Administrator role, which implicitly gives it all roles! " + guild.GetBotName() + " only needs Ban Members, Manage Roles and Manage Messages in order to function correctly." + warning
+
+			_, e = sb.DG.ChannelMessageSend(ch.ID, welcome)
+			if e == nil && len(warning) > 0 {
+				_, e = sb.DG.ChannelMessageSend(ch.ID, warning)
 			}
-			if perms&discordgo.PermissionMentionEveryone != 0 {
-				warning = "\nWARNING: You have given " + guild.GetBotName() + " the Mention Everyone role, which means users will be able to abuse it to ping everyone on the server! " + guild.GetBotName() + " does NOT attempt to filter @\u200Beveryone from it messages!" + warning
-			}
-			if perms&discordgo.PermissionBanMembers == 0 {
-				warning = "\nWARNING: " + guild.GetBotName() + " cannot ban members spamming the welcome channel without the Ban Members role! (If you do not use this feature, it is safe to ignore this warning)." + warning
-			}
-			if perms&discordgo.PermissionManageRoles == 0 {
-				warning = "\nWARNING: " + guild.GetBotName() + " cannot silence members or give birthday roles without the Manage Roles role!" + warning
-			}
-			if perms&discordgo.PermissionManageMessages == 0 {
-				warning = "\nWARNING: " + guild.GetBotName() + " cannot delete messages without the Manage Messages role!" + warning
-			}
-			if perms&discordgo.PermissionManageServer == 0 {
-				warning = "\nWARNING: " + guild.GetBotName() + " cannot engage lockdown mode without the Manage Server role!" + warning
-			}
-			sb.DG.ChannelMessageSend(ch.ID, "You've successfully added "+guild.GetBotName()+" to your server! To finish setting it up, run the `setup` command. Here is an explanation of the command and an example:\n```!setup <Mod Role> <Mod Channel> [Log Channel] [Member Role]```\n**> Mod Role**\nThis is a role shared by all the moderators and admins of your server. "+guild.GetBotName()+" will ping this role to alert you about potential raids or silenced users, and sensitive commands will be restricted so only users with the moderator role can use them. As the server owner, you will ALWAYS be able to run any command, no matter what. \n\n**> Mod Channel**\nThis is the channel "+guild.GetBotName()+" will post alerts on. Usually, this is your private moderation channel, but you can make it whatever channel you want. Just make sure you use the format `#channel`, and ensure the bot actually has permission to post messages on the channel.\n\n**> Log Channel**\nAn optional channel where "+guild.GetBotName()+" will post errors and update notifications. Usually, this is only visible to server admins and the bot. Ensure the bot has permission to post messages on the log channel, or you won't get any output. Providing a log channel is highly recommended, because it's often "+guild.GetBotName()+"'s last resort for notifying you about potential errors.\n\n**> Member Role**\nIf you already have a role that you assign to all members of your server, mention it here. Otherwise, leave this argument blank, and Sweetie will generate a new \"Member\" role and assign it to all your users.\n\nThat's it! Here is an example: ```!setup @Mods #staff-chat #bot-log @Member```")
-			if len(warning) > 0 {
-				sb.DG.ChannelMessageSend(ch.ID, warning)
-			}
-		} else {
-			fmt.Println("Error sending introductory PM: ", e)
 		}
+		if e != nil {
+			for _, ch = range g.Channels {
+				_, e = sb.DG.ChannelMessageSend(ch.ID, welcome)
+				if e == nil && len(warning) > 0 {
+					_, e = sb.DG.ChannelMessageSend(ch.ID, warning)
+				}
+				if e == nil {
+					break
+				}
+			}
+		}
+
 		disableall = true
 	} else if err := guild.MigrateSettings(config); err != nil {
 		fmt.Println("Error reading config file for "+g.Name+": ", err.Error())
@@ -501,7 +515,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 		} else if !info.Config.Basic.IgnoreInvalidCommands {
 			if private || !info.checkOnCommand(m) {
-				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_INVALID_COMMAND], args[0]), t)
+				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_INVALID_COMMAND], info.Sanitize(args[0], CleanMentions|CleanPings|CleanEmotes|CleanCode)), t)
 			}
 		}
 	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
@@ -1032,6 +1046,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 0, 3):  "- Sanitize invalid command notification because nobody fucking reads the documentation.\n- Fixed embed field titles.\n- Made sweetiebot more persistent when added to a server.\n- WARNING: Large servers may soon be restricted to Patreon members due to immense load put on the bot.",
 			AssembleVersion(1, 0, 0, 2):  "- Removed selfhosting support until further notice\n- Sweetiebot now builds static version of the website.",
 			AssembleVersion(1, 0, 0, 1):  "- You can no longer !ban or !silence mods or admins.\n- !import now accepts server IDs instead of just names.\n- Using Member Role silencing is now optional when setting up a new server (but still highly recommended).",
 			AssembleVersion(1, 0, 0, 0):  "- Fixed hidden newuserrole dependency.\n- Introduced Member role silencing, which solves rate limiting problems during raids. To enable this, use !help SetMemberRole for more information.",
