@@ -36,8 +36,8 @@ func (w *BucketModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *BucketModule) Description() string {
-	return "Manages the bot's bucket functionality. If the bucket isn't working, make sure you've enabled it via `!enable bucket` and ensure that her maximum bucket size is greater than 0."
+func (w *BucketModule) Description(info *bot.GuildInfo) string {
+	return "Manages the bot's bucket functionality. If the bucket isn't working, make sure you've enabled it via `" + info.Config.Basic.CommandPrefix + "enable bucket` and ensure that her maximum bucket size is greater than 0."
 }
 
 type giveCommand struct {
@@ -191,11 +191,12 @@ func (c *fightCommand) Process(args []string, msg *discordgo.Message, indices []
 		if len(args) > 0 {
 			c.monster = info.Sanitize(msg.Content[indices[0]:], bot.CleanMentions|bot.CleanPings|bot.CleanCode|bot.CleanEmotes)
 		} else {
-			if !info.Bot.DB.CheckStatus() {
-				return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
-			}
 			if info.Config.Markov.UseMemberNames {
-				c.monster = info.Sanitize(info.Bot.DB.GetRandomMember(bot.SBatoi(info.ID)), bot.CleanMentions|bot.CleanPings|bot.CleanCode|bot.CleanEmotes)
+				g, err := info.GetGuild()
+				if err != nil {
+					return "```\nError: " + err.Error() + "```", false, nil
+				}
+				c.monster = info.Sanitize(info.GetMemberName(g.Members[rand.Intn(len(g.Members))]), bot.CleanMentions|bot.CleanPings|bot.CleanCode|bot.CleanEmotes)
 			} else if info.Bot.Markov != nil && len(info.Bot.Markov.Speakers) > 0 {
 				c.monster = info.Bot.Markov.Speakers[rand.Intn(len(info.Bot.Markov.Speakers))]
 			} else {

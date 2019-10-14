@@ -336,7 +336,7 @@ func (m *ModuleMocker) Name() string {
 func (m *ModuleMocker) Commands() []Command {
 	return []Command{}
 }
-func (m *ModuleMocker) Description() string {
+func (m *ModuleMocker) Description(info *bot.GuildInfo) string {
 	return m.Store
 }
 

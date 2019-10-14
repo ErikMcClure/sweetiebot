@@ -44,7 +44,7 @@ func (w *UsersModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *UsersModule) Description() string {
+func (w *UsersModule) Description(info *bot.GuildInfo) string {
 	return "Contains commands for getting and setting user information, or manipulating user roles."
 }
 
@@ -318,7 +318,7 @@ func (c *banNewcomersCommand) Process(args []string, msg *discordgo.Message, ind
 	if len(IDs) == 0 {
 		return fmt.Sprintf("```No one has sent their first message in the past %v seconds!```", duration), false, nil
 	}
-	reason := fmt.Sprintf("Banned by %s#%s via the !bannewcomers command", msg.Author.Username, msg.Author.Discriminator)
+	reason := fmt.Sprintf("Banned by %s#%s via the %sbannewcomers command", msg.Author.Username, msg.Author.Discriminator, info.Config.Basic.CommandPrefix)
 	for _, id := range IDs {
 		err := info.Bot.DG.GuildBanCreateWithReason(info.ID, bot.SBitoa(id), reason, 1)
 		info.LogError("Error banning user: ", err)
@@ -580,7 +580,7 @@ func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	}
 
 	if !guilds[0].Config.SetupDone {
-		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run !setup on that server first. Go here for instructions: https://sweetiebot.io```", guilds[0].Name), false, nil
+		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run %ssetup on that server first. Go here for instructions: https://sweetiebot.io```", guilds[0].Name, info.Config.Basic.CommandPrefix), false, nil
 	}
 
 	target := bot.SBatoi(guilds[0].ID)

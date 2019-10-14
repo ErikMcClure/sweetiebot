@@ -31,7 +31,7 @@ func (w *InfoModule) Commands() []Command {
 }
 
 // Description of the module
-func (w *InfoModule) Description() string {
+func (w *InfoModule) Description(info *GuildInfo) string {
 	return "Contains commands for getting information about the bot, commands, or the server the bot is in."
 }
 
@@ -94,7 +94,7 @@ func DumpCommandsModules(info *GuildInfo, footer string, description string, msg
 
 func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if len(args) == 0 {
-		return "", true, DumpCommandsModules(info, "For more information on a specific command, type !help [command].", "", msg)
+		return "", true, DumpCommandsModules(info, "For more information on a specific command, type "+info.Config.Basic.CommandPrefix+"help [command].", "", msg)
 	}
 	arg := strings.ToLower(args[0])
 	for _, v := range info.Modules {
@@ -119,10 +119,10 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 					IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 				},
 				Color:       color,
-				Description: v.Description(),
+				Description: v.Description(info),
 				Fields:      fields,
 				Footer: &discordgo.MessageEmbedFooter{
-					Text: "For more information on a specific command, type !help [command].",
+					Text: "For more information on a specific command, type " + info.Config.Basic.CommandPrefix + "help [command].",
 				},
 			}
 			return "", true, embed
@@ -147,13 +147,13 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 				return "", true, embed
 			}
 		}
-		return "```\n" + info.GetBotName() + " doesn't recognize that command, module or config option. You can check what commands " + info.GetBotName() + " knows by typing !help with no arguments.```", false, nil
+		return "```\n" + info.GetBotName() + " doesn't recognize that command, module or config option. You can check what commands " + info.GetBotName() + " knows by typing " + info.Config.Basic.CommandPrefix + "help with no arguments.```", false, nil
 	}
 	return "", true, info.FormatUsage(v, v.Usage(info))
 }
 func (c *helpCommand) Usage(info *GuildInfo) *CommandUsage {
 	return &CommandUsage{
-		Desc: "Lists all available commands " + info.GetBotName() + " knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed !help help for some reason.",
+		Desc: "Lists all available commands " + info.GetBotName() + " knows, or gives information about the given command. Of course, you should have figured this out by now, since you just typed " + info.Config.Basic.CommandPrefix + "help help for some reason.",
 		Params: []CommandUsageParam{
 			{Name: "command/module", Desc: "The command or module to display help for. You do not need to include a command's parent module, just the command name itself.", Optional: true},
 		},

@@ -41,7 +41,7 @@ func (w *RolesModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *RolesModule) Description() string {
+func (w *RolesModule) Description(info *bot.GuildInfo) string {
 	return "Contains commands for manipulating user-assignable roles. Pay close attention to the difference between `addrole` vs. `createrole` and `removerole` vs. `deleterole`. Users who simply want to join or leave a user-assignable role should be using the `joinrole` and `leaverole` commands, not any other commands."
 }
 

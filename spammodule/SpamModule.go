@@ -83,8 +83,8 @@ func (w *SpamModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *SpamModule) Description() string {
-	return bot.StringMap[bot.STRING_SPAM_DESCRIPTION]
+func (w *SpamModule) Description(info *bot.GuildInfo) string {
+	return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_DESCRIPTION], info.Config.Basic.CommandPrefix, info.Config.Basic.CommandPrefix, info.Config.Basic.CommandPrefix, info.Config.Basic.CommandPrefix)
 }
 
 // OnTick discord hook
@@ -605,7 +605,7 @@ func (c *wipeCommand) Process(args []string, msg *discordgo.Message, indices []i
 }
 func (c *wipeCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: bot.StringMap[bot.STRING_SPAM_WIPE_DESCRIPTION],
+		Desc: fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WIPE_DESCRIPTION], info.Config.Basic.CommandPrefix, info.Config.Basic.CommandPrefix),
 		Params: []bot.CommandUsageParam{
 			{Name: "channel", Desc: bot.StringMap[bot.STRING_SPAM_WIPE_CHANNEL], Optional: true},
 			{Name: "seconds/messages", Desc: bot.StringMap[bot.STRING_SPAM_WIPE_MESSAGES], Optional: false},
@@ -691,7 +691,7 @@ func (c *banRaidCommand) Process(args []string, msg *discordgo.Message, indices 
 	if !c.s.isRecentRaid(info, bot.GetTimestamp(msg)) {
 		return fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_RAID_NONE], bot.TimeDiff(time.Duration(info.Config.Spam.RaidTime*2)*time.Second)), false, nil
 	}
-	reason := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BANRAID_REASON], msg.Author.Username, msg.Author.Discriminator)
+	reason := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BANRAID_REASON], msg.Author.Username, msg.Author.Discriminator, info.Config.Basic.CommandPrefix)
 	users := c.s.getRaidUsers(info)
 	for _, v := range users {
 		info.Bot.DG.GuildBanCreateWithReason(info.ID, v.ID, reason, 1)

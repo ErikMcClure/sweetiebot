@@ -8,6 +8,7 @@ const (
 	STRING_NO_SERVER                         = iota
 	STRING_COMMANDS_LIMIT                    = iota
 	STRING_COMMAND_LIMIT                     = iota
+	STRING_SETUP_MESSAGE                     = iota
 	STRING_SPAM_DESCRIPTION                  = iota
 	STRING_SPAM_ERROR_UNSILENCING            = iota
 	STRING_SPAM_UNSILENCING                  = iota
@@ -92,14 +93,15 @@ const (
 
 // System-wide string map that can be substituted at runtime
 var StringMap = map[int]string{
-	STRING_INVALID_COMMAND:                   "Sorry, %s is not a valid command.\nFor a list of valid commands, type !help.",
+	STRING_INVALID_COMMAND:                   "Sorry, %s is not a valid command.\nFor a list of valid commands, type %shelp.",
 	STRING_PM_FAILURE:                        "I tried to send you a Private Message, but it failed! Try PMing me the command directly.",
 	STRING_CHECK_PM:                          "```\nCheck your Private Messages for my reply!```",
 	STRING_DATABASE_ERROR:                    "```\nA temporary database error means I can't process any private message commands right now.```",
-	STRING_NO_SERVER:                         "```\nCannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```",
+	STRING_NO_SERVER:                         "```\nCannot determine what server you belong to! Use %sdefaultserver to set which server I should use when you PM me.```",
 	STRING_COMMANDS_LIMIT:                    "You can't input more than %v commands every %s!%s",
 	STRING_COMMAND_LIMIT:                     "You can only run that command once every %s!%s",
-	STRING_SPAM_DESCRIPTION:                  "Tracks all channels it is active on for spammers. Each message someone sends generates \"pressure\", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid.\n\nTo force this module to ignore a specific channel, use this command: `!setconfig modules.channels spam ! #channelname`. If the bot is silencing everyone, you should re-run `!setup OVERRIDE` to reset the spam configuration. If you want to have a containment channel where silenced members can talk, use `!setconfig welcomechannel #channelname`.\n\n**IF THE BOT IS OVERWHELMED BY A RAID, FOLLOW THESE INSTRUCTIONS CAREFULLY:** Due to rate limits, the bot can be overwhelmed by spammers using hundreds of different accounts. As a last resort, you can tell the bot to **ban everyone who has sent their first message in the past 3 minutes** by running this command: `!bannewcomers`. Only use this as a **last resort**, as it can easily ban people who joined and were caught up in the raid.",
+	STRING_SETUP_MESSAGE:                     "You haven't set up the bot yet! Run the %ssetup command first and follow the instructions.",
+	STRING_SPAM_DESCRIPTION:                  "Tracks all channels it is active on for spammers. Each message someone sends generates \"pressure\", which decays rapidly. Long messages, messages with links, or messages with pings will generate more pressure. If a user generates too much pressure, they will be silenced and the moderators notified. Also detects groups of people joining at the same time and alerts the moderators of a potential raid.\n\nTo force this module to ignore a specific channel, use this command: `%ssetconfig modules.channels spam ! #channelname`. If the bot is silencing everyone, you should re-run `%ssetup OVERRIDE` to reset the spam configuration. If you want to have a containment channel where silenced members can talk, use `%ssetconfig welcomechannel #channelname`.\n\n**IF THE BOT IS OVERWHELMED BY A RAID, FOLLOW THESE INSTRUCTIONS CAREFULLY:** Due to rate limits, the bot can be overwhelmed by spammers using hundreds of different accounts. As a last resort, you can tell the bot to **ban everyone who has sent their first message in the past 3 minutes** by running this command: `%sbannewcomers`. Only use this as a **last resort**, as it can easily ban people who joined and were caught up in the raid.",
 	STRING_SPAM_ERROR_UNSILENCING:            "```\nError unsilencing member: %v```",
 	STRING_SPAM_UNSILENCING:                  "```\nUnsilenced %v.```",
 	STRING_SPAM_EMBEDDED_URLS:                "\nEmbedded URLs: ",
@@ -144,7 +146,7 @@ var StringMap = map[int]string{
 	STRING_SPAM_WIPE_NO_MESSAGES:             "```\nThere's no point deleting 0 messages!.```",
 	STRING_SPAM_WIPE_RETRIEVAL_ERROR:         "```\nError retrieving messages. Are you sure you gave %v a channel that exists? This won't work in PMs! %v```",
 	STRING_SPAM_WIPE_DELETED:                 "Deleted %v messages in <#%s>.",
-	STRING_SPAM_WIPE_DESCRIPTION:             "Removes all messages in a channel sent within the last N seconds, or remove the last N messages if 'm' is appended to the number. Examples: ```\n!wipe 23m``` ```\n!wipe #channel 10```",
+	STRING_SPAM_WIPE_DESCRIPTION:             "Removes all messages in a channel sent within the last N seconds, or remove the last N messages if 'm' is appended to the number. Examples: ```\n%swipe 23m``` ```\n%swipe #channel 10```",
 	STRING_SPAM_WIPE_CHANNEL:                 "The channel to delete from. You must use the #channel format so discord actually highlights the channel, otherwise it won't work. If omitted, uses the current channel",
 	STRING_SPAM_WIPE_MESSAGES:                "Specifies the number of seconds to look back. The command deletes all messages sent up to this many seconds ago. If you append 'm' to this number, it will instead delete exactly that many messages.",
 	STRING_SPAM_PRESSURE_USAGE:               "Gets a user's pressure.",
@@ -156,7 +158,7 @@ var StringMap = map[int]string{
 	STRING_SPAM_RAID_USERS:                   "Users in latest raid: ",
 	STRING_SPAM_RAID_DESCRIPTION:             "Lists all users that are considered part of the most recent raid, if there was one.",
 	STRING_SPAM_BANRAID_USAGE:                "Bans all users in most recent raid.",
-	STRING_SPAM_BANRAID_REASON:               "Banned by %s#%s via the !banraid command.",
+	STRING_SPAM_BANRAID_REASON:               "Banned by %s#%s via the %sbanraid command.",
 	STRING_SPAM_BANRAID_RESULT:               "```\nBanned %v users. The ban log will reflect who ran this command.```",
 	STRING_SPAM_BANRAID_DESCRIPTION:          "Bans all users that are considered part of the most recent raid, if there was one. Use %vgetraid to check who will be banned before using this command.",
 	STRING_USERS_BAN_MOD_ERROR:               "```\nCan't ban %s because they're a moderator or an admin!```",
