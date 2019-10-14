@@ -10,7 +10,7 @@ import (
 type Module interface {
 	Name() string
 	Commands() []Command
-	Description() string
+	Description(*GuildInfo) string
 	//Config() interface{}
 }
 

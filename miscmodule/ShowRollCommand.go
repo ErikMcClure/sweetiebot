@@ -2,6 +2,7 @@ package miscmodule
 
 import (
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -28,6 +29,7 @@ func (c *showrollCommand) value(args []string, index *int, prefix string) string
 	errmsg := "I can't figure out your dice expression... Try " + prefix + "help showroll for more information."
 	if diceregex.MatchString(args[*index-1]) {
 		dice := strings.SplitN(args[*index-1], "d", 2)
+		show := 0
 		var multiplier, num, threshold, fail int64 = 1, 1, 0, 0
 		if len(dice) > 1 {
 			if len(dice[0]) > 0 {
@@ -55,6 +57,15 @@ func (c *showrollCommand) value(args []string, index *int, prefix string) string
 					return s + errmsg
 				}
 			}
+			if strings.Contains(dice[1], "h") {
+				fdice := strings.SplitN(dice[1], "h", 2)
+				dice[1] = fdice[0]
+				parseshow, _ := strconv.ParseInt(fdice[1], 10, 32)
+				show = int(parseshow)
+				if show == 0 {
+					return s + errmsg
+				}
+			}
 			num, _ = strconv.ParseInt(dice[1], 10, 64)
 		} else {
 			num, _ = strconv.ParseInt(dice[0], 10, 64)
@@ -74,12 +85,10 @@ func (c *showrollCommand) value(args []string, index *int, prefix string) string
 		var n int64
 		var t int
 		var f int
+		var results = make([]int64, 0, multiplier)
 		for ; multiplier > 0; multiplier-- {
 			n = rand.Int63n(num) + 1
-			s += strconv.FormatInt(n, 10)
-			if multiplier > 1 {
-				s += " + "
-			}
+			results = append(results, n)
 			if threshold > 0 {
 				if n >= threshold {
 					t++
@@ -89,6 +98,21 @@ func (c *showrollCommand) value(args []string, index *int, prefix string) string
 				if n <= fail {
 					f++
 				}
+			}
+		}
+		if show > 0 {
+			sort.Slice(results, func(i, j int) bool { return results[i] > results[j] })
+			if len(results) < show {
+				show = len(results)
+			}
+		} else {
+			show = len(results)
+		}
+		if show > 0 {
+			s += strconv.FormatInt(results[0], 10)
+			for i := 1; i < show; i++ {
+				s += " + "
+				s += strconv.FormatInt(results[i], 10)
 			}
 		}
 		if t > 0 {
@@ -117,17 +141,18 @@ func (c *showrollCommand) Process(args []string, msg *discordgo.Message, indices
 func (c *showrollCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
 		Desc: `Evaluates a dice roll expression, returning the individual die results. Can also optionally report hit counting for success and fail thresholds.
-Acceptable expressions are defined as [**N**]d**X**[t**Y**][f**Z**] where:
+Acceptable expressions are defined as [**N**]d**X**[t**Y**][f**Z**][h**W**] where:
 N: number of dice to roll (postive integer < 250; optional, defaults to 1)
 dX: the type of dice to roll, where X is the number of sides (required)
-tY: the threshold to use for hit counting, (x is postive integer; optional)
-fZ: the fail threshold to use for hit counting, (x is postive integer; optional)
-
+tY: the threshold to use for hit counting, (Y is a positive integer; optional)
+fZ: the fail threshold to use for hit counting, (Z is a positive integer; optional)
+hW: Only shows the highest W dice, (W is a positive integer; optional)
 Examples:
 d6: Rolls a single 6-sided die
 4d20: Rolls 4 20-sided dice
 12d6t5: Rolls 12 6-sided dice, and counts the number that score 5 or higher
-17d10t8f2: Rolls 17 10-sided dice, counts number that roll 8 or higher (successes) and 2 or lower (fails)`,
+17d10t8f2: Rolls 17 10-sided dice, counts number that roll 8 or higher (successes) and 2 or lower (fails)
+12d6h5: Rolls 12 6-sided dice, and only shows the highest 5 results`,
 		Params: []bot.CommandUsageParam{
 			{Name: "expression", Desc: "The dice expression to parse (e.g. `12d6t5f1`).", Optional: false},
 		},

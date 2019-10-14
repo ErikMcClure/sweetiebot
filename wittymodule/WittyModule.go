@@ -40,7 +40,7 @@ func (w *WittyModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *WittyModule) Description() string {
+func (w *WittyModule) Description(info *bot.GuildInfo) string {
 	return "In response to certain patterns (determined by a regex) will post a response picked randomly from a list of them associated with that trigger. Rate limits itself to make sure it isn't too annoying."
 }
 

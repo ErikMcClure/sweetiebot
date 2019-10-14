@@ -28,7 +28,7 @@ func (w *ConfigModule) Commands() []Command {
 }
 
 // Description of the module
-func (w *ConfigModule) Description() string { return "Manages the configuration file." }
+func (w *ConfigModule) Description(info *GuildInfo) string { return "Manages the configuration file." }
 
 type setConfigCommand struct {
 }
@@ -242,7 +242,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	}
 	if info.Config.SetupDone {
 		if strings.ToLower(args[0]) != "override" {
-			return "```\nWARNING: This server has already been configured. If you run !setup again, it will reset ALL CONFIGURATION DATA to defaults! If you wish to proceed, use " + info.Config.Basic.CommandPrefix + "setup OVERRIDE <your arguments>```", false, nil
+			return "```\nWARNING: This server has already been configured. If you run " + info.Config.Basic.CommandPrefix + "setup again, it will reset ALL CONFIGURATION DATA to defaults! If you wish to proceed, use " + info.Config.Basic.CommandPrefix + "setup OVERRIDE <your arguments>```", false, nil
 		}
 		args = args[1:]
 		indices = indices[1:]

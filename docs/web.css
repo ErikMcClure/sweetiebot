@@ -55,6 +55,7 @@ code, pre {
   background: #1a1c1e;
   padding: 0 0.4em;
   border-radius: 0.3em;
+  overflow: hidden;
 }
 code {
 	display:inline-block;
@@ -124,7 +125,7 @@ header nav aside {
   top:1.3em;
   display:inline;
 }
-header nav span {
+header nav .icon {
   position:absolute;
   left: 0.25em;
   top: 0.3em;
@@ -216,6 +217,7 @@ main {
 main section {
 	border-left: 1px #60656f solid;
 	padding: 0 0 1em 1em;
+  overflow:hidden;
 }
 main p {
 	display:block;
@@ -225,30 +227,30 @@ main i {
   font-style: italic;
 }
 
-main ul {
+main nav {
 	padding: 1em 0.5em 1em 0;
 }
-main ul li {
+main nav ul li {
 	font: 700 1.2rem "Lucida Grande","Lucida Sans Unicode",Helvetica,Arial,Verdana,sans-serif;
 	letter-spacing: 1px;
 }
-main ul li a {
+main nav ul li a {
 	display: block;
 	padding: 0.25em 0.75em;
 	border: 1px solid transparent;
 	box-shadow: 0px 0px 1px transparent;
 }
 
-main ul .target a:link, main ul .target a:visited {
+main nav ul .target a:link, main ul .target a:visited {
 	color: #bbc;
 }
-main ul li a:hover {
+main nav ul li a:hover {
 	background: #101316;
 	border-radius: 0.5em;
 	border: 1px solid #40454f;
   box-shadow: 0 0 1px #002;
 }
-main ul li a:link, main ul li a:visited {
+main nav ul li a:link, main ul li a:visited {
 	color:#fff;
 }
 .wrapper {
@@ -259,4 +261,71 @@ footer {
 	padding: 1em 0;
 	text-align: center;
 	color: #abadaf;
+}
+
+main nav label::before, main nav label::after {
+  content: "\25bc";
+}
+main nav input:checked~label::before, main nav input:checked~label::after {
+  content: "\25b2";
+}
+main nav input {
+  display: none;
+}
+main nav label {
+  position: relative;
+  display: none;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 600;
+  font-size:120%;
+  letter-spacing: 1px;
+}
+main nav input:checked~ul.submenu {
+  max-height: inherit;
+}
+
+@media (max-width: 1000px) {
+header nav ul li p span {
+  display:none;
+}
+}
+
+@media (max-width: 640px) {
+header nav .icon { 
+  left:-28px;
+}
+header nav ul {
+  padding-left: 32px;
+}
+main nav {
+  position:absolute;
+  background: #262a2b;
+	box-shadow: 0px 0px 7px #000;
+  border-radius: 0 0 9px 0;
+  border-right: 1px solid #999;
+  border-bottom: 1px solid #999;
+  user-select: none;
+}
+main nav ul.submenu {
+  max-height: 0;
+  overflow: hidden;
+}
+main nav label {
+  display:block;
+}
+main section {
+  margin-top: 2.75em;
+}
+@media (max-width: 560px) {
+header nav aside {
+  display: none;
+}
+}
+@media (max-width: 435px) {
+header nav ul li {
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 80%;
+}
 }

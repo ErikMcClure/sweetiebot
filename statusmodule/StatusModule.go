@@ -32,7 +32,7 @@ func (w *StatusModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *StatusModule) Description() string { return "Manages the status message." }
+func (w *StatusModule) Description(info *bot.GuildInfo) string { return "Manages the status message." }
 
 // OnTick discord hook
 func (w *StatusModule) OnTick(info *bot.GuildInfo, t time.Time) {

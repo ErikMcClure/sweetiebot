@@ -36,7 +36,7 @@ func (w *MiscModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *MiscModule) Description() string {
+func (w *MiscModule) Description(info *bot.GuildInfo) string {
 	return "A collection of miscellaneous commands that don't belong to a module. Review the help information on each command for more details."
 }
 

@@ -53,7 +53,7 @@ func (w *SchedulerModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *SchedulerModule) Description() string {
+func (w *SchedulerModule) Description(info *bot.GuildInfo) string {
 	return "Manages the scheduling system, and periodically checks for events that need to be processed. To change what channel this module sends birthday notifications or other events to, use `!setconfig modules.channels scheduler #channelname`."
 }
 

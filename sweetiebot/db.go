@@ -49,8 +49,6 @@ type BotDB struct {
 	sqlGetSpeechQuote         *sql.Stmt
 	sqlGetCharacterQuoteInt   *sql.Stmt
 	sqlGetCharacterQuote      *sql.Stmt
-	sqlGetRandomMemberInt     *sql.Stmt
-	sqlGetRandomMember        *sql.Stmt
 	sqlGetTableCounts         *sql.Stmt
 	sqlCountNewUsers          *sql.Stmt
 	sqlAudit                  *sql.Stmt
@@ -209,8 +207,6 @@ func (db *BotDB) LoadStatements() error {
 	db.sqlGetSpeechQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker != 'ACTION' AND Text != '' LIMIT 1 OFFSET ?")
 	db.sqlGetCharacterQuoteInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM transcripts WHERE Speaker = ? AND Text != ''))")
 	db.sqlGetCharacterQuote, err = db.Prepare("SELECT * FROM transcripts WHERE Speaker = ? AND Text != '' LIMIT 1 OFFSET ?")
-	db.sqlGetRandomMemberInt, err = db.Prepare("SELECT FLOOR(RAND()*(SELECT COUNT(*) FROM members WHERE Guild = ?))")
-	db.sqlGetRandomMember, err = db.Prepare("SELECT U.Username FROM members M INNER JOIN users U ON M.ID = U.ID WHERE M.Guild = ? LIMIT 1 OFFSET ?")
 	db.sqlGetTableCounts, err = db.Prepare("SELECT CONCAT('Chatlog: ', (SELECT COUNT(*) FROM chatlog), ' rows',  '\nAliases: ', (SELECT COUNT(*) FROM aliases), ' rows',  '\nDebuglog: ', (SELECT COUNT(*) FROM debuglog), ' rows',  '\nUsers: ', (SELECT COUNT(*) FROM users), ' rows',  '\nSchedule: ', (SELECT COUNT(*) FROM schedule), ' rows \nMembers: ', (SELECT COUNT(*) FROM members), ' rows \nItems: ', (SELECT COUNT(*) FROM items), ' rows \nTags: ', (SELECT COUNT(*) FROM tags), ' rows \nitemtags: ', (SELECT COUNT(*) FROM itemtags), ' rows');")
 	db.sqlCountNewUsers, err = db.Prepare("SELECT COUNT(*) FROM members WHERE FirstSeen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND) AND Guild = ?")
 	db.sqlAudit, err = db.Prepare("INSERT INTO debuglog (Type, User, Message, Timestamp, Guild) VALUE(?, ?, ?, UTC_TIMESTAMP(), ?)")
@@ -607,18 +603,6 @@ func (db *BotDB) GetCharacterQuote(character string) Transcript {
 		if err == sql.ErrNoRows || db.CheckError("GetCharacterQuote ", err) != nil {
 			return Transcript{0, 0, 0, "", ""}
 		}
-	}
-	return p
-}
-
-// GetRandomMember gets a random user from the guild
-func (db *BotDB) GetRandomMember(guild uint64) string {
-	var i uint64
-	err := db.sqlGetRandomMemberInt.QueryRow(guild).Scan(&i)
-	var p string
-	if db.CheckError("GetRandomMemberInt", err) == nil {
-		err = db.sqlGetRandomMember.QueryRow(guild, i).Scan(&p)
-		db.CheckError("GetRandomMember", err)
 	}
 	return p
 }

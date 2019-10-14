@@ -49,7 +49,7 @@ func (w *TagModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *TagModule) Description() string {
+func (w *TagModule) Description(info *bot.GuildInfo) string {
 	return "Contains commands for manipulating tags."
 }
 func (w *TagModule) prepStatement(query string, tags string, db *bot.BotDB) (*sql.Stmt, error) {

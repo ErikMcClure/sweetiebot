@@ -34,7 +34,7 @@ func (w *CountersModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *CountersModule) Description() string {
+func (w *CountersModule) Description(info *bot.GuildInfo) string {
 	return "Allows creating and managing incrementable counters."
 }
 
@@ -80,7 +80,7 @@ func (c *addCounterCommand) Process(args []string, msg *discordgo.Message, indic
 }
 func (c *addCounterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Creates a new counter with an initial value and description that can be incremented with the `!increment` command.",
+		Desc: "Creates a new counter with an initial value and description that can be incremented with the `" + info.Config.Basic.CommandPrefix + "increment` command.",
 		Params: []bot.CommandUsageParam{
 			{Name: "name", Desc: "A short name for the counter. Quotes are required if it has spaces.", Optional: false},
 			{Name: "initial value", Desc: "A number to start the counter at. If omitted, defaults to 0.", Optional: true},

@@ -36,7 +36,9 @@ func (w *MarkovModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *MarkovModule) Description() string { return "Generates content using markov chains." }
+func (w *MarkovModule) Description(info *bot.GuildInfo) string {
+	return "Generates content using markov chains."
+}
 
 type episodeGenCommand struct {
 	lock bot.AtomicFlag
@@ -250,14 +252,15 @@ func (c *shipCommand) Info() *bot.CommandInfo {
 	}
 }
 func (c *shipCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if !info.Bot.DB.CheckStatus() {
-		return "```\nA temporary database outage is preventing this command from being executed.```", false, nil
-	}
 	var a string
 	var b string
 	if info.Config.Markov.UseMemberNames {
-		a = info.Bot.DB.GetRandomMember(bot.SBatoi(info.ID))
-		b = info.Bot.DB.GetRandomMember(bot.SBatoi(info.ID))
+		if g, err := info.GetGuild(); err != nil {
+			return "```\nError: " + err.Error() + "```", false, nil
+		} else {
+			a = info.GetMemberName(g.Members[rand.Intn(len(g.Members))])
+			b = info.GetMemberName(g.Members[rand.Intn(len(g.Members))])
+		}
 	} else if info.Bot.Markov != nil && len(info.Bot.Markov.Speakers) > 0 {
 		a = info.Bot.Markov.Speakers[rand.Intn(len(info.Bot.Markov.Speakers))]
 		b = info.Bot.Markov.Speakers[rand.Intn(len(info.Bot.Markov.Speakers))]

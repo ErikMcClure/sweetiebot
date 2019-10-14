@@ -1,13 +1,9 @@
 # Sweetie Bot
-[![GoDoc](https://godoc.org/github.com/blackhole12/sweetiebot?status.svg)](https://godoc.org/github.com/blackhole12/sweetiebot/sweetiebot) [![Go report](http://goreportcard.com/badge/blackhole12/sweetiebot)](http://goreportcard.com/report/blackhole12/sweetiebot) [![Sweetie Bot Discord](https://img.shields.io/badge/Discord-%23sweetie%20bot-blue.svg)](https://discord.gg/t2gVQvN)
+[![GoDoc](https://godoc.org/github.com/blackhole12/sweetiebot?status.svg)](https://godoc.org/github.com/blackhole12/sweetiebot/sweetiebot) [![Go report](http://goreportcard.com/badge/blackhole12/sweetiebot)](http://goreportcard.com/report/blackhole12/sweetiebot)
 
-Sweetie Bot is an administration bot for Discord servers whose primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. Many users joining at the same time will trigger a lockdown to help immunize the chat against raids. [Patreon supporters](https://www.patreon.com/erikmcclure) also have access to a chat log that allows moderators to track deleted messages.
+Sweetie Bot is an administration bot for Discord servers whose primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. Many users joining at the same time will trigger a lockdown to help immunize the chat against raids. [Patreon supporters](https://www.patreon.com/erikmcclure) also have access to a discord support channel and a chat log that allows moderators to track deleted messages.
 
-### To add Sweetie Bot to your server, use [this link](https://discordapp.com/oauth2/authorize?client_id=171790139712864257&scope=bot&permissions=535948390).
-
-**If you have questions about Sweetie Bot, please join its [support channel](https://discord.gg/t2gVQvN)**
-
-**If you use Sweetie Bot, consider [contributing to its Patreon](https://www.patreon.com/erikmcclure) to help pay for maintenance costs and get additional features.**
+**Sweetie Bot is no longer under active development.** Feature requests will be denied, only bugfixes will be provided.
 
 ## Installing Sweetie Bot
 
@@ -94,12 +90,6 @@ Some maplists are whitelists of channels or roles. To change them into a blackli
 
 ## Error Recovery
 Sweetie Bot can function with no database, but most commands will no longer function, and it will be impossible to respond to PMs. While in this state, there will be no errors in the log about failed database operations, because Sweetie Bot simply won't attempt the operations in the first place until she can re-establish a connection. After a database failure is detected, she will attempt to reconnect to the database every 30 seconds. She also has a deadlock detector which sends fake !about commands through the pipeline every 20 seconds - if Sweetie Bot fails to respond for 1 minute and 40 seconds, she will automatically terminate and restart.
-
-## Docker Instance
-
-Sweetiebot can be run in a docker instance. Clone the repo, then edit the example `selfhost.json` file provided in the root directory. Provide a token from [https://discordapp.com/developers/applications/me](https://discordapp.com/developers/applications/me), provide the mysql root password, and put in the ID of your server. Remember to first add the bot to your server before attempting to start it from your [application page](https://discordapp.com/developers/applications/me). Once you've filled out `selfhost.json`, simply run `docker build .` to build a working image of sweetiebot.
-
-If you are using docker compose, follow all the previous steps, but also edit `docker-compose.yaml`. Replace  `<YOUR PASSWORD>` with the same mysql root password you used in `selfhost.json`. Then simply run `docker-compose up` and it will build the images. When first booting up, sweetiebot will fail to connect to the database while it's being built - simply wait a minute or two, and the bot will automatically re-establish a connection once it exists. When sweetie exits, the updater will run, and then the container will terminate. Docker-compose has been set to automatically restart it for you, but you can change this and any other options to suit your needs.
 
 ******
 

@@ -138,7 +138,7 @@ func (sb *SweetieBot) generateCache(webdir string) *template.Template {
 		config, _ := ConfigHelp[strings.ToLower(m.Name())]
 		module := webModule{
 			Name:        m.Name(),
-			Description: m.Description(),
+			Description: m.Description(sb.EmptyGuild),
 			URL:         strings.ToLower(m.Name()),
 			Config:      config,
 		}

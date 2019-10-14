@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 0, 3}
+var BotVersion = Version{1, 0, 1, 0}
 
 const (
 	MaxPublicLines    = 12
@@ -387,7 +387,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				}
 				gIDs = sb.DB.GetUserGuilds(authorid)
 				if len(gIDs) != 1 {
-					sb.DG.ChannelMessageSend(m.ChannelID, StringMap[STRING_NO_SERVER])
+					sb.DG.ChannelMessageSend(m.ChannelID, fmt.Sprintf(StringMap[STRING_NO_SERVER], info.Config.Basic.CommandPrefix))
 					return
 				}
 			} else if sb.DB.Status.Get() {
@@ -428,7 +428,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 			cmdname := CommandID(strings.ToLower(c.Info().Name))
 			if m.ChannelID != "heartbeat" && !info.Config.SetupDone && cmdname != CommandID("setup") {
-				info.SendError(channelID, "You haven't set up the bot yet! Run the !setup command first and follow the instructions.", t)
+				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_SETUP_MESSAGE], info.Config.Basic.CommandPrefix), t)
 				return
 			}
 
@@ -515,7 +515,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			}
 		} else if !info.Config.Basic.IgnoreInvalidCommands {
 			if private || !info.checkOnCommand(m) {
-				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_INVALID_COMMAND], info.Sanitize(args[0], CleanMentions|CleanPings|CleanEmotes|CleanCode)), t)
+				info.SendError(channelID, fmt.Sprintf(StringMap[STRING_INVALID_COMMAND], info.Sanitize(args[0], CleanMentions|CleanPings|CleanEmotes|CleanCode), info.Config.Basic.CommandPrefix), t)
 			}
 		}
 	} else if info != nil { // If info is nil this was sent through a private message so just ignore it completely
@@ -1046,6 +1046,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 0):  "- Fix certain messages to use the correct prefix\n- Clean removed members from the schedule\n- Added keep highest n dice to !showroll\n- Updated the transcripts one last time\n- !fight and !ship no longer require a database\n- Added basic mobile support to the website\n- Support channel now locked to patreon supporters\n- SWEETIE BOT IS NOW ARCHIVED. No new features will be added.",
 			AssembleVersion(1, 0, 0, 3):  "- Sanitize invalid command notification because nobody fucking reads the documentation.\n- Fixed embed field titles.\n- Made sweetiebot more persistent when added to a server.\n- WARNING: Large servers may soon be restricted to Patreon members due to immense load put on the bot.",
 			AssembleVersion(1, 0, 0, 2):  "- Removed selfhosting support until further notice\n- Sweetiebot now builds static version of the website.",
 			AssembleVersion(1, 0, 0, 1):  "- You can no longer !ban or !silence mods or admins.\n- !import now accepts server IDs instead of just names.\n- Using Member Role silencing is now optional when setting up a new server (but still highly recommended).",
