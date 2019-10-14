@@ -49,7 +49,7 @@ func (w *FilterModule) Commands() []bot.Command {
 }
 
 // Description of the module
-func (w *FilterModule) Description() string {
+func (w *FilterModule) Description(info *bot.GuildInfo) string {
 	return "Implements customizable filters that search for forbiddan words or phrases and removes them with a customizable response and excludable channels. Optionally also adds pressure to the user for triggering a filter, and if the response is set to !, doesn't remove the message at all, only adding pressure.\n\nIf you just want a basic case-insensitive word filter that respects spaces, use `!setconfig filter.templates` with your filter name and this template: `(?i)(^| )%%($| )`. \n\nExample usage: \n```!setfilter badwords \"This is a christian server, no swearing allowed.\"\n!setconfig filter.templates badwords (?i)(^| )%%($| )\n!addfilter badwords hell\n!addfilter badwords \"jesus christ\"```"
 }
 

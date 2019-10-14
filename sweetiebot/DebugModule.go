@@ -47,7 +47,7 @@ func (w *DebugModule) Commands() []Command {
 }
 
 // Description of the module
-func (w *DebugModule) Description() string {
+func (w *DebugModule) Description(info *GuildInfo) string {
 	return "Contains various debugging commands and checks for updates. Some of these commands can only be run by the bot owner. If you are selfhosting sweetie bot, these commands can be used to debug the bot."
 }
 

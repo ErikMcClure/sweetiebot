@@ -652,6 +652,11 @@ func (info *GuildInfo) GetUserName(user DiscordUser) string {
 	if m == nil {
 		return "<@" + u + ">"
 	}
+	return info.GetMemberName(m)
+}
+
+// GetMemberName gets either the nickname or username of a member
+func (info *GuildInfo) GetMemberName(m *discordgo.Member) string {
 	if len(m.Nick) > 0 {
 		return m.Nick
 	}
