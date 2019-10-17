@@ -97,7 +97,7 @@ var StringMap = map[int]string{
 	STRING_PM_FAILURE:                        "I tried to send you a Private Message, but it failed! Try PMing me the command directly.",
 	STRING_CHECK_PM:                          "```\nCheck your Private Messages for my reply!```",
 	STRING_DATABASE_ERROR:                    "```\nA temporary database error means I can't process any private message commands right now.```",
-	STRING_NO_SERVER:                         "```\nCannot determine what server you belong to! Use %sdefaultserver to set which server I should use when you PM me.```",
+	STRING_NO_SERVER:                         "```\nCannot determine what server you belong to! Use !defaultserver to set which server I should use when you PM me.```",
 	STRING_COMMANDS_LIMIT:                    "You can't input more than %v commands every %s!%s",
 	STRING_COMMAND_LIMIT:                     "You can only run that command once every %s!%s",
 	STRING_SETUP_MESSAGE:                     "You haven't set up the bot yet! Run the %ssetup command first and follow the instructions.",
