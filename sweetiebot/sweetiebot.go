@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 1, 0}
+var BotVersion = Version{1, 0, 1, 1}
 
 const (
 	MaxPublicLines    = 12
@@ -387,7 +387,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				}
 				gIDs = sb.DB.GetUserGuilds(authorid)
 				if len(gIDs) != 1 {
-					sb.DG.ChannelMessageSend(m.ChannelID, fmt.Sprintf(StringMap[STRING_NO_SERVER], info.Config.Basic.CommandPrefix))
+					sb.DG.ChannelMessageSend(m.ChannelID, StringMap[STRING_NO_SERVER])
 					return
 				}
 			} else if sb.DB.Status.Get() {
@@ -1046,6 +1046,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 1):  "- Fix dumb crash",
 			AssembleVersion(1, 0, 1, 0):  "- Fix certain messages to use the correct prefix\n- Clean removed members from the schedule\n- Added keep highest n dice to !showroll\n- Updated the transcripts one last time\n- !fight and !ship no longer require a database\n- Added basic mobile support to the website\n- Support channel now locked to patreon supporters\n- SWEETIE BOT IS NOW ARCHIVED. No new features will be added.",
 			AssembleVersion(1, 0, 0, 3):  "- Sanitize invalid command notification because nobody fucking reads the documentation.\n- Fixed embed field titles.\n- Made sweetiebot more persistent when added to a server.\n- WARNING: Large servers may soon be restricted to Patreon members due to immense load put on the bot.",
 			AssembleVersion(1, 0, 0, 2):  "- Removed selfhosting support until further notice\n- Sweetiebot now builds static version of the website.",
