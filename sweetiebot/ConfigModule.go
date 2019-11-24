@@ -293,7 +293,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 	_, err = info.Bot.DG.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, discordgo.PermissionReadMessages, false)
 	if err != nil {
 		info.Bot.DG.GuildRoleDelete(info.ID, silent.ID)
-		return fmt.Sprintf("```\nFailed to set up the silent role! %s```", err.Error()), false, nil
+		return fmt.Sprintf("```\nFailed to set up the silent role properties! %s```", err.Error()), false, nil
 	}
 
 	info.Config.Basic.SilenceRole, _ = ParseRole(silent.ID, nil)
