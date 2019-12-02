@@ -1,5 +1,5 @@
 # Sweetie Bot
-[![GoDoc](https://godoc.org/github.com/blackhole12/sweetiebot?status.svg)](https://godoc.org/github.com/blackhole12/sweetiebot/sweetiebot) [![Go report](http://goreportcard.com/badge/blackhole12/sweetiebot)](http://goreportcard.com/report/blackhole12/sweetiebot)
+[![GoDoc](https://godoc.org/github.com/erikmcclure/sweetiebot?status.svg)](https://godoc.org/github.com/erikmcclure/sweetiebot/sweetiebot) [![Go report](http://goreportcard.com/badge/erikmcclure/sweetiebot)](http://goreportcard.com/report/erikmcclure/sweetiebot)
 
 Sweetie Bot is an administration bot for Discord servers whose primary function is anti-spam, by detecting potential spammers, silencing them, and deleting their messages. Many users joining at the same time will trigger a lockdown to help immunize the chat against raids. [Patreon supporters](https://www.patreon.com/erikmcclure) also have access to a discord support channel and a chat log that allows moderators to track deleted messages.
 

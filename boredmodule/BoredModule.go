@@ -7,7 +7,7 @@ import (
 	"time"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 // BoredModule picks a random action to do whenever a channel has been idle for several minutes (configurable)

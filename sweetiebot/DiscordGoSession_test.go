@@ -7,7 +7,7 @@ import (
 
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 func (s *DiscordGoSession) AddHandler(handler interface{}) func() {

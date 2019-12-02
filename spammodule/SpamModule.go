@@ -9,7 +9,7 @@ import (
 	"time"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 type userPressure struct {
