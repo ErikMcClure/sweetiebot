@@ -3,8 +3,8 @@ FROM golang:alpine as builder
 ENV GOOS=linux GOARCH=amd64 CGO_ENABLED=0
 ADD . /go
 RUN apk add --no-cache git
-RUN go get github.com/blackhole12/discordgo
-RUN cd src/github.com/blackhole12/discordgo/;git checkout develop
+RUN go get github.com/erikmcclure/discordgo
+RUN cd src/github.com/erikmcclure/discordgo/;git checkout develop
 RUN go get github.com/go-sql-driver/mysql
 RUN go get "4d63.com/tz"
 RUN go build -a -installsuffix cgo -o sweetie.out ./sweetie

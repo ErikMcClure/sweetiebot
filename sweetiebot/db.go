@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"4d63.com/tz"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 	"github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
 )
 

@@ -3,7 +3,7 @@ package sweetiebot
 import (
 	"strings"
 
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 type sbRequestBuffer struct {

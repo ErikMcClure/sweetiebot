@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 // MarkovModule generates content using markov chains

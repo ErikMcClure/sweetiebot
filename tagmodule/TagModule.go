@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 const (
@@ -346,7 +346,7 @@ func ShowAllTags(message string, info *bot.GuildInfo) *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
 		Type: "rich",
 		Author: &discordgo.MessageEmbedAuthor{
-			URL:     "https://github.com/blackhole12/sweetiebot",
+			URL:     "https://github.com/erikmcclure/sweetiebot",
 			Name:    info.GetBotName() + " Tags",
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 		},

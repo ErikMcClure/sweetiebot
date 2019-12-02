@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 const maxShowDice int64 = 250

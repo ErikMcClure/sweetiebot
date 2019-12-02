@@ -8,7 +8,7 @@ import (
 	"time"
 
 	bot "../sweetiebot"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 // SchedulerModule manages the scheduling system

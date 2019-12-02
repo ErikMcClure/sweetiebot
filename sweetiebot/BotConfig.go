@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"4d63.com/tz"
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 type ModuleID string

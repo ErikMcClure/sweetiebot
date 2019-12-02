@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blackhole12/discordgo"
+	"github.com/erikmcclure/discordgo"
 )
 
 var sqlfileregex = regexp.MustCompile("^sql_([0-9]+)[.]sql$")
