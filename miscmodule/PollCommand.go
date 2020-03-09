@@ -78,7 +78,7 @@ func (c *pollCommand) Process(args []string, msg *discordgo.Message, indices []i
 	votes := make(map[string]int)
 	for _, v := range target.Reactions {
 		if max <= 100 { // It's impossible to get more than 100 user reactions to a message, so give up if the max exceeds 100
-			if users, err := info.Bot.DG.MessageReactions(target.ChannelID, target.ID, v.Emoji.APIName(), 100); err == nil {
+			if users, err := info.Bot.DG.MessageReactions(target.ChannelID, target.ID, v.Emoji.APIName(), 100, "", ""); err == nil {
 				for _, v := range users {
 					n := votes[v.ID] // If this doesn't exist it will get the zero value, which happens to be what we want anyway
 					votes[v.ID] = n + 1
