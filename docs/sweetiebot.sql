@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS `chatlog` (
   CONSTRAINT `CHATLOG_USERS` FOREIGN KEY (`Author`) REFERENCES `users` (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='A log of all the messages from all the chatrooms.'//
 
-
+DROP EVENT `CleanAliases`//
 CREATE EVENT `CleanAliases`
 	ON SCHEDULE
 		EVERY 1 DAY STARTS '2018-01-23 16:29:25'
