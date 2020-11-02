@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 1, 5}
+var BotVersion = Version{1, 0, 1, 6}
 
 const (
 	MaxPublicLines    = 12
@@ -170,7 +170,6 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.Guilds[DiscordGuild(g.ID)]
 	sb.GuildsLock.RUnlock()
 	if exists {
-		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
 		guild.ProcessGuild(g)
 		return
 	}
@@ -260,7 +259,6 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	sb.Guilds[DiscordGuild(g.ID)] = guild
 	guild.ProcessGuild(g) // This can be done outside of the guild lock, but it puts a lot of pressure on the database
 	sb.GuildsLock.Unlock()
-	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(g.ID): guild})
 
 	if atomic.LoadUint32(&sb.quit) == QuitNone { // We can't check this inside the guild lock because it can deadlock if we run out of channel buffer, so we just run the risk of crashing while closing instead of closing nicely
 		sb.memberChan <- guild // Do this concurrently because it just has to happen eventually.
@@ -317,7 +315,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 		if guild.Silver.Get() {
 			changes += "\n\nThank you for your support!"
 		} else {
-			changes += "\n\nPlease consider donating $1 to help pay for hosting costs: " + PatreonURL
+			changes += "\n\nPlease stop using this bot, it produces only pain and suffering."
 		}
 	}
 	guild.Log(sb.AppName+" version ", BotVersion.String(), " successfully loaded on ", g.Name, debug, changes)
@@ -876,6 +874,10 @@ func (sb *SweetieBot) memberIngestionLoop() {
 			members = append(members, m...)
 			lastid = m[len(m)-1].User.ID
 		}
+		for i := range members { // Put the guildID back in because discord is stupid
+			members[i].GuildID = guild.ID
+			sb.DG.State.MemberAdd(members[i])
+		}
 		if guild.ID == SilverServerID {
 			for _, m := range members {
 				sb.Selfhoster.CheckDonor(m)
@@ -883,10 +885,6 @@ func (sb *SweetieBot) memberIngestionLoop() {
 			sb.GuildsLock.RLock()
 			sb.Selfhoster.CheckGuilds(sb.Guilds)
 			sb.GuildsLock.RUnlock()
-		}
-		for i := range members { // Put the guildID back in because discord is stupid
-			members[i].GuildID = guild.ID
-			sb.DG.State.MemberAdd(members[i])
 		}
 		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(guild.ID): guild})
 	}
@@ -1046,6 +1044,8 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 6):  "- Remove useless silver checks",
+			AssembleVersion(1, 0, 1, 5):  "- Update discordgo",
 			AssembleVersion(1, 0, 1, 4):  "- Update discordgo",
 			AssembleVersion(1, 0, 1, 3):  "- Fix discordgo",
 			AssembleVersion(1, 0, 1, 2):  "- Update API",
