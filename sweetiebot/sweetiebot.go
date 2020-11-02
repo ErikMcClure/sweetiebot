@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 1, 4}
+var BotVersion = Version{1, 0, 1, 5}
 
 const (
 	MaxPublicLines    = 12

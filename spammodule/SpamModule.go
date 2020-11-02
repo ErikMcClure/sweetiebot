@@ -317,6 +317,7 @@ func (w *SpamModule) DisableLockdown(info *bot.GuildInfo) {
 				Icon:                        "",
 				OwnerID:                     "",
 				Splash:                      "",
+        Banner:                      "",
 			}
 			_, err = info.Bot.DG.GuildEdit(info.ID, g)
 		}
@@ -366,7 +367,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 					w.lockdown = guild.VerificationLevel
 				}
 				level := discordgo.VerificationLevelHigh
-				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", ""}
+				g := discordgo.GuildParams{"", "", &level, 0, "", 0, "", "", "", ""}
 				_, err = info.Bot.DG.GuildEdit(info.ID, g)
 				if err != nil {
 					info.SendMessage(ch, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_LOCKDOWN_ENGAGE_FAILURE], info.GetBotName(), info.Config.Basic.CommandPrefix))
