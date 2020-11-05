@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 1, 6}
+var BotVersion = Version{1, 0, 1, 7}
 
 const (
 	MaxPublicLines    = 12
@@ -678,6 +678,29 @@ func (sb *SweetieBot) GuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMem
 	}
 }
 
+func (sb *SweetieBot) GuildMembersChunk(s *discordgo.Session, chunk *discordgo.GuildMembersChunk) {
+	info := sb.getGuildFromID(chunk.GuildID)
+	if info == nil {
+		return
+	}
+	info.memberBulkUpdate(chunk.Members)
+	for _, m := range chunk.Members {
+		info.Bot.DG.State.MemberAdd(m)
+
+		if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m) {
+			sb.GuildsLock.RLock()
+			sb.Selfhoster.CheckGuilds(sb.Guilds)
+			sb.GuildsLock.RUnlock()
+		}
+
+		for _, h := range info.hooks.OnGuildMemberAdd {
+			if info.ProcessModule("", h) {
+				h.OnGuildMemberAdd(info, m, time.Now().UTC())
+			}
+		}
+	}
+}
+
 // GuildMemberRemove discord hook
 func (sb *SweetieBot) GuildMemberRemove(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	info := sb.getGuildFromID(m.GuildID)
@@ -1044,6 +1067,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 7):  "- Attempt to fix new user detection problems",
 			AssembleVersion(1, 0, 1, 6):  "- Remove useless silver checks",
 			AssembleVersion(1, 0, 1, 5):  "- Update discordgo",
 			AssembleVersion(1, 0, 1, 4):  "- Update discordgo",
@@ -1283,6 +1307,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	sb.DG.AddHandler(sb.GuildMemberAdd)
 	sb.DG.AddHandler(sb.GuildMemberRemove)
 	sb.DG.AddHandler(sb.GuildMemberUpdate)
+	sb.DG.AddHandler(sb.GuildMembersChunk)
 	sb.DG.AddHandler(sb.GuildBanAdd)
 	sb.DG.AddHandler(sb.GuildBanRemove)
 	sb.DG.AddHandler(sb.GuildRoleDelete)

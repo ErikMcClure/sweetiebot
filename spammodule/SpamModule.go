@@ -317,7 +317,7 @@ func (w *SpamModule) DisableLockdown(info *bot.GuildInfo) {
 				Icon:                        "",
 				OwnerID:                     "",
 				Splash:                      "",
-        Banner:                      "",
+				Banner:                      "",
 			}
 			_, err = info.Bot.DG.GuildEdit(info.ID, g)
 		}
@@ -381,6 +381,14 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 	}
 }
 
+func (w *SpamModule) ADDMEMBER(info *bot.GuildInfo, m *discordgo.Member) {
+	err := info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.MemberRole.String())
+
+	if err != nil {
+		fmt.Println("ADDMEMBER ERROR:", err.Error())
+	}
+}
+
 // OnGuildMemberAdd discord hook
 func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
 	w.silenceLock.Lock()
@@ -392,7 +400,7 @@ func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, 
 			defer info.SendMessage(info.Config.Users.WelcomeChannel, "<@"+m.User.ID+"> "+info.Config.Users.WelcomeMessage)
 		}
 	} else if info.Config.Basic.MemberRole != bot.RoleEmpty {
-		defer info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.MemberRole.String())
+		defer w.ADDMEMBER(info, m)
 	}
 	w.silenceLock.Unlock()
 
