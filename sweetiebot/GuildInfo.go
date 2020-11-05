@@ -248,6 +248,7 @@ func (info *GuildInfo) IsDebug(channelID DiscordChannel) bool {
 
 // ProcessMember called ProcessUser and adds additional member information to the database
 func (info *GuildInfo) ProcessMember(u *discordgo.Member) {
+	info.Bot.DG.State.MemberAdd(u)
 	info.Bot.ProcessUser(u.User)
 
 	if info.Bot.DB.CheckStatus() {
@@ -648,8 +649,11 @@ func (info *GuildInfo) findUsernameInternal(arg string, recurse int) []uint64 {
 // GetUserName returns a string representation of the user's name if possible, otherwise pings them.
 func (info *GuildInfo) GetUserName(user DiscordUser) string {
 	u := user.String()
-	m, _ := info.Bot.DG.State.Member(info.ID, u)
+	m, err := info.Bot.DG.State.Member(info.ID, u)
 	if m == nil {
+		if err != nil {
+			fmt.Println("GetUserName ERROR:", err.Error())
+		}
 		return "<@" + u + ">"
 	}
 	return info.GetMemberName(m)
