@@ -129,7 +129,9 @@ func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 								delete(info.Bot.Guilds, DiscordGuild(id))
 								info.Bot.GuildsLock.Unlock()
 								if err := os.Remove(id + ".json"); err == nil {
-									err = info.Bot.DB.RemoveGuild(SBatoi(id))
+									if info.Bot.DB.CheckStatus() {
+										err = info.Bot.DB.RemoveGuild(SBatoi(id))
+									}
 								}
 								info.LogError("Error deleting guild: ", err)
 							}
@@ -415,6 +417,9 @@ func (c *dumpTablesCommand) Info() *CommandInfo {
 func (c *dumpTablesCommand) Process(args []string, msg *discordgo.Message, indices []int, info *GuildInfo) (string, bool, *discordgo.MessageEmbed) {
 	if !info.Bot.Owner.Equals(msg.Author.ID) {
 		return "```\nOnly the owner of the bot itself can call this!```", false, nil
+	}
+	if !info.Bot.DB.CheckStatus() {
+		return "```\nDatabase unavailable!!!```", false, nil
 	}
 	return "```\n" + info.Bot.DB.GetTableCounts() + "```", false, nil
 }

@@ -61,8 +61,10 @@ func (w *UsersModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member,
 		assignRoleMember(info, bot.DiscordUser(m.User.ID), info.Config.Users.NewUserRole)
 
 		gID := bot.SBatoi(info.ID)
-		if err := info.Bot.DB.AddSchedule(gID, time.Now().Add(time.Second*time.Duration(info.Config.Users.NewUserDuration)), 9, m.User.ID+"|"+info.Config.Users.NewUserRole.String()); err != nil {
-			info.LogError("Failed to add NewUserRole to schedule: ", err)
+		if info.Bot.DB.CheckStatus() {
+			if err := info.Bot.DB.AddSchedule(gID, time.Now().Add(time.Second*time.Duration(info.Config.Users.NewUserDuration)), 9, m.User.ID+"|"+info.Config.Users.NewUserRole.String()); err != nil {
+				info.LogError("Failed to add NewUserRole to schedule: ", err)
+			}
 		}
 	}
 }
