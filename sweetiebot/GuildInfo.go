@@ -284,28 +284,26 @@ func (info *GuildInfo) memberBulkUpdate(members []*discordgo.Member) {
 	info.LogError("Error in MemberBulkUpdate", err)
 }
 
-// ProcessGuild updates guild information and adds the initial member list to the database
-func (info *GuildInfo) ProcessGuild(g *discordgo.Guild) {
-	info.Name = g.Name
-	info.OwnerID = DiscordUser(g.OwnerID)
+// ProcessMembers adds a member list to the database
+func (info *GuildInfo) ProcessMembers(m []*discordgo.Member) {
 	const chunksize int = 1000
 
-	if len(g.Members) > 0 && info.Bot.DB.CheckStatus() {
+	if len(m) > 0 && info.Bot.DB.CheckStatus() {
 		// First process userdata
 		i := chunksize
-		for i < len(g.Members) {
-			info.userBulkUpdate(g.Members[i-chunksize : i])
+		for i < len(m) {
+			info.userBulkUpdate(m[i-chunksize : i])
 			i += chunksize
 		}
-		info.userBulkUpdate(g.Members[i-chunksize:])
+		info.userBulkUpdate(m[i-chunksize:])
 
 		// Then process member data
 		i = chunksize
-		for i < len(g.Members) {
-			info.memberBulkUpdate(g.Members[i-chunksize : i])
+		for i < len(m) {
+			info.memberBulkUpdate(m[i-chunksize : i])
 			i += chunksize
 		}
-		info.memberBulkUpdate(g.Members[i-chunksize:])
+		info.memberBulkUpdate(m[i-chunksize:])
 	}
 }
 
