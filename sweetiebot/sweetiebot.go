@@ -36,7 +36,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 1, 7}
+var BotVersion = Version{1, 0, 1, 8}
 
 const (
 	MaxPublicLines    = 12
@@ -130,7 +130,7 @@ func (sb *SweetieBot) ChannelIsPrivate(channelID DiscordChannel) (*discordgo.Cha
 
 // OnReady discord hook
 func (sb *SweetieBot) OnReady(s *discordgo.Session, r *discordgo.Ready) {
-	fmt.Println("Ready message receieved, waiting for guilds...")
+	fmt.Println("Ready message receieved, re-processing " + strconv.Itoa(len(r.Guilds)) + " existing guilds.")
 	sb.SelfID = DiscordUser(r.User.ID)
 	sb.SelfAvatar = r.User.Avatar
 	sb.SelfName = r.User.Username
@@ -170,7 +170,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	guild, exists := sb.Guilds[DiscordGuild(g.ID)]
 	sb.GuildsLock.RUnlock()
 	if exists {
-		guild.ProcessGuild(g)
+		sb.memberChan <- guild
 		return
 	}
 	if sb.Debug {
@@ -179,7 +179,6 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 			/*guild = NewGuildInfo(sb, g)
 			sb.GuildsLock.Lock()
 			sb.Guilds[DiscordGuild(g.ID)] = guild
-			guild.ProcessGuild(g)
 			sb.GuildsLock.Unlock()
 			sb.memberChan <- guild
 			//fmt.Println("Processed", g.Name)*/
@@ -257,7 +256,8 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 
 	sb.GuildsLock.Lock()
 	sb.Guilds[DiscordGuild(g.ID)] = guild
-	guild.ProcessGuild(g) // This can be done outside of the guild lock, but it puts a lot of pressure on the database
+	guild.Name = g.Name
+	guild.OwnerID = DiscordUser(g.OwnerID)
 	sb.GuildsLock.Unlock()
 
 	if atomic.LoadUint32(&sb.quit) == QuitNone { // We can't check this inside the guild lock because it can deadlock if we run out of channel buffer, so we just run the risk of crashing while closing instead of closing nicely
@@ -648,7 +648,9 @@ func (sb *SweetieBot) GuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate
 	}
 	fmt.Println("Guild update detected, updating", m.Name)
 	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(info.ID): info})
-	info.ProcessGuild(m.Guild)
+	info.Name = m.Guild.Name
+	info.OwnerID = DiscordUser(m.Guild.OwnerID)
+	info.ProcessMembers(m.Guild.Members)
 
 	for _, h := range info.hooks.OnGuildUpdate {
 		if info.ProcessModule("", h) {
@@ -683,7 +685,7 @@ func (sb *SweetieBot) GuildMembersChunk(s *discordgo.Session, chunk *discordgo.G
 	if info == nil {
 		return
 	}
-	info.memberBulkUpdate(chunk.Members)
+	info.ProcessMembers(chunk.Members)
 	for _, m := range chunk.Members {
 		info.Bot.DG.State.MemberAdd(m)
 
@@ -1067,6 +1069,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 8):  "- Actually fix new user detection by requesting the necessary privileged intent\n- Fixed quote mention problems caused by discordgo deleting the entire member list on reconnecting.",
 			AssembleVersion(1, 0, 1, 7):  "- Attempt to fix new user detection problems",
 			AssembleVersion(1, 0, 1, 6):  "- Remove useless silver checks",
 			AssembleVersion(1, 0, 1, 5):  "- Update discordgo",
@@ -1289,6 +1292,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		fmt.Println("Started SweetieBot on a user account.")
 	} else {
 		dg, err = discordgo.New("Bot " + sb.Token)
+		dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAllWithoutPrivileged | discordgo.IntentsGuildMembers)
 	}
 	sb.DG = &DiscordGoSession{*dg}
 
