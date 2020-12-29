@@ -29,7 +29,8 @@ func (w *CountersModule) Commands() []bot.Command {
 		&addCounterCommand{},
 		&removeCounterCommand{},
 		&counterCommand{},
-		&incrementCommand{},
+		&incrementCommand{},		
+		&decrementCommand{},
 	}
 }
 
@@ -80,11 +81,11 @@ func (c *addCounterCommand) Process(args []string, msg *discordgo.Message, indic
 }
 func (c *addCounterCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Creates a new counter with an initial value and description that can be incremented with the `" + info.Config.Basic.CommandPrefix + "increment` command.",
+		Desc: "Creates a new counter with an initial value and description that can be incremented with the `" + info.Config.Basic.CommandPrefix + "increment` command, or decremented with the `" + info.Config.Basic.CommandPrefix + "decrement` command.",
 		Params: []bot.CommandUsageParam{
 			{Name: "name", Desc: "A short name for the counter. Quotes are required if it has spaces.", Optional: false},
 			{Name: "initial value", Desc: "A number to start the counter at. If omitted, defaults to 0.", Optional: true},
-			{Name: "description", Desc: "The string echoed by " + info.GetBotName() + " when the counter is incremented. Defaults to `[counter] is at %%`, where `%%` is replaced by the counter value. If the string doesn't contain `%%` it pastes the value of the counter on the end.", Optional: true},
+			{Name: "description", Desc: "The string echoed by " + info.GetBotName() + " when the counter is incremented or decremented. Defaults to `[counter] is at %%`, where `%%` is replaced by the counter value. If the string doesn't contain `%%` it pastes the value of the counter on the end.", Optional: true},
 		},
 	}
 }
@@ -193,6 +194,40 @@ func (c *incrementCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 		Desc: "Increments a counter by 1 and returns the new value.",
 		Params: []bot.CommandUsageParam{
 			{Name: "name", Desc: "Name of the counter to increment.", Optional: false},
+		},
+	}
+}
+
+type decrementCommand struct {
+}
+
+func (c *decrementCommand) Info() *bot.CommandInfo {
+	return &bot.CommandInfo{
+		Name:      "Decrement",
+		Usage:     "Decrements a given counter by 1.",
+		Sensitive: true,
+	}
+}
+func (c *decrementCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 1 {
+		return "```You must provide a counter to decrement!```", false, nil
+	}
+
+	arg := info.Sanitize(msg.Content[indices[0]:], bot.CleanMentions|bot.CleanPings|bot.CleanEmotes|bot.CleanCode)
+	if counter, ok := info.Config.Counters.Map[arg]; ok {
+		counter--
+		info.Config.Counters.Map[arg] = counter
+		desc, _ := info.Config.Counters.Descriptions[arg]
+		info.SaveConfig()
+		return resolveDesc(counter, desc), false, nil
+	}
+	return arg + " is not a counter!", false, nil
+}
+func (c *decrementCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
+	return &bot.CommandUsage{
+		Desc: "Decrements a counter by 1 and returns the new value.",
+		Params: []bot.CommandUsageParam{
+			{Name: "name", Desc: "Name of the counter to decrement.", Optional: false},
 		},
 	}
 }
