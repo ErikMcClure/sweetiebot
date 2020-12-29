@@ -1069,6 +1069,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 1, 9):  "- Introduced the !decrement command. This will decrement a counter by 1.",
 			AssembleVersion(1, 0, 1, 8):  "- Actually fix new user detection by requesting the necessary privileged intent\n- Fixed quote mention problems caused by discordgo deleting the entire member list on reconnecting.",
 			AssembleVersion(1, 0, 1, 7):  "- Attempt to fix new user detection problems",
 			AssembleVersion(1, 0, 1, 6):  "- Remove useless silver checks",
