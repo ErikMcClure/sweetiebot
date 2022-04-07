@@ -7,7 +7,7 @@ import (
 
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 func (s *DiscordGoSession) AddHandler(handler interface{}) func() {
@@ -67,7 +67,7 @@ func (s *DiscordGoSession) ChannelMessageSendEmbed(channelID string, embed *disc
 	mock.Input(interface{}(s.ChannelMessageSendEmbed), channelID, embed)
 	return
 }
-func (s *DiscordGoSession) ChannelPermissionSet(channelID, targetID, targetType string, allow, deny int) (err error) {
+func (s *DiscordGoSession) ChannelPermissionSet(channelID, targetID string, targetType discordgo.PermissionOverwriteType, allow, deny int64) (err error) {
 	mock.Input(interface{}(s.ChannelPermissionSet), channelID, targetID, targetType, allow, deny)
 	return
 }
@@ -132,7 +132,7 @@ func (s *DiscordGoSession) GuildRoleCreate(guildID string) (st *discordgo.Role, 
 	mock.Input(interface{}(s.GuildRoleCreate), guildID)
 	return
 }
-func (s *DiscordGoSession) GuildRoleEdit(guildID, roleID, name string, color int, hoist bool, perm int, mention bool) (st *discordgo.Role, err error) {
+func (s *DiscordGoSession) GuildRoleEdit(guildID, roleID, name string, color int, hoist bool, perm int64, mention bool) (st *discordgo.Role, err error) {
 	mock.Input(interface{}(s.GuildRoleEdit), guildID, roleID, name, color, hoist, perm, mention)
 	return
 }
@@ -152,8 +152,8 @@ func (s *DiscordGoSession) User(userID string) (st *discordgo.User, err error) {
 	}
 	return nil, discordgo.ErrStateNotFound
 }
-func (s *DiscordGoSession) UserUpdate(email, password, username, avatar, newPassword string) (st *discordgo.User, err error) {
-	mock.Input(interface{}(s.UserUpdate), email, password, username, avatar, newPassword)
+func (s *DiscordGoSession) UserUpdate(username, avatar string) (st *discordgo.User, err error) {
+	mock.Input(interface{}(s.UserUpdate), username, avatar)
 	return
 }
 func (s *DiscordGoSession) UserChannelCreate(recipientID string) (st *discordgo.Channel, err error) {

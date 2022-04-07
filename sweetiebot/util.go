@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 // ErrRoleNoMatch is thrown when a role name doesn't exist on the server
@@ -315,7 +315,7 @@ func GetCurrentDir() (string, error) {
 }
 
 // GuildMemberPermissions gets all permissions for a user, ignoring channel specific overrides
-func GuildMemberPermissions(member *discordgo.Member, guild *discordgo.Guild) (apermissions int) {
+func GuildMemberPermissions(member *discordgo.Member, guild *discordgo.Guild) (apermissions int64) {
 	if member.User.ID == guild.OwnerID {
 		apermissions = discordgo.PermissionAll
 		return
@@ -382,23 +382,18 @@ func ParseRepeatInterval(s string) uint8 {
 
 // GetTimestamp returns the timestamp of the last edit of the message or time.Now() if there is no valid timestamp
 func GetTimestamp(m *discordgo.Message) time.Time {
-	if len(m.EditedTimestamp) > 0 {
-		if t, err := m.EditedTimestamp.Parse(); err == nil {
-			return t.UTC()
-		}
+	if m.EditedTimestamp != nil {
+		return *m.EditedTimestamp
 	}
-	if t, err := m.Timestamp.Parse(); err == nil {
+	if t, err := discordgo.SnowflakeTimestamp(m.ID); err == nil {
 		return t.UTC()
 	}
-	return time.Now().UTC()
+	return m.Timestamp
 }
 
 // GetJoinedAt returns either the time the member joined or time.Now() if there is an error
 func GetJoinedAt(m *discordgo.Member) time.Time {
-	if t, err := m.JoinedAt.Parse(); err == nil {
-		return t
-	}
-	return time.Now().UTC()
+	return m.JoinedAt
 }
 
 // GetRoleByName gets a role by its name

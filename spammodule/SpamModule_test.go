@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	bot "../sweetiebot"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 func TestHeap(t *testing.T) {

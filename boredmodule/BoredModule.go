@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // BoredModule picks a random action to do whenever a channel has been idle for several minutes (configurable)
@@ -45,7 +45,7 @@ func (w *BoredModule) idle(info *bot.GuildInfo, id bot.DiscordChannel, t time.Ti
 				Verified: true,
 				Bot:      true,
 			},
-			Timestamp: discordgo.Timestamp(t.Format(time.RFC3339Nano)),
+			Timestamp: t,
 		}
 		fmt.Println("Sending bored command ", m.Content, " on ", id)
 
