@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"../sweetiebot"
+	"github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 func main() {

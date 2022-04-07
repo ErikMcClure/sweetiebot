@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	bot "../sweetiebot"
 	"4d63.com/tz"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // UsersModule contains commands for getting and setting user information
@@ -487,15 +487,12 @@ func (c *userInfoCommand) Process(args []string, msg *discordgo.Message, indices
 		}
 		m.User = u
 	}
-	if dbmember != nil && len(dbmember.JoinedAt) > 0 {
+	if dbmember != nil {
 		m.JoinedAt = dbmember.JoinedAt
 	}
 	authortz := info.GetTimezone(bot.DiscordUser(msg.Author.ID))
-	joinedat, err := m.JoinedAt.Parse()
-	joined := ""
-	if err == nil {
-		joined = bot.TimeDiff(timestamp.Sub(joinedat.In(authortz))) + " ago (" + joinedat.In(authortz).Format(time.RFC822) + ")"
-	}
+	joinedattz := m.JoinedAt.In(authortz)
+	joined := bot.TimeDiff(timestamp.Sub(joinedattz)) + " ago (" + joinedattz.Format(time.RFC822) + ")"
 
 	roles := make([]string, 0, len(m.Roles))
 	for _, v := range m.Roles {

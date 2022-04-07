@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"4d63.com/tz"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 // GuildInfo Stores state information about a guild
@@ -551,10 +551,10 @@ func (info *GuildInfo) setupSilenceRole() {
 	for _, ch := range guild.Channels {
 		// If there is a silence role, override it on all channels
 		if info.Config.Basic.SilenceRole != RoleEmpty {
-			allow := 0
-			deny := 0
+			allow := int64(0)
+			deny := int64(0)
 			for _, v := range ch.PermissionOverwrites {
-				if strings.ToLower(v.Type) == "role" && info.Config.Basic.SilenceRole.Equals(v.ID) {
+				if v.Type == discordgo.PermissionOverwriteTypeRole && info.Config.Basic.SilenceRole.Equals(v.ID) {
 					allow = v.Allow
 					deny = v.Deny
 					break
@@ -564,26 +564,34 @@ func (info *GuildInfo) setupSilenceRole() {
 				allow &= (^discordgo.PermissionSendMessages)
 				deny |= discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
 			} else {
-				deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionReadMessages))
-				allow |= discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
+				deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionViewChannel))
+				allow |= discordgo.PermissionSendMessages | discordgo.PermissionViewChannel
 			}
-			info.ChannelPermissionSet(ch, info.Config.Basic.SilenceRole.String(), "role", allow, deny)
+			err := info.ChannelPermissionSet(ch, info.Config.Basic.SilenceRole.String(), discordgo.PermissionOverwriteTypeRole, allow, deny)
+			if err != nil {
+				info.Log("Failed to setup silence roles!")
+				return
+			}
 		}
 
 		// If this is the welcome channel and we have a member role, ensure the everyone role can speak in it by overriding the channel permissions.
 		if info.Config.Basic.MemberRole != RoleEmpty && info.Config.Users.WelcomeChannel.Equals(ch.ID) {
-			allow := 0
-			deny := 0
+			allow := int64(0)
+			deny := int64(0)
 			for _, v := range ch.PermissionOverwrites {
-				if strings.ToLower(v.Type) == "role" && info.ID == v.ID {
+				if v.Type == discordgo.PermissionOverwriteTypeRole && info.ID == v.ID {
 					allow = v.Allow
 					deny = v.Deny
 					break
 				}
 			}
-			deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionReadMessages))
-			allow |= discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
-			info.ChannelPermissionSet(ch, info.ID, "role", allow, deny)
+			deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionViewChannel))
+			allow |= discordgo.PermissionSendMessages | discordgo.PermissionViewChannel
+			err := info.ChannelPermissionSet(ch, info.ID, discordgo.PermissionOverwriteTypeRole, allow, deny)
+			if err != nil {
+				info.Log("Failed to setup silence roles!")
+				return
+			}
 		}
 	}
 }
@@ -751,7 +759,7 @@ func (info *GuildInfo) ChannelMessageDelete(channel *discordgo.Channel, messageI
 }
 
 // ChannelPermissionSet check the channel guildID before calling the real ChannelPermissionSet
-func (info *GuildInfo) ChannelPermissionSet(channel *discordgo.Channel, targetID, targetType string, allow, deny int) (err error) {
+func (info *GuildInfo) ChannelPermissionSet(channel *discordgo.Channel, targetID string, targetType discordgo.PermissionOverwriteType, allow, deny int64) (err error) {
 	if channel == nil || channel.GuildID != info.ID {
 		return errInvalidChannel
 	}

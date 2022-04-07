@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 // ChannelRegex matches any valid discord channel ping
@@ -998,7 +998,7 @@ func (sb *SweetieBot) deadlockDetector() {
 					Verified: true,
 					Bot:      true,
 				},
-				Timestamp: discordgo.Timestamp(time.Now().UTC().Format(time.RFC3339Nano)),
+				Timestamp: time.Now(),
 			},
 		}
 		sb.locknumber = 0

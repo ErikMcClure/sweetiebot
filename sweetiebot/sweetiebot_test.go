@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
@@ -74,7 +74,7 @@ const (
 
 func mockDiscordRole(role int, index int) *discordgo.Role {
 	name := "testrole"
-	perms := 0
+	perms := int64(0)
 	switch role {
 	case TestRoleAdmin:
 		name = "Admin Role"
@@ -84,15 +84,15 @@ func mockDiscordRole(role int, index int) *discordgo.Role {
 		perms = discordgo.PermissionAllText | discordgo.PermissionManageRoles | discordgo.PermissionManageMessages | discordgo.PermissionManageChannels
 	case TestRoleUser:
 		name = "User Role"
-		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
+		perms = discordgo.PermissionSendMessages | discordgo.PermissionViewChannel | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
 	case TestRoleMember:
 		name = "Member Role"
-		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
+		perms = discordgo.PermissionSendMessages | discordgo.PermissionViewChannel
 	case TestRoleAssign2:
 		fallthrough
 	case TestRoleAssign:
 		name = "User Assignable"
-		perms = discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
+		perms = discordgo.PermissionSendMessages | discordgo.PermissionViewChannel | discordgo.PermissionReadMessageHistory | discordgo.PermissionSendTTSMessages
 	case TestRoleSilence:
 		name = "Silent Role"
 		perms = 0
@@ -165,22 +165,22 @@ func mockDiscordChannel(channel int, index int) *discordgo.Channel {
 
 	disallowEveryone := &discordgo.PermissionOverwrite{
 		ID:   strconv.Itoa(TestServer | index),
-		Type: "role",
+		Type: discordgo.PermissionOverwriteTypeRole,
 		Deny: discordgo.PermissionAllText,
 	}
 	allowMods := &discordgo.PermissionOverwrite{
 		ID:    strconv.Itoa(TestRoleMod | index),
-		Type:  "role",
+		Type:  discordgo.PermissionOverwriteTypeRole,
 		Allow: discordgo.PermissionAllText,
 	}
 	allowSilence := &discordgo.PermissionOverwrite{
 		ID:    strconv.Itoa(TestRoleSilence | index),
-		Type:  "role",
-		Allow: discordgo.PermissionReadMessageHistory | discordgo.PermissionReadMessages | discordgo.PermissionSendMessages,
+		Type:  discordgo.PermissionOverwriteTypeRole,
+		Allow: discordgo.PermissionReadMessageHistory | discordgo.PermissionViewChannel | discordgo.PermissionSendMessages,
 	}
 	disallowSilence := &discordgo.PermissionOverwrite{
 		ID:   strconv.Itoa(TestRoleSilence | index),
-		Type: "role",
+		Type: discordgo.PermissionOverwriteTypeRole,
 		Deny: discordgo.PermissionAllText,
 	}
 
@@ -271,7 +271,7 @@ func mockDiscordGuild(index int) *discordgo.Guild {
 
 // Generate fake discordgo session
 func mockDiscordGo() *DiscordGoSession {
-	dg, _ := discordgo.New()
+	dg, _ := discordgo.New("Bot NotValidToken")
 	s := &DiscordGoSession{*dg}
 	for i := 0; i < NumServers; i++ {
 		s.State.GuildAdd(mockDiscordGuild(i))
@@ -336,7 +336,7 @@ func (m *ModuleMocker) Name() string {
 func (m *ModuleMocker) Commands() []Command {
 	return []Command{}
 }
-func (m *ModuleMocker) Description(info *bot.GuildInfo) string {
+func (m *ModuleMocker) Description(info *GuildInfo) string {
 	return m.Store
 }
 
@@ -396,7 +396,7 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 			args[k] = sqlmock.AnyArg()
 		}
 		dbmock.ExpectExec("INSERT IGNORE INTO members.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
-		info.ProcessGuild(guild)
+		info.ProcessMembers(guild.Members)
 		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{id: info})
 		i := id.Convert() & ((1 << MaxServers) - 1)
 		info.Config.Modules.Channels["bored"] = map[DiscordChannel]bool{NewDiscordChannel(TestChannelBored | i): true}
@@ -422,7 +422,7 @@ func MockMessage(content string, channel int, t int64, user int, index int) *dis
 		ID:        "123456789",
 		ChannelID: strconv.Itoa(channel | index),
 		Content:   content,
-		Timestamp: discordgo.Timestamp(time.Unix(t, 0).Format(time.RFC3339)),
+		Timestamp: time.Unix(t, 0),
 		Author:    mockDiscordMember(user, index).User,
 	}
 }
@@ -683,7 +683,7 @@ func CommandFuzzer(command Command, info *GuildInfo, t *testing.T) {
 				ID:        "123456789",
 				ChannelID: "heartbeat",
 				Content:   content,
-				Timestamp: discordgo.Timestamp(time.Unix(1, 0).Format(time.RFC3339)),
+				Timestamp: time.Unix(1, 0),
 				Author:    mockDiscordMember(TestSelfID, 0).User,
 			}, indices, info)
 		command.Process(strings2[k:k+10],
@@ -691,7 +691,7 @@ func CommandFuzzer(command Command, info *GuildInfo, t *testing.T) {
 				ID:        "123456789",
 				ChannelID: "heartbeat",
 				Content:   content,
-				Timestamp: discordgo.Timestamp(time.Unix(1, 0).Format(time.RFC3339)),
+				Timestamp: time.Unix(1, 0),
 				Author:    mockDiscordMember(TestUserBoring, i).User,
 			}, indices, info)
 		command.Process(strings2[k:k+10],
@@ -699,7 +699,7 @@ func CommandFuzzer(command Command, info *GuildInfo, t *testing.T) {
 				ID:        "123456789",
 				ChannelID: strconv.Itoa(TestChannelPrivate),
 				Content:   content,
-				Timestamp: discordgo.Timestamp(time.Unix(1, 0).Format(time.RFC3339)),
+				Timestamp: time.Unix(1, 0),
 				Author:    mockDiscordMember(TestUserBoring, i).User,
 			}, indices, info)
 

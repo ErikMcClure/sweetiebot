@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 // ConfigModule manages the configuration file
