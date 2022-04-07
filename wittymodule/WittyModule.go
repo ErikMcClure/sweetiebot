@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // WittyModule is intended for any witty comments sweetie bot makes in response to what users say or do.

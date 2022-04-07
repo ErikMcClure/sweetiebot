@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 type userPressure struct {
@@ -172,8 +172,8 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 			}
 			lastid = messages[len(messages)-1].ID
 			for _, v := range messages {
-				tm, terr := v.Timestamp.Parse()
-				if terr != nil || tm.Before(endtime) {
+				tm := v.Timestamp
+				if tm.Before(endtime) {
 					break EndLoop // break out of both loops
 				}
 				if v.Author.ID == u.ID {
@@ -542,8 +542,8 @@ func (c *wipeCommand) WipeMessages(ch *discordgo.Channel, num int, seconds int, 
 		IDs := make([]string, 0, len(list))
 		for i := 0; i < len(list) && ret < num; i++ {
 			if seconds > 0 {
-				t, err := list[i].Timestamp.Parse()
-				if err != nil || t.Before(date) {
+				t := list[i].Timestamp
+				if t.Before(date) {
 					break
 				}
 			}

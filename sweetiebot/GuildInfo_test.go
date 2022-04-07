@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 	sqlmock "gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
@@ -248,7 +248,7 @@ func TestProcessGuild(t *testing.T) {
 	for _, v := range sb.Guilds {
 		dbmock.ExpectExec("INSERT IGNORE INTO users.*").WithArgs(args2...).WillReturnResult(sqlmock.NewResult(0, 0))
 		dbmock.ExpectExec("INSERT IGNORE INTO members.*").WithArgs(args...).WillReturnResult(sqlmock.NewResult(0, 0))
-		v.ProcessGuild(g)
+		v.ProcessMembers(g.Members)
 		Check(v.Name, "Test Server 12", t)
 		Check(v.OwnerID, NewDiscordUser(TestOwnerServer|12), t)
 	}
@@ -593,12 +593,12 @@ func TestChannelPermissionSet(t *testing.T) {
 	for k, v := range sb.Guilds {
 		i := int(k.Convert() & 0xFF)
 		ch := mockDiscordChannel(TestChannelFree, i)
-		Check(v.ChannelPermissionSet(nil, "", "", 0, 0), errInvalidChannel, t)
-		Check(v.ChannelPermissionSet(mockDiscordChannel(1234, 999), "", "", 0, 0), errInvalidChannel, t)
-		mock.Expect(v.Bot.DG.ChannelPermissionSet, ch.ID, "", "", 0, 0)
-		Check(v.ChannelPermissionSet(ch, "", "", 0, 0), nil, t)
-		mock.Expect(v.Bot.DG.ChannelPermissionSet, ch.ID, "1", "2", 3, 4)
-		Check(v.ChannelPermissionSet(ch, "1", "2", 3, 4), nil, t)
+		Check(v.ChannelPermissionSet(nil, "", discordgo.PermissionOverwriteTypeRole, 0, 0), errInvalidChannel, t)
+		Check(v.ChannelPermissionSet(mockDiscordChannel(1234, 999), "", discordgo.PermissionOverwriteTypeRole, 0, 0), errInvalidChannel, t)
+		mock.Expect(v.Bot.DG.ChannelPermissionSet, ch.ID, "", discordgo.PermissionOverwriteTypeRole, 0, 0)
+		Check(v.ChannelPermissionSet(ch, "", discordgo.PermissionOverwriteTypeRole, 0, 0), nil, t)
+		mock.Expect(v.Bot.DG.ChannelPermissionSet, ch.ID, "1", discordgo.PermissionOverwriteTypeMember, 3, 4)
+		Check(v.ChannelPermissionSet(ch, "1", discordgo.PermissionOverwriteTypeMember, 3, 4), nil, t)
 	}
 }
 

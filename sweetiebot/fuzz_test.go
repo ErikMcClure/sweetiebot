@@ -1,25 +1,25 @@
 package sweetiebot_test
 
 import (
+	"github.com/erikmcclure/sweetiebot/sweetiebot"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 	"testing"
 
-	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+	"github.com/erikmcclure/sweetiebot/boredmodule"
+	"github.com/erikmcclure/sweetiebot/bucketmodule"
+	"github.com/erikmcclure/sweetiebot/filtermodule"
+	"github.com/erikmcclure/sweetiebot/markovmodule"
+	"github.com/erikmcclure/sweetiebot/miscmodule"
+	"github.com/erikmcclure/sweetiebot/quotemodule"
+	"github.com/erikmcclure/sweetiebot/rolesmodule"
+	"github.com/erikmcclure/sweetiebot/schedulermodule"
+	"github.com/erikmcclure/sweetiebot/spammodule"
+	"github.com/erikmcclure/sweetiebot/statusmodule"
+	"github.com/erikmcclure/sweetiebot/tagmodule"
+	"github.com/erikmcclure/sweetiebot/usersmodule"
+	"github.com/erikmcclure/sweetiebot/wittymodule"
 
-	"../boredmodule"
-	"../bucketmodule"
-	"../filtermodule"
-	"../markovmodule"
-	"../miscmodule"
-	"../quotemodule"
-	"../rolesmodule"
-	"../schedulermodule"
-	"../spammodule"
-	"../statusmodule"
-	"../sweetiebot"
-	. "../sweetiebot"
-	"../tagmodule"
-	"../usersmodule"
-	"../wittymodule"
+	. "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 func loader(guild *sweetiebot.GuildInfo) []sweetiebot.Module {

@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 const buySelfhosting = "Whoops, it seems like you haven't paid for selfhosting support! To buy selfhosting support, go to " + PatreonURL + " and choose the Selfhost reward, then make sure you link your Patreon account with your Discord account. If you're already paying for selfhosting support but this installation failed to detect it, please contact Erik McClure#9999 on the sweetiebot support channel: https://discord.gg/t2gVQvN"

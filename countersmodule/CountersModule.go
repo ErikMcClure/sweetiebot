@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // CountersModule manages incrementable counters
@@ -29,7 +29,7 @@ func (w *CountersModule) Commands() []bot.Command {
 		&addCounterCommand{},
 		&removeCounterCommand{},
 		&counterCommand{},
-		&incrementCommand{},		
+		&incrementCommand{},
 		&decrementCommand{},
 	}
 }

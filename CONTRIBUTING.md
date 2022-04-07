@@ -21,4 +21,4 @@ Commands belong to Modules, and are automatically added when adding a module. Mo
     
 You can access the bot database using `info.Bot.DB`, but this will only work for server-independent database information (like users or transcripts), or on servers that have permission to write to the database. Additional modules will always be disabled on existing servers until they are explicitely enabled. [Submit a pull request](https://github.com/erikmcclure/sweetiebot/pull/new/master) if you'd like to contribute!
 
-Before submitting a pull request, please make sure your code builds against the `master` branch of sweetiebot, while using the develop branch of `erikmcclure/discordgo`.
+Before submitting a pull request, please make sure your code builds against the `master` branch of sweetiebot.

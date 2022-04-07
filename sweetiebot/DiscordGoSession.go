@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 var errNotChannel = errors.New("string is not a valid channel")
@@ -325,7 +326,12 @@ func (s *DiscordGoSession) GetMemberCreate(u *discordgo.User, guildID string) *d
 
 	m, err = s.GuildMember(guildID, u.ID)
 	if err != nil || m == nil {
-		m = &discordgo.Member{guildID, "", "", false, false, u, []string{}, ""}
+		m = &discordgo.Member{
+			GuildID:  guildID,
+			JoinedAt: time.Now(),
+			Roles:    []string{},
+			User:     u,
+		}
 	}
 	s.State.MemberAdd(m)
 	return m
@@ -339,7 +345,7 @@ func (s *DiscordGoSession) ChangeBotName(name string, avatarfile string) error {
 		avatar := base64.StdEncoding.EncodeToString(binary)
 		data = fmt.Sprintf("data:image/%s;base64,%s", filepath.Ext(avatarfile), avatar)
 	}
-	_, err := s.UserUpdate("", "", name, data, "")
+	_, err := s.UserUpdate(name, data)
 	return err
 }
 
@@ -361,7 +367,7 @@ func (s *DiscordGoSession) UserHasAnyRole(user DiscordUser, guildID string, role
 }
 
 // UserPermissions gets all permissions for a user, ignoring channel specific overrides
-func (s *DiscordGoSession) UserPermissions(userID DiscordUser, guildID string) (int, error) {
+func (s *DiscordGoSession) UserPermissions(userID DiscordUser, guildID string) (int64, error) {
 	guild, err := s.State.Guild(guildID)
 	if err != nil {
 		return 0, err

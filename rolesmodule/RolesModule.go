@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 var errNotUserAssignable = errors.New("not a user-assignable role")
