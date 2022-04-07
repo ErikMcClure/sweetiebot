@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"../spammodule"
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	"github.com/erikmcclure/sweetiebot/spammodule"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // FilterModule implements word filters that allow you to look for spoilers or profanity uses regex matching.

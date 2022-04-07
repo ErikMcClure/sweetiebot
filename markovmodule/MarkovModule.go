@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // MarkovModule generates content using markov chains

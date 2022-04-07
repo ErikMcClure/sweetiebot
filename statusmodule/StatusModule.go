@@ -3,8 +3,8 @@ package statusmodule
 import (
 	"time"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // StatusModule manages the status message
@@ -40,7 +40,7 @@ func (w *StatusModule) OnTick(info *bot.GuildInfo, t time.Time) {
 		if w.lastchange.Add(time.Duration(info.Config.Status.Cooldown) * time.Second).Before(t) {
 			w.lastchange = t
 			if len(info.Config.Status.Lines) > 0 {
-				info.Bot.DG.UpdateStatus(0, bot.MapGetRandomItem(info.Config.Status.Lines))
+				info.Bot.DG.UpdateGameStatus(0, bot.MapGetRandomItem(info.Config.Status.Lines))
 			}
 		}
 	}
@@ -62,11 +62,11 @@ func (c *setStatusCommand) Process(args []string, msg *discordgo.Message, indice
 		return "```\nYou can only do this from the main server!```", false, nil
 	}
 	if len(args) < 1 {
-		info.Bot.DG.UpdateStatus(0, "")
+		info.Bot.DG.UpdateGameStatus(0, "")
 		return "```\nRemoved status```", false, nil
 	}
 	arg := msg.Content[indices[0]:]
-	info.Bot.DG.UpdateStatus(0, arg)
+	info.Bot.DG.UpdateGameStatus(0, arg)
 	return "```\nStatus was set to " + arg + "```", false, nil
 }
 func (c *setStatusCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
