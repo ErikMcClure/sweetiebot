@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 var colorregex = regexp.MustCompile("0x[0-9A-Fa-f]+")
@@ -58,7 +58,7 @@ func (w *DebugModule) OnTick(info *GuildInfo, t time.Time) {
 		m := &discordgo.Message{ChannelID: info.Config.Log.Channel.String(),
 			Content:   "",
 			Author:    &discordgo.User{ID: info.Bot.Owner.String()},
-			Timestamp: discordgo.Timestamp(t.Format(time.RFC3339Nano)),
+			Timestamp: t,
 		}
 
 		updater := &updateCommand{}
@@ -322,7 +322,9 @@ func (c *disableCommand) Usage(info *GuildInfo) *CommandUsage {
 		},
 	}
 }
-func (c *disableCommand) UsageShort() string { return "Disables the given module/command, if possible." }
+func (c *disableCommand) UsageShort() string {
+	return "Disables the given module/command, if possible."
+}
 
 type enableCommand struct {
 }

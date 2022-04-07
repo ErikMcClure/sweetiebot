@@ -3,7 +3,7 @@ package sweetiebot
 import (
 	"time"
 
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 )
 
 // Module monitors all incoming requests depending on what module interfaces they implement
