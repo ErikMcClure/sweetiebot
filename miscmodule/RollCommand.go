@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 var diceregex = regexp.MustCompile("[0-9]*d[0-9]+")

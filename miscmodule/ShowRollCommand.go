@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 const maxShowDice int64 = 250

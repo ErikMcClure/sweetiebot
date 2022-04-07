@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"4d63.com/tz"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
 	"github.com/go-sql-driver/mysql" // Blank import is the correct way to import a sql driver
 )
 
@@ -361,7 +361,7 @@ func (db *BotDB) GetMember(id uint64, guild uint64) (*discordgo.Member, time.Tim
 	var discriminator int
 	err := db.sqlGetMember.QueryRow(id, guild).Scan(&m.User.ID, &m.User.Username, &discriminator, &lastseen, &m.Nick, &joinedat, &firstmessage)
 	if !joinedat.IsZero() {
-		m.JoinedAt = discordgo.Timestamp(joinedat.Format(time.RFC3339))
+		m.JoinedAt = joinedat
 	}
 	if discriminator > 0 {
 		m.User.Discriminator = strconv.Itoa(discriminator)

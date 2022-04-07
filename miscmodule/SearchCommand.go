@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 type searchCommand struct {
@@ -160,7 +160,7 @@ func (c *searchCommand) Process(args []string, msg *discordgo.Message, indices [
 	params = append(params, bot.SBatoi(msg.ID))
 	params = append(params, info.Bot.SelfID.Convert())
 	params = append(params, info.Config.Basic.ModChannel.Convert())
-	params = append(params, info.Config.Basic.CommandPrefix + "search %")
+	params = append(params, info.Config.Basic.CommandPrefix+"search %")
 
 	querylimit := query
 	if rangeend >= 0 {

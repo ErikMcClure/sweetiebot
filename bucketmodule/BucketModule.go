@@ -7,8 +7,8 @@ import (
 
 	"fmt"
 
-	bot "../sweetiebot"
-	"github.com/erikmcclure/discordgo"
+	"github.com/bwmarrin/discordgo"
+	bot "github.com/erikmcclure/sweetiebot/sweetiebot"
 )
 
 // BucketModule manages the bucket
