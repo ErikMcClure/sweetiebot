@@ -212,11 +212,12 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	var roles []*discordgo.Role
 	// Initially attempt to get the entire message as a role, for backwards compatibility.
-	r, err := GetUserAssignableRole(msg.Content[indices[0]:], info)
+	content := msg.Content[indices[0]:]
+	r, err := GetUserAssignableRole(content, info)
 	if err != nil {
 		// Try to pull individual roles instead.
-		for _, arg := range args {
-			r, err := GetUserAssignableRole(arg, info)
+		for _, arg := range strings.Split(content, ",") {
+			r, err := GetUserAssignableRole(strings.TrimSpace(arg), info)
 			if err != nil {
 				return bot.ReturnError(err)
 			}
@@ -239,10 +240,10 @@ func (c *joinRoleCommand) joinSingleRole(info *bot.GuildInfo, msg *discordgo.Mes
 	hasrole := info.UserHasRole(bot.DiscordUser(msg.Author.ID), bot.DiscordRole(r.ID))
 	err := info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID)) // Try adding the role no matter what, just in case discord screwed up
 	if hasrole {
-		return "```\nYou already have that role.```"
+		return "```You already have that role.```"
 	}
 	if err != nil {
-		return "```\nError adding role! " + err.Error() + "```"
+		return "```Error adding role! " + err.Error() + "```"
 	}
 	pingable := ""
 	if r.Mentionable {
