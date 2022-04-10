@@ -210,23 +210,45 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	if len(args) < 1 {
 		return "```\nYou must provide a role name!```", false, nil
 	}
+	var roles []*discordgo.Role
+	// Initially attempt to get the entire message as a role, for backwards compatibility.
 	r, err := GetUserAssignableRole(msg.Content[indices[0]:], info)
 	if err != nil {
-		return bot.ReturnError(err)
+		// Try to pull individual roles instead.
+		for _, arg := range args {
+			r, err := GetUserAssignableRole(arg, info)
+			if err != nil {
+				return bot.ReturnError(err)
+			}
+			roles = append(roles, r)
+		}
+	} else {
+		roles = append(roles, r)
 	}
+	// Now that we have our roles, attempt to join all of them in order.
+	var result strings.Builder
+	for _, role := range roles {
+		result.WriteString(r.Name + ": ")
+		result.WriteString(c.joinSingleRole(info, msg, role))
+		result.WriteRune('\n')
+	}
+	return result.String(), false, nil
+}
+
+func (c *joinRoleCommand) joinSingleRole(info *bot.GuildInfo, msg *discordgo.Message, r *discordgo.Role) string {
 	hasrole := info.UserHasRole(bot.DiscordUser(msg.Author.ID), bot.DiscordRole(r.ID))
-	err = info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID)) // Try adding the role no matter what, just in case discord screwed up
+	err := info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID)) // Try adding the role no matter what, just in case discord screwed up
 	if hasrole {
-		return "```\nYou already have that role.```", false, nil
+		return "```\nYou already have that role.```"
 	}
 	if err != nil {
-		return "```\nError adding role! " + err.Error() + "```", false, nil
+		return "```\nError adding role! " + err.Error() + "```"
 	}
 	pingable := ""
 	if r.Mentionable {
 		pingable = " You may ping everyone in the role via @" + r.Name + ", but do so sparingly."
 	}
-	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via "+info.Config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.Config.Basic.CommandPrefix+"listrole %s.%s```", r.Name, r.Name, r.Name, pingable), false, nil
+	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via "+info.Config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.Config.Basic.CommandPrefix+"listrole %s.%s```", r.Name, r.Name, r.Name, pingable)
 }
 func (c *joinRoleCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
