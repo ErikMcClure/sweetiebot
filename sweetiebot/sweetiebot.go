@@ -362,7 +362,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 	}
 
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
-	if len(m.Content) > 1 && m.Content[0] == prefix && (len(m.Content) < 2 || m.Content[1] != prefix) { // We check for > 1 here because a single character can't possibly be a valid command
+	if len(m.Content) > 1 && m.Content[0] == prefix && m.Content[1] != prefix { // We check for > 1 here because a single character can't possibly be a valid command
 		isfree := private
 		authorid := SBatoi(m.Author.ID)
 		channelID := DiscordChannel(m.ChannelID)
