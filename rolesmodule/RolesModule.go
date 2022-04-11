@@ -219,7 +219,7 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		for _, arg := range strings.Split(content, ",") {
 			r, err := GetUserAssignableRole(strings.TrimSpace(arg), info)
 			if err != nil {
-				return bot.ReturnError(err)
+				return "```\nError getting role " + r.Name + ": " + err.Error() + ", no roles joined.```", false, nil
 			}
 			roles = append(roles, r)
 		}
