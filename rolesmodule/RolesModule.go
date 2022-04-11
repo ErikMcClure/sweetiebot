@@ -230,7 +230,7 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	var result strings.Builder
 	result.WriteString("```\n")
 	for _, role := range roles {
-		result.WriteString(r.Name + ": ")
+		result.WriteString(role.Name + ": ")
 		result.WriteString(c.joinSingleRole(info, msg, role))
 		result.WriteRune('\n')
 	}
