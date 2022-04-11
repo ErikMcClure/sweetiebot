@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -356,6 +357,16 @@ func (sb *SweetieBot) GetLastMessage(id DiscordChannel) (int64, bool) {
 
 // ProcessCommand processes a command given to sweetiebot in the form "!command"
 func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t int64, isdebug bool, private bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			info.SendError(DiscordChannel(m.ChannelID), fmt.Sprintf(
+				"Error while processing command:\n```go\npanic: %v\n\n%s```",
+				r,
+				string(debug.Stack()),
+			), t)
+		}
+	}()
+
 	var prefix byte = '!'
 	if info != nil && len(info.Config.Basic.CommandPrefix) == 1 {
 		prefix = info.Config.Basic.CommandPrefix[0]
