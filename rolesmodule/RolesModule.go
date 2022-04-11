@@ -219,7 +219,7 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 		for _, arg := range strings.Split(content, ",") {
 			r, err := GetUserAssignableRole(strings.TrimSpace(arg), info)
 			if err != nil {
-				return bot.ReturnError(err)
+				return "```\nError getting role " + arg + ": " + err.Error() + ". No roles joined.```", false, nil
 			}
 			roles = append(roles, r)
 		}
@@ -228,11 +228,13 @@ func (c *joinRoleCommand) Process(args []string, msg *discordgo.Message, indices
 	}
 	// Now that we have our roles, attempt to join all of them in order.
 	var result strings.Builder
+	result.WriteString("```\n")
 	for _, role := range roles {
-		result.WriteString(r.Name + ": ")
+		result.WriteString(role.Name + ": ")
 		result.WriteString(c.joinSingleRole(info, msg, role))
 		result.WriteRune('\n')
 	}
+	result.WriteString("```")
 	return result.String(), false, nil
 }
 
@@ -240,16 +242,16 @@ func (c *joinRoleCommand) joinSingleRole(info *bot.GuildInfo, msg *discordgo.Mes
 	hasrole := info.UserHasRole(bot.DiscordUser(msg.Author.ID), bot.DiscordRole(r.ID))
 	err := info.ResolveRoleAddError(info.Bot.DG.GuildMemberRoleAdd(info.ID, msg.Author.ID, r.ID)) // Try adding the role no matter what, just in case discord screwed up
 	if hasrole {
-		return "```You already have that role.```"
+		return "You already have that role."
 	}
 	if err != nil {
-		return "```Error adding role! " + err.Error() + "```"
+		return "Error adding role! " + err.Error()
 	}
 	pingable := ""
 	if r.Mentionable {
 		pingable = " You may ping everyone in the role via @" + r.Name + ", but do so sparingly."
 	}
-	return fmt.Sprintf("```You now have the %s role. You can remove yourself from the role via "+info.Config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.Config.Basic.CommandPrefix+"listrole %s.%s```", r.Name, r.Name, r.Name, pingable)
+	return fmt.Sprintf("You now have the %s role. You can remove yourself from the role via "+info.Config.Basic.CommandPrefix+"leaverole %s, or list everyone in it via "+info.Config.Basic.CommandPrefix+"listrole %s.%s", r.Name, r.Name, r.Name, pingable)
 }
 func (c *joinRoleCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
