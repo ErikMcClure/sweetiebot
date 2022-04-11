@@ -433,13 +433,12 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			ignore := false
 			if !private {
 				ignore = info.checkOnCommand(m)
-			}
-
-			cch := info.Config.Modules.CommandChannels[cmdname]
-			if !private && len(cch) > 0 {
-				_, reverse := cch["!"]
-				_, ok = cch[channelID]
-				ignore = ignore || ok == reverse
+				cch := info.Config.Modules.CommandChannels[cmdname]
+				if len(cch) > 0 {
+					_, reverse := cch["!"]
+					_, ok = cch[channelID]
+					ignore = ignore || ok == reverse
+				}
 			}
 
 			bypass, err := info.UserCanUseCommand(DiscordUser(m.Author.ID), c, ignore) // Bypass is true for administrators, mods, and the bot owner
