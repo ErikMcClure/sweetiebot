@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -36,7 +37,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 2, 0}
+var BotVersion = Version{1, 0, 2, 1}
 
 const (
 	MaxPublicLines    = 12
@@ -356,13 +357,23 @@ func (sb *SweetieBot) GetLastMessage(id DiscordChannel) (int64, bool) {
 
 // ProcessCommand processes a command given to sweetiebot in the form "!command"
 func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t int64, isdebug bool, private bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			info.SendError(DiscordChannel(m.ChannelID), fmt.Sprintf(
+				"Error while processing command:\n```go\npanic: %v\n\n%s```",
+				r,
+				string(debug.Stack()),
+			), t)
+		}
+	}()
+
 	var prefix byte = '!'
 	if info != nil && len(info.Config.Basic.CommandPrefix) == 1 {
 		prefix = info.Config.Basic.CommandPrefix[0]
 	}
 
 	// Check if this is a command. If it is, process it as a command, otherwise process it with our modules.
-	if len(m.Content) > 1 && m.Content[0] == prefix && (len(m.Content) < 2 || m.Content[1] != prefix) { // We check for > 1 here because a single character can't possibly be a valid command
+	if len(m.Content) > 1 && m.Content[0] == prefix && m.Content[1] != prefix { // We check for > 1 here because a single character can't possibly be a valid command
 		isfree := private
 		authorid := SBatoi(m.Author.ID)
 		channelID := DiscordChannel(m.ChannelID)
@@ -433,13 +444,12 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 			ignore := false
 			if !private {
 				ignore = info.checkOnCommand(m)
-			}
-
-			cch := info.Config.Modules.CommandChannels[cmdname]
-			if !private && len(cch) > 0 {
-				_, reverse := cch["!"]
-				_, ok = cch[channelID]
-				ignore = ignore || ok == reverse
+				cch := info.Config.Modules.CommandChannels[cmdname]
+				if len(cch) > 0 {
+					_, reverse := cch["!"]
+					_, ok = cch[channelID]
+					ignore = ignore || ok == reverse
+				}
 			}
 
 			bypass, err := info.UserCanUseCommand(DiscordUser(m.Author.ID), c, ignore) // Bypass is true for administrators, mods, and the bot owner
@@ -1069,6 +1079,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 2, 1):  "- Added a crash handler for command processing errors",
 			AssembleVersion(1, 0, 2, 0):  "- Added the ability for !joinrole to do multiple roles, e.g. !joinrole A, B\n- Update discordgo",
 			AssembleVersion(1, 0, 1, 9):  "- Introduced the !decrement command. This will decrement a counter by 1.",
 			AssembleVersion(1, 0, 1, 8):  "- Actually fix new user detection by requesting the necessary privileged intent\n- Fixed quote mention problems caused by discordgo deleting the entire member list on reconnecting.",
