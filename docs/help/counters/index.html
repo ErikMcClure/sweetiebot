@@ -87,8 +87,8 @@ Doc<span>umentation</span></p></a></li>
 
 <h4 id="addcounter">AddCounter</h4>
 <pre>!addcounter &lt;name&gt; [initial value] [description]</pre>
-<p>Creates a new counter with an initial value and description that can be incremented with the <code>!increment</code> command.</p>
-<dl><dd><p>name</p>A short name for the counter. Quotes are required if it has spaces.</dd><dd><p>initial value</p><span> (optional) </span>A number to start the counter at. If omitted, defaults to 0.</dd><dd><p>description</p><span> (optional) </span>The string echoed by Sweetie Bot when the counter is incremented. Defaults to <code>[counter] is at %%</code>, where <code>%%</code> is replaced by the counter value. If the string doesn't contain <code>%%</code> it pastes the value of the counter on the end.</dd>
+<p>Creates a new counter with an initial value and description that can be incremented with the <code>!increment</code> command, or decremented with the <code>!decrement</code> command.</p>
+<dl><dd><p>name</p>A short name for the counter. Quotes are required if it has spaces.</dd><dd><p>initial value</p><span> (optional) </span>A number to start the counter at. If omitted, defaults to 0.</dd><dd><p>description</p><span> (optional) </span>The string echoed by Sweetie Bot when the counter is incremented or decremented. Defaults to <code>[counter] is at %%</code>, where <code>%%</code> is replaced by the counter value. If the string doesn't contain <code>%%</code> it pastes the value of the counter on the end.</dd>
 </dl>
 <h4 id="removecounter">RemoveCounter</h4>
 <pre>!removecounter &lt;name&gt;</pre>
@@ -105,6 +105,11 @@ Doc<span>umentation</span></p></a></li>
 <p>Increments a counter by 1 and returns the new value.</p>
 <dl><dd><p>name</p>Name of the counter to increment.</dd>
 </dl>
+<h4 id="decrement">Decrement</h4>
+<pre>!decrement &lt;name&gt;</pre>
+<p>Decrements a counter by 1 and returns the new value.</p>
+<dl><dd><p>name</p>Name of the counter to decrement.</dd>
+</dl>
 
 
 
@@ -112,7 +117,7 @@ Doc<span>umentation</span></p></a></li>
 </main>
 </div>
 <footer>
-Copyright &copy;2020 Erik McClure
+Copyright &copy;2022 Erik McClure
 </footer>
 </body>
 </html>
