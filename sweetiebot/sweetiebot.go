@@ -37,7 +37,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 2, 1}
+var BotVersion = Version{1, 0, 2, 2}
 
 const (
 	MaxPublicLines    = 12
@@ -360,7 +360,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 	defer func() {
 		if r := recover(); r != nil {
 			info.SendError(DiscordChannel(m.ChannelID), fmt.Sprintf(
-				"Error while processing command:\n```go\npanic: %v\n\n%s```",
+				"Error while processing command:\n\npanic: %v\n\n%s",
 				r,
 				string(debug.Stack()),
 			), t)
@@ -1079,6 +1079,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 2, 2):  "- Fixed crash in !episodequote\n- Fixed formatting of command crash handler logs",
 			AssembleVersion(1, 0, 2, 1):  "- Added a crash handler for command processing errors",
 			AssembleVersion(1, 0, 2, 0):  "- Added the ability for !joinrole to do multiple roles, e.g. !joinrole A, B\n- Update discordgo",
 			AssembleVersion(1, 0, 1, 9):  "- Introduced the !decrement command. This will decrement a counter by 1.",
