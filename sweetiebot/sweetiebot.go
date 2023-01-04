@@ -360,7 +360,7 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 	defer func() {
 		if r := recover(); r != nil {
 			info.SendError(DiscordChannel(m.ChannelID), fmt.Sprintf(
-				"Error while processing command:\n```go\npanic: %v\n\n%s```",
+				"Error while processing command:\n\npanic: %v\n\n%s",
 				r,
 				string(debug.Stack()),
 			), t)
