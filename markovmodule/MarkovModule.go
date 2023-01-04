@@ -205,6 +205,10 @@ func (c *episodeQuoteCommand) Process(args []string, msg *discordgo.Message, ind
 				diff--
 				L--
 
+				if diff < L {
+					L, diff = diff, L
+				}
+
 				diff -= L
 				if diff >= info.Config.Markov.MaxLines {
 					diff = info.Config.Markov.MaxLines - 1
