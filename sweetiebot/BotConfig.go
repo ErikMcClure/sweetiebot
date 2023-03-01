@@ -832,10 +832,8 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 				if check != nil {
 					role = "sb-" + role
 				}
-				r, err := guild.Bot.DG.GuildRoleCreate(guild.ID)
-				if err == nil {
-					r, err = guild.Bot.DG.GuildRoleEdit(guild.ID, r.ID, role, 0, false, 0, true)
-				}
+				params := discordgo.RoleParams{Name: role}
+				r, err := guild.Bot.DG.GuildRoleCreate(guild.ID, &params)
 				if err == nil {
 					idmap[strings.ToLower(k)] = r.ID
 					if id, err := ParseRole(r.ID, nil); err == nil {

@@ -37,7 +37,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 2, 2}
+var BotVersion = Version{1, 0, 3, 0}
 
 const (
 	MaxPublicLines    = 12
@@ -1079,6 +1079,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 3, 0):  "- Updated dependencies",
 			AssembleVersion(1, 0, 2, 2):  "- Fixed crash in !episodequote\n- Fixed formatting of command crash handler logs",
 			AssembleVersion(1, 0, 2, 1):  "- Added a crash handler for command processing errors",
 			AssembleVersion(1, 0, 2, 0):  "- Added the ability for !joinrole to do multiple roles, e.g. !joinrole A, B\n- Update discordgo",

@@ -219,6 +219,17 @@ func (c *setupCommand) DisableModule(info *GuildInfo, module string) {
 	info.Config.Modules.Disabled[ModuleID(module)] = true
 }
 
+func createRole(name string, color int, hoist bool, permissions int64, mentionable bool, info *GuildInfo) (st *discordgo.Role, err error) {
+	params := discordgo.RoleParams{
+		Name:        name,
+		Color:       &color,
+		Hoist:       &hoist,
+		Permissions: &permissions,
+		Mentionable: &mentionable,
+	}
+	return info.Bot.DG.GuildRoleCreate(info.ID, &params)
+}
+
 type setupCommand struct {
 }
 
@@ -286,14 +297,9 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 		info.Config.Basic.MemberRole = RoleEmpty
 	}
 
-	silent, err := info.Bot.DG.GuildRoleCreate(info.ID)
+	silent, err := createRole("Silence", 0, false, discordgo.PermissionReadMessages, false, info)
 	if err != nil {
 		return fmt.Sprintf("```\nFailed to create the silent role! %s```", err.Error()), false, nil
-	}
-	_, err = info.Bot.DG.GuildRoleEdit(info.ID, silent.ID, "Silence", 0, false, discordgo.PermissionReadMessages, false)
-	if err != nil {
-		info.Bot.DG.GuildRoleDelete(info.ID, silent.ID)
-		return fmt.Sprintf("```\nFailed to set up the silent role properties! %s```", err.Error()), false, nil
 	}
 
 	info.Config.Basic.SilenceRole, _ = ParseRole(silent.ID, nil)
@@ -389,16 +395,12 @@ func (c *setMemberRole) Usage(info *GuildInfo) *CommandUsage {
 
 func setupMemberRole(memberRole DiscordRole, channel DiscordChannel, info *GuildInfo) string {
 	if memberRole == RoleEmpty {
-		role, err := info.Bot.DG.GuildRoleCreate(info.ID)
-		if err != nil {
-			return fmt.Sprintf("```\nFailed to create the member role! %s```", err.Error())
-		}
 		everyone, err := info.Bot.DG.State.Role(info.ID, info.ID)
-		if err == nil {
-			_, err = info.Bot.DG.GuildRoleEdit(info.ID, role.ID, "Member", 0, false, everyone.Permissions, false)
-		}
 		if err != nil {
-			info.Bot.DG.GuildRoleDelete(info.ID, role.ID)
+			return fmt.Sprintf("```\nFailed to get the everyone role! %s```", err.Error())
+		}
+		role, err := createRole("Member", 0, false, everyone.Permissions, false, info)
+		if err != nil {
 			return fmt.Sprintf("```\nFailed to set up the member role! %s```", err.Error())
 		}
 		memberRole = DiscordRole(role.ID)
@@ -440,8 +442,10 @@ func setupMemberRole(memberRole DiscordRole, channel DiscordChannel, info *Guild
 
 		lastid = m[len(m)-1].User.ID
 	}
-
-	if _, err := info.Bot.DG.GuildRoleEdit(info.ID, info.ID, "", 0, false, 0, false); err != nil {
+	params := discordgo.RoleParams{
+		Name: "",
+	}
+	if _, err := info.Bot.DG.GuildRoleEdit(info.ID, info.ID, &params); err != nil {
 		return "```Failed to remove permissions from everyone role!```"
 	}
 

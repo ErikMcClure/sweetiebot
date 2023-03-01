@@ -118,10 +118,9 @@ func (c *createRoleCommand) Process(args []string, msg *discordgo.Message, indic
 		return "```\nThat role already exists! Use " + info.Config.Basic.CommandPrefix + "addrole to make it user-assignable if it isn't already.```", false, nil
 	}
 
-	r, err := info.Bot.DG.GuildRoleCreate(info.ID)
-	if err == nil {
-		r, err = info.Bot.DG.GuildRoleEdit(info.ID, r.ID, role, 0, false, 0, true)
-	}
+	mention := true
+	params := discordgo.RoleParams{Name: role, Mentionable: &mention}
+	r, err := info.Bot.DG.GuildRoleCreate(info.ID, &params)
 	if err != nil {
 		return "```\nCould not create role! " + err.Error() + "```", false, nil
 	}
