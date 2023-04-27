@@ -764,7 +764,7 @@ func (c *importCommand) Process(args []string, msg *discordgo.Message, indices [
 }
 func (c *importCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
-		Desc: "Adds all elements from the source tag on the source server to the target tag on this server. If no target is specified, attempts to copy all items into a tag of the same name as the source. Example: ```" + info.Config.Basic.CommandPrefix + "import ExampleServer cool notcool```",
+		Desc: "Adds all elements from the source tag on the source server to the target tag on this server. If no target is specified, attempts to copy all items into a tag of the same name as the source. Example: ```" + info.Config.Basic.CommandPrefix + "import YourServer cool notcool```",
 		Params: []bot.CommandUsageParam{
 			{Name: "source server", Desc: "The exact name of the source server to copy from, or the server ID in the form <@9999999999>", Optional: false},
 			{Name: "source tag", Desc: "Name of the tag to copy from on the source server.", Optional: false},
