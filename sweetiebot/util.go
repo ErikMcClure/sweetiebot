@@ -152,7 +152,7 @@ func MapGetRandomItem(m map[string]bool) string {
 		index--
 	}
 
-	return "SOMETHING IMPOSSIBLE HAPPENED IN UTIL.GO MapGetRandomItem()! Somebody drag Cloud Hop out of bed and tell him his bot is broken."
+	return "SOMETHING IMPOSSIBLE HAPPENED IN UTIL.GO MapGetRandomItem()!"
 }
 
 // MapToSlice for map[string]bool
