@@ -22,7 +22,6 @@ type GuildInfo struct {
 	Name         string // Cache the name to reduce locking
 	OwnerID      DiscordUser
 	BotNick      string     // If not empty, the nickname assigned to the bot in this server
-	Silver       AtomicBool // Has paid features (always true if selfhosting)
 	lastlogerr   int64
 	LastRaid     int64 // Last time a raid was recorded by the spam module (or any other module that records raids)
 	commandLock  sync.RWMutex

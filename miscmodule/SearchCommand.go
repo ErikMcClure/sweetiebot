@@ -18,7 +18,6 @@ func (c *searchCommand) Info() *bot.CommandInfo {
 	return &bot.CommandInfo{
 		Name:      "Search",
 		Usage:     "Performs a complex search on the chat history.",
-		Silver:    true,
 		Sensitive: true,
 	}
 }

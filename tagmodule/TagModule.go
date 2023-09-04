@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	maxPublicUniqueItems = 5000
+	maxPublicUniqueItems = 25000
 	maxTagResults        = 50
 )
 
@@ -139,15 +139,9 @@ func (c *addCommand) Process(args []string, msg *discordgo.Message, indices []in
 	}
 
 	var max uint64 = maxPublicUniqueItems
-	if info.Silver.Get() {
-		max = info.Bot.MaxUniqueItems
-	}
 	gID := bot.SBatoi(info.ID)
 	if count, _ := info.Bot.DB.CountItems(gID); count >= max {
-		if info.Silver.Get() {
-			return fmt.Sprintf("```Can't have more than %v unique items in a server!```", max), false, nil
-		}
-		return fmt.Sprintf("```Can't have more than %v unique items in a server! If you want up to %v items, upgrade to Silver for $1 a month by contributing: %s```", max, info.Bot.MaxUniqueItems, bot.PatreonURL), false, nil
+		return fmt.Sprintf("```Can't have more than %v unique items in a server!```", max), false, nil
 	}
 
 	tags := strings.Split(args[0], "+")

@@ -357,7 +357,6 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
 		Guilds:         make(map[DiscordGuild]*GuildInfo),
 		MaxConfigSize:  1000000,
-		MaxUniqueItems: 25000,
 		StartTime:      time.Now().UTC().Unix(),
 		heartbeat:      4294967290,
 		memberChan:     make(chan *GuildInfo, 1500),
@@ -411,8 +410,6 @@ func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 		info.Config.Users.WelcomeChannel = NewDiscordChannel(TestChannelWelcome | i)
 		info.Config.SetupDone = true
 	}
-	sb.Guilds[NewDiscordGuild(uint64(TestServer|2))].Silver.Set(true)
-	//sb.Guilds[NewDiscordGuild(uint64(TestServer|2))].Config.Basic.MemberRole = RoleEmpty
 
 	return sb, dbmock, mock
 }
