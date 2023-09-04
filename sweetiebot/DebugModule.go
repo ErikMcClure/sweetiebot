@@ -377,8 +377,6 @@ func (c *updateCommand) Process(args []string, msg *discordgo.Message, indices [
 
 	r, update := info.Bot.Selfhoster.CheckForUpdate(info.Bot.Owner, BotVersion.Integer())
 	switch r {
-	case -1:
-		return buySelfhosting, false, nil
 	case 0:
 		return "```\n" + info.GetBotName() + " is currently up-to-date.```", false, nil
 	case 1:

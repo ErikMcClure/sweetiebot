@@ -122,7 +122,6 @@ type CommandInfo struct {
 	ServerIndependent bool
 	Sensitive         bool
 	Restricted        bool
-	Silver            bool
 	MainInstance      bool
 }
 

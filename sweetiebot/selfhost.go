@@ -18,7 +18,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -34,7 +33,6 @@ type SelfhostBase struct {
 type Selfhost struct {
 	SelfhostBase
 	ready  AtomicBool
-	Donors sync.Map //map[DiscordUser]bool
 }
 
 // UpdateStatus stores the version and additional files to download
@@ -161,18 +159,6 @@ func (b *SelfhostBase) DoUpdate(dbauth string, token string) error {
 
 // ConfigureMux has nothing to configure for selfhosters
 func (b *SelfhostBase) ConfigureMux(mux *http.ServeMux) {}
-
-// CheckDonor always returns false because donor status never changes when selfhosting
-func (b *SelfhostBase) CheckDonor(m *discordgo.Member) bool { return false }
-
-// CheckGuilds sets all guilds as silver unless there's more than 30
-func (b *SelfhostBase) CheckGuilds(guilds map[DiscordGuild]*GuildInfo) {
-	count := 0
-	for _, g := range guilds {
-		g.Silver.Set(count < 30)
-		count++
-	}
-}
 
 // FindUpgradeFiles finds the .sql upgrade files that should be run
 func FindUpgradeFiles(scriptdir string, version int) (files []int) {

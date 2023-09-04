@@ -37,13 +37,11 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 3, 0}
+var BotVersion = Version{1, 0, 4, 0}
 
 const (
 	MaxPublicLines    = 12
 	maxPublicRules    = 15
-	SilverServerID    = "105443346608095232"
-	PatreonURL        = "https://www.patreon.com/erikmcclure"
 	QuitNone          = 0
 	QuitNow           = 1
 	QuitRaid          = 2
@@ -84,7 +82,6 @@ type SweetieBot struct {
 	LastMessages    map[DiscordChannel]int64
 	LastMessageLock sync.RWMutex
 	MaxConfigSize   int    `json:"maxconfigsize"`
-	MaxUniqueItems  uint64 `json:"maxuniqueitems"`
 	StartTime       int64
 	MessageCount    uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 	heartbeat       uint32 // perpetually incrementing heartbeat counter to detect deadlock
@@ -251,9 +248,6 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 	}
 
 	guild.Config.FillConfig()
-	if sb.MainGuildID.Equals(g.ID) {
-		guild.Silver.Set(true)
-	}
 
 	sb.GuildsLock.Lock()
 	sb.Guilds[DiscordGuild(g.ID)] = guild
@@ -313,11 +307,7 @@ func (sb *SweetieBot) AttachToGuild(g *discordgo.Guild) {
 		if ok {
 			changes = "\nChangelog:\n" + changes
 		}
-		if guild.Silver.Get() {
-			changes += "\n\nThank you for your support!"
-		} else {
-			changes += "\n\nPlease stop using this bot, it produces only pain and suffering."
-		}
+		changes += "\n\nThis bot is being deprecated. Certain features may be removed without warning."
 	}
 	guild.Log(sb.AppName+" version ", BotVersion.String(), " successfully loaded on ", g.Name, debug, changes)
 }
@@ -475,11 +465,6 @@ func (sb *SweetieBot) ProcessCommand(m *discordgo.Message, info *GuildInfo, t in
 				return
 			}
 
-			if c.Info().Silver && !info.Silver.Get() {
-				info.SendError(channelID, "That command is for Silver supporters only. Server owners can donate $1 a month to gain access: "+PatreonURL+". Visit the support channel for help if you already donated.", t)
-				return
-			}
-
 			cmdlimit := info.Config.Modules.CommandLimits[cmdname]
 			if !isfree && cmdlimit > 0 && !bypass {
 				cmdhash := channelID.String() + string(cmdname)
@@ -566,7 +551,7 @@ func (sb *SweetieBot) MessageCreate(s *discordgo.Session, m *discordgo.MessageCr
 		return // we do this up here so the release build doesn't log messages in bot-debug, but debug builds still log messages from the rest of the channels
 	}
 	if m.ChannelID != "heartbeat" {
-		if info != nil && info.Silver.Get() && sb.DB.CheckStatus() { // Log message on silver guilds
+		if info != nil && sb.DB.CheckStatus() { // Log message
 			if channelID != info.Config.Log.Channel {
 				sb.deferChan <- deferPair{m, info}
 			}
@@ -615,7 +600,7 @@ func (sb *SweetieBot) MessageUpdate(s *discordgo.Session, m *discordgo.MessageUp
 	if err == nil {
 		private = typeIsPrivate(ch.Type)
 	}
-	if channelID != info.Config.Log.Channel && !private && info.Silver.Get() && sb.DB.CheckStatus() { // Always ignore messages from the log channel
+	if channelID != info.Config.Log.Channel && !private && sb.DB.CheckStatus() { // Always ignore messages from the log channel
 		sb.DB.AddMessage(SBatoi(m.ID), m.Author, info.Sanitize(m.Content, CleanMentions|CleanPings), channelID.Convert(), SBatoi(ch.GuildID))
 	}
 	if sb.SelfID.Equals(m.Author.ID) {
@@ -657,7 +642,6 @@ func (sb *SweetieBot) GuildUpdate(s *discordgo.Session, m *discordgo.GuildUpdate
 		return
 	}
 	fmt.Println("Guild update detected, updating", m.Name)
-	sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(info.ID): info})
 	info.Name = m.Guild.Name
 	info.OwnerID = DiscordUser(m.Guild.OwnerID)
 	info.ProcessMembers(m.Guild.Members)
@@ -677,12 +661,6 @@ func (sb *SweetieBot) GuildMemberAdd(s *discordgo.Session, m *discordgo.GuildMem
 	}
 	info.ProcessMember(m.Member)
 
-	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
-		sb.GuildsLock.RLock()
-		sb.Selfhoster.CheckGuilds(sb.Guilds)
-		sb.GuildsLock.RUnlock()
-	}
-
 	for _, h := range info.hooks.OnGuildMemberAdd {
 		if info.ProcessModule("", h) {
 			h.OnGuildMemberAdd(info, m.Member, time.Now().UTC())
@@ -698,12 +676,6 @@ func (sb *SweetieBot) GuildMembersChunk(s *discordgo.Session, chunk *discordgo.G
 	info.ProcessMembers(chunk.Members)
 	for _, m := range chunk.Members {
 		info.Bot.DG.State.MemberAdd(m)
-
-		if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m) {
-			sb.GuildsLock.RLock()
-			sb.Selfhoster.CheckGuilds(sb.Guilds)
-			sb.GuildsLock.RUnlock()
-		}
 
 		for _, h := range info.hooks.OnGuildMemberAdd {
 			if info.ProcessModule("", h) {
@@ -722,15 +694,6 @@ func (sb *SweetieBot) GuildMemberRemove(s *discordgo.Session, m *discordgo.Guild
 	userID := DiscordUser(m.User.ID)
 	if sb.DB.CheckStatus() {
 		sb.DB.RemoveMember(userID.Convert(), SBatoi(info.ID))
-	}
-
-	if info.ID == SilverServerID {
-		if _, check := sb.Selfhoster.Donors.Load(m.User.ID); check {
-			sb.Selfhoster.Donors.Delete(m.User.ID)
-			sb.GuildsLock.RLock()
-			sb.Selfhoster.CheckGuilds(sb.Guilds)
-			sb.GuildsLock.RUnlock()
-		}
 	}
 
 	for _, h := range info.hooks.OnGuildMemberRemove {
@@ -759,11 +722,6 @@ func (sb *SweetieBot) GuildMemberUpdate(s *discordgo.Session, m *discordgo.Guild
 	}
 
 	sb.deferChan <- deferPair{m, info}
-	if info.ID == SilverServerID && sb.Selfhoster.CheckDonor(m.Member) {
-		sb.GuildsLock.RLock()
-		sb.Selfhoster.CheckGuilds(sb.Guilds)
-		sb.GuildsLock.RUnlock()
-	}
 
 	for _, h := range info.hooks.OnGuildMemberUpdate {
 		if info.ProcessModule("", h) {
@@ -913,15 +871,6 @@ func (sb *SweetieBot) memberIngestionLoop() {
 			members[i].GuildID = guild.ID
 			sb.DG.State.MemberAdd(members[i])
 		}
-		if guild.ID == SilverServerID {
-			for _, m := range members {
-				sb.Selfhoster.CheckDonor(m)
-			}
-			sb.GuildsLock.RLock()
-			sb.Selfhoster.CheckGuilds(sb.Guilds)
-			sb.GuildsLock.RUnlock()
-		}
-		sb.Selfhoster.CheckGuilds(map[DiscordGuild]*GuildInfo{DiscordGuild(guild.ID): guild})
 	}
 }
 
@@ -1043,7 +992,7 @@ func (sb *SweetieBot) deadlockDetector() {
 // New creates and initializes a new instance of Sweetiebot that's ready to connect. Returns nil on error.
 func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	path, _ := GetCurrentDir()
-	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}}
+	selfhoster := &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}}
 	rand.Seed(time.Now().UTC().Unix())
 
 	hostfile, gerr := ioutil.ReadFile("selfhost.json")
@@ -1068,7 +1017,6 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		Guilds:         make(map[DiscordGuild]*GuildInfo),
 		LastMessages:   make(map[DiscordChannel]int64),
 		MaxConfigSize:  1000000,
-		MaxUniqueItems: 25000,
 		StartTime:      time.Now().UTC().Unix(),
 		heartbeat:      4294967290,
 		loader:         loader,
@@ -1079,6 +1027,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:      "localhost",
 		WebPort:        ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 4, 0):  "- Remove all silver checks, assume everyone has silver, but decrease some limits to compensate.",
 			AssembleVersion(1, 0, 3, 0):  "- Updated dependencies",
 			AssembleVersion(1, 0, 2, 2):  "- Fixed crash in !episodequote\n- Fixed formatting of command crash handler logs",
 			AssembleVersion(1, 0, 2, 1):  "- Added a crash handler for command processing errors",
