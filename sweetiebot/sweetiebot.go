@@ -37,7 +37,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 4, 0}
+var BotVersion = Version{1, 0, 5, 0}
 
 const (
 	MaxPublicLines    = 12
@@ -81,7 +81,7 @@ type SweetieBot struct {
 	GuildsLock      sync.RWMutex
 	LastMessages    map[DiscordChannel]int64
 	LastMessageLock sync.RWMutex
-	MaxConfigSize   int    `json:"maxconfigsize"`
+	MaxConfigSize   int `json:"maxconfigsize"`
 	StartTime       int64
 	MessageCount    uint32 // 32-bit so we can do atomic ops on a 32-bit platform
 	heartbeat       uint32 // perpetually incrementing heartbeat counter to detect deadlock
@@ -787,16 +787,6 @@ func (sb *SweetieBot) GuildDelete(s *discordgo.Session, m *discordgo.GuildDelete
 	}
 }
 
-// ChannelCreate discord hook
-func (sb *SweetieBot) ChannelCreate(s *discordgo.Session, c *discordgo.ChannelCreate) {
-	info := sb.getGuildFromID(c.GuildID)
-	if info == nil {
-		return
-	}
-
-	info.setupSilenceRole()
-}
-
 // FindServers matches server names against a string
 func (sb *SweetieBot) FindServers(name string, guilds []uint64) []*GuildInfo {
 	name = strings.ToLower(name)
@@ -1010,23 +1000,24 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	}
 
 	sb := &SweetieBot{
-		Token:          token,
-		SelfName:       "Sweetie Bot",
-		AppName:        "Sweetie Bot",
-		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
-		Guilds:         make(map[DiscordGuild]*GuildInfo),
-		LastMessages:   make(map[DiscordChannel]int64),
-		MaxConfigSize:  1000000,
-		StartTime:      time.Now().UTC().Unix(),
-		heartbeat:      4294967290,
-		loader:         loader,
-		memberChan:     make(chan *GuildInfo, 2500),
-		deferChan:      make(chan deferPair, 2000),
-		Selfhoster:     selfhoster,
-		WebSecure:      false,
-		WebDomain:      "localhost",
-		WebPort:        ":80",
+		Token:         token,
+		SelfName:      "Sweetie Bot",
+		AppName:       "Sweetie Bot",
+		DebugChannels: make(map[DiscordGuild]DiscordChannel),
+		Guilds:        make(map[DiscordGuild]*GuildInfo),
+		LastMessages:  make(map[DiscordChannel]int64),
+		MaxConfigSize: 1000000,
+		StartTime:     time.Now().UTC().Unix(),
+		heartbeat:     4294967290,
+		loader:        loader,
+		memberChan:    make(chan *GuildInfo, 2500),
+		deferChan:     make(chan deferPair, 2000),
+		Selfhoster:    selfhoster,
+		WebSecure:     false,
+		WebDomain:     "localhost",
+		WebPort:       ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 5, 0):  "- Remove silence role, member role, jail channel, welcome channel, and the unsilence command.\n- The managed silence role was automatically deleted.\n- If you were still using a member role, you should give it's permissions to the everyone role and delete it.",
 			AssembleVersion(1, 0, 4, 0):  "- Remove all silver checks, assume everyone has silver, but decrease some limits to compensate.",
 			AssembleVersion(1, 0, 3, 0):  "- Updated dependencies",
 			AssembleVersion(1, 0, 2, 2):  "- Fixed crash in !episodequote\n- Fixed formatting of command crash handler logs",
@@ -1280,7 +1271,6 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 	sb.DG.AddHandler(sb.GuildBanRemove)
 	sb.DG.AddHandler(sb.GuildRoleDelete)
 	sb.DG.AddHandler(sb.GuildCreate)
-	sb.DG.AddHandler(sb.ChannelCreate)
 	return sb
 }
 

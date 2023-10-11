@@ -21,7 +21,7 @@ type GuildInfo struct {
 	ID           string // Cache the ID because it doesn't change
 	Name         string // Cache the name to reduce locking
 	OwnerID      DiscordUser
-	BotNick      string     // If not empty, the nickname assigned to the bot in this server
+	BotNick      string // If not empty, the nickname assigned to the bot in this server
 	lastlogerr   int64
 	LastRaid     int64 // Last time a raid was recorded by the spam module (or any other module that records raids)
 	commandLock  sync.RWMutex
@@ -385,14 +385,6 @@ func (info *GuildInfo) UserCanUseCommand(userID DiscordUser, command Command, ig
 	if isSelf { // The bot can always run any command that isn't disabled or exclusive
 		return
 	}
-	if info.Config.Basic.SilenceRole != RoleEmpty && info.UserHasRole(userID, info.Config.Basic.SilenceRole) {
-		err = errSilenced // Silenced users can never run commands
-		return
-	}
-	if info.Config.Basic.MemberRole != RoleEmpty && !info.UserHasRole(userID, info.Config.Basic.MemberRole) {
-		err = errSilenced // Non-member users can never run commands
-		return
-	}
 	if ignore && !isMod {
 		err = errIgnored
 		return
@@ -541,58 +533,15 @@ func (info *GuildInfo) ParseCommonTime(s string, user DiscordUser, timestamp tim
 	return t, err
 }
 
-func (info *GuildInfo) setupSilenceRole() {
-	guild, err := info.GetGuild()
-	if err != nil {
-		info.Log("Failed to setup silence roles!")
-		return
+func (info *GuildInfo) TimeoutMember(userID string) (time.Duration, error) {
+	if info.Config.Spam.SilenceTimeout > 0 {
+		timeout := time.Duration(info.Config.Spam.SilenceTimeout) * time.Second
+		until := time.Now().Add(timeout)
+		err := info.Bot.DG.GuildMemberTimeout(info.ID, userID, &until)
+		return timeout, err
 	}
-	for _, ch := range guild.Channels {
-		// If there is a silence role, override it on all channels
-		if info.Config.Basic.SilenceRole != RoleEmpty {
-			allow := int64(0)
-			deny := int64(0)
-			for _, v := range ch.PermissionOverwrites {
-				if v.Type == discordgo.PermissionOverwriteTypeRole && info.Config.Basic.SilenceRole.Equals(v.ID) {
-					allow = v.Allow
-					deny = v.Deny
-					break
-				}
-			}
-			if !info.Config.Users.JailChannel.Equals(ch.ID) {
-				allow &= (^discordgo.PermissionSendMessages)
-				deny |= discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
-			} else {
-				deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionViewChannel))
-				allow |= discordgo.PermissionSendMessages | discordgo.PermissionViewChannel
-			}
-			err := info.ChannelPermissionSet(ch, info.Config.Basic.SilenceRole.String(), discordgo.PermissionOverwriteTypeRole, allow, deny)
-			if err != nil {
-				info.Log("Failed to setup silence roles!")
-				return
-			}
-		}
 
-		// If this is the welcome channel and we have a member role, ensure the everyone role can speak in it by overriding the channel permissions.
-		if info.Config.Basic.MemberRole != RoleEmpty && info.Config.Users.WelcomeChannel.Equals(ch.ID) {
-			allow := int64(0)
-			deny := int64(0)
-			for _, v := range ch.PermissionOverwrites {
-				if v.Type == discordgo.PermissionOverwriteTypeRole && info.ID == v.ID {
-					allow = v.Allow
-					deny = v.Deny
-					break
-				}
-			}
-			deny &= (^(discordgo.PermissionSendMessages | discordgo.PermissionViewChannel))
-			allow |= discordgo.PermissionSendMessages | discordgo.PermissionViewChannel
-			err := info.ChannelPermissionSet(ch, info.ID, discordgo.PermissionOverwriteTypeRole, allow, deny)
-			if err != nil {
-				info.Log("Failed to setup silence roles!")
-				return
-			}
-		}
-	}
+	return time.Duration(0), info.Bot.DG.GuildMemberTimeout(info.ID, userID, nil)
 }
 
 // GetTimezone gets the time.Location of the given user, if it exists, otherwise returns time.UTC

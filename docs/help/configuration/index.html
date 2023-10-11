@@ -92,14 +92,9 @@ Doc<span>umentation</span></p></a></li>
 <dl><dd><p>option</p><span> (optional) </span>The configuration option to display. Use <code>Help.Rules</code> to specify a config option in a category. If this is just a category, like <code>Basic</code>, lists help information for all config options in that category.</dd><dd><p>map key</p><span> (optional) </span>If the option is a map, this determines the particular key to display. For example: <code>!getconfig Help.Rules 1</code> will return rule 1 in the rules map.</dd>
 </dl>
 <h4 id="setup">Setup</h4>
-<pre>!setup &lt;Moderator Role&gt; &lt;Mod Channel&gt; [Log Channel] [Member Role]</pre>
+<pre>!setup &lt;Moderator Role&gt; &lt;Mod Channel&gt; [Log Channel]</pre>
 <p>Sets up Sweetie Bot on this server and restricts all sensitive commands to <code>Moderator Role</code>.</p>
-<dl><dd><p>Moderator Role</p>A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.</dd><dd><p>Mod Channel</p>Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.</dd><dd><p>Log Channel</p><span> (optional) </span>An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.</dd><dd><p>Member Role</p><span> (optional) </span>If you have an existing role that all users are assigned to, provide it here. Otherwise, the bot will create a new role called "Member" that it will assign to all users. If you don't want to use this feature, provide <code>!</code> here.</dd>
-</dl>
-<h4 id="setmemberrole">SetMemberRole</h4>
-<pre>!setmemberrole [member role]</pre>
-<p>Sets the member role and adds it to all the users before removing all permissions from the everyone role. If an existing role is specified, skips over members that already have it.</p>
-<dl><dd><p>member role</p><span> (optional) </span>An existing role to use as the "member role". If not specified, the bot generates a role called "Member".</dd>
+<dl><dd><p>Moderator Role</p>A role shared by all moderators. It is used to alert moderators and also allows the moderators to bypass command restrictions imposed by certain modules.</dd><dd><p>Mod Channel</p>Whatever channel the moderators would like to receive notifications on, such as potential raids, spammers being silenced, etc.</dd><dd><p>Log Channel</p><span> (optional) </span>An optional channel that receives log messages about errors and initialization. Usually this channel is only visible to the bot and the moderators.</dd>
 </dl>
 
 

@@ -38,7 +38,6 @@ func (w *UsersModule) Commands() []bot.Command {
 		&userInfoCommand{},
 		&defaultServerCommand{},
 		&silenceCommand{},
-		&unsilenceCommand{},
 		&assignRoleCommand{},
 	}
 }
@@ -631,32 +630,13 @@ func (c *silenceCommand) Process(args []string, msg *discordgo.Message, indices 
 		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_MOD_ERROR], info.GetUserName(user)), false, nil
 	}
 
-	gID := bot.SBatoi(info.ID)
-	reason, err := processDurationAndReason(args[index:], msg, indices[index:], 8, user.String(), gID, info.Bot.DB)
+	timeout, err := info.TimeoutMember(user.String())
 	if err != nil {
-		return bot.ReturnError(err)
-	}
-
-	code, err := assignRoleMember(info, user, info.Config.Basic.SilenceRole)
-	if code < 0 || err != nil {
 		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_ERROR], info.GetUserName(user), info.ResolveRoleAddError(err).Error()), false, nil
-	} else if code == 1 {
-		var t *time.Time
-		if info.Bot.DB.Status.Get() {
-			t = info.Bot.DB.GetScheduleDate(gID, 8, user.String())
-		}
-		if t == nil {
-			return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_ALREADY_SILENCED], info.GetUserName(user)), false, nil
-		}
-		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_WILL_BE_UNSILENCED], info.GetUserName(user), bot.TimeDiff(t.Sub(bot.GetTimestamp(msg)))), false, nil
+	} else if timeout != time.Duration(0) {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_WILL_BE_UNSILENCED], info.GetUserName(user), bot.TimeDiff(timeout)), false, nil
 	}
-	if len(info.Config.Users.SilenceMessage) > 0 {
-		info.SendMessage(info.Config.Users.JailChannel, user.Display()+info.Config.Users.SilenceMessage)
-	}
-	if len(reason) > 0 {
-		reason = fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE_REASON], reason)
-	}
-	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE], info.GetUserName(user), reason), false, nil
+	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_SILENCE], info.GetUserName(user), ""), false, nil
 }
 func (c *silenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 	return &bot.CommandUsage{
@@ -664,44 +644,6 @@ func (c *silenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 		Params: []bot.CommandUsageParam{
 			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_USER], Optional: false},
 			{Name: "for: duration", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_DURATION], Optional: true},
-		},
-	}
-}
-
-type unsilenceCommand struct {
-}
-
-func (c *unsilenceCommand) Info() *bot.CommandInfo {
-	return &bot.CommandInfo{
-		Name:      "Unsilence",
-		Usage:     bot.StringMap[bot.STRING_USERS_UNSILENCE_USAGE],
-		Sensitive: true,
-	}
-}
-
-func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
-	if len(args) < 1 {
-		return bot.StringMap[bot.STRING_USERS_UNSILENCE_ARG_ERROR], false, nil
-	}
-	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
-	if err != nil {
-		return bot.ReturnError(info.ResolveRoleAddError(err))
-	}
-	if info.UserIsMod(user) || info.UserIsAdmin(user) {
-		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_MOD_ERROR], info.GetUserName(user)), false, nil
-	}
-
-	err = info.Bot.DG.RemoveRole(info.ID, user, info.Config.Basic.SilenceRole)
-	if err != nil {
-		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_ERROR], err.Error()), false, nil
-	}
-	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE], info.GetUserName(user)), false, nil
-}
-func (c *unsilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
-	return &bot.CommandUsage{
-		Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_DESCRIPTION],
-		Params: []bot.CommandUsageParam{
-			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_USER], Optional: false},
 		},
 	}
 }

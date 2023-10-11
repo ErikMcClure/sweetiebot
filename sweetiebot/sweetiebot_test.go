@@ -56,7 +56,6 @@ const (
 	TestRoleMember     = iota << MaxServers
 	TestRoleAssign     = iota << MaxServers
 	TestRoleAssign2    = iota << MaxServers
-	TestRoleSilence    = iota << MaxServers
 	TestServer         = iota << MaxServers
 	TestChannel        = iota << MaxServers
 	TestChannel2       = iota << MaxServers
@@ -65,8 +64,6 @@ const (
 	TestChannelLog     = iota << MaxServers
 	TestChannelMod     = iota << MaxServers
 	TestChannelBored   = iota << MaxServers
-	TestChannelJail    = iota << MaxServers
-	TestChannelWelcome = iota << MaxServers
 	TestChannelPrivate = iota << MaxServers
 	TestChannelGroupDM = iota << MaxServers
 	NumServers         = 3
@@ -205,13 +202,6 @@ func mockDiscordChannel(channel int, index int) *discordgo.Channel {
 	case TestChannelBored:
 		name = "Bored Channel"
 		perms = append(perms, disallowSilence)
-	case TestChannelJail:
-		name = "Jail Channel"
-		perms = append(perms, disallowEveryone, allowSilence, allowMods)
-	case TestChannelWelcome:
-		name = "Welcome Channel"
-		perms = append(perms, disallowEveryone, allowSilence, allowMods)
-	}
 	return &discordgo.Channel{
 		ID:                   strconv.Itoa(channel | index),
 		GuildID:              strconv.Itoa(TestServer | index),
@@ -250,7 +240,6 @@ func mockDiscordGuild(index int) *discordgo.Guild {
 			mockDiscordMember(TestUserAssigned, index),
 			mockDiscordMember(TestUserNonAssign, index),
 			mockDiscordMember(TestUserBoring, index),
-			mockDiscordMember(TestUserSilence, index),
 			mockDiscordMember(TestUserBot, index),
 		},
 		Presences: []*discordgo.Presence{},
@@ -262,8 +251,6 @@ func mockDiscordGuild(index int) *discordgo.Guild {
 			mockDiscordChannel(TestChannelLog, index),
 			mockDiscordChannel(TestChannelMod, index),
 			mockDiscordChannel(TestChannelBored, index),
-			mockDiscordChannel(TestChannelJail, index),
-			mockDiscordChannel(TestChannelWelcome, index),
 		},
 		VoiceStates: []*discordgo.VoiceState{},
 	}
@@ -347,20 +334,20 @@ func mockModule(name string) Module {
 func MockSweetieBot(t *testing.T) (*SweetieBot, sqlmock.Sqlmock, *Mock) {
 	db, dbmock := mockBotDB()
 	sb := &SweetieBot{
-		Owner:          NewDiscordUser(TestOwnerBot),
-		DG:             mockDiscordGo(),
-		DB:             db,
-		SelfName:       "Sweetie Bot",
-		SelfID:         NewDiscordUser(TestSelfID),
-		AppName:        "Sweetie Bot",
-		MainGuildID:    NewDiscordGuild(TestServer | 0),
-		DebugChannels:  make(map[DiscordGuild]DiscordChannel),
-		Guilds:         make(map[DiscordGuild]*GuildInfo),
-		MaxConfigSize:  1000000,
-		StartTime:      time.Now().UTC().Unix(),
-		heartbeat:      4294967290,
-		memberChan:     make(chan *GuildInfo, 1500),
-		Selfhoster:     &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}},
+		Owner:         NewDiscordUser(TestOwnerBot),
+		DG:            mockDiscordGo(),
+		DB:            db,
+		SelfName:      "Sweetie Bot",
+		SelfID:        NewDiscordUser(TestSelfID),
+		AppName:       "Sweetie Bot",
+		MainGuildID:   NewDiscordGuild(TestServer | 0),
+		DebugChannels: make(map[DiscordGuild]DiscordChannel),
+		Guilds:        make(map[DiscordGuild]*GuildInfo),
+		MaxConfigSize: 1000000,
+		StartTime:     time.Now().UTC().Unix(),
+		heartbeat:     4294967290,
+		memberChan:    make(chan *GuildInfo, 1500),
+		Selfhoster:    &Selfhost{SelfhostBase{BotVersion.Integer()}, AtomicBool{0}, sync.Map{}},
 	}
 	sb.EmptyGuild = NewGuildInfo(sb, &discordgo.Guild{})
 	sb.EmptyGuild.Config.FillConfig()

@@ -33,8 +33,6 @@ type BotConfig struct {
 		Aliases               map[string]string       `json:"aliases"`
 		ListenToBots          bool                    `json:"listentobots"`
 		CommandPrefix         string                  `json:"commandprefix"`
-		SilenceRole           DiscordRole             `json:"silencerole"`
-		MemberRole            DiscordRole             `json:"memberrole"`
 	} `json:"basic"`
 	Modules struct {
 		Channels           map[ModuleID]map[DiscordChannel]bool  `json:"modulechannels"`
@@ -66,8 +64,6 @@ type BotConfig struct {
 	} `json:"spam"`
 	Users struct {
 		TimezoneLocation TimeLocation         `json:"timezonelocation"`
-		WelcomeChannel   DiscordChannel       `json:"welcomechannel"`
-		JailChannel      DiscordChannel       `json:"jailchannel"`
 		WelcomeMessage   string               `json:"welcomemessage"`
 		SilenceMessage   string               `json:"silencemessage"`
 		Roles            map[DiscordRole]bool `json:"userroles"`
@@ -144,8 +140,6 @@ var ConfigHelp = map[string]map[string]string{
 		"aliases":               "Can be used to redirect commands, such as making `!listgroup` call the `!listgroups` command. Useful for making shortcuts.\n\nExample: `!setconfig basic.aliases kawaii pick cute` sets an alias mapping `!kawaii arg1...` to `!pick cute arg1...`, preserving all arguments that are passed to the alias.",
 		"listentobots":          "If true, processes messages from other bots and allows them to run commands. Bots can never trigger anti-spam. Defaults to false.",
 		"commandprefix":         "Determines the SINGLE ASCII CHARACTER prefix used to denote bot commands. You can't set it to an emoji or any weird foreign character. The default is `!`. If this is set to an invalid value, it defaults to `!`.",
-		"silencerole":           "This should be a role with no permissions, so the bot can quarantine potential spammers without banning them. The bot usually manages this role for you, so you should almost never touch this value.",
-		"memberrole":            "This should be a role with all permissions that the everyone role would normally have. You shouldn't touch this value, use the !SetMemberRole command to manage it instead.",
 	},
 	"modules": {
 		"commandroles":       "A map of which roles are allowed to run which command. If no mapping exists, everyone can run the command.",
@@ -190,8 +184,6 @@ var ConfigHelp = map[string]map[string]string{
 	},
 	"users": {
 		"timezonelocation": "Sets the timezone location of the server itself. When no user timezone is available, the bot will use this.",
-		"welcomechannel":   "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for new members that haven't had their Member role set. If RaidSilence is enabled, new users will be sent to this channel.",
-		"jailchannel":      "If set to a channel ID, the bot will treat this channel as a \"quarantine zone\" for silenced members. This can be the same as the welcome channel, or it can be a different one.",
 		"welcomemessage":   "If RaidSilence is enabled, this message will be sent to a new user upon joining.",
 		"silencemessage":   "This message will be sent to users that have been silenced by the `!silence` command.",
 		"roles":            "A list of all user-assignable roles. Manage it via !addrole and !removerole",
@@ -256,7 +248,7 @@ func getConfigHelp(module string, option string) (string, bool) {
 }
 
 // ConfigVersion is the latest version of the config file
-var ConfigVersion = 30
+var ConfigVersion = 31
 
 // DefaultConfig returns a default BotConfig struct. We can't define this as a variable because you can't initialize nested structs in a sane way in Go
 func DefaultConfig() *BotConfig {
@@ -742,6 +734,17 @@ type legacyBotConfigV26 struct {
 	} `json:"spam"`
 }
 
+type legacyBotConfigV30 struct {
+	Basic struct {
+		SilenceRole DiscordRole `json:"silencerole"`
+		MemberRole  DiscordRole `json:"memberrole"`
+	} `json:"basic"`
+	Users struct {
+		WelcomeChannel DiscordChannel `json:"welcomechannel"`
+		JailChannel    DiscordChannel `json:"jailchannel"`
+	} `json:"users"`
+}
+
 func restrictCommand(v string, roles map[CommandID]map[DiscordRole]bool, modrole DiscordRole) {
 	id := CommandID(v)
 	_, ok := roles[id]
@@ -973,7 +976,6 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 			guild.Config.Status.Lines = make(map[string]bool)
 			guild.Config.Users.TrackUserLeft = legacy.Basic.TrackUserLeft
 			guild.Config.Users.SilenceMessage = legacy.Spam.SilenceMessage
-			guild.Config.Basic.SilenceRole = legacy.Spam.SilentRole
 
 			if bucket, ok := legacy.Collections["bucket"]; ok {
 				for k, v := range bucket {
@@ -1027,14 +1029,8 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 		if guild.Config.Basic.ModChannel == "0" {
 			guild.Config.Basic.ModChannel = ""
 		}
-		if guild.Config.Basic.SilenceRole == "0" {
-			guild.Config.Basic.SilenceRole = ""
-		}
 		if guild.Config.Spam.IgnoreRole == "0" {
 			guild.Config.Spam.IgnoreRole = ""
-		}
-		if guild.Config.Users.WelcomeChannel == "0" {
-			guild.Config.Users.WelcomeChannel = ""
 		}
 		if guild.Config.Users.NotifyChannel == "0" {
 			guild.Config.Users.NotifyChannel = ""
@@ -1093,10 +1089,6 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 		restrictCommand("createrole", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 	}
 
-	if guild.Config.Version <= 24 {
-		guild.setupSilenceRole()
-	}
-
 	if guild.Config.Version <= 25 {
 		restrictCommand("echoembed", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
 	}
@@ -1122,8 +1114,15 @@ func (guild *GuildInfo) MigrateSettings(config []byte) error {
 	}
 
 	if guild.Config.Version <= 29 {
-		guild.Config.Users.JailChannel = guild.Config.Users.WelcomeChannel
 		restrictCommand("setmemberrole", guild.Config.Modules.CommandRoles, guild.Config.Basic.ModRole)
+	}
+
+	if guild.Config.Version <= 30 {
+		legacy := legacyBotConfigV30{}
+		err := json.Unmarshal(config, &legacy)
+		if err == nil {
+			guild.Bot.DG.GuildRoleDelete(guild.ID, legacy.Basic.SilenceRole.String())
+		}
 	}
 
 	if guild.Config.Version != ConfigVersion {
