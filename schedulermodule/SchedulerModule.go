@@ -26,7 +26,6 @@ const ( // We don't use iota here because this must match the database values ex
 	typeEvent           = 5
 	typeEventReminder   = 6
 	typeEventRole       = 7
-	typeEventSilence    = 8
 	typeEventRemoveRole = 9
 )
 
@@ -136,13 +135,6 @@ func (w *SchedulerModule) OnTick(info *bot.GuildInfo, t time.Time) {
 		case typeEventRole:
 			dat := strings.SplitN(v.Data, "|", 2)
 			info.SendMessage(channel, dat[0]+" "+dat[1])
-		case typeEventSilence:
-			err := info.ResolveRoleAddError(info.Bot.DG.RemoveRole(info.ID, bot.DiscordUser(v.Data), info.Config.Basic.SilenceRole))
-			if err != nil {
-				info.SendMessage(info.Config.Basic.ModChannel, "Error unsilencing <@"+v.Data+">: "+err.Error())
-			} else {
-				info.SendMessage(info.Config.Basic.ModChannel, "Unsilenced <@"+v.Data+">")
-			}
 		case typeEventRemoveRole:
 			dat := strings.SplitN(v.Data, "|", 2)
 			if len(dat) != 2 {
@@ -283,8 +275,6 @@ func getScheduleType(s string) uint8 {
 		return typeEventReminder
 	case "roles", "role":
 		return typeEventRole
-	case "silences", "silence":
-		return typeEventSilence
 	case "removals", "removal":
 		return typeEventRemoveRole
 	}

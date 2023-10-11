@@ -1,7 +1,6 @@
 package spammodule
 
 import (
-	"container/heap"
 	"fmt"
 	"strconv"
 	"strings"
@@ -44,25 +43,19 @@ func (h *userTimeoutHeap) Pop() interface{} {
 
 // SpamModule detects banned emotes and deletes them
 type SpamModule struct {
-	tracker      sync.Map                    //map[bot.DiscordUser]*userPressure
-	lockdown     discordgo.VerificationLevel // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
-	lastlockdown time.Time
-	timeouts     *userTimeoutHeap
-	timeoutLock  sync.Mutex
-	silenced     map[bot.DiscordUser]bool // Users that have been silenced
-	resilence    map[bot.DiscordUser]bool // Users that left while silenced
+	tracker      sync.Map                      //map[bot.DiscordUser]*userPressure
+	lockdown     discordgo.VerificationLevel   // if -1 no lockdown was initiated, otherwise remembers the previous lockdown setting
+	silenced     map[bot.DiscordUser]time.Time // Tracking users we know we've silenced so we only send the message once
 	silenceLock  sync.Mutex
+	lastlockdown time.Time
 }
 
 // New spam module
 func New() *SpamModule {
 	w := &SpamModule{
-		lockdown:  -1,
-		timeouts:  &userTimeoutHeap{},
-		silenced:  make(map[bot.DiscordUser]bool),
-		resilence: make(map[bot.DiscordUser]bool),
+		lockdown: -1,
+		silenced: make(map[bot.DiscordUser]time.Time),
 	}
-	heap.Init(w.timeouts)
 	return w
 }
 
@@ -92,29 +85,25 @@ func (w *SpamModule) OnTick(info *bot.GuildInfo, t time.Time) {
 	if w.lockdown != -1 && t.Sub(w.lastlockdown) > (time.Duration(info.Config.Spam.LockdownDuration)*time.Second) {
 		w.DisableLockdown(info)
 	}
-	w.timeoutLock.Lock()
-	for w.timeouts.Len() > 0 && w.timeouts.Peek().time.Before(t) {
-		u := heap.Pop(w.timeouts).(userTimeout).user
-		err := info.Bot.DG.RemoveRole(info.ID, u, info.Config.Basic.SilenceRole)
-		if err != nil {
-			info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_ERROR_UNSILENCING], err.Error()))
-		}
-		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_UNSILENCING], info.GetUserName(u)))
-	}
-	w.timeoutLock.Unlock()
 }
 
-func silenceMember(user *discordgo.User, info *bot.GuildInfo) int8 {
-	defer info.Bot.DG.GuildMemberRoleAdd(info.ID, user.ID, info.Config.Basic.SilenceRole.String()) // No matter what, tell discord to make this spammer silent even if we've already done this, because discord is fucking stupid and sometimes fails for no reason
-	m := info.Bot.DG.GetMemberCreate(user, info.ID)
-	if bot.MemberHasRole(m, info.Config.Basic.SilenceRole) {
-		return 1
-	}
-	nroles := make([]string, len(m.Roles)) // We set this to a new slice so we can atomically replace it on x86 architectures, avoiding a lock
-	copy(nroles, m.Roles)
-	m.Roles = append(nroles, info.Config.Basic.SilenceRole.String())
+func (w *SpamModule) timeoutMember(user *discordgo.User, info *bot.GuildInfo) (bool, string) {
+	timeout, _ := info.TimeoutMember(user.ID)
 
-	return 0
+	addmsg := "."
+
+	if timeout != time.Duration(0) {
+		addmsg = fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WILL_BE_UNSILENCED], bot.TimeDiff(timeout))
+	} else {
+		timeout = time.Duration(50) * time.Second // If there is no duration we just want enough time to let discord resolve any errors it has.
+	}
+
+	w.silenceLock.Lock()
+	silenced, ok := w.silenced[bot.DiscordUser(user.ID)]
+	w.silenced[bot.DiscordUser(user.ID)] = time.Now().UTC().Add(timeout)
+	w.silenceLock.Unlock()
+
+	return (ok && time.Now().UTC().Before(silenced)), addmsg
 }
 
 func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *discordgo.Message, reason string, oldpressure float32, newpressure float32) {
@@ -150,15 +139,9 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 		lastmsg = lastmsg[:300] + bot.StringMap[bot.STRING_SPAM_TRUNCATED]
 	}
 	logmsg := fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_KILLING_SPAMMER_DETAIL], u.Username, oldpressure, newpressure, chname, info.Name, lastmsg, msgembeds)
-	if info.Config.Users.WelcomeChannel.Equals(msg.ChannelID) || info.Config.Users.JailChannel.Equals(msg.ChannelID) {
-		info.Bot.DG.GuildBanCreateWithReason(info.ID, u.ID, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_AUTOBANNED_REASON], reason), 1)
-		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_BAN_ALERT], u.ID, reason))
-		info.Log(logmsg)
-		return
-	}
-	silenced := silenceMember(u, info) > 0
+	silenced, addmsg := w.timeoutMember(u, info)
 
-	if info.Config.Spam.MaxRemoveLookback > 0 && !silenced {
+	if info.Config.Spam.MaxRemoveLookback > 0 {
 		IDs := []string{msg.ID}
 		lastid := msg.ID
 		endtime := timestamp.Add(time.Duration(-info.Config.Spam.MaxRemoveLookback) * time.Second)
@@ -186,14 +169,6 @@ func (w *SpamModule) killSpammer(u *discordgo.User, info *bot.GuildInfo, msg *di
 	} // otherwise we don't delete anything
 
 	if !silenced { // Only send the alert if they weren't silenced already
-		addmsg := "."
-		if info.Config.Spam.SilenceTimeout > 0 {
-			timeout := time.Duration(info.Config.Spam.SilenceTimeout) * time.Second
-			addmsg = fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_WILL_BE_UNSILENCED], bot.TimeDiff(timeout))
-			w.timeoutLock.Lock()
-			heap.Push(w.timeouts, userTimeout{bot.DiscordUser(u.ID), timestamp.Add(timeout)})
-			w.timeoutLock.Unlock()
-		}
 		info.SendMessage(info.Config.Basic.ModChannel, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_SILENCE_ALERT], u.ID, reason, addmsg)) // Alert admins
 		info.Log(logmsg)
 	} else {
@@ -231,7 +206,12 @@ func (w *SpamModule) checkSpam(info *bot.GuildInfo, m *discordgo.Message) bool {
 		if info.UserIsMod(author) || info.UserIsAdmin(author) || m.Author.Bot {
 			return false
 		}
-		if info.UserHasRole(author, info.Config.Basic.SilenceRole) && !info.Config.Users.JailChannel.Equals(m.ChannelID) {
+
+		w.silenceLock.Lock()
+		silenced, ok := w.silenced[bot.DiscordUser(m.Author.ID)]
+		w.silenceLock.Unlock()
+
+		if ok && time.Now().UTC().Before(silenced) {
 			ch, _ := info.Bot.DG.Channel(m.ChannelID)
 			time.Sleep(bot.DelayTime)
 			info.ChannelMessageDelete(ch, m.ID)
@@ -342,11 +322,7 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 		for _, v := range r {
 			s = append(s, fmt.Sprintf(bot.StringMap[bot.STRING_SPAM_USER_JOINED], v.User.Username, info.ApplyTimezone(v.FirstSeen, bot.UserEmpty).Format(time.ANSIC)))
 			if info.Config.Spam.RaidSilence >= 1 {
-				if info.Config.Basic.MemberRole != bot.RoleEmpty {
-					info.Bot.DG.GuildMemberRoleRemove(info.ID, v.User.ID, info.Config.Basic.MemberRole.String())
-				} else {
-					silenceMember(v.User, info)
-				}
+				w.timeoutMember(v.User, info)
 			}
 		}
 		ch := info.Config.Basic.ModChannel
@@ -381,29 +357,8 @@ func (w *SpamModule) checkRaid(info *bot.GuildInfo, m *discordgo.Member, t time.
 	}
 }
 
-func (w *SpamModule) ADDMEMBER(info *bot.GuildInfo, m *discordgo.Member) {
-	err := info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.MemberRole.String())
-
-	if err != nil {
-		fmt.Println("ADDMEMBER ERROR:", err.Error())
-	}
-}
-
 // OnGuildMemberAdd discord hook
 func (w *SpamModule) OnGuildMemberAdd(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
-	w.silenceLock.Lock()
-	if _, ok := w.resilence[bot.DiscordUser(m.User.ID)]; ok || info.Config.Spam.RaidSilence >= 2 || (info.Config.Spam.RaidSilence >= 1 && ((info.LastRaid + info.Config.Spam.RaidTime*2) > t.Unix())) {
-		if info.Config.Basic.MemberRole == bot.RoleEmpty {
-			silenceMember(m.User, info)
-		}
-		if len(info.Config.Users.WelcomeMessage) > 0 {
-			defer info.SendMessage(info.Config.Users.WelcomeChannel, "<@"+m.User.ID+"> "+info.Config.Users.WelcomeMessage)
-		}
-	} else if info.Config.Basic.MemberRole != bot.RoleEmpty {
-		defer w.ADDMEMBER(info, m)
-	}
-	w.silenceLock.Unlock()
-
 	w.checkRaid(info, m, t)
 }
 
@@ -412,29 +367,12 @@ func (w *SpamModule) OnGuildMemberRemove(info *bot.GuildInfo, m *discordgo.Membe
 	w.silenceLock.Lock()
 	defer w.silenceLock.Unlock()
 	if _, ok := w.silenced[bot.DiscordUser(m.User.ID)]; ok {
-		w.resilence[bot.DiscordUser(m.User.ID)] = true
 		delete(w.silenced, bot.DiscordUser(m.User.ID))
 	}
 }
 
 // OnGuildMemberUpdate discord hook
 func (w *SpamModule) OnGuildMemberUpdate(info *bot.GuildInfo, m *discordgo.Member, t time.Time) {
-	// Discord sends an OnGuildMemberUpdate *before* the OnGuildMemberAdd event, and OnGuildMemberRemove does not
-	// include the roles of the member because the member has already been removed from the state, so we have to do
-	// all the resilence logic in here using two maps instead of just one.
-	w.silenceLock.Lock()
-	if _, ok := w.resilence[bot.DiscordUser(m.User.ID)]; ok {
-		delete(w.resilence, bot.DiscordUser(m.User.ID)) // Delete this first so the next OnGuildMemberUpdate will trigger the add/delete code path
-		defer info.Bot.DG.GuildMemberRoleAdd(info.ID, m.User.ID, info.Config.Basic.SilenceRole.String())
-	} else {
-		if bot.MemberHasRole(m, info.Config.Basic.SilenceRole) {
-			w.silenced[bot.DiscordUser(m.User.ID)] = true
-		} else {
-			delete(w.silenced, bot.DiscordUser(m.User.ID))
-		}
-	}
-	w.silenceLock.Unlock()
-
 	w.checkRaid(info, m, t)
 }
 
@@ -496,11 +434,7 @@ func (c *raidSilenceCommand) Process(args []string, msg *discordgo.Message, indi
 		s = append(s, bot.StringMap[bot.STRING_SPAM_RAIDSILENCE_DETECTION])
 		for _, v := range r {
 			s = append(s, v.Username)
-			if info.Config.Basic.MemberRole != bot.RoleEmpty {
-				info.Bot.DG.GuildMemberRoleRemove(info.ID, v.ID, info.Config.Basic.MemberRole.String())
-			} else {
-				silenceMember(v, info)
-			}
+			info.TimeoutMember(v.ID)
 		}
 		return strings.Join(s, "\n") + "```", false, nil
 	}

@@ -182,7 +182,6 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 		Color: 0x3e92e5,
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "**Author**", Value: "erikmcclure", Inline: true},
-			{Name: "**Library**", Value: "discordgo", Inline: true},
 			{Name: "**Owner ID**", Value: info.Bot.Owner.String(), Inline: true},
 			{Name: "**Presence**", Value: Pluralize(int64(len(info.Bot.Guilds)), " server"), Inline: true},
 			{Name: "**Uptime**", Value: TimeDiff(time.Duration(GetTimestamp(msg).Unix()-info.Bot.StartTime) * time.Second), Inline: true},

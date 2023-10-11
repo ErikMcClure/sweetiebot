@@ -258,7 +258,7 @@ func TestFindChannelID(t *testing.T) {
 	sb, _, _ := MockSweetieBot(t)
 
 	for k, v := range sb.Guilds {
-		channels := []int{TestChannel, TestChannelSpoil, TestChannelFree, TestChannelLog, TestChannelMod, TestChannelBored, TestChannelJail, TestChannelWelcome}
+		channels := []int{TestChannel, TestChannelSpoil, TestChannelFree, TestChannelLog, TestChannelMod, TestChannelBored}
 		i := int(k.Convert() & 0xFF)
 		for _, c := range channels {
 			Check(v.FindChannelID(mockDiscordChannel(c, i).Name), strconv.Itoa(c|i), t)
@@ -303,14 +303,11 @@ func TestUserHasRole(t *testing.T) {
 		Check(v.UserHasRole(NewDiscordUser(TestUserAssigned|i), NewDiscordRole(TestRoleAssign|i)), true, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserAssigned|i), NewDiscordRole(TestRoleUser|i)), false, t)
 		Check(v.UserHasRole(NewDiscordUser(TestMod|i), NewDiscordRole(TestRoleMod|i)), true, t)
-		Check(v.UserHasRole(NewDiscordUser(TestUserSilence|i), NewDiscordRole(TestRoleSilence|i)), true, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserSilence|i), NewDiscordRole(TestRoleMod|i)), false, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserNonAssign|i), NewDiscordRole(TestRoleUser|i)), true, t)
-		Check(v.UserHasRole(NewDiscordUser(TestUserNonAssign|i), NewDiscordRole(TestRoleSilence|i)), false, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserBoring|i), NewDiscordRole(TestRoleAssign|i)), false, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserBoring|i), NewDiscordRole(TestRoleUser|i)), false, t)
 		Check(v.UserHasRole(NewDiscordUser(TestUserBoring|i), NewDiscordRole(TestRoleMod|i)), false, t)
-		Check(v.UserHasRole(NewDiscordUser(TestUserBoring|i), NewDiscordRole(TestRoleSilence|i)), false, t)
 	}
 }
 func TestUserCanUseCommand(t *testing.T) {
@@ -459,31 +456,6 @@ func TestParseCommonTime(t *testing.T) {
 		tm, err := v.ParseCommonTime("Jun 30 2016", UserEmpty, time.Now())
 		Check(err, nil, t)
 		Check(tm, time.Date(2016, 6, 30, 0, 0, 0, 0, time.UTC), t)
-	}
-}
-
-func TestSetupSilenceRole(t *testing.T) {
-	sb, _, _ := MockSweetieBot(t)
-
-	for _, v := range sb.DG.State.Guilds {
-		g := sb.Guilds[DiscordGuild(v.ID)]
-		for _, c := range v.Channels {
-			if g.Config.Users.JailChannel.Equals(c.ID) {
-				allow := discordgo.PermissionSendMessages | discordgo.PermissionReadMessages | discordgo.PermissionReadMessageHistory
-				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", allow, 0)
-			} else {
-				deny := discordgo.PermissionSendMessages | discordgo.PermissionAddReactions
-				if len(c.PermissionOverwrites) > 0 && c.PermissionOverwrites[0].ID == g.Config.Basic.SilenceRole.String() {
-					deny = discordgo.PermissionAllText | discordgo.PermissionAddReactions
-				}
-				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.Config.Basic.SilenceRole.String(), "role", 0, deny)
-			}
-			if g.Config.Users.WelcomeChannel.Equals(c.ID) {
-				allow := discordgo.PermissionSendMessages | discordgo.PermissionReadMessages
-				mock.Expect(g.Bot.DG.ChannelPermissionSet, c.ID, g.ID, "role", allow, 0)
-			}
-		}
-		g.setupSilenceRole()
 	}
 }
 
