@@ -32,7 +32,7 @@ type SelfhostBase struct {
 // Selfhost stores selfhost update state
 type Selfhost struct {
 	SelfhostBase
-	ready  AtomicBool
+	ready AtomicBool
 }
 
 // UpdateStatus stores the version and additional files to download
@@ -44,9 +44,9 @@ type UpdateStatus struct {
 // UpdateEndpoint returns the update endpoint for the given id and current architecture
 func UpdateEndpoint(request string, userID DiscordUser, oldversion int) string {
 	if oldversion > 0 {
-		return fmt.Sprintf("https://sweetiebot.io/update/%s/%s/%s?user=%v&version=%v", runtime.GOOS, runtime.GOARCH, request, userID, oldversion)
+		return fmt.Sprintf("https://erikmcclure.com/sweetiebot/update/%s/%s/%s?user=%v&version=%v", runtime.GOOS, runtime.GOARCH, request, userID, oldversion)
 	}
-	return fmt.Sprintf("https://sweetiebot.io/update/%s/%s/%s?user=%v", runtime.GOOS, runtime.GOARCH, request, userID)
+	return fmt.Sprintf("https://erikmcclure.com/sweetiebot/update/%s/%s/%s?user=%v", runtime.GOOS, runtime.GOARCH, request, userID)
 }
 
 // CheckForUpdate returns 0 if no update is needed, -1 if you haven't bought selfhosting, and 1 plus a list of files that are needed if oldversion is nonzero.

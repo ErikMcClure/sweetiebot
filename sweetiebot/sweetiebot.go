@@ -37,7 +37,7 @@ var guildfileregex = regexp.MustCompile("^([0-9]+)[.]json$")
 const DiscordEpoch uint64 = 1420070400000
 
 // BotVersion stores the current version of sweetiebot
-var BotVersion = Version{1, 0, 5, 0}
+var BotVersion = Version{1, 0, 6, 0}
 
 const (
 	MaxPublicLines    = 12
@@ -1017,6 +1017,7 @@ func New(token string, loader func(*GuildInfo) []Module) *SweetieBot {
 		WebDomain:     "localhost",
 		WebPort:       ":80",
 		changelog: map[int]string{
+			AssembleVersion(1, 0, 6, 0):  "- Deprecate domain name.",
 			AssembleVersion(1, 0, 5, 0):  "- Remove silence role, member role, jail channel, welcome channel, and the unsilence command.\n- The managed silence role was automatically deleted.\n- If you were still using a member role, you should give it's permissions to the everyone role and delete it.",
 			AssembleVersion(1, 0, 4, 0):  "- Remove all silver checks, assume everyone has silver, but decrease some limits to compensate.",
 			AssembleVersion(1, 0, 3, 0):  "- Updated dependencies",
@@ -1288,7 +1289,6 @@ func (sb *SweetieBot) Connect() int {
 	go sb.idleCheckLoop()
 	go sb.deadlockDetector()
 	go sb.memberIngestionLoop()
-	go sb.ServeWeb()
 	go sb.buildMarkov()
 
 	err := sb.DG.Open()

@@ -486,7 +486,7 @@ func (info *GuildInfo) FormatUsage(c Command, usage *CommandUsage) *discordgo.Me
 	embed := &discordgo.MessageEmbed{
 		Type: "rich",
 		Author: &discordgo.MessageEmbedAuthor{
-			URL:     "https://sweetiebot.io/help/" + string(module) + "/#" + string(name),
+			URL:     "https://erikmcclure.com/sweetiebot/help/" + string(module) + "/#" + string(name),
 			Name:    c.Info().Name + " Command",
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 		},

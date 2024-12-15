@@ -118,7 +118,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 		embed := &discordgo.MessageEmbed{
 			Type: "rich",
 			Author: &discordgo.MessageEmbedAuthor{
-				URL:     "https://sweetiebot.io/help/",
+				URL:     "https://erikmcclure.com/sweetiebot/help/",
 				Name:    info.Bot.AppName + " Config Options",
 				IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 			},
@@ -177,7 +177,7 @@ func (c *getConfigCommand) Process(args []string, msg *discordgo.Message, indice
 					embed := &discordgo.MessageEmbed{
 						Type: "rich",
 						Author: &discordgo.MessageEmbedAuthor{
-							URL:     "https://sweetiebot.io/help/" + strings.ToLower(t.Type().Field(i).Name),
+							URL:     "https://erikmcclure.com/sweetiebot/help/" + strings.ToLower(t.Type().Field(i).Name),
 							Name:    t.Type().Field(i).Name + " Config Category",
 							IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 						},
@@ -298,7 +298,7 @@ func (c *setupCommand) Process(args []string, msg *discordgo.Message, indices []
 
 	info.Config.SetupDone = true
 	info.SaveConfig()
-	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://sweetiebot.io/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.",
+	return fmt.Sprintf("```\nServer configured!\nModerator Role: %v\nMod Channel: %v\nLog Channel: %v```\nNow that you've done basic configuration on %s, here are some additional features you can enable. For additional help, type `"+info.Config.Basic.CommandPrefix+"help` for a list of commands and modules, or `"+info.Config.Basic.CommandPrefix+"getconfig` with no arguments for a list of configuration options. Using `"+info.Config.Basic.CommandPrefix+"help <module>` will display detailed help for that module and all its commands. Using `"+info.Config.Basic.CommandPrefix+"getconfig <group>` will display detailed help for all the configuration options in that configuration group. If you're still confused, please check the website: https://erikmcclure.com/sweetiebot/\n\n**Bucket**\nIf you'd like to enable the bucket, use the command `"+info.Config.Basic.CommandPrefix+"enable Bucket`. It defaults to carrying a maximum of 10 items, but you can change this via the `Bucket.MaxItems` option.\n\n**Bored Module**\nIf you'd like "+info.GetBotName()+" to perform actions when the chat in a certain channel hasn't been active for a period of time, use `"+info.Config.Basic.CommandPrefix+"enable bored` followed by `"+info.Config.Basic.CommandPrefix+"setconfig modules.channels bored #yourchannel`, where `#yourchannel` is your general chat channel. The commands picked from are stored in `bored.commands`. By default, it will quote someone or attempt to throw an item out of the bucket.\n\n**Free Channels**\nIf you like, you can designate a channel to be free from command restrictions, so people can spam silly bot commands to their hearts content. If you had a channel called `#bot` for this, you can disable all command restrictions by using the command ```"+info.Config.Basic.CommandPrefix+"setconfig basic.freechannels #bot```.",
 		modname,
 		modchannel,
 		logchannel,
