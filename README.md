@@ -5,7 +5,7 @@ Sweetie Bot was an administration bot for Discord servers. **Sweetie Bot is no l
 
 ## Documentation
 
-Please visit the [official website](https://sweetiebot.io/help) for help with commands and configuration.
+Please visit the [official website](https://erikmcclure.com/sweetiebot/help) for help with commands and configuration.
 
 ### Configuration
 Basic configuration parameters can be set with `!setconfig <parameter name> <value>`. To get a list of configuration parameters, use `!getconfig`. To output the current value of a parameter, use `!getconfig <paramater name>`. Do not use quotes on these values if they have spaces.
@@ -18,7 +18,7 @@ Basic configuration parameters can be set with `!setconfig <parameter name> <val
 * **Sweetiebot is silencing everyone?!** You messed up the spam module configuration. Either run `!setup` again to wipe your settings, or reset all her spam module values to the defaults listed here.
 * **Prevent Sweetiebot from saying "That's an invalid command":** `!setconfig IgnoreInvalidCommands true`
 * **Set the bored command list:** `!setconfig bored.commands "!command1" "!command2 arg"`
-* **Set up a basic word filter:** Check the [help page for the filter module](https://sweetiebot.io/help/filter/), which includes an example filter regex for this.
+* **Set up a basic word filter:** Check the [help page for the filter module](https://erikmcclure.com/sweetiebot/help/filter/), which includes an example filter regex for this.
 
 #### Advanced Configuration
 Certain configuration parameters are more complex. They can either be maps, lists, or maps of lists. This type information is listed when using `!getconfig`. Parameters that are lists simply take multiple values instead of one. Setting a list parameter to a set of values will *replace* the current list of values. In list parameters, *all values* must use quotes if they have spaces in them.

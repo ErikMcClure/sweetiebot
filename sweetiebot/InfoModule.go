@@ -76,7 +76,7 @@ func DumpCommandsModules(info *GuildInfo, footer string, description string, msg
 	return &discordgo.MessageEmbed{
 		Type: "rich",
 		Author: &discordgo.MessageEmbedAuthor{
-			URL:     "https://sweetiebot.io/help/",
+			URL:     "https://erikmcclure.com/sweetiebot/help/",
 			Name:    name,
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 		},
@@ -111,7 +111,7 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 			embed := &discordgo.MessageEmbed{
 				Type: "rich",
 				Author: &discordgo.MessageEmbedAuthor{
-					URL:     "https://sweetiebot.io/help/" + strings.ToLower(v.Name()),
+					URL:     "https://erikmcclure.com/sweetiebot/help/" + strings.ToLower(v.Name()),
 					Name:    v.Name() + " Module Command List" + info.Config.IsModuleDisabled(v),
 					IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 				},
@@ -134,7 +134,7 @@ func (c *helpCommand) Process(args []string, msg *discordgo.Message, indices []i
 				embed := &discordgo.MessageEmbed{
 					Type: "rich",
 					Author: &discordgo.MessageEmbedAuthor{
-						URL:     "https://sweetiebot.io/help/" + parts[0] + "/#" + arg,
+						URL:     "https://erikmcclure.com/sweetiebot/help/" + parts[0] + "/#" + arg,
 						Name:    arg,
 						IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.jpg", info.Bot.SelfID, info.Bot.SelfAvatar),
 					},
@@ -175,7 +175,7 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 	embed := &discordgo.MessageEmbed{
 		Type: "rich",
 		Author: &discordgo.MessageEmbedAuthor{
-			URL:     "https://sweetiebot.io",
+			URL:     "https://erikmcclure.com/sweetiebot",
 			Name:    info.GetBotName() + " v" + BotVersion.String() + tag,
 			IconURL: fmt.Sprintf("https://cdn.discordapp.com/avatars/%v/%s.png", info.Bot.SelfID, info.Bot.SelfAvatar),
 		},
@@ -186,7 +186,7 @@ func (c *aboutCommand) Process(args []string, msg *discordgo.Message, indices []
 			{Name: "**Presence**", Value: Pluralize(int64(len(info.Bot.Guilds)), " server"), Inline: true},
 			{Name: "**Uptime**", Value: TimeDiff(time.Duration(GetTimestamp(msg).Unix()-info.Bot.StartTime) * time.Second), Inline: true},
 			{Name: "**Messages Seen**", Value: strconv.FormatUint(uint64(atomic.LoadUint32(&info.Bot.MessageCount)), 10), Inline: true},
-			{Name: "**Website**", Value: "https://sweetiebot.io", Inline: false},
+			{Name: "**Website**", Value: "https://erikmcclure.com/sweetiebot", Inline: false},
 			{Name: "**Terms of Service**", Value: "By joining a server using this bot or adding this bot to your server, you give express permission for the bot to collect and store any information it deems necessary to perform its functions, including but not limited to, message content, message metadata, and user metadata.", Inline: false},
 		},
 	}

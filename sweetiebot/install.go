@@ -15,6 +15,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 )
+
 func openBrowser(url string) {
 	var err error
 	switch runtime.GOOS {
@@ -59,7 +60,7 @@ func Install(path string, selfhoster *Selfhost) {
 		case "windows":
 			fmt.Println("In that case, I'll start downloading mariadb for you. While that's downloading...")
 			go func() {
-				dl <- DownloadFile(fmt.Sprintf("https://sweetiebot.io/update/%s/%s/%s", runtime.GOOS, runtime.GOARCH, "mariadb-10.msi"), "mariadb.msi", false)
+				dl <- DownloadFile(fmt.Sprintf("https://erikmcclure.com/sweetiebot/update/%s/%s/%s", runtime.GOOS, runtime.GOARCH, "mariadb-10.msi"), "mariadb.msi", false)
 			}()
 		case "linux":
 			url := "https://downloads.mariadb.org/mariadb/repositories/#mirror=nodesdirect"

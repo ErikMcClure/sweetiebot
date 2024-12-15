@@ -578,7 +578,7 @@ func (c *defaultServerCommand) Process(args []string, msg *discordgo.Message, in
 	}
 
 	if !guilds[0].Config.SetupDone {
-		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run %ssetup on that server first. Go here for instructions: https://sweetiebot.io```", guilds[0].Name, info.Config.Basic.CommandPrefix), false, nil
+		return fmt.Sprintf("```%s hasn't been set up yet! Someone needs to run %ssetup on that server first. Go here for instructions: https://erikmcclure.com/sweetiebot```", guilds[0].Name, info.Config.Basic.CommandPrefix), false, nil
 	}
 
 	target := bot.SBatoi(guilds[0].ID)
