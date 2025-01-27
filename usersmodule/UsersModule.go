@@ -38,6 +38,7 @@ func (w *UsersModule) Commands() []bot.Command {
 		&userInfoCommand{},
 		&defaultServerCommand{},
 		&silenceCommand{},
+		&unsilenceCommand{},
 		&assignRoleCommand{},
 	}
 }
@@ -644,6 +645,44 @@ func (c *silenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
 		Params: []bot.CommandUsageParam{
 			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_USER], Optional: false},
 			{Name: "for: duration", Desc: bot.StringMap[bot.STRING_USERS_SILENCE_DURATION], Optional: true},
+		},
+	}
+}
+
+type unsilenceCommand struct {
+}
+
+func (c *unsilenceCommand) Info() *bot.CommandInfo {
+	return &bot.CommandInfo{
+		Name:      "Unsilence",
+		Usage:     bot.StringMap[bot.STRING_USERS_UNSILENCE_USAGE],
+		Sensitive: true,
+	}
+}
+
+func (c *unsilenceCommand) Process(args []string, msg *discordgo.Message, indices []int, info *bot.GuildInfo) (string, bool, *discordgo.MessageEmbed) {
+	if len(args) < 1 {
+		return bot.StringMap[bot.STRING_USERS_UNSILENCE_ARG_ERROR], false, nil
+	}
+	user, err := bot.ParseUser(msg.Content[indices[0]:], info)
+	if err != nil {
+		return bot.ReturnError(info.ResolveRoleAddError(err))
+	}
+	if info.UserIsMod(user) || info.UserIsAdmin(user) {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_MOD_ERROR], info.GetUserName(user)), false, nil
+	}
+
+	err = info.UntimeoutMember(user.ID)
+	if err != nil {
+		return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE_ERROR], err.Error()), false, nil
+	}
+	return fmt.Sprintf(bot.StringMap[bot.STRING_USERS_UNSILENCE], info.GetUserName(user)), false, nil
+}
+func (c *unsilenceCommand) Usage(info *bot.GuildInfo) *bot.CommandUsage {
+	return &bot.CommandUsage{
+		Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_DESCRIPTION],
+		Params: []bot.CommandUsageParam{
+			{Name: "user", Desc: bot.StringMap[bot.STRING_USERS_UNSILENCE_USER], Optional: false},
 		},
 	}
 }

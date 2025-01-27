@@ -533,6 +533,10 @@ func (info *GuildInfo) ParseCommonTime(s string, user DiscordUser, timestamp tim
 	return t, err
 }
 
+func (info *GuildInfo) UntimeoutMember(userID string) error {
+	return info.Bot.DG.GuildMemberTimeout(info.ID, userID, nil)
+}
+
 func (info *GuildInfo) TimeoutMember(userID string) (time.Duration, error) {
 	if info.Config.Spam.SilenceTimeout > 0 {
 		timeout := time.Duration(info.Config.Spam.SilenceTimeout) * time.Second
@@ -541,7 +545,7 @@ func (info *GuildInfo) TimeoutMember(userID string) (time.Duration, error) {
 		return timeout, err
 	}
 
-	return time.Duration(0), info.Bot.DG.GuildMemberTimeout(info.ID, userID, nil)
+	return time.Duration(0), info.UntimeoutMember(userID)
 }
 
 // GetTimezone gets the time.Location of the given user, if it exists, otherwise returns time.UTC
